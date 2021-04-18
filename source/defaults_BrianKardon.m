@@ -1,11 +1,11 @@
-function handles = defaults_BrianKardon(handles)
+function handles = defaults_AD(handles)
 % Default settings
 
 % GENERAL SETTINGS
-handles.TooLong = 400000; % Number of points for a file to be considered too long for loading automatically
-handles.FileString = '*chan#.dat'; % File search string; use # to indicate channel number
-handles.DefaultFileLoader = 'AA_daq'; % Default file loader. Choose from egl_* files.
-handles.DefaultChannelNumber = 7; % Default number of channels
+handles.TooLong = 400000000; % Number of points for a file to be considered too long for loading automatically
+handles.FileString = '*chan##.nc'; % File search string; use ## to indicate double digit channel number when number of channels are greater than 10
+handles.DefaultFileLoader = 'Intan_Bin'; % Default file loader. Choose from egl_* files.
+handles.DefaultChannelNumber = 20; % Default number of channels
 
 % SONOGRAM SETTINGS
 handles.SonogramAutoCalculate = 1; % Automatically calculate and plot the sonogram when a file is loaded or axes changed?
