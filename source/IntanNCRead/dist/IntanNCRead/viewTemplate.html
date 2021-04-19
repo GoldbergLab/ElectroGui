@@ -1,0 +1,68 @@
+<html>
+  <head>
+    <style>
+    body {{
+      background-color: white;
+      font-family: "Lucida Console", "Courier New", monospace;
+      margin-left: 40px;
+    }}
+
+    table {{
+        padding:0 15px;
+    }}
+
+    td.value {{
+      text-align: right;
+    }}
+
+    h1 {{
+      color: maroon;
+    }}
+
+    h4 {{
+      padding: 0 15px;
+    }}
+
+    </style>
+  </head>
+  <body>
+    <div class="section">
+      <div class="container">
+        <h1>Intan .nc File Reader</h1>
+        <h3>File path:</h3>
+        <h4>{path}</h4>
+      </div>
+    </div>
+    <div class="section">
+      <div class="container">
+        <h3>File info:</h3>
+        <table>
+          <tr>
+            <td>Timestamp:</td><td><strong>{time}</strong></td>
+          </tr>
+          <tr>
+            <td>Sampling Period (s): </td><td><strong>{dt}</strong></td>
+          </tr>
+          <tr>
+            <td>Channel #:</td><td><strong>{chan}</strong></td>
+          </tr>
+          <tr>
+            <td>Metadata:</td><td><strong>{metaData}</strong></td>
+          </tr>
+          <tr>
+            <td>Duration:</td><td><strong>{n} samples, {t:.3f} s</strong></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+    <div class="section">
+      <div class="container">
+        <h3>Data:</h3>
+          <table>
+            {data}
+          </table>
+        </details>
+      </div>
+    </div>
+  </body>
+</html>
