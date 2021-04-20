@@ -89,7 +89,6 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
     if (j==1) && (exist('aux_input_channels')== 1)
         acc_present=1;
         number_aux = size(aux_input_channels, 2);
-        
         fs_aux = frequency_parameters.aux_input_sample_rate;
     end
     % for every channel recorded in a single rhd file, the first time is identical
@@ -128,7 +127,6 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
 %                 fprintf ('time point (k) = %f\n', k);
 %                 fprintf ('time step (k_step) = %f\n', k_step);
 %                 fprintf ('rhd file number being analyzed = %f\n', file_count);
-                
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 %%this section first writes the song and eff copy data for
                 %%the song-containing section of the rhd file being
@@ -143,8 +141,6 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
                     hour=hour+floor(minute ./60);
                     minute = rem(minute,60);
                 end
-                
-              
                 
                 time = sprintf('%d:%02u:%f', abs(hour), abs(minute), abs(second));  %this gets updated within the text file
                 time_string= sprintf('%s%s%s',num2str(hour_filename), num2str(minute_filename),num2str(second_filename,'% 10.0f')); %this is only for labelling txt files and does not get updated for the same rhd file

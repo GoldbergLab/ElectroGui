@@ -92,7 +92,7 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
     
     n_acc=0; % used later to keep track of headstages with acc based on the acc_array input by user before running this script
     if (j==1) && (exist('aux_input_channels')== 1)
-        acc_present=1
+        acc_present=1;
         number_aux = size(aux_input_channels, 2);
         fs_aux = frequency_parameters.aux_input_sample_rate;
     end
@@ -114,13 +114,13 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
             n_acc=n_acc+1;
         end
         
-        while k < numel(board_adc_data(2*n-1,:))   %going through the analog channel for song
+        while k < numel(board_adc_data(n,:))   %going through the analog channel for song
             hour=hour_first;
             minute=minute_first;
             second=second_first;
             
-            if board_adc_data((2*n-1),k) > 0.01 %|| abs((amplifier_data(1,k)*unit)) > 0.003  %checks for stims if it is NOT a song file
-             
+            if abs(board_adc_data(n,k)) > 0.6 %|| abs((amplifier_data(1,k)*unit)) > 0.003  %checks for stims if it is NOT a song file ************************ 12/4/2020 Anna Changed from 0.17 to 0.25 *** 12/16/2020 Anna Changed from 0.25 to 0.6
+                % ***** 1/3/2021 Anna Changed from 0.6 to 0.7 (for the files from 12/24/2020)
            
                 motif_number=motif_number+1;
                 motif_number_array(n)=motif_number;
@@ -156,20 +156,20 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
                 effcopyfile_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(n),date_string, time_string, effCopyChannel);
                 full_effcopyfile_name = fullfile(path_output,effcopyfile_name);
                 
-                songData.timeVector = [year, month, day, hour, minute, second];
+                songData.timeVector = abs([year, month, day, hour, minute, second]);
                 songData.metaData = sprintf('%s\t%s%d\r\n', Intan_file_dir(j).name, 'Motif file', motif_number);
                 songData.deltaT = delta_t;
                 effCopyData = songData;
                 
-                if k > (numel(board_adc_data(2*n-1,:))- buffer_end*fs) %&& k >(numel(board_adc_data(2*n-1,:))- buffer_start*fs)
-                    songData.data = board_adc_data((2*n-1),(k-(buffer_start*fs)):(numel(board_adc_data(2*n-1,:))));
-                    effCopyData.data = board_dig_in_data((2*n-1),(k-(buffer_start*fs)):(numel(board_adc_data(2*n-1,:))));
+                if k > (numel(board_adc_data(n,:))- buffer_end*fs) %&& k >(numel(board_adc_data(2*n-1,:))- buffer_start*fs)
+                    songData.data = board_adc_data((n),(k-(buffer_start*fs)):(numel(board_adc_data(n,:))));
+                    effCopyData.data = board_dig_in_data((n),(k-(buffer_start*fs)):(numel(board_adc_data(n,:))));
                 elseif k <(buffer_start*fs+1)
-                    songData.data =       board_adc_data((2*n-1),k:(k+(buffer_end*fs)));
-                    effCopyData.data = board_dig_in_data((2*n-1),k:(k+(buffer_end*fs)));
+                    songData.data =       board_adc_data((n),k:(k+(buffer_end*fs)));
+                    effCopyData.data = board_dig_in_data((n),k:(k+(buffer_end*fs)));
                 else
-                    songData.data = board_adc_data((2*n-1),(k-(buffer_start*fs)):(k+(buffer_end*fs)));
-                    effCopyData.data = board_dig_in_data((2*n-1),(k-(buffer_start*fs)):(k+(buffer_end*fs)));
+                    songData.data = board_adc_data((n),(k-(buffer_start*fs)):(k+(buffer_end*fs)));
+                    effCopyData.data = board_dig_in_data((n),(k-(buffer_start*fs)):(k+(buffer_end*fs)));
                 end
                 
                 writeIntanNcFile(full_songfile_name,    songData.timeVector,    songData.deltaT,    songChannel,    songData.metaData,    songData.data,    true);
@@ -216,21 +216,21 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
                     accfile3_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(n),date_string, time_string, acc3Channel);
                     full_accfile3_name = fullfile(path_output,accfile3_name);
                     
-                    acc1.timeVector = [year, month, day, hour, minute, second];
+                    acc1.timeVector = abs([year, month, day, hour, minute, second]);
                     acc1.metaData = sprintf('%s\t%s%d\r\n', Intan_file_dir(j).name, 'Motif file', motif_number);
                     acc1.deltaT = delta_t;
                     
                     acc2 = acc1;
                     acc3 = acc1;
                     
-                    if k > (numel(board_adc_data(2*n-1,:))- buffer_end*fs) %&& k >(numel(board_adc_data(2*n-1,:))- buffer_start*fs)
+                    if k > (numel(board_adc_data(n,:))- buffer_end*fs) %&& k >(numel(board_adc_data(2*n-1,:))- buffer_start*fs)
                         acc1.data = aux_input_data((3*n_acc-2),(k_aux-(buffer_start*fs_aux)):(numel(aux_input_data((3*n_acc-2),:))));
                         acc2.data = aux_input_data((3*n_acc-1),(k_aux-(buffer_start*fs_aux)):(numel(aux_input_data((3*n_acc-1),:))));
                         acc3.data = aux_input_data((3*n_acc),(k_aux-(buffer_start*fs_aux)):(numel(aux_input_data((3*n_acc),:))));
-                    elseif k <(numel(board_adc_data(2*n-1,:))- buffer_start*fs)
-                        acc1.data = aux_input_data((3*n_acc-2),k_aux:(k_aux+(buffer_end*fs_aux)));
-                        acc2.data = aux_input_data((3*n_acc-1),k_aux:(k_aux+(buffer_end*fs_aux)));
-                        acc3.data = aux_input_data((3*n_acc),k_aux:(k_aux+(buffer_end*fs_aux)));
+                    elseif k <(buffer_start*fs+1)
+                        acc1.data = aux_input_data((3*n_acc-2),1:(k_aux+(buffer_end*fs_aux)));
+                        acc2.data = aux_input_data((3*n_acc-1),1:(k_aux+(buffer_end*fs_aux)));
+                        acc3.data = aux_input_data((3*n_acc),1:(k_aux+(buffer_end*fs_aux)));
                     else
                         acc1.data = aux_input_data((3*n_acc-2),(k_aux-(buffer_start*fs_aux)):(k_aux+(buffer_end*fs_aux)));
                         acc2.data = aux_input_data((3*n_acc-1),(k_aux-(buffer_start*fs_aux)):(k_aux+(buffer_end*fs_aux)));
@@ -263,17 +263,19 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
                     end
                     time_string= sprintf('%s%s%s',num2str(hour_filename), num2str(minute_filename),num2str(second_filename,'% 10.0f')); %this is only for labelling txt files and does not get updated for the same rhd file
 
-                    file_name = sprintf('d0000%03u_%sT%s_chan%d.txt',motif_number_array(n),date_string, time_string,amplifier_file_count);
+                    file_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(n),date_string, time_string,amplifier_file_count);
                     full_file_name = fullfile(path_output,file_name);
 
-                    otherChannel.timeVector = [year, month, day, hour, minute, second];
+                    otherChannel.timeVector = abs([year, month, day, hour, minute, second]);
                     otherChannel.metaData = sprintf('%s\t%s%d\r\n', Intan_file_dir(j).name, 'Motif file', motif_number);
                     otherChannel.deltaT = delta_t;
                     
-                    if k > (numel(board_adc_data(2*n-1,:))- buffer_end*fs) %&& k >(numel(board_adc_data(2*n-1,:))- buffer_start*fs)
-                        otherChannel.data = amplifier_data(chan,(k-(buffer_start*fs)):(numel(board_adc_data(2*n-1,:))))*unit;
-                    elseif k <(numel(board_adc_data(2*n-1,:))- buffer_start*fs)
-                        otherChannel.data = amplifier_data(chan,k:(k+(buffer_end*fs)))*unit;
+                    
+                    
+                    if k > (numel(board_adc_data(n,:))- buffer_end*fs) %&& k >(numel(board_adc_data(2*n-1,:))- buffer_start*fs)
+                        otherChannel.data = amplifier_data(chan,(k-(buffer_start*fs)):(numel(board_adc_data(n,:))))*unit;
+                    elseif k <(buffer_start*fs+1)
+                        otherChannel.data = amplifier_data(chan,1:(k+(buffer_end*fs)))*unit;
                     else
                         otherChannel.data = amplifier_data(chan,(k-(buffer_start*fs)):(k+(buffer_end*fs)))*unit;
                     end
@@ -285,7 +287,7 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
                 
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 
-                k_step =(buffer_end*fs)+1;   % to avoid over-writing....
+                k_step =(buffer_end*fs)+20;   % to avoid over-writing....
                 k=k+k_step;
             else
                 k_step=(0.05*fs)+1;     %%%step jump when it doesn't find song signal (keeping this large enough to save time and small enough to avoid missing anything)
