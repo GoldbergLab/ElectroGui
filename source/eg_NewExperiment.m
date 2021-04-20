@@ -49,9 +49,21 @@ end
 % Put objects into figure
 
 for c = 1:num_chan+1
-    fstr = handles.FileString;
-    f = findstr(fstr,'##');
-    fstr(f:f+1) = num2str(c-1,'%02u');     %makes it a double digit number when more than 10 channels are being called (RC/AD)
+    fstr = sprintf(handles.FileString, c-1);
+    if strcmp(fstr, handles.FileString) && strfind(handles.FileString, '##')
+        % fstr is the same as handles.FileString, so it must not contain a
+        % formatting pattern, and it does contain ##, which indicates this
+        % is the legacy format.
+        msgbox('Legacy FileString specification detected. Please edit your defaults_*.m file to update the ''handles.FileString'' to the new format. handles.FileString should be a string containing a standard string formatting pattern such as %02d or %d', 'Legacy FileString detected!');
+        fstr = regexprep(handles.FileString, '\#\#', '%02d');
+        fstr = sprintf(fstr, c-1);
+    end
+        
+%     f = findstr(fstr,'##');
+%     fstr(f:f+1) = num2str(c-1,'%02u');     %makes it a double digit number when more than 10 channels are being called (RC/AD)
+%     fstr = handles.FileString;
+%     f = findstr(fstr,'##');
+%     fstr(f:f+1) = num2str(c-1,'%02u');     %makes it a double digit number when more than 10 channels are being called (RC/AD)
     textlabel(c) = uicontrol('Style','text','units','normalized','string','',...
         'position',[0.05 (num_chan-c+2+0.5)/(num_chan+2) 0.5 0.3/(num_chan+2)],'FontSize',10,...
         'horizontalalignment','left','backgroundcolor',[.8 .8 .8]);
