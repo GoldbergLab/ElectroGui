@@ -1,9 +1,10 @@
-function handles = defaults_AD(handles)
+function handles = defaults_BrianKardon(handles)
 % Default settings
 
 % GENERAL SETTINGS
 handles.TooLong = 400000000; % Number of points for a file to be considered too long for loading automatically
 handles.FileString = '*chan%d.nc'; % File search string; must include a string formatting expression to handle an integer channel #, such as %02d for integers zero-padded to 2 digits, or %d for unpadded integers.handles.DefaultFileLoader = 'Intan_Bin'; % Default file loader. Choose from egl_* files.
+handles.DefaultFileLoader = 'HC_Intan_Bin'; % Default file loader. Choose from egl_* files.
 handles.DefaultChannelNumber = 20; % Default number of channels
 
 % SONOGRAM SETTINGS
