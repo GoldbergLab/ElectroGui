@@ -1,4 +1,4 @@
-
+function intan_converter_to_binary_channel_files(acc_array, acc_present, path_input, recursive)
 % Brian Kardon, modified April 2021 to write .nc binary files instead of .txt files
 
 % Anindita Das, July 2018, edited on August 2019 for 'song-searching'.
@@ -7,7 +7,6 @@
 % accelerator data if present and 16 amplifier channel data for (t-5)s to(t+5) sec.
 % uses the date, time and filename extracted from rhd file to create the
 % .txt file name
-
 
 % first goes into the directory and extracts date & time info from the first
 % rhd file. It then loops through all the rhd files in that folder and
@@ -25,9 +24,11 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-path_input = ...
-    uigetdir('D:\STN\INTAN\', 'Select RHD data folder for extraction');  % directory where the rhd files to be analysed are stored
-
+if ~exist('path_input', 'var') | isempty(path_input)
+    path_input = ...
+        uigetdir('.', 'Select RHD data folder for extraction');  % directory where the rhd files to be analysed are stored
+end
+fprintf('Looking for rhd files in: \n\t ''%s''\n', path_input);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %Extracts time and date info from the first RHD file in the directory
@@ -65,12 +66,13 @@ buffer_start =2 ; % time (sec) before analog signal crosses threshold first time
 buffer_end = 10;  % time (sec) after first threshold crossing of analog signal
 file_count=1;
 
-acc_present=0; %(variable to check if accelerometer signal is present.)
+% acc_present=0; %(variable to check if accelerometer signal is present.)
 
 
 for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory (one recording session)
+    fprintf('Reading rhd file %d of %d\n', j, numel(Intan_file_dir));
     
-    read_Intan_RHD2000_file_AD(path_input, Intan_file_dir(j).name);       %reads *rhd files into matlab
+    data = read_Intan_RHD2000_file_to_struct(path_input, Intan_file_dir(j).name, false);       %reads *rhd files into a data struct.
     
     rhd_file = Intan_file_dir(j).name;
     hour_filename = str2double(rhd_file((numel(rhd_file)-4-5):(numel(rhd_file)-4-4)));
@@ -79,11 +81,11 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
     time_filename = sprintf('%d:%02u:%02u', hour_filename,  minute_filename, second_filename); %extract time from rhd file
     
     %parameters
-    fs = frequency_parameters.amplifier_sample_rate; % sampling frequency Hz
+    fs = data.frequency_parameters.amplifier_sample_rate; % sampling frequency Hz
     channel_count = 16; %(figure out a way to NOT hard code this)rhd files don't save the number of headstages being recorded from, but all amp channels are saved as a continuous series
     delta_t=1/fs;
     unit = 1e-6;     % conversion factor (Intan amplifier data is in microvolt, digital and analog inputs are in Volts)
-    total_headstage = size(amplifier_channels,2)/channel_count;
+    total_headstage = size(data.amplifier_channels,2)/channel_count;
     headstage_count=1;
     
     if j==1
@@ -91,10 +93,10 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
     end
     
     n_acc=0; % used later to keep track of headstages with acc based on the acc_array input by user before running this script
-    if (j==1) && (exist('aux_input_channels')== 1)
+    if (j==1) && (isfield(data, 'aux_input_channels'))
         acc_present=1;
-        number_aux = size(aux_input_channels, 2);
-        fs_aux = frequency_parameters.aux_input_sample_rate;
+        number_aux = size(data.aux_input_channels, 2);
+        fs_aux = data.frequency_parameters.aux_input_sample_rate;
     end
     % for every channel recorded in a single rhd file, the first time is identical
     
@@ -102,9 +104,13 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
     %%writing the song file on chan 0, efference copy on chan 17
     
     for n = 1:total_headstage
-        
+        fprintf('\tHandling headstage %d of %d\n', n, total_headstage);
+
         path_output = sprintf('%s%sHeadstage%d', path_input, '\Data_extracted\',headstage_count);   %new directory where extracted files will be stored
-        mkdir(path_output);
+        [success, msg, err] = mkdir(path_output);
+        if ~success
+            error('Error while making headstage subfolder:\n%s\n%s', err, msg);
+        end
         
         motif_number=motif_number_array(n);
         %k=(buffer_start*fs)+1;
@@ -114,12 +120,12 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
             n_acc=n_acc+1;
         end
         
-        while k < numel(board_adc_data(n,:))   %going through the analog channel for song
+        while k < numel(data.board_adc_data(n,:))   %going through the analog channel for song
             hour=hour_first;
             minute=minute_first;
             second=second_first;
             
-            if abs(board_adc_data(n,k)) > 0.6 %|| abs((amplifier_data(1,k)*unit)) > 0.003  %checks for stims if it is NOT a song file ************************ 12/4/2020 Anna Changed from 0.17 to 0.25 *** 12/16/2020 Anna Changed from 0.25 to 0.6
+            if abs(data.board_adc_data(n,k)) > 0.6 %|| abs((data.amplifier_data(1,k)*unit)) > 0.003  %checks for stims if it is NOT a song file ************************ 12/4/2020 Anna Changed from 0.17 to 0.25 *** 12/16/2020 Anna Changed from 0.25 to 0.6
                 % ***** 1/3/2021 Anna Changed from 0.6 to 0.7 (for the files from 12/24/2020)
            
                 motif_number=motif_number+1;
@@ -136,7 +142,7 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
                 %%the song-containing section of the rhd file being
                 %%analyzed
                 
-                second=second_first+t_amplifier(k);    %update time
+                second=second_first+data.t_amplifier(k);    %update time
                 if second >= 60
                     minute=minute+floor(second./60);
                     second = rem(second,60);
@@ -161,19 +167,21 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
                 songData.deltaT = delta_t;
                 effCopyData = songData;
                 
-                if k > (numel(board_adc_data(n,:))- buffer_end*fs) %&& k >(numel(board_adc_data(2*n-1,:))- buffer_start*fs)
-                    songData.data = board_adc_data((n),(k-(buffer_start*fs)):(numel(board_adc_data(n,:))));
-                    effCopyData.data = board_dig_in_data((n),(k-(buffer_start*fs)):(numel(board_adc_data(n,:))));
+                if k > (numel(data.board_adc_data(n,:))- buffer_end*fs) %&& k >(numel(data.board_adc_data(2*n-1,:))- buffer_start*fs)
+                    songData.data = data.board_adc_data((n),(k-(buffer_start*fs)):(numel(data.board_adc_data(n,:))));
+                    effCopyData.data = data.board_dig_in_data((n),(k-(buffer_start*fs)):(numel(data.board_adc_data(n,:))));
                 elseif k <(buffer_start*fs+1)
-                    songData.data =       board_adc_data((n),k:(k+(buffer_end*fs)));
-                    effCopyData.data = board_dig_in_data((n),k:(k+(buffer_end*fs)));
+                    songData.data =       data.board_adc_data((n),k:(k+(buffer_end*fs)));
+                    effCopyData.data = data.board_dig_in_data((n),k:(k+(buffer_end*fs)));
                 else
-                    songData.data = board_adc_data((n),(k-(buffer_start*fs)):(k+(buffer_end*fs)));
-                    effCopyData.data = board_dig_in_data((n),(k-(buffer_start*fs)):(k+(buffer_end*fs)));
+                    songData.data = data.board_adc_data((n),(k-(buffer_start*fs)):(k+(buffer_end*fs)));
+                    effCopyData.data = data.board_dig_in_data((n),(k-(buffer_start*fs)):(k+(buffer_end*fs)));
                 end
                 
                 writeIntanNcFile(full_songfile_name,    songData.timeVector,    songData.deltaT,    songChannel,    songData.metaData,    songData.data,    true);
                 writeIntanNcFile(full_effcopyfile_name, effCopyData.timeVector, effCopyData.deltaT, effCopyChannel, effCopyData.metaData, effCopyData.data, true);
+                
+                fprintf('\t\tWriting chunk: %f seconds\n', length(songData.data)/fs);
                 
                 %file_count_anlg=file_count_anlg+1;
                 %                 file_count=file_count+1;
@@ -190,7 +198,7 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
                     end
                     hour=hour_first;
                     minute=minute_first;
-                    second=second_first+t_aux_input(k_aux);    %update time
+                    second=second_first+data.t_aux_input(k_aux);    %update time
                     
                     if second >= 60
                         minute=minute+floor(second./60);
@@ -223,18 +231,18 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
                     acc2 = acc1;
                     acc3 = acc1;
                     
-                    if k > (numel(board_adc_data(n,:))- buffer_end*fs) %&& k >(numel(board_adc_data(2*n-1,:))- buffer_start*fs)
-                        acc1.data = aux_input_data((3*n_acc-2),(k_aux-(buffer_start*fs_aux)):(numel(aux_input_data((3*n_acc-2),:))));
-                        acc2.data = aux_input_data((3*n_acc-1),(k_aux-(buffer_start*fs_aux)):(numel(aux_input_data((3*n_acc-1),:))));
-                        acc3.data = aux_input_data((3*n_acc),(k_aux-(buffer_start*fs_aux)):(numel(aux_input_data((3*n_acc),:))));
+                    if k > (numel(data.board_adc_data(n,:))- buffer_end*fs) %&& k >(numel(data.board_adc_data(2*n-1,:))- buffer_start*fs)
+                        acc1.data = data.aux_input_data((3*n_acc-2),(k_aux-(buffer_start*fs_aux)):(numel(data.aux_input_data((3*n_acc-2),:))));
+                        acc2.data = data.aux_input_data((3*n_acc-1),(k_aux-(buffer_start*fs_aux)):(numel(data.aux_input_data((3*n_acc-1),:))));
+                        acc3.data = data.aux_input_data((3*n_acc),(k_aux-(buffer_start*fs_aux)):(numel(data.aux_input_data((3*n_acc),:))));
                     elseif k <(buffer_start*fs+1)
-                        acc1.data = aux_input_data((3*n_acc-2),1:(k_aux+(buffer_end*fs_aux)));
-                        acc2.data = aux_input_data((3*n_acc-1),1:(k_aux+(buffer_end*fs_aux)));
-                        acc3.data = aux_input_data((3*n_acc),1:(k_aux+(buffer_end*fs_aux)));
+                        acc1.data = data.aux_input_data((3*n_acc-2),1:(k_aux+(buffer_end*fs_aux)));
+                        acc2.data = data.aux_input_data((3*n_acc-1),1:(k_aux+(buffer_end*fs_aux)));
+                        acc3.data = data.aux_input_data((3*n_acc),1:(k_aux+(buffer_end*fs_aux)));
                     else
-                        acc1.data = aux_input_data((3*n_acc-2),(k_aux-(buffer_start*fs_aux)):(k_aux+(buffer_end*fs_aux)));
-                        acc2.data = aux_input_data((3*n_acc-1),(k_aux-(buffer_start*fs_aux)):(k_aux+(buffer_end*fs_aux)));
-                        acc3.data = aux_input_data((3*n_acc),(k_aux-(buffer_start*fs_aux)):(k_aux+(buffer_end*fs_aux)));
+                        acc1.data = data.aux_input_data((3*n_acc-2),(k_aux-(buffer_start*fs_aux)):(k_aux+(buffer_end*fs_aux)));
+                        acc2.data = data.aux_input_data((3*n_acc-1),(k_aux-(buffer_start*fs_aux)):(k_aux+(buffer_end*fs_aux)));
+                        acc3.data = data.aux_input_data((3*n_acc),(k_aux-(buffer_start*fs_aux)):(k_aux+(buffer_end*fs_aux)));
                     end
                     
                     writeIntanNcFile(full_accfile1_name, acc1.timeVector, acc1.deltaT, acc1Channel, acc1.metaData, acc1.data, true);
@@ -252,7 +260,7 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
                 for chan = (channel_count*(n-1)+1):(channel_count*n)
                     hour=hour_first;
                     minute=minute_first;
-                    second=second_first+t_amplifier(k);    %update time
+                    second=second_first+data.t_amplifier(k);    %update time
                     if second >= 60
                         minute=minute+floor(second./60);
                         second = rem(second,60);
@@ -270,14 +278,12 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
                     otherChannel.metaData = sprintf('%s\t%s%d\r\n', Intan_file_dir(j).name, 'Motif file', motif_number);
                     otherChannel.deltaT = delta_t;
                     
-                    
-                    
-                    if k > (numel(board_adc_data(n,:))- buffer_end*fs) %&& k >(numel(board_adc_data(2*n-1,:))- buffer_start*fs)
-                        otherChannel.data = amplifier_data(chan,(k-(buffer_start*fs)):(numel(board_adc_data(n,:))))*unit;
+                    if k > (numel(data.board_adc_data(n,:))- buffer_end*fs) %&& k >(numel(data.board_adc_data(2*n-1,:))- buffer_start*fs)
+                        otherChannel.data = data.amplifier_data(chan,(k-(buffer_start*fs)):(numel(data.board_adc_data(n,:))))*unit;
                     elseif k <(buffer_start*fs+1)
-                        otherChannel.data = amplifier_data(chan,1:(k+(buffer_end*fs)))*unit;
+                        otherChannel.data = data.amplifier_data(chan,1:(k+(buffer_end*fs)))*unit;
                     else
-                        otherChannel.data = amplifier_data(chan,(k-(buffer_start*fs)):(k+(buffer_end*fs)))*unit;
+                        otherChannel.data = data.amplifier_data(chan,(k-(buffer_start*fs)):(k+(buffer_end*fs)))*unit;
                     end
                     
                     writeIntanNcFile(full_file_name, otherChannel.timeVector, otherChannel.deltaT, chan, otherChannel.metaData, otherChannel.data, true);
