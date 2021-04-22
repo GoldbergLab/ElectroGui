@@ -19,7 +19,22 @@ function intan_converter_to_binary_channel_files(acc_array, acc_present, path_in
 %   binary .nc channel files. Within the rhd search directory, it creates a
 %   "Data Extracted" folder, and within that N "HeadstageK" directories,
 %   where K is the headstage number, which goes from 1 to N, the number of
-%   headstages. Within each Headstage directory, it will write the
+%   headstages. For example: 
+%
+%   path_input
+%       Data Extracted
+%           Headstage1
+%               convertedNcFile1.nc
+%               convertedNcFile2.nc
+%               ...
+%               convertedNcFileN.nc
+%           Headstage2
+%               convertedNcFile1.nc
+%               convertedNcFile2.nc
+%               ...
+%               convertedNcFileN.nc
+%
+%   Within each Headstage directory, it will write the
 %   converted .nc files. These .nc files are designed to be loaded into
 %   electro_gui using the 'egl_Intan_Nc.m' loader script.
 %
