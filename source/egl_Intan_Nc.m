@@ -7,7 +7,7 @@ function [data, fs, dateandtime, label, props] = egl_Intan_Bin(filename, loaddat
 if loaddata == 1
     loadedData = readIntanNcFile(filename);
     fs = 1/loadedData.dt;
-    data = loadedData.data;
+    data = double(loadedData.data);
     dateandtime = double(loadedData.time(1:6)');
     dateandtime(6) = dateandtime(6)+double(loadedData.time(7))/1000000;
     dateandtime = datenum(dateandtime);
