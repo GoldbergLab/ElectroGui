@@ -220,8 +220,8 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
                     songData.data = data.board_adc_data((n),(k-(buffer_start*fs)):(numel(data.board_adc_data(n,:))));
                     effCopyData.data = data.board_dig_in_data((n),(k-(buffer_start*fs)):(numel(data.board_adc_data(n,:))));
                 elseif k <(buffer_start*fs+1)
-                    songData.data =       data.board_adc_data((n),k:(k+(buffer_end*fs)));
-                    effCopyData.data = data.board_dig_in_data((n),k:(k+(buffer_end*fs)));
+                    songData.data =       data.board_adc_data((n),1:(k+(buffer_end*fs)));
+                    effCopyData.data = data.board_dig_in_data((n),1:(k+(buffer_end*fs)));
                 else
                     songData.data = data.board_adc_data((n),(k-(buffer_start*fs)):(k+(buffer_end*fs)));
                     effCopyData.data = data.board_dig_in_data((n),(k-(buffer_start*fs)):(k+(buffer_end*fs)));
