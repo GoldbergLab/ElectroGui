@@ -1,4 +1,38 @@
-function intan_converter_to_binary_channel_files(acc_array, acc_present, path_input, recursive)
+function intan_converter_to_binary_channel_files(acc_array, acc_present, path_input)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% intan_converter_to_binary_channel_files: Convert Intan .rhd files to
+%   individual binary .nc channel files
+% usage:  [<output args>] = <function name>(<input args>)
+%
+% where,
+%    acc_array is a 1xN array of boolean values, where N is the number of
+%       headstages in the .rhd files. Each value in the array indicates
+%       whether or not the headstage at that index has accelerometer data.
+%    acc_present is a boolean value that indicates whether or not there are
+%       any accelerometers present? I guess? Seems redundant.
+%    path_input is an optional char array representing a path to a
+%       directory in which to look (non-recursively) for .rhd files. If
+%       this argument is omitted, or is an empty array, then the user will
+%       be prompted to select a directory in a popup.
+%
+% This function takes Intan .rhd files and splits them into individual
+%   binary .nc channel files. Within the rhd search directory, it creates a
+%   "Data Extracted" folder, and within that N "HeadstageK" directories,
+%   where K is the headstage number, which goes from 1 to N, the number of
+%   headstages. Within each Headstage directory, it will write the
+%   converted .nc files. These .nc files are designed to be loaded into
+%   electro_gui using the 'egl_Intan_Nc.m' loader script.
+%
+% See also: egl_Intan_Nc, writeIntanNcFile, 
+%   read_Intan_RHD2000_file_to_struct
+%
+% Version: 1.0
+% Author:  Intan Technologies, Anindita Das, Vikram Gadagkar, Brian Kardon,
+%   possibly others
+% Email:   bmk27=cornell*org, brian*kardon=google*com
+% Real_email = regexprep(Email,{'=','*'},{'@','.'})
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 % Brian Kardon, modified April 2021 to write .nc binary files instead of .txt files
 
 % Anindita Das, July 2018, edited on August 2019 for 'song-searching'.
@@ -24,7 +58,7 @@ function intan_converter_to_binary_channel_files(acc_array, acc_present, path_in
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-if ~exist('path_input', 'var') | isempty(path_input)
+if ~exist('path_input', 'var') || isempty(path_input)
     path_input = ...
         uigetdir('.', 'Select RHD data folder for extraction');  % directory where the rhd files to be analysed are stored
 end
