@@ -7,6 +7,11 @@ handles.FileString = '*chan%d.nc'; % File search string; must include a string f
 handles.DefaultFileLoader = 'Intan_Nc'; % Default file loader. Choose from egl_* files.
 handles.DefaultChannelNumber = 20; % Default number of channels
 
+% DEFAULT PROPERTIES
+handles.DefaultProperties.Names = {'bSorted', 'bDirected', 'bContainsStim', 'bUnusable'};   % Default property names to add to every loaded file
+handles.DefaultProperties.Values = {false, false, false, false};  % Corresponding default values for /\
+handles.DefaultProperties.Types = [2, 2, 2, 2];   % Corresponding default types for /\  (1=string, 2=boolean, 3=list
+
 % SONOGRAM SETTINGS
 handles.SonogramAutoCalculate = 1; % Automatically calculate and plot the sonogram when a file is loaded or axes changed?
 handles.FreqLim = [500 7500]; % Frequency axis limits (Hz)

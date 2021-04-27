@@ -1629,16 +1629,7 @@ if handles.TotalFileNumber == 0
     return
 end
 
-handles.Properties.Names = cell(1,handles.TotalFileNumber);
-handles.Properties.Values = cell(1,handles.TotalFileNumber);
-handles.Properties.Types = cell(1,handles.TotalFileNumber);
-for c = 1:handles.TotalFileNumber
-    [snd fs dt label props] = eval(['egl_' handles.sound_loader '([''' handles.path_name '\' handles.sound_files(c).name '''],0)']);
-    handles.Properties.Names{c} = props.Names;
-    handles.Properties.Values{c} = props.Values;
-    handles.Properties.Types{c} = props.Types;
-end
-    
+handles = loadProperties(handles);
 
 handles.ShuffleOrder = randperm(handles.TotalFileNumber);
 
@@ -1764,6 +1755,27 @@ handles = eg_LoadFile(handles);
 
 guidata(hObject, handles);
 
+function handles = loadProperties(handles)
+% Load properties from files, add to default properties.
+
+if isfield(handles, 'DefaultProperties')
+    % DefaultProperties was loaded from defaults_* file
+    defaultProps = handles.DefaultProperties;
+else
+    % DefaultProperties was not loaded.
+    defaultProps.Names = {};
+    defaultProps.Values = {};
+    defaultProps.Types = {};
+end
+handles.Properties.Names = cell(1,handles.TotalFileNumber);
+handles.Properties.Values = cell(1,handles.TotalFileNumber);
+handles.Properties.Types = cell(1,handles.TotalFileNumber);
+for c = 1:handles.TotalFileNumber
+    [~, ~, ~, ~, props] = eval(['egl_' handles.sound_loader '([''' handles.path_name '\' handles.sound_files(c).name '''],0)']);
+    handles.Properties.Names{c} = [props.Names, defaultProps.Names];
+    handles.Properties.Values{c} = [props.Values, defaultProps.Values];
+    handles.Properties.Types{c} = [props.Types, defaultProps.Types];
+end
 
 function handles = InitializeVariables(handles)
 
@@ -8755,15 +8767,7 @@ end
 
 bck = handles.Properties;
 
-handles.Properties.Names = cell(1,handles.TotalFileNumber);
-handles.Properties.Values = cell(1,handles.TotalFileNumber);
-handles.Properties.Types = cell(1,handles.TotalFileNumber);
-for c = 1:handles.TotalFileNumber
-    [snd fs dt label props] = eval(['egl_' handles.sound_loader '([''' handles.path_name '\' handles.sound_files(c).name '''],0)']);
-    handles.Properties.Names{c} = props.Names;
-    handles.Properties.Values{c} = props.Values;
-    handles.Properties.Types{c} = props.Types;
-end
+handles = loadProperties(handles);
 
 handles.Properties.Names(newnum) = bck.Names(oldnum);
 handles.Properties.Values(newnum) = bck.Values(oldnum);
