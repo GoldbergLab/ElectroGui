@@ -1,4 +1,4 @@
-function [data, fs, dateandtime, label, props] = egl_Intan_Bin(filename, loaddata)
+function [data, fs, dateandtime, label, props] = egl_Intan_Nc(filename, loaddata)
 % Brian Kardon
 % ElectroGui file loader
 % Reads Intan data files saved as binary nc files (netCDF format)
