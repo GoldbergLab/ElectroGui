@@ -10,7 +10,7 @@ handles.DefaultChannelNumber = 20; % Default number of channels
 % DEFAULT PROPERTIES
 handles.DefaultProperties.Names = {'bSorted', 'bDirected', 'bContainsStim', 'bUnusable'};   % Default property names to add to every loaded file
 handles.DefaultProperties.Values = {false, false, false, false};  % Corresponding default values for /\
-handles.DefaultProperties.Types = [2, 2, 2, 2];   % Corresponding default types for /\  (1=string, 2=boolean, 3=list
+handles.DefaultProperties.Types = [2, 2, 2, 2];   % Corresponding default types for /\  (1=string, 2=boolean, 3=list)
 
 % SONOGRAM SETTINGS
 handles.SonogramAutoCalculate = 1; % Automatically calculate and plot the sonogram when a file is loaded or axes changed?
