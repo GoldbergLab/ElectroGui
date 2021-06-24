@@ -70,6 +70,8 @@ end
 [pathstr, name, ext] = fileparts(mfilename('fullpath'));
 cd(pathstr);
 
+% Gather all electro_gui plugins
+handles = gatherPlugins(handles);
 
 lic = license('inuse');
 user = lic(1).user;
@@ -468,6 +470,64 @@ function varargout = electro_gui_OutputFcn(hObject, eventdata, handles)
 % Get default command line output from handles structure
 varargout{1} = handles.output;
 
+function isPlugin = isValidPlugin(plugins, name)
+% Check if name corresponds to one of the provided list of plugins
+for k = 1:length(plugins)
+    if strcmp(name, plugins(k).name)
+        isPlugin = true;
+        return
+    end
+end
+isPlugin = false;
+
+function out = findPlugins(prefix)
+% Create a struct array containing the name and function handle for all
+% electro_gui plugin functions with the given prefix (for example 'egl_')
+allowedCharacters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_';
+f = dir([prefix, '*.m']);
+for k = 1:length(f)
+    [~, fileName, ~] = fileparts(f(k).name);
+    name = regexp(fileName, [prefix, '(.*)'], 'tokens', 'once');
+    name = name{1};
+    okChars = ismember(name, allowedCharacters);
+    if any(~okChars)
+        % Name contains disallowed characters
+        disallowedChars = sort(unique(name(~okChars)));
+        warning('Name of plugin ''%s'' contains disallowed characters: ''%s''\nPlease change plugin name so it only includes the characters: \n%s', name, disallowedChars, allowedCharacters);
+        continue;
+    end
+    func = str2func(fileName);
+    out(k).name = name;
+    out(k).func = func;
+    out(k).nargout = nargout(func);
+    out(k).prefix = prefix;
+    out(k).fileName = f(k).name;
+end
+
+function handles = gatherPlugins(handles)
+% Gather all electro_gui plugins
+
+% Find all spectrum algorithms
+handles.plugins.spectrums = findPlugins('egs_');
+% Find all segmenting algorithms
+handles.plugins.segmenters = findPlugins('egg_');
+% Find all filters
+handles.plugins.filters = findPlugins('egf_');
+% Find all colormaps
+handles.plugins.colormaps = findPlugins('egc_');
+% % Find all function algorithms
+% handles.plugins.functions = findPlugins('egf_');
+% str = {'(Raw)'};
+% Find all macros
+handles.plugins.macros = findPlugins('egm_');
+% Find all event detector algorithms
+handles.plugins.eventDetectors = findPlugins('ege_');
+% str = {'(None)'};
+% Find all event feature algorithms
+handles.plugins.eventFeatures = findPlugins('ega_');
+% Find all loaders
+handles.plugins.loaders= findPlugins('egl_');
+
 
 function edit_FileNumber_Callback(hObject, eventdata, handles)
 % hObject    handle to edit_FileNumber (see GCBO)
@@ -493,7 +553,6 @@ function edit_FileNumber_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
-
 
 % --- Executes on button press in push_PreviousFile.
 function push_PreviousFile_Callback(hObject, eventdata, handles)
