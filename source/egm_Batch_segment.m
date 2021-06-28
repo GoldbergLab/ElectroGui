@@ -27,7 +27,7 @@ for j = 1:length(fls)
         break
     end
     
-    [snd fs dt label props] = eval(['egl_' handles.sound_loader '([''' handles.path_name '\' handles.sound_files(c).name '''],1)']);
+    [snd, fs, dt, label, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.path_name, handles.sound_files(c).name), true);
     if size(snd,2)>size(snd,1)
         snd = snd';
     end
@@ -43,8 +43,8 @@ for j = 1:length(fls)
         handles.SoundThresholds(c) = handles.CurrentThreshold;
     end
     curr = handles.SoundThresholds(c);
-
-    handles.SegmentTimes{c} = eval(['egg_' alg '(amp,fs,curr,handles.SegmenterParams)']);
+    
+    handles.SegmentTimes{c} = eg_runPlugin(handles.plugins.segmenters, alg, amp,fs,curr,handles.SegmenterParams);
     handles.SegmentTitles{c} = cell(1,size(handles.SegmentTimes{c},1));
     handles.SegmentSelection{c} = ones(1,size(handles.SegmentTimes{c},1));
 
@@ -61,12 +61,12 @@ function amp = eg_CalculateAmplitude(handles)
 for c = 1:length(handles.menu_Filter)
     if strcmp(get(handles.menu_Filter(c),'checked'),'on')
         h = handles.menu_Filter(c);
-        set(h,'userdata',handles.FilterParams);
+        set(h,'userdata',handles.SoundFilterParams);
         alg = get(handles.menu_Filter(c),'label');
     end
 end
 
-handles.filtered_sound = eval(['egf_' alg '(handles.sound,handles.fs,handles.FilterParams)']);
+handles.filtered_sound = eg_runPlugin(handles.plugins.filters, alg, handles.sound, handles.fs, handles.SoundFilterParams);
 
 wind = round(handles.SmoothWindow*handles.fs);
 amp = smooth(10*log10(handles.filtered_sound.^2+eps),wind);

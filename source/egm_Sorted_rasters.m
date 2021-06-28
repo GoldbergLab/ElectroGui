@@ -4357,8 +4357,8 @@ end
 function [funct lab indx] = getContinuousFunction(handles,filenum,axnum,doSubsample)
 
 
-val = get(handles.egh.(['popup_Channel',num2str(axnum)]),'value');
-str = get(handles.egh.(['popup_Channel',num2str(axnum)]),'string');
+val = get(handles.egh.popup_Channels(axnum),'value');
+str = get(handles.egh.popup_Channels(axnum),'string');
 nums = [];
 for c = 1:length(handles.egh.EventTimes);
     nums(c) = size(handles.egh.EventTimes{c},1);
@@ -4375,9 +4375,9 @@ if val <= length(str)-sum(nums)
         for ovr = 1:length(fm);
             chan = str2num(str{val}(9:end));
             if length(str{val})>4 & strcmp(str{val}(1:5),'Sound')
-                [funct1 fs dt lab props] = eval(['egl_' handles.egh.sound_loader '([''' handles.egh.path_name '\' handles.egh.sound_files(fm(ovr)).name '''],1)']);
+                [funct1, fs, dt, lab, props] = eg_runPlugin(handles.egh.plugins.loaders, handles.egh.sound_loader, fullfile(handles.egh.path_name, handles.egh.sound_files(fm(ovr)).name), true);
             else
-                [funct1 fs dt lab props] = eval(['egl_' handles.egh.chan_loader{chan} '([''' handles.egh.path_name '\' handles.egh.chan_files{chan}(fm(ovr)).name '''],1)']);
+                [funct1, fs, dt, lab, props] = eg_runPlugin(handles.egh.plugins.loaders, handles.egh.chan_loader{chan}, fullfile(handles.egh.path_name, handles.egh.chan_files{chan}(fm(ovr)).name), true);
             end
             funct(pos(ovr)+1:pos(ovr)+length(funct1)) = funct1;
         end
@@ -4398,21 +4398,21 @@ else
     funct = ev;
 end
 
-if get(handles.egh.(['popup_Function',num2str(axnum)]),'value') > 1
-    str = get(handles.egh.(['popup_Function',num2str(axnum)]),'string');
-    str = str{get(handles.egh.(['popup_Function',num2str(axnum)]),'value')};
+if get(handles.egh.popup_Functions(axnum),'value') > 1
+    str = get(handles.egh.popup_Functions(axnum),'string');
+    str = str{get(handles.egh.popup_Functions(axnum),'value')};
     f = findstr(str,' - ');
     if isempty(f)
-        [funct lab] = eval(['egf_' str '(funct,handles.egh.fs,handles.egh.FunctionParams' num2str(axnum) ')']);
+        [funct, lab] = eg_runPlugin(handles.egh.plugins.filters, str, funct,handles.egh.fs,handles.egh.FunctionParams{axnum});
     else
-        strall = get(handles.(['popup_Function',num2str(axnum)]),'string');
+        strall = get(handles.popup_Functions(axnum),'string');
         count = 0;
-        for c = 1:get(handles.(['popup_Function',num2str(axnum)]),'value')
+        for c = 1:get(handles.popup_Functions(axnum),'value')
             count = count + strcmp(strall{c}(1:min([f-1 length(strall{c})])),str(1:f-1));
         end
-        [funct lab] = eval(['egf_' str(1:f-1) '(funct,handles.egh.fs,handles.egh.FunctionParams' num2str(axnum) ')']);
+        [funct, lab] = eg_runPlugin(handles.egh.plugins.filters, str(1:f-1), funct,handles.egh.fs,handles.egh.FunctionParams{axnum});
         funct = funct{count};
-        lab = lab{count}
+        lab = lab{count};
     end
 end
 

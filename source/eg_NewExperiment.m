@@ -25,7 +25,7 @@ end
 % Create dialog figure
 screen_size = get(0,'screensize');
 screen_size = get(0,'screensize');
-fig_h = screen_size(4)*(0.04*(num_chan+2));
+fig_h = screen_size(4)*(0.035*(num_chan+2));
 fig_w = screen_size(3)*.3;
 
 fig = figure;
@@ -33,6 +33,7 @@ set(fig,'visible','on');
 set(fig,'Name',str,'NumberTitle','off','MenuBar','none','doublebuffer','on','units','pixels','resize','off');
 set(fig,'position',[(screen_size(3)-fig_w)/2 (screen_size(4)-fig_h)/2 fig_w fig_h]);
 set(fig,'closerequestfcn',@CloseFig);
+set(fig, 'KeyPressFcn', @DialogKeyPress);
 
 % Find all loader files
 load_files = dir('egl_*.m');
@@ -84,9 +85,7 @@ ChangeText([], []);
 
 ischanged = -1;
 drawnow;
-while ischanged == -1
-    pause(0.01);
-end
+uiwait(fig);
 
 curr = pwd;
 cd(handles.path_name);
@@ -103,11 +102,19 @@ delete(fig)
 
     function PushOK(hObject, eventdata)
         ischanged = 1;
+        uiresume()
+    end
+
+    function DialogKeyPress(src, event)
+        if strcmp(event.Key, 'return') && any(strcmp('shift', event.Modifier))
+            PushOK();
+        end
     end
 
     function CloseFig(hObject, eventdata)
         ischanged = 0;
         set(fig,'closerequestfcn','%');
+        uiresume()
     end
 
     function ChangeText(hObject, eventdata)
