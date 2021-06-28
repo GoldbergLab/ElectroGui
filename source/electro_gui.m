@@ -890,11 +890,11 @@ end
 
 function handles = eg_LoadFile(handles)
 
-filenum = getCurrentFileNum(handles);
-set(handles.list_Files,'value',filenum);
+fileNum = getCurrentFileNum(handles);
+set(handles.list_Files,'value',fileNum);
 str = get(handles.list_Files,'string');
-if strcmp(str{filenum}(26:27),'� ')
-    str{filenum} = str{filenum}([1:25 28:end]);
+if strcmp(str{fileNum}(26:27),'� ')
+    str{fileNum} = str{fileNum}([1:25 28:end]);
     set(handles.list_Files,'string',str);
 end
 
@@ -903,7 +903,7 @@ cd(handles.path_name);
 
 
 % Label
-set(handles.text_FileName,'string',handles.sound_files(filenum).name);
+set(handles.text_FileName,'string',handles.sound_files(fileNum).name);
 
 handles.BackupTitle = {'',''};
 
@@ -911,8 +911,8 @@ handles.BackupTitle = {'',''};
 % Plot sound
 subplot(handles.axes_Sound)
 [handles.sound, handles.fs, dt, label, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.path_name, handles.sound_files(fileNum).name), true);
-handles.DatesAndTimes(filenum) = dt;
-handles.FileLength(filenum) = length(handles.sound);
+handles.DatesAndTimes(fileNum) = dt;
+handles.FileLength(fileNum) = length(handles.sound);
 set(handles.text_DateAndTime,'string',datestr(dt,0));
 if size(handles.sound,2)>size(handles.sound,1)
     handles.sound = handles.sound';
@@ -1020,13 +1020,13 @@ if ~isempty(handles.amplitude)
     set(get(gca,'children'),'uicontextmenu',get(gca,'uicontextmenu'));
     set(get(gca,'children'),'buttondownfcn',get(gca,'buttondownfcn'));
 
-    if handles.SoundThresholds(filenum)==inf
+    if handles.SoundThresholds(fileNum)==inf
         if strcmp(get(handles.menu_AutoThreshold,'checked'),'on')
             handles.CurrentThreshold = eg_AutoThreshold(handles.amplitude);
         end
-        handles.SoundThresholds(filenum) = handles.CurrentThreshold;
+        handles.SoundThresholds(fileNum) = handles.CurrentThreshold;
     else
-        handles.CurrentThreshold = handles.SoundThresholds(filenum);
+        handles.CurrentThreshold = handles.SoundThresholds(fileNum);
     end
     handles.LabelHandles = [];
     handles = SetThreshold(handles);
@@ -1046,7 +1046,7 @@ function [selectedChannelNum, selectedChannelName, isSound] = getSelectedChannel
 channelOptionList = get(handles.popup_Channels(axnum),'string');
 selectedChannelName = channelOptionList{get(handles.popup_Channels(axnum),'value')};
 selectedChannelNum = channelNameToNum(selectedChannelName);
-isSound = (selectedChannelNum == 1);
+isSound = (selectedChannelNum == 2);
 function selectedEventDetector = getSelectedEventDetector(handles, axnum)
 % Return the name of the selected event detector from the specified axis.
 eventDetectorOptionList = get(handles.popup_EventDetectors(axnum),'string');
@@ -1064,6 +1064,16 @@ if isempty(newIndex)
     error('Error: Could not set selected event detector to ''%s'', as it is not in the option list.', eventDetector);
 end
 set(handles.popup_EventDetectors(axnum), 'value', newIndex);
+function channelName = channelNumToName(channelNum)
+channelName = ['Channel ', num2str(channelNum)];
+function channelNum = channelNameToNum(channelName)
+channelNumMatch = regexp(channelName, 'Channel ([0-9]+)', 'tokens');
+if isempty(channelNumMatch)
+    % Not a valid channel name
+    channelNum = NaN;
+else
+    channelNum = str2double(channelNumMatch{1});
+end
 
 function handles = setSelectedEventFunction(handles, axnum, eventFunction)
 % Set the currently selected event function for the selected axis
@@ -1123,20 +1133,21 @@ end
 function handles = eg_LoadChannel(handles,axnum)
 
 if get(handles.(['popup_Channel',num2str(axnum)]),'value')==1
-    cla(handles.(['axes_Channel',num2str(axnum)]));
-    set(handles.(['axes_Channel',num2str(axnum)]),'visible','off');
-    set(handles.(['popup_Function',num2str(axnum)]),'enable','off');
+    cla(handles.axes_Channel(axnum));
+    set(handles.axes_Channel(axnum),'visible','off');
+    set(handles.popup_Functions(axnum),'enable','off');
     set(handles.(['popup_EventDetector',num2str(axnum)]),'enable','off');
     set(handles.(['push_Detect',num2str(axnum)]),'enable','off');
     handles.SelectedEvent = [];
     handles = UpdateEventBrowser(handles);
     return
 else
-    set(handles.(['axes_Channel',num2str(axnum)]),'visible','on');
-    set(handles.(['popup_Function',num2str(axnum)]),'enable','on');
+    set(handles.axes_Channel(axnum),'visible','on');
+    set(handles.popup_Functions(axnum),'enable','on');
 end
 
 filenum = getCurrentFileNum(handles);
+[selectedChannelNum, ~, isSound] = getSelectedChannel(handles, axnum);
 
 val = get(handles.(['popup_Channel',num2str(axnum)]),'value');
 str = get(handles.(['popup_Channel',num2str(axnum)]),'string');
@@ -1145,11 +1156,10 @@ for c = 1:length(handles.EventTimes);
     nums(c) = size(handles.EventTimes{c},1);
 end
 if val <= length(str)-sum(nums)
-    chan = str2num(str{val}(9:end));
-    if length(str{val})>4 & strcmp(str{val}(1:5),'Sound')
-        [handles.(['chan',num2str(axnum)]) fs dt handles.(['Label',num2str(axnum)]) props] = eval(['egl_' handles.sound_loader '([''' handles.path_name '\' handles.sound_files(filenum).name '''],1)']);
+    if isSound
+        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.path_name, handles.sound_files(filenum).name), true);
     else
-        [handles.(['chan',num2str(axnum)]) fs dt handles.(['Label',num2str(axnum)]) props] = eval(['egl_' handles.chan_loader{chan} '([''' handles.path_name '\' handles.chan_files{chan}(filenum).name '''],1)']);
+        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{selectedChannelNum}, fullfile(handles.path_name, handles.chan_files{selectedChannelNum}(filenum).name), true);
     end
 else
     ev = zeros(1,length(handles.sound));
@@ -1164,34 +1174,34 @@ else
     tm = handles.EventTimes{f}{g,filenum};
     issel = handles.EventSelected{f}{g,filenum};
     ev(tm(find(issel==1))) = 1;
-    handles.(['chan',num2str(axnum)]) = ev;
+    handles.loadedChannelData{axnum} = ev;
     str = str{val};
     f = findstr(str,' - ');
     f = f(end);
-    handles.(['Label',num2str(axnum)]) = str(f+3:end);
+    handles.Labels{axnum} = str(f+3:end);
 end
 
-if get(handles.(['popup_Function',num2str(axnum)]),'value') > 1
-    str = get(handles.(['popup_Function',num2str(axnum)]),'string');
-    str = str{get(handles.(['popup_Function',num2str(axnum)]),'value')};
-    val = handles.(['chan',num2str(axnum)]);
+if get(handles.popup_Functions(axnum),'value') > 1
+    str = get(handles.popup_Functions(axnum),'string');
+    str = str{get(handles.popup_Functions(axnum),'value')};
+    val = handles.loadedChannelData{axnum};
     f = findstr(str,' - ');
     if isempty(f)
         [chan lab] = eval(['egf_' str '(val,handles.fs,handles.FunctionParams' num2str(axnum) ')']);
         if iscell(lab)
-            handles.(['Label',num2str(axnum)]) = lab{1};
-            handles.(['chan',num2str(axnum)]) = chan{1};
+            handles.Labels{axnum} = lab{1};
+            handles.loadedChannelData{axnum} = chan{1};
             handles.BackupChan{axnum} = chan;
             handles.BackupLabel{axnum} = lab;
             handles.BackupTitle{axnum} = str;
-            str = get(handles.(['popup_Function',num2str(axnum)]),'string');
+            str = get(handles.popup_Functions(axnum),'string');
             ud1 = get(handles.popup_Function1,'userdata');
             ud2 = get(handles.popup_Function2,'userdata');
             str2 = {};
             udn1 = {};
             udn2 = {};
             for c = 1:length(str)
-                if c==get(handles.(['popup_Function',num2str(axnum)]),'value')
+                if c==get(handles.popup_Functions(axnum),'value')
                     for d = 1:length(lab)
                         str2{end+1} = [str{c} ' - ' lab{d}];
                         udn1{end+1} = ud1{c};
@@ -1206,22 +1216,22 @@ if get(handles.(['popup_Function',num2str(axnum)]),'value') > 1
             set(handles.popup_Function1,'string',str2,'userdata',udn1);
             set(handles.popup_Function2,'string',str2,'userdata',udn2);
         else
-            handles.(['Label',num2str(axnum)]) = lab;
-            handles.(['chan',num2str(axnum)]) = chan;
+            handles.Labels{axnum} = lab;
+            handles.loadedChannelData{axnum} = chan;
         end
     else
-        strall = get(handles.(['popup_Function',num2str(axnum)]),'string');
+        strall = get(handles.popup_Functions(axnum),'string');
         count = 0;
-        for c = 1:get(handles.(['popup_Function',num2str(axnum)]),'value')
+        for c = 1:get(handles.popup_Functions(axnum),'value')
             count = count + strcmp(strall{c}(1:min([f-1 length(strall{c})])),str(1:f-1));
         end
         if strcmp(handles.BackupTitle{axnum},str(1:f-1))
-            handles.(['Label',num2str(axnum)]) = handles.BackupLabel{axnum}{count};
-            handles.(['chan',num2str(axnum)]) = handles.BackupChan{axnum}{count};
+            handles.Labels{axnum} = handles.BackupLabel{axnum}{count};
+            handles.loadedChannelData{axnum} = handles.BackupChan{axnum}{count};
         else
             [chan lab] = eval(['egf_' str(1:f-1) '(val,handles.fs,handles.FunctionParams' num2str(axnum) ')']);
-            handles.(['Label',num2str(axnum)]) = lab{count};
-            handles.(['chan',num2str(axnum)]) = chan{count};
+            handles.Labels{axnum} = lab{count};
+            handles.loadedChannelData{axnum} = chan{count};
             handles.BackupChan{axnum} = chan;
             handles.BackupLabel{axnum} = lab;
             handles.BackupTitle{axnum} = str(1:f-1);
@@ -1229,17 +1239,17 @@ if get(handles.(['popup_Function',num2str(axnum)]),'value') > 1
     end
 end
 
-if length(handles.(['chan',num2str(axnum)])) < length(handles.sound)
-    indx = fix(linspace(1,length(handles.(['chan',num2str(axnum)])),length(handles.sound)));
-    chan = handles.(['chan',num2str(axnum)]);
-    handles.(['chan',num2str(axnum)]) = chan(indx);
+if length(handles.loadedChannelData{axnum}) < length(handles.sound)
+    indx = fix(linspace(1,length(handles.loadedChannelData{axnum}),length(handles.sound)));
+    chan = handles.loadedChannelData{axnum};
+    handles.loadedChannelData{axnum} = chan(indx);
 end
 
 handles = eg_PlotChannel(handles,axnum);
 
-subplot(handles.(['axes_Channel',num2str(axnum)]));
+subplot(handles.axes_Channel(axnum));
 if strcmp(get(handles.(['menu_AutoLimits' num2str(axnum)]),'checked'),'on')
-    yl = [min(handles.(['chan',num2str(axnum)])) max(handles.(['chan',num2str(axnum)]))];
+    yl = [min(handles.loadedChannelData{axnum}) max(handles.loadedChannelData{axnum})];
     if yl(1)==yl(2)
         yl = [yl(1)-1 yl(2)+1];
     end
@@ -1254,12 +1264,12 @@ handles = eg_Overlay(handles);
 
 function handles = eg_PlotChannel(handles,axnum)
 
-subplot(handles.(['axes_Channel',num2str(axnum)]));
+subplot(handles.axes_Channel(axnum));
 if strcmp(get(gca,'visible'),'off')
     return
 end
 set(gca,'visible','on');
-set(handles.(['popup_Function',num2str(axnum)]),'enable','on');
+set(handles.popup_Functions(axnum),'enable','on');
 str = get(handles.(['popup_Channel',num2str(axnum)]),'string');
 str = str{get(handles.(['popup_Channel',num2str(axnum)]),'value')};
 if isempty(findstr(str,' - '))
@@ -1277,10 +1287,10 @@ hold on
 if strcmp(get(handles.(['menu_PeakDetect',num2str(axnum)]),'checked'),'on')
     g = find(f>=xl(1) & f<=xl(2));
     if ~isempty(g)
-        h = eg_peak_detect(gca,f(g),handles.(['chan',num2str(axnum)])(g));
+        h = eg_peak_detect(gca,f(g),handles.loadedChannelData{axnum}(g));
     end
 else
-    h = plot(f,handles.(['chan',num2str(axnum)]));
+    h = plot(f,handles.loadedChannelData{axnum});
 end
 hold off
 set(h,'color',handles.ChannelColor(axnum,:));
@@ -1289,7 +1299,7 @@ xlim(xl);
 
 set(gca,'xticklabel',[]);
 box off;
-ylabel(handles.(['Label',num2str(axnum)]));
+ylabel(handles.Labels{axnum});
 
 set(gca,'uicontextmenu',handles.(['context_Channel',num2str(axnum)]));
 set(gca,'buttondownfcn','electro_gui(''click_Channel'',gcbo,[],guidata(gcbo))');
@@ -1901,14 +1911,14 @@ end
 
 % get function parameters
 for axnum = 1:2
-    v = get(handles.(['popup_Function' num2str(axnum)]),'value');
-    ud = get(handles.(['popup_Function' num2str(axnum)]),'userdata');
+    v = get(handles.popup_Functions(axnum),'value');
+    ud = get(handles.popup_Functions(axnum),'userdata');
     if isempty(ud{v}) & v>1
-        str = get(handles.(['popup_Function' num2str(axnum)]),'string');
+        str = get(handles.popup_Functions(axnum),'string');
         dtr = str{v};
         [handles.(['FunctionParams' num2str(axnum)]) labels] = eval(['egf_' dtr '(''params'')']);
         ud{v} = handles.(['FunctionParams' num2str(axnum)]);
-        set(handles.(['popup_Function' num2str(axnum)]),'userdata',ud);
+        set(handles.popup_Functions(axnum),'userdata',ud);
     else
         handles.(['FunctionParams' num2str(axnum)]) = ud{v};
     end
@@ -2142,14 +2152,14 @@ end
 
 % get function parameters
 for axnum = 1:2
-    v = get(handles.(['popup_Function' num2str(axnum)]),'value');
-    ud = get(handles.(['popup_Function' num2str(axnum)]),'userdata');
+    v = get(handles.popup_Functions(axnum),'value');
+    ud = get(handles.popup_Functions(axnum),'userdata');
     if isempty(ud{v}) & v>1
-        str = get(handles.(['popup_Function' num2str(axnum)]),'string');
+        str = get(handles.popup_Functions(axnum),'string');
         dtr = str{v};
         [handles.(['FunctionParams' num2str(axnum)]) labels] = eval(['egf_' dtr '(''params'')']);
         ud{v} = handles.(['FunctionParams' num2str(axnum)]);
-        set(handles.(['popup_Function' num2str(axnum)]),'userdata',ud);
+        set(handles.popup_Functions(axnum),'userdata',ud);
     else
         handles.(['FunctionParams' num2str(axnum)]) = ud{v};
     end
@@ -3027,7 +3037,7 @@ if strcmp(get(gcf,'selectiontype'),'open')
     for axn = 1:2
         if strcmp(get(handles.(['axes_Channel' num2str(axn)]),'visible'),'on')
             if strcmp(get(handles.(['menu_AutoLimits' num2str(axn)]),'checked'),'on')
-                yl = [min(handles.(['chan',num2str(axn)])) max(handles.(['chan',num2str(axn)]))];
+                yl = [min(handles.loadedChannelData{axn}) max(handles.loadedChannelData{axn})];
                 if yl(1)==yl(2)
                     yl = [yl(1)-1 yl(2)+1];
                 end
@@ -3468,8 +3478,8 @@ else
     set(handles.(['menu_Events' num2str(axnum)]),'enable','on');
     set(handles.(['push_Detect' num2str(axnum)]),'enable','on');
 
-    str = get(handles.(['popup_Function' num2str(axnum)]),'string');
-    fun = str{get(handles.(['popup_Function' num2str(axnum)]),'value')};
+    str = get(handles.popup_Functions(axnum),'string');
+    fun = str{get(handles.popup_Functions(axnum),'value')};
     str = get(handles.(['popup_EventDetector' num2str(axnum)]),'string');
     dtr = str{get(handles.(['popup_EventDetector' num2str(axnum)]),'value')};
     mtch = 0;
@@ -7398,10 +7408,10 @@ pr.Values = answer;
 
 handles.(['FunctionParams' num2str(axnum)]) = pr;
 
-v = get(handles.(['popup_Function' num2str(axnum)]),'value');
-ud = get(handles.(['popup_Function' num2str(axnum)]),'userdata');
+v = get(handles.popup_Functions(axnum),'value');
+ud = get(handles.popup_Functions(axnum),'userdata');
 ud{v} = handles.(['FunctionParams' num2str(axnum)]);
-set(handles.(['popup_Function' num2str(axnum)]),'userdata',ud);
+set(handles.popup_Functions(axnum),'userdata',ud);
 
 if isempty(findobj('parent',handles.axes_Sonogram,'type','text'))
     handles = eg_LoadChannel(handles,axnum);
