@@ -383,14 +383,14 @@ handles.SegmenterParams.Names = {};
 handles.SegmenterParams.Values = {};
 handles.SonogramParams.Names = {};
 handles.SonogramParams.Values = {};
-handles.EventParams1.Names = {};
-handles.EventParams1.Values = {};
-handles.EventParams2.Names = {};
-handles.EventParams2.Values = {};
-handles.FunctionParams1.Names = {};
-handles.FunctionParams1.Values = {};
-handles.FunctionParams2.Names = {};
-handles.FunctionParams2.Values = {};
+handles.EventParams(1).Names = {};
+handles.EventParams(1).Values = {};
+handles.EventParams(2).Names = {};
+handles.EventParams(2).Values = {};
+handles.FunctionParams(1).Names = {};
+handles.FunctionParams(1).Values = {};
+handles.FunctionParams(2).Names = {};
+handles.FunctionParams(2).Values = {};
 handles.FilterParams.Names = {};
 handles.FilterParams.Values = {};
 
@@ -3451,7 +3451,7 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 
-function handles = eg_clickEventDetector(handles,axnum);
+function handles = eg_clickEventDetector(handles,axnum)
 
 v = get(handles.(['popup_EventDetector' num2str(axnum)]),'value');
 ud = get(handles.(['popup_EventDetector' num2str(axnum)]),'userdata');
@@ -3509,7 +3509,8 @@ else
         handles.EventThresholds = [handles.EventThresholds; inf*ones(1,size(handles.EventThresholds,2))];
         handles.EventCurrentThresholds(end+1) = inf;
 
-        [events labels] = eval(['ege_' dtr '([],handles.fs,inf,handles.EventParams' num2str(axnum) ')']);
+        [events, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, [], handles.fs, inf, handles.EventParams(axnum));
+
         str = get(handles.popup_Channel1,'string');
         strv = get(handles.popup_EventList,'string');
         for c = 1:length(labels)
@@ -3776,7 +3777,7 @@ function handles = DetectEvents(handles,axnum)
 handles.SelectedEvent = [];
 delete(findobj('linestyle','-.'));
 
-val = handles.(['chan' num2str(axnum)]);
+val = handles.loadedChannelData{axnum};
 indx = handles.EventCurrentIndex(axnum);
 thres = handles.EventThresholds(indx,getCurrentFileNum(handles));
 
@@ -3786,7 +3787,7 @@ dtr = str{get(handles.(['popup_EventDetector' num2str(axnum)]),'value')};
 if strcmp(dtr,'(None)')
     return
 end
-[events labels] = eval(['ege_' dtr '(val,handles.fs,thres,handles.EventParams' num2str(axnum) ')']);
+[events, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, val, handles.fs, thres, handles.EventParams(axnum));
 
 for c = 1:length(events)
     handles.EventTimes{indx}{c,getCurrentFileNum(handles)} = events{c};
@@ -3814,7 +3815,7 @@ for c = 1:size(handles.EventTimes{indx},1)
     sel{c} = handles.EventSelected{indx}{c,getCurrentFileNum(handles)};
 end
 h = handles.menu_EventsDisplayList{axnum};
-chan = handles.(['chan' num2str(axnum)]);
+chan = handles.loadedChannelData{axnum};
 xs = linspace(0,length(handles.sound)/handles.fs,length(handles.sound));
 for c = 1:length(ev)
     if strcmp(get(h(c),'checked'),'on');
