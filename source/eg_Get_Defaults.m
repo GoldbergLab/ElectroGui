@@ -7,6 +7,11 @@ handles.FileString = '*chan#.dat'; % File search string; use # to indicate chann
 handles.DefaultFileLoader = 'AA_daq'; % Default file loader. Choose from egl_* files.
 handles.DefaultChannelNumber = 7; % Default number of channels
 
+% DEFAULT PROPERTIES
+handles.DefaultProperties.Names = {};   % Default property names to add to every loaded file
+handles.DefaultProperties.Values = {};  % Corresponding default values for /\
+handles.DefaultProperties.Types = [];   % Corresponding default types for /\  (1=string, 2=boolean, 3=list)
+
 % SONOGRAM SETTINGS
 handles.SonogramAutoCalculate = 1; % Automatically calculate and plot the sonogram when a file is loaded or axes changed?
 handles.FreqLim = [500 7500]; % Frequency axis limits (Hz)
