@@ -46,7 +46,7 @@ end
 
 
 % --- Executes just before electro_gui is made visible.
-function electro_gui_OpeningFcn(hObject, eventdata, handles, varargin)
+function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
 % This function has no output args, see OutputFcn.
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -461,7 +461,7 @@ guidata(hObject, handles);
 
 
 % --- Outputs from this function are returned to the command line.
-function varargout = electro_gui_OutputFcn(hObject, eventdata, handles)
+function varargout = electro_gui_OutputFcn(hObject, ~, handles)
 % varargout  cell array for returning output args (see VARARGOUT);
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -529,7 +529,7 @@ handles.plugins.eventFeatures = findPlugins('ega_');
 handles.plugins.loaders= findPlugins('egl_');
 
 
-function edit_FileNumber_Callback(hObject, eventdata, handles)
+function edit_FileNumber_Callback(hObject, ~, handles)
 % hObject    handle to edit_FileNumber (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -543,7 +543,7 @@ guidata(hObject, handles);
 
 
 % --- Executes during object creation, after setting all properties.
-function edit_FileNumber_CreateFcn(hObject, eventdata, handles)
+function edit_FileNumber_CreateFcn(hObject, ~, handles)
 % hObject    handle to edit_FileNumber (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -555,7 +555,7 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 % --- Executes on button press in push_PreviousFile.
-function push_PreviousFile_Callback(hObject, eventdata, handles)
+function push_PreviousFile_Callback(hObject, ~, handles)
 % hObject    handle to push_PreviousFile (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -581,7 +581,7 @@ handles = eg_LoadFile(handles);
 guidata(hObject, handles);
 
 % --- Executes on button press in push_NextFile.
-function push_NextFile_Callback(hObject, eventdata, handles)
+function push_NextFile_Callback(hObject, ~, handles)
 % hObject    handle to push_NextFile (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -607,7 +607,7 @@ handles = eg_LoadFile(handles);
 guidata(hObject, handles);
 
 % --- Executes on selection change in list_Files.
-function list_Files_Callback(hObject, eventdata, handles)
+function list_Files_Callback(hObject, ~, handles)
 % hObject    handle to list_Files (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -627,7 +627,7 @@ handles = eg_LoadFile(handles);
 guidata(hObject, handles);
 
 % --- Executes during object creation, after setting all properties.
-function list_Files_CreateFcn(hObject, eventdata, handles)
+function list_Files_CreateFcn(hObject, ~, handles)
 % hObject    handle to list_Files (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -639,7 +639,7 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 % --- Executes on button press in push_Properties.
-function push_Properties_Callback(hObject, eventdata, handles)
+function push_Properties_Callback(hObject, ~, handles)
 % hObject    handle to push_Properties (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -660,7 +660,7 @@ end
 
 
 % --- Executes on slider movement.
-function slider_Time_Callback(hObject, eventdata, handles)
+function slider_Time_Callback(hObject, ~, handles)
 % hObject    handle to slider_Time (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -678,7 +678,7 @@ guidata(hObject, handles);
 
 
 % --- Executes during object creation, after setting all properties.
-function slider_Time_CreateFcn(hObject, eventdata, handles)
+function slider_Time_CreateFcn(hObject, ~, handles)
 % hObject    handle to slider_Time (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -690,7 +690,7 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_Experiment_Callback(hObject, eventdata, handles)
+function menu_Experiment_Callback(hObject, ~, handles)
 % hObject    handle to menu_Experiment (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -699,7 +699,7 @@ function menu_Experiment_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on button press in push_Play.
-function push_Play_Callback(hObject, eventdata, handles)
+function push_Play_Callback(hObject, ~, handles)
 % hObject    handle to push_Play (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -774,7 +774,7 @@ else
 end
 
 % --- Executes on button press in push_TimescaleRight.
-function push_TimescaleRight_Callback(hObject, eventdata, handles)
+function push_TimescaleRight_Callback(hObject, ~, handles)
 % hObject    handle to push_TimescaleRight (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -801,7 +801,7 @@ electro_gui('edit_Timescale_Callback',gcbo,[],guidata(gcbo));
 guidata(hObject, handles);
 
 % --- Executes on button press in push_TimescaleLeft.
-function push_TimescaleLeft_Callback(hObject, eventdata, handles)
+function push_TimescaleLeft_Callback(hObject, ~, handles)
 % hObject    handle to push_TimescaleLeft (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -826,7 +826,7 @@ electro_gui('edit_Timescale_Callback',gcbo,[],guidata(gcbo));
 guidata(hObject, handles);
 
 
-function edit_Timescale_Callback(hObject, eventdata, handles)
+function edit_Timescale_Callback(hObject, ~, handles)
 % hObject    handle to edit_Timescale (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -848,7 +848,7 @@ guidata(hObject, handles);
 
 
 % --- Executes during object creation, after setting all properties.
-function edit_Timescale_CreateFcn(hObject, eventdata, handles)
+function edit_Timescale_CreateFcn(hObject, ~, handles)
 % hObject    handle to edit_Timescale (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -1305,21 +1305,21 @@ xlim(xl);
 
 
 % --------------------------------------------------------------------
-function context_Sonogram_Callback(hObject, eventdata, handles)
+function context_Sonogram_Callback(hObject, ~, handles)
 % hObject    handle to context_Sonogram (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_AlgorithmList_Callback(hObject, eventdata, handles)
+function menu_AlgorithmList_Callback(hObject, ~, handles)
 % hObject    handle to menu_AlgorithmList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_AutoCalculate_Callback(hObject, eventdata, handles)
+function menu_AutoCalculate_Callback(hObject, ~, handles)
 % hObject    handle to menu_AutoCalculate (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -1334,7 +1334,7 @@ end
 guidata(hObject, handles);
 
 
-function AlgorithmMenuClick(hObject, eventdata, handles)
+function AlgorithmMenuClick(hObject, ~, handles)
 
 for c = 1:length(handles.menu_Algorithm)
     set(handles.menu_Algorithm,'checked','off');
@@ -1356,7 +1356,7 @@ handles = eg_Overlay(handles);
 guidata(hObject, handles);
 
 
-function FilterMenuClick(hObject, eventdata, handles)
+function FilterMenuClick(hObject, ~, handles)
 
 for c = 1:length(handles.menu_Filter)
     set(handles.menu_Filter,'checked','off');
@@ -1526,7 +1526,7 @@ for c = 1:length(ch)
 end
 
 
-function click_sound(hObject, eventdata, handles)
+function click_sound(hObject, ~, handles)
 
 if strcmp(get(gcf,'selectiontype'),'normal')
     set(gca,'units','pixels');
@@ -1582,7 +1582,7 @@ guidata(gca, handles);
 
 
 % --- Executes on button press in push_Calculate.
-function push_Calculate_Callback(hObject, eventdata, handles)
+function push_Calculate_Callback(hObject, ~, handles)
 % hObject    handle to push_Calculate (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -1597,7 +1597,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_ColorScale_Callback(hObject, eventdata, handles)
+function menu_ColorScale_Callback(hObject, ~, handles)
 % hObject    handle to menu_ColorScale (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -1645,7 +1645,7 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_FreqLimits_Callback(hObject, eventdata, handles)
+function menu_FreqLimits_Callback(hObject, ~, handles)
 % hObject    handle to menu_FreqLimits (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -1663,7 +1663,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_New.
-function push_New_Callback(hObject, eventdata, handles)
+function push_New_Callback(hObject, ~, handles)
 % hObject    handle to push_New (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -1868,7 +1868,7 @@ handles.FileLength = zeros(1,handles.TotalFileNumber);
 
 
 % --- Executes on button press in push_Open.
-function push_Open_Callback(hObject, eventdata, handles)
+function push_Open_Callback(hObject, ~, handles)
 % hObject    handle to push_Open (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2057,7 +2057,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_Save.
-function push_Save_Callback(hObject, eventdata, handles)
+function push_Save_Callback(hObject, ~, handles)
 % hObject    handle to push_Save (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2078,7 +2078,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_Cancel.
-function push_Cancel_Callback(hObject, eventdata, handles)
+function push_Cancel_Callback(hObject, ~, handles)
 % hObject    handle to push_Cancel (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2087,14 +2087,14 @@ function push_Cancel_Callback(hObject, eventdata, handles)
 
 
 % --------------------------------------------------------------------
-function context_Amplitude_Callback(hObject, eventdata, handles)
+function context_Amplitude_Callback(hObject, ~, handles)
 % hObject    handle to context_Amplitude (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_AutoThreshold_Callback(hObject, eventdata, handles)
+function menu_AutoThreshold_Callback(hObject, ~, handles)
 % hObject    handle to menu_AutoThreshold (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2210,7 +2210,7 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_AmplitudeAxisRange_Callback(hObject, eventdata, handles)
+function menu_AmplitudeAxisRange_Callback(hObject, ~, handles)
 % hObject    handle to menu_AmplitudeAxisRange (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2229,7 +2229,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SmoothingWindow_Callback(hObject, eventdata, handles)
+function menu_SmoothingWindow_Callback(hObject, ~, handles)
 % hObject    handle to menu_SmoothingWindow (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2250,7 +2250,7 @@ handles = SetThreshold(handles);
 guidata(hObject, handles);
 
 
-function click_Amplitude(hObject, eventdata, handles)
+function click_Amplitude(hObject, ~, handles)
 
 if strcmp(get(gcf,'selectiontype'),'open')
     xd = [0 length(handles.sound)/handles.fs length(handles.sound)/handles.fs 0 0];
@@ -2292,7 +2292,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SetThreshold_Callback(hObject, eventdata, handles)
+function menu_SetThreshold_Callback(hObject, ~, handles)
 % hObject    handle to menu_SetThreshold (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2309,7 +2309,7 @@ handles = SetThreshold(handles);
 guidata(hObject, handles);
 
 
-function click_loadfile(hObject, eventdata, handles)
+function click_loadfile(hObject, ~, handles)
 
 temp = handles.TooLong;
 handles.TooLong = inf;
@@ -2322,7 +2322,7 @@ guidata(gca, handles);
 
 
 % --------------------------------------------------------------------
-function menu_LongFiles_Callback(hObject, eventdata, handles)
+function menu_LongFiles_Callback(hObject, ~, handles)
 % hObject    handle to menu_LongFiles (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2337,20 +2337,20 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function context_Segments_Callback(hObject, eventdata, handles)
+function context_Segments_Callback(hObject, ~, handles)
 % hObject    handle to context_Segments (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_SegmenterList_Callback(hObject, eventdata, handles)
+function menu_SegmenterList_Callback(hObject, ~, handles)
 % hObject    handle to menu_SegmenterList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
-function SegmenterMenuClick(hObject, eventdata, handles)
+function SegmenterMenuClick(hObject, ~, handles)
 
 for c = 1:length(handles.menu_Segmenter)
     set(handles.menu_Segmenter,'checked','off');
@@ -2371,7 +2371,7 @@ guidata(hObject, handles);
 
 
 
-function click_segmentaxes(hObject, eventdata, handles)
+function click_segmentaxes(hObject, ~, handles)
 
 filenum = str2num(get(handles.edit_FileNumber,'string'));
 
@@ -2416,7 +2416,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_Segment.
-function push_Segment_Callback(hObject, eventdata, handles)
+function push_Segment_Callback(hObject, ~, handles)
 % hObject    handle to push_Segment (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2427,7 +2427,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AutoSegment_Callback(hObject, eventdata, handles)
+function menu_AutoSegment_Callback(hObject, ~, handles)
 % hObject    handle to menu_AutoSegment (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2444,7 +2444,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SegmentParameters_Callback(hObject, eventdata, handles)
+function menu_SegmentParameters_Callback(hObject, ~, handles)
 % hObject    handle to menu_SegmentParameters (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2474,7 +2474,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_DeleteAll_Callback(hObject, eventdata, handles)
+function menu_DeleteAll_Callback(hObject, ~, handles)
 % hObject    handle to menu_DeleteAll (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2488,7 +2488,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_UndeleteAll_Callback(hObject, eventdata, handles)
+function menu_UndeleteAll_Callback(hObject, ~, handles)
 % hObject    handle to menu_UndeleteAll (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2502,7 +2502,7 @@ set(handles.SegmentHandles,'facecolor','r');
 guidata(hObject, handles);
 
 
-function click_segment(hObject, eventdata, handles)
+function click_segment(hObject, ~, handles)
 
 f = find(handles.SegmentHandles==hObject);
 filenum = str2num(get(handles.edit_FileNumber,'string'));
@@ -2536,7 +2536,7 @@ end
 
 guidata(hObject, handles);
 
-function labelsegment(hObject, eventdata, handles)
+function labelsegment(hObject, ~, handles)
 
 
 filenum = str2num(get(handles.edit_FileNumber,'string'));
@@ -2618,7 +2618,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on selection change in popup_Function1.
-function popup_Function1_Callback(hObject, eventdata, handles)
+function popup_Function1_Callback(hObject, ~, handles)
 % hObject    handle to popup_Function1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2670,7 +2670,7 @@ end
 guidata(hObject, handles);
 
 % --- Executes during object creation, after setting all properties.
-function popup_Function1_CreateFcn(hObject, eventdata, handles)
+function popup_Function1_CreateFcn(hObject, ~, handles)
 % hObject    handle to popup_Function1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -2683,7 +2683,7 @@ end
 
 
 % --- Executes on selection change in popup_Function2.
-function popup_Function2_Callback(hObject, eventdata, handles)
+function popup_Function2_Callback(hObject, ~, handles)
 % hObject    handle to popup_Function2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2736,7 +2736,7 @@ guidata(hObject, handles);
 
 
 % --- Executes during object creation, after setting all properties.
-function popup_Function2_CreateFcn(hObject, eventdata, handles)
+function popup_Function2_CreateFcn(hObject, ~, handles)
 % hObject    handle to popup_Function2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -2749,7 +2749,7 @@ end
 
 
 % --- Executes on selection change in popup_Channel1.
-function popup_Channel1_Callback(hObject, eventdata, handles)
+function popup_Channel1_Callback(hObject, ~, handles)
 % hObject    handle to popup_Channel1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2787,7 +2787,7 @@ end
 guidata(hObject, handles);
 
 % --- Executes during object creation, after setting all properties.
-function popup_Channel1_CreateFcn(hObject, eventdata, handles)
+function popup_Channel1_CreateFcn(hObject, ~, handles)
 % hObject    handle to popup_Channel1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -2800,7 +2800,7 @@ end
 
 
 % --- Executes on selection change in popup_Channel2.
-function popup_Channel2_Callback(hObject, eventdata, handles)
+function popup_Channel2_Callback(hObject, ~, handles)
 % hObject    handle to popup_Channel2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2838,7 +2838,7 @@ end
 guidata(hObject, handles);
 
 % --- Executes during object creation, after setting all properties.
-function popup_Channel2_CreateFcn(hObject, eventdata, handles)
+function popup_Channel2_CreateFcn(hObject, ~, handles)
 % hObject    handle to popup_Channel2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -2853,14 +2853,14 @@ end
 
 
 % --------------------------------------------------------------------
-function context_Channel1_Callback(hObject, eventdata, handles)
+function context_Channel1_Callback(hObject, ~, handles)
 % hObject    handle to context_Channel1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_PeakDetect1_Callback(hObject, eventdata, handles)
+function menu_PeakDetect1_Callback(hObject, ~, handles)
 % hObject    handle to menu_PeakDetect1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2877,14 +2877,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function context_Channel2_Callback(hObject, eventdata, handles)
+function context_Channel2_Callback(hObject, ~, handles)
 % hObject    handle to context_Channel2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_PeakDetect2_Callback(hObject, eventdata, handles)
+function menu_PeakDetect2_Callback(hObject, ~, handles)
 % hObject    handle to menu_PeakDetect2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2901,7 +2901,7 @@ guidata(hObject, handles);
 
 
 
-function click_Channel(hObject, eventdata, handles)
+function click_Channel(hObject, ~, handles)
 
 obj = hObject;
 if ~strcmp(get(obj,'type'),'axes')
@@ -3143,7 +3143,7 @@ ylim(yl);
 
 
 % --------------------------------------------------------------------
-function menu_AllowYZoom1_Callback(hObject, eventdata, handles)
+function menu_AllowYZoom1_Callback(hObject, ~, handles)
 % hObject    handle to menu_AllowYZoom1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3169,7 +3169,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AllowYZoom2_Callback(hObject, eventdata, handles)
+function menu_AllowYZoom2_Callback(hObject, ~, handles)
 % hObject    handle to menu_AllowYZoom2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3195,7 +3195,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AutoLimits1_Callback(hObject, eventdata, handles)
+function menu_AutoLimits1_Callback(hObject, ~, handles)
 % hObject    handle to menu_AutoLimits1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3218,7 +3218,7 @@ end
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_AutoLimits2_Callback(hObject, eventdata, handles)
+function menu_AutoLimits2_Callback(hObject, ~, handles)
 % hObject    handle to menu_AutoLimits2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3242,7 +3242,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SetLimits1_Callback(hObject, eventdata, handles)
+function menu_SetLimits1_Callback(hObject, ~, handles)
 % hObject    handle to menu_SetLimits1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3252,7 +3252,7 @@ handles = eg_SetLimits(handles,1);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_SetLimits2_Callback(hObject, eventdata, handles)
+function menu_SetLimits2_Callback(hObject, ~, handles)
 % hObject    handle to menu_SetLimits2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3262,7 +3262,7 @@ handles = eg_SetLimits(handles,2);
 guidata(hObject, handles);
 
 
-function handles = eg_SetLimits(handles,axnum);
+function handles = eg_SetLimits(handles,axnum)
 
 def = get(handles.(['axes_Channel' num2str(axnum)]),'ylim');
 answer = inputdlg({'Minimum','Maximum'},'Axes limits',1,{num2str(def(1)),num2str(def(2))});
@@ -3280,7 +3280,7 @@ handles = eg_Overlay(handles);
 
 
 % --- Executes on selection change in popup_EventDetector1.
-function popup_EventDetector1_Callback(hObject, eventdata, handles)
+function popup_EventDetector1_Callback(hObject, ~, handles)
 % hObject    handle to popup_EventDetector1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3295,7 +3295,7 @@ end
 guidata(hObject, handles);
 
 % --- Executes during object creation, after setting all properties.
-function popup_EventDetector1_CreateFcn(hObject, eventdata, handles)
+function popup_EventDetector1_CreateFcn(hObject, ~, handles)
 % hObject    handle to popup_EventDetector1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -3308,7 +3308,7 @@ end
 
 
 % --- Executes on selection change in popup_EventDetector2.
-function popup_EventDetector2_Callback(hObject, eventdata, handles)
+function popup_EventDetector2_Callback(hObject, ~, handles)
 % hObject    handle to popup_EventDetector2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3323,7 +3323,7 @@ end
 guidata(hObject, handles);
 
 % --- Executes during object creation, after setting all properties.
-function popup_EventDetector2_CreateFcn(hObject, eventdata, handles)
+function popup_EventDetector2_CreateFcn(hObject, ~, handles)
 % hObject    handle to popup_EventDetector2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -3439,14 +3439,14 @@ handles = EventSetThreshold(handles,axnum);
 
 
 % --------------------------------------------------------------------
-function menu_Events1_Callback(hObject, eventdata, handles)
+function menu_Events1_Callback(hObject, ~, handles)
 % hObject    handle to menu_Events1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_EventAutoDetect1_Callback(hObject, eventdata, handles)
+function menu_EventAutoDetect1_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventAutoDetect1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3480,14 +3480,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_EventAutoThreshold1_Callback(hObject, eventdata, handles)
+function menu_EventAutoThreshold1_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventAutoThreshold1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_EventSetThreshold1_Callback(hObject, eventdata, handles)
+function menu_EventSetThreshold1_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventSetThreshold1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3498,14 +3498,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_Events2_Callback(hObject, eventdata, handles)
+function menu_Events2_Callback(hObject, ~, handles)
 % hObject    handle to menu_Events2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_EventAutoDetect2_Callback(hObject, eventdata, handles)
+function menu_EventAutoDetect2_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventAutoDetect2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3541,14 +3541,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_EventAutoThreshold2_Callback(hObject, eventdata, handles)
+function menu_EventAutoThreshold2_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventAutoThreshold2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_EventSetThreshold2_Callback(hObject, eventdata, handles)
+function menu_EventSetThreshold2_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventSetThreshold2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3596,7 +3596,7 @@ end
 
 
 % --- Executes on button press in push_Detect1.
-function push_Detect1_Callback(hObject, eventdata, handles)
+function push_Detect1_Callback(hObject, ~, handles)
 % hObject    handle to push_Detect1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3626,7 +3626,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_Detect2.
-function push_Detect2_Callback(hObject, eventdata, handles)
+function push_Detect2_Callback(hObject, ~, handles)
 % hObject    handle to push_Detect2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3724,7 +3724,7 @@ for c = 1:length(handles.EventHandles{axnum})
 end
 
 
-function ClickEventSymbol(hObject, eventdata, handles)
+function ClickEventSymbol(hObject, ~, handles)
 
 if get(hObject,'parent')==handles.axes_Channel1
     axnum = 1;
@@ -3809,7 +3809,7 @@ guidata(hObject, handles);
 
 
 
-function EventsDisplayClick(hObject, eventdata, handles)
+function EventsDisplayClick(hObject, ~, handles)
 
 if strcmp(get(hObject,'checked'),'on')
     set(hObject,'checked','off');
@@ -3827,14 +3827,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_ChannelColors1_Callback(hObject, eventdata, handles)
+function menu_ChannelColors1_Callback(hObject, ~, handles)
 % hObject    handle to menu_ChannelColors1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_PlotColor1_Callback(hObject, eventdata, handles)
+function menu_PlotColor1_Callback(hObject, ~, handles)
 % hObject    handle to menu_PlotColor1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3849,7 +3849,7 @@ handles = eg_Overlay(handles);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_ThresholdColor1_Callback(hObject, eventdata, handles)
+function menu_ThresholdColor1_Callback(hObject, ~, handles)
 % hObject    handle to menu_ThresholdColor1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3863,14 +3863,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_ChannelColors2_Callback(hObject, eventdata, handles)
+function menu_ChannelColors2_Callback(hObject, ~, handles)
 % hObject    handle to menu_ChannelColors2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_PlotColor2_Callback(hObject, eventdata, handles)
+function menu_PlotColor2_Callback(hObject, ~, handles)
 % hObject    handle to menu_PlotColor2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3885,7 +3885,7 @@ handles = eg_Overlay(handles);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_ThresholdColor2_Callback(hObject, eventdata, handles)
+function menu_ThresholdColor2_Callback(hObject, ~, handles)
 % hObject    handle to menu_ThresholdColor2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3901,7 +3901,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_BrightnessUp.
-function push_BrightnessUp_Callback(hObject, eventdata, handles)
+function push_BrightnessUp_Callback(hObject, ~, handles)
 % hObject    handle to push_BrightnessUp (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3923,7 +3923,7 @@ handles = SetColors(handles);
 guidata(hObject, handles);
 
 % --- Executes on button press in push_BrightnessDown.
-function push_BrightnessDown_Callback(hObject, eventdata, handles)
+function push_BrightnessDown_Callback(hObject, ~, handles)
 % hObject    handle to push_BrightnessDown (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3944,7 +3944,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_OffsetUp.
-function push_OffsetUp_Callback(hObject, eventdata, handles)
+function push_OffsetUp_Callback(hObject, ~, handles)
 % hObject    handle to push_OffsetUp (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3966,7 +3966,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_OffsetDown.
-function push_OffsetDown_Callback(hObject, eventdata, handles)
+function push_OffsetDown_Callback(hObject, ~, handles)
 % hObject    handle to push_OffsetDown (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3986,14 +3986,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AmplitudeColors_Callback(hObject, eventdata, handles)
+function menu_AmplitudeColors_Callback(hObject, ~, handles)
 % hObject    handle to menu_AmplitudeColors (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_AmplitudeColor_Callback(hObject, eventdata, handles)
+function menu_AmplitudeColor_Callback(hObject, ~, handles)
 % hObject    handle to menu_AmplitudeColor (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4007,7 +4007,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AmplitudeThresholdColor_Callback(hObject, eventdata, handles)
+function menu_AmplitudeThresholdColor_Callback(hObject, ~, handles)
 % hObject    handle to menu_AmplitudeThresholdColor (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4022,7 +4022,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_PlayMix.
-function push_PlayMix_Callback(hObject, eventdata, handles)
+function push_PlayMix_Callback(hObject, ~, handles)
 % hObject    handle to push_PlayMix (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4032,7 +4032,7 @@ progress_play(handles,snd);
 
 
 
-function edit_SoundWeight_Callback(hObject, eventdata, handles)
+function edit_SoundWeight_Callback(hObject, ~, handles)
 % hObject    handle to edit_SoundWeight (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4042,7 +4042,7 @@ function edit_SoundWeight_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function edit_SoundWeight_CreateFcn(hObject, eventdata, handles)
+function edit_SoundWeight_CreateFcn(hObject, ~, handles)
 % hObject    handle to edit_SoundWeight (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -4055,7 +4055,7 @@ end
 
 
 
-function edit_TopWeight_Callback(hObject, eventdata, handles)
+function edit_TopWeight_Callback(hObject, ~, handles)
 % hObject    handle to edit_TopWeight (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4065,7 +4065,7 @@ function edit_TopWeight_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function edit_TopWeight_CreateFcn(hObject, eventdata, handles)
+function edit_TopWeight_CreateFcn(hObject, ~, handles)
 % hObject    handle to edit_TopWeight (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -4078,7 +4078,7 @@ end
 
 
 
-function edit_BottomWeight_Callback(hObject, eventdata, handles)
+function edit_BottomWeight_Callback(hObject, ~, handles)
 % hObject    handle to edit_BottomWeight (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4088,7 +4088,7 @@ function edit_BottomWeight_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function edit_BottomWeight_CreateFcn(hObject, eventdata, handles)
+function edit_BottomWeight_CreateFcn(hObject, ~, handles)
 % hObject    handle to edit_BottomWeight (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -4101,7 +4101,7 @@ end
 
 
 
-function edit_SoundClipper_Callback(hObject, eventdata, handles)
+function edit_SoundClipper_Callback(hObject, ~, handles)
 % hObject    handle to edit_SoundClipper (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4111,7 +4111,7 @@ function edit_SoundClipper_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function edit_SoundClipper_CreateFcn(hObject, eventdata, handles)
+function edit_SoundClipper_CreateFcn(hObject, ~, handles)
 % hObject    handle to edit_SoundClipper (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -4124,7 +4124,7 @@ end
 
 
 
-function edit_TopClipper_Callback(hObject, eventdata, handles)
+function edit_TopClipper_Callback(hObject, ~, handles)
 % hObject    handle to edit_TopClipper (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4134,7 +4134,7 @@ function edit_TopClipper_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function edit_TopClipper_CreateFcn(hObject, eventdata, handles)
+function edit_TopClipper_CreateFcn(hObject, ~, handles)
 % hObject    handle to edit_TopClipper (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -4147,7 +4147,7 @@ end
 
 
 
-function edit_BottomClipper_Callback(hObject, eventdata, handles)
+function edit_BottomClipper_Callback(hObject, ~, handles)
 % hObject    handle to edit_BottomClipper (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4157,7 +4157,7 @@ function edit_BottomClipper_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function edit_BottomClipper_CreateFcn(hObject, eventdata, handles)
+function edit_BottomClipper_CreateFcn(hObject, ~, handles)
 % hObject    handle to edit_BottomClipper (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -4170,7 +4170,7 @@ end
 
 
 % --- Executes on button press in check_Sound.
-function check_Sound_Callback(hObject, eventdata, handles)
+function check_Sound_Callback(hObject, ~, handles)
 % hObject    handle to check_Sound (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4179,7 +4179,7 @@ function check_Sound_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on button press in check_TopPlot.
-function check_TopPlot_Callback(hObject, eventdata, handles)
+function check_TopPlot_Callback(hObject, ~, handles)
 % hObject    handle to check_TopPlot (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4188,7 +4188,7 @@ function check_TopPlot_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on button press in check_BottomPlot.
-function check_BottomPlot_Callback(hObject, eventdata, handles)
+function check_BottomPlot_Callback(hObject, ~, handles)
 % hObject    handle to check_BottomPlot (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4199,7 +4199,7 @@ function check_BottomPlot_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on button press in push_SoundOptions.
-function push_SoundOptions_Callback(hObject, eventdata, handles)
+function push_SoundOptions_Callback(hObject, ~, handles)
 % hObject    handle to push_SoundOptions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4220,14 +4220,14 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_EventsDisplay1_Callback(hObject, eventdata, handles)
+function menu_EventsDisplay1_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventsDisplay1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_EventsDisplay2_Callback(hObject, eventdata, handles)
+function menu_EventsDisplay2_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventsDisplay2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4236,7 +4236,7 @@ function menu_EventsDisplay2_Callback(hObject, eventdata, handles)
 
 
 % --------------------------------------------------------------------
-function menu_SelectionParameters1_Callback(hObject, eventdata, handles)
+function menu_SelectionParameters1_Callback(hObject, ~, handles)
 % hObject    handle to menu_SelectionParameters1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4246,7 +4246,7 @@ handles = SelectionParameters(handles,1);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_SelectionParameters2_Callback(hObject, eventdata, handles)
+function menu_SelectionParameters2_Callback(hObject, ~, handles)
 % hObject    handle to menu_SelectionParameters2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4268,7 +4268,7 @@ handles.SearchAfter(axnum) = str2num(answer{2})/1000;
 
 
 % --- Executes on selection change in popup_EventList.
-function popup_EventList_Callback(hObject, eventdata, handles)
+function popup_EventList_Callback(hObject, ~, handles)
 % hObject    handle to popup_EventList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4451,7 +4451,7 @@ if strcmp(get(handles.menu_AutoApplyYLim,'checked'),'on')
 end
 
 
-function click_eventwave(hObject, eventdata, handles)
+function click_eventwave(hObject, ~, handles)
 
 i = find(handles.EventWaveHandles==hObject);
 if strcmp(get(gcf,'selectiontype'),'normal')
@@ -4541,7 +4541,7 @@ end
 set(h,'buttondownfcn','electro_gui(''unselect_event'',gcbo,[],guidata(gcbo))');
 
 
-function unselect_event(hObject, eventdata, handles)
+function unselect_event(hObject, ~, handles)
 
 handles.SelectedEvent = [];
 guidata(hObject, handles);
@@ -4551,7 +4551,7 @@ delete(findobj('parent',handles.axes_Events,'linewidth',2));
 
 
 
-function click_eventaxes(hObject, eventdata, handles)
+function click_eventaxes(hObject, ~, handles)
 
 if strcmp(get(gcf,'selectiontype'),'normal')
     set(gca,'units','pixels');
@@ -4696,7 +4696,7 @@ set(handles.axes_Events,'xlim',xlb,'ylim',ylb);
 
 
 % --- Executes during object creation, after setting all properties.
-function popup_EventList_CreateFcn(hObject, eventdata, handles)
+function popup_EventList_CreateFcn(hObject, ~, handles)
 % hObject    handle to popup_EventList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -4711,21 +4711,21 @@ end
 
 
 % --------------------------------------------------------------------
-function context_EventViewer_Callback(hObject, eventdata, handles)
+function context_EventViewer_Callback(hObject, ~, handles)
 % hObject    handle to context_EventViewer (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_PlotToAnalyze_Callback(hObject, eventdata, handles)
+function menu_PlotToAnalyze_Callback(hObject, ~, handles)
 % hObject    handle to menu_PlotToAnalyze (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_AnalyzeTop_Callback(hObject, eventdata, handles)
+function menu_AnalyzeTop_Callback(hObject, ~, handles)
 % hObject    handle to menu_AnalyzeTop (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4741,14 +4741,14 @@ handles = UpdateEventBrowser(handles);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_ViewerDisplay_Callback(hObject, eventdata, handles)
+function menu_ViewerDisplay_Callback(hObject, ~, handles)
 % hObject    handle to menu_ViewerDisplay (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_AnalyzeBottom_Callback(hObject, eventdata, handles)
+function menu_AnalyzeBottom_Callback(hObject, ~, handles)
 % hObject    handle to menu_AnalyzeBottom (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4764,7 +4764,7 @@ handles = UpdateEventBrowser(handles);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_DisplayValues_Callback(hObject, eventdata, handles)
+function menu_DisplayValues_Callback(hObject, ~, handles)
 % hObject    handle to menu_DisplayValues (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4780,7 +4780,7 @@ handles = UpdateEventBrowser(handles);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_DisplayFeatures_Callback(hObject, eventdata, handles)
+function menu_DisplayFeatures_Callback(hObject, ~, handles)
 % hObject    handle to menu_DisplayFeatures (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4797,7 +4797,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_DisplayEvents.
-function push_DisplayEvents_Callback(hObject, eventdata, handles)
+function push_DisplayEvents_Callback(hObject, ~, handles)
 % hObject    handle to push_DisplayEvents (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4808,7 +4808,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AutoDisplayEvents_Callback(hObject, eventdata, handles)
+function menu_AutoDisplayEvents_Callback(hObject, ~, handles)
 % hObject    handle to menu_AutoDisplayEvents (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4824,7 +4824,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_EventsAxisLimits_Callback(hObject, eventdata, handles)
+function menu_EventsAxisLimits_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventsAxisLimits (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4843,7 +4843,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function context_SoundOptions_Callback(hObject, eventdata, handles)
+function context_SoundOptions_Callback(hObject, ~, handles)
 % hObject    handle to context_SoundOptions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4852,7 +4852,7 @@ function context_SoundOptions_Callback(hObject, eventdata, handles)
 
 
 % --------------------------------------------------------------------
-function menu_SoundWeights_Callback(hObject, eventdata, handles)
+function menu_SoundWeights_Callback(hObject, ~, handles)
 % hObject    handle to menu_SoundWeights (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4867,7 +4867,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SoundClippers_Callback(hObject, eventdata, handles)
+function menu_SoundClippers_Callback(hObject, ~, handles)
 % hObject    handle to menu_SoundClippers (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4882,7 +4882,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_PlaySpeed_Callback(hObject, eventdata, handles)
+function menu_PlaySpeed_Callback(hObject, ~, handles)
 % hObject    handle to menu_PlaySpeed (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4898,14 +4898,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_ProgressBar_Callback(hObject, eventdata, handles)
+function menu_ProgressBar_Callback(hObject, ~, handles)
 % hObject    handle to menu_ProgressBar (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_ProgressSoundWave_Callback(hObject, eventdata, handles)
+function menu_ProgressSoundWave_Callback(hObject, ~, handles)
 % hObject    handle to menu_ProgressSoundWave (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4915,7 +4915,7 @@ handles = ChangeProgress(handles,hObject);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_ProgressSonogram_Callback(hObject, eventdata, handles)
+function menu_ProgressSonogram_Callback(hObject, ~, handles)
 % hObject    handle to menu_ProgressSonogram (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4924,7 +4924,7 @@ handles = ChangeProgress(handles,hObject);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_ProgressSegments_Callback(hObject, eventdata, handles)
+function menu_ProgressSegments_Callback(hObject, ~, handles)
 % hObject    handle to menu_ProgressSegments (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4933,7 +4933,7 @@ handles = ChangeProgress(handles,hObject);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_ProgressAmplitude_Callback(hObject, eventdata, handles)
+function menu_ProgressAmplitude_Callback(hObject, ~, handles)
 % hObject    handle to menu_ProgressAmplitude (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4942,7 +4942,7 @@ handles = ChangeProgress(handles,hObject);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_ProgressTop_Callback(hObject, eventdata, handles)
+function menu_ProgressTop_Callback(hObject, ~, handles)
 % hObject    handle to menu_ProgressTop (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4951,7 +4951,7 @@ handles = ChangeProgress(handles,hObject);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_ProgressBottom_Callback(hObject, eventdata, handles)
+function menu_ProgressBottom_Callback(hObject, ~, handles)
 % hObject    handle to menu_ProgressBottom (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4969,14 +4969,14 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_XAxis_Callback(hObject, eventdata, handles)
+function menu_XAxis_Callback(hObject, ~, handles)
 % hObject    handle to menu_XAxis (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_Yaxis_Callback(hObject, eventdata, handles)
+function menu_Yaxis_Callback(hObject, ~, handles)
 % hObject    handle to menu_Yaxis (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4984,13 +4984,13 @@ function menu_Yaxis_Callback(hObject, eventdata, handles)
 
 
 % --------------------------------------------------------------------
-function menu_YAxis_Callback(hObject, eventdata, handles)
+function menu_YAxis_Callback(hObject, ~, handles)
 % hObject    handle to menu_YAxis (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
-function XAxisMenuClick(hObject, eventdata, handles)
+function XAxisMenuClick(hObject, ~, handles)
 
 set(handles.menu_XAxis_List,'checked','off');
 set(hObject,'checked','on');
@@ -5000,7 +5000,7 @@ handles = UpdateEventBrowser(handles);
 guidata(hObject, handles);
 
 
-function YAxisMenuClick(hObject, eventdata, handles)
+function YAxisMenuClick(hObject, ~, handles)
 
 set(handles.menu_YAxis_List,'checked','off');
 set(hObject,'checked','on');
@@ -5011,7 +5011,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on selection change in popup_Export.
-function popup_Export_Callback(hObject, eventdata, handles)
+function popup_Export_Callback(hObject, ~, handles)
 % hObject    handle to popup_Export (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -5055,7 +5055,7 @@ end
 
 
 % --- Executes during object creation, after setting all properties.
-function popup_Export_CreateFcn(hObject, eventdata, handles)
+function popup_Export_CreateFcn(hObject, ~, handles)
 % hObject    handle to popup_Export (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -5068,7 +5068,7 @@ end
 
 
 % --- Executes on button press in push_Export.
-function push_Export_Callback(hObject, eventdata, handles)
+function push_Export_Callback(hObject, ~, handles)
 % hObject    handle to push_Export (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6254,7 +6254,7 @@ delete(txtexp);
 guidata(hObject, handles);
 
 % --- Executes on button press in push_ExportOptions.
-function push_ExportOptions_Callback(hObject, eventdata, handles)
+function push_ExportOptions_Callback(hObject, ~, handles)
 % hObject    handle to push_ExportOptions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6275,7 +6275,7 @@ end
 
 
 % --- Executes on button press in radio_Matlab.
-function radio_Matlab_Callback(hObject, eventdata, handles)
+function radio_Matlab_Callback(hObject, ~, handles)
 % hObject    handle to radio_Matlab (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6284,7 +6284,7 @@ function radio_Matlab_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on button press in radio_PowerPoint.
-function radio_PowerPoint_Callback(hObject, eventdata, handles)
+function radio_PowerPoint_Callback(hObject, ~, handles)
 % hObject    handle to radio_PowerPoint (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6293,7 +6293,7 @@ function radio_PowerPoint_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on button press in radio_Files.
-function radio_Files_Callback(hObject, eventdata, handles)
+function radio_Files_Callback(hObject, ~, handles)
 % hObject    handle to radio_Files (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6302,7 +6302,7 @@ function radio_Files_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on button press in radio_Clipboard.
-function radio_Clipboard_Callback(hObject, eventdata, handles)
+function radio_Clipboard_Callback(hObject, ~, handles)
 % hObject    handle to radio_Clipboard (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6313,7 +6313,7 @@ function radio_Clipboard_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on button press in push_UpdateFileList.
-function push_UpdateFileList_Callback(hObject, eventdata, handles)
+function push_UpdateFileList_Callback(hObject, ~, handles)
 % hObject    handle to push_UpdateFileList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6334,7 +6334,7 @@ end
 
 
 % --- Executes on button press in push_WorksheetAppend.
-function push_WorksheetAppend_Callback(hObject, eventdata, handles)
+function push_WorksheetAppend_Callback(hObject, ~, handles)
 % hObject    handle to push_WorksheetAppend (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6511,7 +6511,7 @@ axis off;
 set(handles.panel_Worksheet,'title',['Worksheet: Page ' num2str(handles.WorksheetCurrentPage) '/' num2str(max([1 max(pagenum)]))]);
 
 
-function click_Worksheet(hObject, eventdata, handles)
+function click_Worksheet(hObject, ~, handles)
 
 ch = get(handles.axes_Worksheet,'children');
 for c = 1:length(ch)
@@ -6529,7 +6529,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_WorksheetOptions.
-function push_WorksheetOptions_Callback(hObject, eventdata, handles)
+function push_WorksheetOptions_Callback(hObject, ~, handles)
 % hObject    handle to push_WorksheetOptions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6550,7 +6550,7 @@ end
 
 
 % --- Executes on button press in push_PageLeft.
-function push_PageLeft_Callback(hObject, eventdata, handles)
+function push_PageLeft_Callback(hObject, ~, handles)
 % hObject    handle to push_PageLeft (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6570,7 +6570,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_PageRight.
-function push_PageRight_Callback(hObject, eventdata, handles)
+function push_PageRight_Callback(hObject, ~, handles)
 % hObject    handle to push_PageRight (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6590,7 +6590,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_FrequencyZoom_Callback(hObject, eventdata, handles)
+function menu_FrequencyZoom_Callback(hObject, ~, handles)
 % hObject    handle to menu_FrequencyZoom (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6603,14 +6603,14 @@ end
 
 
 % --------------------------------------------------------------------
-function context_Worksheet_Callback(hObject, eventdata, handles)
+function context_Worksheet_Callback(hObject, ~, handles)
 % hObject    handle to context_Worksheet (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_WorksheetDelete_Callback(hObject, eventdata, handles)
+function menu_WorksheetDelete_Callback(hObject, ~, handles)
 % hObject    handle to menu_WorksheetDelete (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6634,7 +6634,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SortChronologically_Callback(hObject, eventdata, handles)
+function menu_SortChronologically_Callback(hObject, ~, handles)
 % hObject    handle to menu_SortChronologically (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6653,14 +6653,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function context_WorksheetOptions_Callback(hObject, eventdata, handles)
+function context_WorksheetOptions_Callback(hObject, ~, handles)
 % hObject    handle to context_WorksheetOptions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_OnePerLine_Callback(hObject, eventdata, handles)
+function menu_OnePerLine_Callback(hObject, ~, handles)
 % hObject    handle to menu_OnePerLine (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6679,7 +6679,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_IncludeTitle_Callback(hObject, eventdata, handles)
+function menu_IncludeTitle_Callback(hObject, ~, handles)
 % hObject    handle to menu_IncludeTitle (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6698,7 +6698,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_EditTitle_Callback(hObject, eventdata, handles)
+function menu_EditTitle_Callback(hObject, ~, handles)
 % hObject    handle to menu_EditTitle (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6713,7 +6713,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_WorksheetDimensions_Callback(hObject, eventdata, handles)
+function menu_WorksheetDimensions_Callback(hObject, ~, handles)
 % hObject    handle to menu_WorksheetDimensions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6735,7 +6735,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_ClearWorksheet_Callback(hObject, eventdata, handles)
+function menu_ClearWorksheet_Callback(hObject, ~, handles)
 % hObject    handle to menu_ClearWorksheet (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6762,14 +6762,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function context_ExportOptions_Callback(hObject, eventdata, handles)
+function context_ExportOptions_Callback(hObject, ~, handles)
 % hObject    handle to context_ExportOptions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_SonogramDimensions_Callback(hObject, eventdata, handles)
+function menu_SonogramDimensions_Callback(hObject, ~, handles)
 % hObject    handle to menu_SonogramDimensions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6785,7 +6785,7 @@ handles = UpdateWorksheet(handles);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_ScreenResolution_Callback(hObject, eventdata, handles)
+function menu_ScreenResolution_Callback(hObject, ~, handles)
 % hObject    handle to menu_ScreenResolution (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6797,14 +6797,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SonogramExport_Callback(hObject, eventdata, handles)
+function menu_SonogramExport_Callback(hObject, ~, handles)
 % hObject    handle to menu_SonogramExport (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_CustomResolution_Callback(hObject, eventdata, handles)
+function menu_CustomResolution_Callback(hObject, ~, handles)
 % hObject    handle to menu_CustomResolution (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6816,7 +6816,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_WorksheetView_Callback(hObject, eventdata, handles)
+function menu_WorksheetView_Callback(hObject, ~, handles)
 % hObject    handle to menu_WorksheetView (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6847,7 +6847,7 @@ set(fig,'visible','on');
 
 
 % --- Executes on button press in push_Macros.
-function push_Macros_Callback(hObject, eventdata, handles)
+function push_Macros_Callback(hObject, ~, handles)
 % hObject    handle to push_Macros (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6870,14 +6870,14 @@ end
 
 
 % --------------------------------------------------------------------
-function context_Macros_Callback(hObject, eventdata, handles)
+function context_Macros_Callback(hObject, ~, handles)
 % hObject    handle to context_Macros (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 
-function MacrosMenuclick(hObject, eventdata, handles)
+function MacrosMenuclick(hObject, ~, handles)
 
 handles.dbase = GetDBase(handles);
 
@@ -6890,7 +6890,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_IncludeTimestamp_Callback(hObject, eventdata, handles)
+function menu_IncludeTimestamp_Callback(hObject, ~, handles)
 % hObject    handle to menu_IncludeTimestamp (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6907,7 +6907,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_Portrait_Callback(hObject, eventdata, handles)
+function menu_Portrait_Callback(hObject, ~, handles)
 % hObject    handle to menu_Portrait (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6925,14 +6925,14 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_Orientation_Callback(hObject, eventdata, handles)
+function menu_Orientation_Callback(hObject, ~, handles)
 % hObject    handle to menu_Orientation (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_Landscape_Callback(hObject, eventdata, handles)
+function menu_Landscape_Callback(hObject, ~, handles)
 % hObject    handle to menu_Landscape (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6951,7 +6951,7 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_ImageResolution_Callback(hObject, eventdata, handles)
+function menu_ImageResolution_Callback(hObject, ~, handles)
 % hObject    handle to menu_ImageResolution (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6965,7 +6965,7 @@ handles.ExportSonogramResolution = str2num(answer{1});
 
 
 % --------------------------------------------------------------------
-function menu_ImageTimescale_Callback(hObject, eventdata, handles)
+function menu_ImageTimescale_Callback(hObject, ~, handles)
 % hObject    handle to menu_ImageTimescale (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6983,7 +6983,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_ScalebarDimensions_Callback(hObject, eventdata, handles)
+function menu_ScalebarDimensions_Callback(hObject, ~, handles)
 % hObject    handle to menu_ScalebarDimensions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7000,7 +7000,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_EditFigureTemplate_Callback(hObject, eventdata, handles)
+function menu_EditFigureTemplate_Callback(hObject, ~, handles)
 % hObject    handle to menu_EditFigureTemplate (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7009,7 +7009,7 @@ eg_Template_Editor(hObject);
 
 
 % --------------------------------------------------------------------
-function menu_LineWidth1_Callback(hObject, eventdata, handles)
+function menu_LineWidth1_Callback(hObject, ~, handles)
 % hObject    handle to menu_LineWidth1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7027,7 +7027,7 @@ handles = eg_Overlay(handles);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_LineWidth2_Callback(hObject, eventdata, handles)
+function menu_LineWidth2_Callback(hObject, ~, handles)
 % hObject    handle to menu_LineWidth2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7046,7 +7046,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_BackgroundColor_Callback(hObject, eventdata, handles)
+function menu_BackgroundColor_Callback(hObject, ~, handles)
 % hObject    handle to menu_BackgroundColor (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7070,13 +7070,13 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_Colormap_Callback(hObject, eventdata, handles)
+function menu_Colormap_Callback(hObject, ~, handles)
 % hObject    handle to menu_Colormap (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
-function ColormapClick(hObject, eventdata, handles)
+function ColormapClick(hObject, ~, handles)
 
 if strcmp(get(hObject,'Label'),'(Default)')
     colormap('default');
@@ -7095,7 +7095,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_OverlayTop_Callback(hObject, eventdata, handles)
+function menu_OverlayTop_Callback(hObject, ~, handles)
 % hObject    handle to menu_OverlayTop (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7112,14 +7112,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_Overlay_Callback(hObject, eventdata, handles)
+function menu_Overlay_Callback(hObject, ~, handles)
 % hObject    handle to menu_Overlay (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_OverlayBottom_Callback(hObject, eventdata, handles)
+function menu_OverlayBottom_Callback(hObject, ~, handles)
 % hObject    handle to menu_OverlayBottom (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7175,7 +7175,7 @@ ylim(yl);
 
 
 % --------------------------------------------------------------------
-function menu_SonogramParameters_Callback(hObject, eventdata, handles)
+function menu_SonogramParameters_Callback(hObject, ~, handles)
 % hObject    handle to menu_SonogramParameters (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7207,7 +7207,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_EventParams1_Callback(hObject, eventdata, handles)
+function menu_EventParams1_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventParams1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7218,7 +7218,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_EventParams2_Callback(hObject, eventdata, handles)
+function menu_EventParams2_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventParams2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7254,7 +7254,7 @@ handles = DetectEvents(handles,axnum);
 
 
 % --------------------------------------------------------------------
-function menu_FunctionParams1_Callback(hObject, eventdata, handles)
+function menu_FunctionParams1_Callback(hObject, ~, handles)
 % hObject    handle to menu_FunctionParams1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7264,7 +7264,7 @@ handles = FunctionParams(handles,1);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_FunctionParams2_Callback(hObject, eventdata, handles)
+function menu_FunctionParams2_Callback(hObject, ~, handles)
 % hObject    handle to menu_FunctionParams2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7304,7 +7304,7 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_Split_Callback(hObject, eventdata, handles)
+function menu_Split_Callback(hObject, ~, handles)
 % hObject    handle to menu_Split (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7367,7 +7367,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SourceSoundAmplitude_Callback(hObject, eventdata, handles)
+function menu_SourceSoundAmplitude_Callback(hObject, ~, handles)
 % hObject    handle to menu_SourceSoundAmplitude (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7389,7 +7389,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SourceTopPlot_Callback(hObject, eventdata, handles)
+function menu_SourceTopPlot_Callback(hObject, ~, handles)
 % hObject    handle to menu_SourceTopPlot (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7411,7 +7411,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SourceBottomPlot_Callback(hObject, eventdata, handles)
+function menu_SourceBottomPlot_Callback(hObject, ~, handles)
 % hObject    handle to menu_SourceBottomPlot (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7467,7 +7467,7 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_Concatenate_Callback(hObject, eventdata, handles)
+function menu_Concatenate_Callback(hObject, ~, handles)
 % hObject    handle to menu_Concatenate (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7510,7 +7510,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_DontPlot_Callback(hObject, eventdata, handles)
+function menu_DontPlot_Callback(hObject, ~, handles)
 % hObject    handle to menu_DontPlot (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7527,7 +7527,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_IncludeSoundNone_Callback(hObject, eventdata, handles)
+function menu_IncludeSoundNone_Callback(hObject, ~, handles)
 % hObject    handle to menu_IncludeSoundNone (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7538,7 +7538,7 @@ set(hObject,'checked','on');
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_IncludeSoundOnly_Callback(hObject, eventdata, handles)
+function menu_IncludeSoundOnly_Callback(hObject, ~, handles)
 % hObject    handle to menu_IncludeSoundOnly (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7549,7 +7549,7 @@ set(hObject,'checked','on');
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_IncludeSoundMix_Callback(hObject, eventdata, handles)
+function menu_IncludeSoundMix_Callback(hObject, ~, handles)
 % hObject    handle to menu_IncludeSoundMix (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7615,7 +7615,7 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_PlayReverse_Callback(hObject, eventdata, handles)
+function menu_PlayReverse_Callback(hObject, ~, handles)
 % hObject    handle to menu_PlayReverse (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7631,14 +7631,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_FilterList_Callback(hObject, eventdata, handles)
+function menu_FilterList_Callback(hObject, ~, handles)
 % hObject    handle to menu_FilterList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_FilterParameters_Callback(hObject, eventdata, handles)
+function menu_FilterParameters_Callback(hObject, ~, handles)
 % hObject    handle to menu_FilterParameters (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7699,7 +7699,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in check_Shuffle.
-function check_Shuffle_Callback(hObject, eventdata, handles)
+function check_Shuffle_Callback(hObject, ~, handles)
 % hObject    handle to check_Shuffle (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7721,7 +7721,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AmplitudeAutoRange_Callback(hObject, eventdata, handles)
+function menu_AmplitudeAutoRange_Callback(hObject, ~, handles)
 % hObject    handle to menu_AmplitudeAutoRange (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7832,7 +7832,7 @@ set(handles.PropertyObjectHandles,'callback','electro_gui(''ChangeProperty'',gcb
 set(handles.PropertyTextHandles,'buttondownfcn','electro_gui(''ClickPropertyText'',gcbo,[],guidata(gcbo))');
 
 
-function ChangeProperty(hObject, eventdata, handles)
+function ChangeProperty(hObject, ~, handles)
 
 filenum = str2num(get(handles.edit_FileNumber,'string'));
 f = find(handles.PropertyObjectHandles==hObject);
@@ -7876,7 +7876,7 @@ end
 guidata(hObject, handles);
 
 
-function ClickPropertyText(hObject, eventdata, handles)
+function ClickPropertyText(hObject, ~, handles)
 
 if strcmp(get(hObject,'enable'),'off')
     filenum = str2num(get(handles.edit_FileNumber,'string'));
@@ -7928,7 +7928,7 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_FilterSound_Callback(hObject, eventdata, handles)
+function menu_FilterSound_Callback(hObject, ~, handles)
 % hObject    handle to menu_FilterSound (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7944,21 +7944,21 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AddProperty_Callback(hObject, eventdata, handles)
+function menu_AddProperty_Callback(hObject, ~, handles)
 % hObject    handle to menu_AddProperty (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function context_Properties_Callback(hObject, eventdata, handles)
+function context_Properties_Callback(hObject, ~, handles)
 % hObject    handle to context_Properties (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_AddPropertyString_Callback(hObject, eventdata, handles)
+function menu_AddPropertyString_Callback(hObject, ~, handles)
 % hObject    handle to menu_AddPropertyString (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7969,7 +7969,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AddPropertyBoolean_Callback(hObject, eventdata, handles)
+function menu_AddPropertyBoolean_Callback(hObject, ~, handles)
 % hObject    handle to menu_AddPropertyBoolean (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7980,7 +7980,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AddPropertyList_Callback(hObject, eventdata, handles)
+function menu_AddPropertyList_Callback(hObject, ~, handles)
 % hObject    handle to menu_AddPropertyList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8087,7 +8087,7 @@ handles = eg_LoadProperties(handles);
 
 
 % --------------------------------------------------------------------
-function menu_RemoveProperty_Callback(hObject, eventdata, handles)
+function menu_RemoveProperty_Callback(hObject, ~, handles)
 % hObject    handle to menu_RemoveProperty (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8147,7 +8147,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_Search_Callback(hObject, eventdata, handles)
+function menu_Search_Callback(hObject, ~, handles)
 % hObject    handle to menu_Search (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8259,7 +8259,7 @@ handles = eg_LoadFile(handles);
 
 
 % --------------------------------------------------------------------
-function menu_SearchNew_Callback(hObject, eventdata, handles)
+function menu_SearchNew_Callback(hObject, ~, handles)
 % hObject    handle to menu_SearchNew (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8269,7 +8269,7 @@ handles = SearchProperties(handles,1);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_SearchAnd_Callback(hObject, eventdata, handles)
+function menu_SearchAnd_Callback(hObject, ~, handles)
 % hObject    handle to menu_SearchAnd (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8279,7 +8279,7 @@ handles = SearchProperties(handles,2);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_SearchOr_Callback(hObject, eventdata, handles)
+function menu_SearchOr_Callback(hObject, ~, handles)
 % hObject    handle to menu_SearchOr (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8289,7 +8289,7 @@ handles = SearchProperties(handles,3);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_SearchNot_Callback(hObject, eventdata, handles)
+function menu_SearchNot_Callback(hObject, ~, handles)
 % hObject    handle to menu_SearchNot (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8318,7 +8318,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_RenameProperty_Callback(hObject, eventdata, handles)
+function menu_RenameProperty_Callback(hObject, ~, handles)
 % hObject    handle to menu_RenameProperty (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8356,7 +8356,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_FillProperty_Callback(hObject, eventdata, handles)
+function menu_FillProperty_Callback(hObject, ~, handles)
 % hObject    handle to menu_FillProperty (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8472,7 +8472,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_DefaultPropertyValue_Callback(hObject, eventdata, handles)
+function menu_DefaultPropertyValue_Callback(hObject, ~, handles)
 % hObject    handle to menu_DefaultPropertyValue (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8545,7 +8545,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_CleanUpList_Callback(hObject, eventdata, handles)
+function menu_CleanUpList_Callback(hObject, ~, handles)
 % hObject    handle to menu_CleanUpList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8584,7 +8584,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_ProgressBarColor_Callback(hObject, eventdata, handles)
+function menu_ProgressBarColor_Callback(hObject, ~, handles)
 % hObject    handle to menu_ProgressBarColor (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8597,7 +8597,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AnimationNone_Callback(hObject, eventdata, handles)
+function menu_AnimationNone_Callback(hObject, ~, handles)
 % hObject    handle to menu_AnimationNone (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8607,7 +8607,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AnimationProgressBar_Callback(hObject, eventdata, handles)
+function menu_AnimationProgressBar_Callback(hObject, ~, handles)
 % hObject    handle to menu_AnimationProgressBar (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8616,7 +8616,7 @@ handles = ClickAnimation(handles, hObject);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_AnimationArrowAbove_Callback(hObject, eventdata, handles)
+function menu_AnimationArrowAbove_Callback(hObject, ~, handles)
 % hObject    handle to menu_AnimationArrowAbove (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8625,7 +8625,7 @@ handles = ClickAnimation(handles, hObject);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_AnimationArrowBelow_Callback(hObject, eventdata, handles)
+function menu_AnimationArrowBelow_Callback(hObject, ~, handles)
 % hObject    handle to menu_AnimationArrowBelow (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8644,7 +8644,7 @@ set(hObject,'checked','on');
 
 
 % --------------------------------------------------------------------
-function menu_Animation_Callback(hObject, eventdata, handles)
+function menu_Animation_Callback(hObject, ~, handles)
 % hObject    handle to menu_Animation (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8653,7 +8653,7 @@ function menu_Animation_Callback(hObject, eventdata, handles)
 
 
 % --------------------------------------------------------------------
-function menu_ValueFollower_Callback(hObject, eventdata, handles)
+function menu_ValueFollower_Callback(hObject, ~, handles)
 % hObject    handle to menu_ValueFollower (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8664,7 +8664,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SonogramFollower_Callback(hObject, eventdata, handles)
+function menu_SonogramFollower_Callback(hObject, ~, handles)
 % hObject    handle to menu_SonogramFollower (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8679,21 +8679,21 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_ScalebarHeight_Callback(hObject, eventdata, handles)
+function menu_ScalebarHeight_Callback(hObject, ~, handles)
 % hObject    handle to menu_ScalebarHeight (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function context_UpdateList_Callback(hObject, eventdata, handles)
+function context_UpdateList_Callback(hObject, ~, handles)
 % hObject    handle to context_UpdateList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_ChangeFiles_Callback(hObject, eventdata, handles)
+function menu_ChangeFiles_Callback(hObject, ~, handles)
 % hObject    handle to menu_ChangeFiles (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8714,7 +8714,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_DeleteFiles_Callback(hObject, eventdata, handles)
+function menu_DeleteFiles_Callback(hObject, ~, handles)
 % hObject    handle to menu_DeleteFiles (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8838,7 +8838,7 @@ handles.FileLength(newnum) = bck;
 
 
 % --------------------------------------------------------------------
-function menu_AutoApplyYLim_Callback(hObject, eventdata, handles)
+function menu_AutoApplyYLim_Callback(hObject, ~, handles)
 % hObject    handle to menu_AutoApplyYLim (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8891,3 +8891,239 @@ dbase.AnalysisState.EventList = get(handles.popup_EventList,'string');
 dbase.AnalysisState.CurrentFile = str2num(get(handles.edit_FileNumber,'string'));
 dbase.AnalysisState.EventWhichPlot = handles.EventWhichPlot;
 dbase.AnalysisState.EventLims = handles.EventLims;
+
+function suppressStupidCallbackWarnings()
+edit_FileNumber_Callback;
+edit_FileNumber_CreateFcn;
+push_PreviousFile_Callback;
+push_NextFile_Callback;
+list_Files_Callback;
+list_Files_CreateFcn;
+push_Properties_Callback;
+slider_Time_Callback;
+slider_Time_CreateFcn;
+menu_Experiment_Callback;
+push_Play_Callback;
+push_TimescaleRight_Callback;
+push_TimescaleLeft_Callback;
+edit_Timescale_Callback;
+edit_Timescale_CreateFcn;
+context_Sonogram_Callback;
+menu_AlgorithmList_Callback;
+menu_AutoCalculate_Callback;
+AlgorithmMenuClick;
+FilterMenuClick;
+push_Calculate_Callback;
+menu_ColorScale_Callback;
+menu_FreqLimits_Callback;
+context_Amplitude_Callback;
+menu_AutoThreshold_Callback;
+menu_AmplitudeAxisRange_Callback;
+menu_SmoothingWindow_Callback;
+click_Amplitude;
+menu_SetThreshold_Callback;
+click_loadfile;
+menu_LongFiles_Callback;
+context_Segments_Callback;
+menu_SegmenterList_Callback;
+SegmenterMenuClick;
+click_segmentaxes;
+push_Segment_Callback;
+menu_AutoSegment_Callback;
+menu_SegmentParameters_Callback;
+menu_DeleteAll_Callback;
+menu_UndeleteAll_Callback;
+popup_Function1_Callback;
+popup_Function1_CreateFcn;
+popup_Function2_Callback;
+popup_Function2_CreateFcn;
+popup_Channel1_Callback;
+popup_Channel1_CreateFcn;
+popup_Channel2_Callback;
+popup_Channel2_CreateFcn;
+context_Channel1_Callback;
+menu_PeakDetect1_Callback;
+context_Channel2_Callback;
+menu_PeakDetect2_Callback;
+menu_AllowYZoom1_Callback;
+menu_AllowYZoom2_Callback;
+menu_AutoLimits1_Callback;
+menu_AutoLimits2_Callback;
+menu_SetLimits1_Callback;
+menu_SetLimits2_Callback;
+popup_EventDetector1_Callback;
+popup_EventDetector1_CreateFcn;
+popup_EventDetector2_Callback;
+popup_EventDetector2_CreateFcn;
+menu_Events1_Callback;
+menu_EventAutoDetect1_Callback;
+menu_EventAutoThreshold1_Callback;
+menu_EventSetThreshold1_Callback;
+menu_Events2_Callback;
+menu_EventAutoDetect2_Callback;
+menu_EventAutoThreshold2_Callback;
+menu_EventSetThreshold2_Callback;
+push_Detect1_Callback;
+push_Detect2_Callback;
+ClickEventSymbol;
+EventsDisplayClick;
+menu_ChannelColors1_Callback;
+menu_PlotColor1_Callback;
+menu_ThresholdColor1_Callback;
+menu_ChannelColors2_Callback;
+menu_PlotColor2_Callback;
+menu_ThresholdColor2_Callback;
+push_BrightnessUp_Callback;
+push_BrightnessDown_Callback;
+push_OffsetUp_Callback;
+push_OffsetDown_Callback;
+menu_AmplitudeColors_Callback;
+menu_AmplitudeColor_Callback;
+menu_AmplitudeThresholdColor_Callback;
+push_PlayMix_Callback;
+edit_SoundWeight_Callback;
+edit_SoundWeight_CreateFcn;
+edit_TopWeight_Callback;
+edit_TopWeight_CreateFcn;
+edit_BottomWeight_Callback;
+edit_BottomWeight_CreateFcn;
+edit_SoundClipper_Callback;
+edit_SoundClipper_CreateFcn;
+edit_TopClipper_Callback;
+edit_TopClipper_CreateFcn;
+edit_BottomClipper_Callback;
+edit_BottomClipper_CreateFcn;
+check_Sound_Callback;
+check_TopPlot_Callback;
+check_BottomPlot_Callback;
+push_SoundOptions_Callback;
+menu_EventsDisplay1_Callback;
+menu_EventsDisplay2_Callback;
+menu_SelectionParameters1_Callback;
+menu_SelectionParameters2_Callback;
+popup_EventList_CreateFcn;
+context_EventViewer_Callback;
+menu_PlotToAnalyze_Callback;
+menu_AnalyzeTop_Callback;
+menu_ViewerDisplay_Callback;
+menu_AnalyzeBottom_Callback;
+menu_DisplayValues_Callback;
+menu_DisplayFeatures_Callback;
+push_DisplayEvents_Callback;
+menu_AutoDisplayEvents_Callback;
+menu_EventsAxisLimits_Callback;
+context_SoundOptions_Callback;
+menu_SoundWeights_Callback;
+menu_SoundClippers_Callback;
+menu_PlaySpeed_Callback;
+menu_ProgressBar_Callback;
+menu_ProgressSoundWave_Callback;
+menu_ProgressSonogram_Callback;
+menu_ProgressSegments_Callback;
+menu_ProgressAmplitude_Callback;
+menu_ProgressTop_Callback;
+menu_ProgressBottom_Callback;
+ChangeProgress;
+menu_XAxis_Callback;
+menu_Yaxis_Callback;
+menu_YAxis_Callback;
+XAxisMenuClick;
+YAxisMenuClick;
+popup_Export_Callback;
+popup_Export_CreateFcn;
+push_Export_Callback;
+push_ExportOptions_Callback;
+radio_Matlab_Callback;
+radio_PowerPoint_Callback;
+radio_Files_Callback;
+radio_Clipboard_Callback;
+push_UpdateFileList_Callback;
+push_WorksheetAppend_Callback;
+UpdateWorksheet;
+click_Worksheet;
+push_WorksheetOptions_Callback;
+push_PageLeft_Callback;
+push_PageRight_Callback;
+menu_FrequencyZoom_Callback;
+context_Worksheet_Callback;
+menu_WorksheetDelete_Callback;
+menu_SortChronologically_Callback;
+context_WorksheetOptions_Callback;
+menu_OnePerLine_Callback;
+menu_IncludeTitle_Callback;
+menu_EditTitle_Callback;
+menu_WorksheetDimensions_Callback;
+menu_ClearWorksheet_Callback;
+context_ExportOptions_Callback;
+menu_SonogramDimensions_Callback;
+menu_ScreenResolution_Callback;
+menu_SonogramExport_Callback;
+menu_CustomResolution_Callback;
+menu_WorksheetView_Callback;
+ViewWorksheet;
+push_Macros_Callback;
+context_Macros_Callback;
+MacrosMenuclick;
+menu_IncludeTimestamp_Callback;
+menu_Portrait_Callback;
+menu_Orientation_Callback;
+menu_Landscape_Callback;
+menu_ImageResolution_Callback;
+menu_ImageTimescale_Callback;
+menu_ScalebarDimensions_Callback;
+menu_EditFigureTemplate_Callback;
+menu_LineWidth1_Callback;
+menu_LineWidth2_Callback;
+setLineWidth;
+menu_BackgroundColor_Callback;
+menu_Colormap_Callback;
+ColormapClick;
+menu_OverlayTop_Callback;
+menu_Overlay_Callback;
+menu_OverlayBottom_Callback;
+menu_SonogramParameters_Callback;
+menu_EventParams1_Callback;
+menu_EventParams2_Callback;
+menu_FunctionParams1_Callback;
+menu_FunctionParams2_Callback;
+menu_Split_Callback;
+menu_SourceSoundAmplitude_Callback;
+menu_SourceTopPlot_Callback;
+menu_SourceBottomPlot_Callback;
+menu_Concatenate_Callback;
+menu_DontPlot_Callback;
+menu_IncludeSoundNone_Callback;
+menu_IncludeSoundOnly_Callback;
+menu_IncludeSoundMix_Callback;
+menu_PlayReverse_Callback;
+menu_FilterList_Callback;
+menu_FilterParameters_Callback;
+menu_FilterSound_Callback;
+menu_AddProperty_Callback;
+context_Properties_Callback;
+menu_AddPropertyString_Callback;
+menu_AddPropertyBoolean_Callback;
+menu_AddPropertyList_Callback;
+menu_RemoveProperty_Callback;
+menu_Search_Callback;
+menu_SearchNew_Callback;
+menu_SearchAnd_Callback;
+menu_SearchOr_Callback;
+menu_SearchNot_Callback;
+menu_RenameProperty_Callback;
+menu_FillProperty_Callback;
+menu_DefaultPropertyValue_Callback;
+menu_CleanUpList_Callback;
+menu_ProgressBarColor_Callback;
+menu_AnimationNone_Callback;
+menu_AnimationProgressBar_Callback;
+menu_AnimationArrowAbove_Callback;
+menu_AnimationArrowBelow_Callback;
+menu_Animation_Callback;
+menu_ValueFollower_Callback;
+menu_SonogramFollower_Callback;
+menu_ScalebarHeight_Callback;
+context_UpdateList_Callback;
+menu_ChangeFiles_Callback;
+menu_DeleteFiles_Callback;
+menu_AutoApplyYLim_Callback;
