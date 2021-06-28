@@ -8686,7 +8686,7 @@ function menu_ScalebarHeight_Callback(hObject, ~, handles)
 
 
 % --------------------------------------------------------------------
-function context_UpdateList_Callback(hObject, ~, handles)
+function context_UpdateList_Callback(hObject, ~, handles) %#ok<*INUSD>
 % hObject    handle to context_UpdateList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8789,7 +8789,7 @@ end
 
 % Initialize variables for new files
 bck = handles.SoundThresholds(oldnum);
-handles.SoundThresholds = repmat(inf,1,handles.TotalFileNumber);
+handles.SoundThresholds = inf(1,handles.TotalFileNumber);
 handles.SoundThresholds(newnum) = bck;
 
 bck = handles.DatesAndTimes(oldnum);
@@ -8861,7 +8861,7 @@ end
 guidata(hObject, handles);
 
 
-function dbase = GetDBase(handles);
+function dbase = GetDBase(handles)
 
 dbase.PathName = handles.path_name;
 dbase.Times = handles.DatesAndTimes;
