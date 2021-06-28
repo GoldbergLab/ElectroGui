@@ -1046,7 +1046,7 @@ function [selectedChannelNum, selectedChannelName, isSound] = getSelectedChannel
 channelOptionList = get(handles.popup_Channels(axnum),'string');
 selectedChannelName = channelOptionList{get(handles.popup_Channels(axnum),'value')};
 selectedChannelNum = channelNameToNum(selectedChannelName);
-isSound = (selectedChannelNum == 2);
+isSound = (selectedChannelNum == 0);
 function selectedEventDetector = getSelectedEventDetector(handles, axnum)
 % Return the name of the selected event detector from the specified axis.
 eventDetectorOptionList = get(handles.popup_EventDetectors(axnum),'string');
@@ -1827,7 +1827,7 @@ end
 set(handles.list_Files,'string',str);
 
 
-str = {'(None)','Sound'};
+str = {'(None)','Channel 0 - Sound'};
 for c = 1:length(handles.chan_files)
     if ~isempty(handles.chan_files{c})
         str{end+1} = ['Channel ' num2str(c)];
