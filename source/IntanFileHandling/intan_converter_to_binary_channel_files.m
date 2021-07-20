@@ -214,21 +214,37 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
                 songData.timeVector = abs([year, month, day, hour, minute, second]);
                 songData.metaData = sprintf('%s\t%s%d\r\n', Intan_file_dir(j).name, 'Motif file', motif_number);
                 songData.deltaT = delta_t;
-                effCopyData = songData;
+                
+                % If no digital signals are present (typically DAF EC
+                % signal) then don't bother recording them. Because it
+                % won't work. Because they aren't there.
+                recordEffCopy = isfield(data, 'board_dig_in_data');
+                
+                if recordEffCopy
+                    effCopyData = songData;
+                end
                 
                 if k > (numel(data.board_adc_data(n,:))- buffer_end*fs) %&& k >(numel(data.board_adc_data(2*n-1,:))- buffer_start*fs)
                     songData.data = data.board_adc_data((n),(k-(buffer_start*fs)):(numel(data.board_adc_data(n,:))));
-                    effCopyData.data = data.board_dig_in_data((n),(k-(buffer_start*fs)):(numel(data.board_adc_data(n,:))));
+                    if recordEffCopy
+                        effCopyData.data = data.board_dig_in_data((n),(k-(buffer_start*fs)):(numel(data.board_adc_data(n,:))));
+                    end
                 elseif k <(buffer_start*fs+1)
-                    songData.data =       data.board_adc_data((n),1:(k+(buffer_end*fs)));
-                    effCopyData.data = data.board_dig_in_data((n),1:(k+(buffer_end*fs)));
+                    songData.data =       data.board_adc_data((n),1:(k+(buffer_end*fs)));\
+                    if recordEffCopy
+                        effCopyData.data = data.board_dig_in_data((n),1:(k+(buffer_end*fs)));
+                    end
                 else
                     songData.data = data.board_adc_data((n),(k-(buffer_start*fs)):(k+(buffer_end*fs)));
-                    effCopyData.data = data.board_dig_in_data((n),(k-(buffer_start*fs)):(k+(buffer_end*fs)));
+                    if recordEffCopy
+                        effCopyData.data = data.board_dig_in_data((n),(k-(buffer_start*fs)):(k+(buffer_end*fs)));
+                    end
                 end
                 
                 writeIntanNcFile(full_songfile_name,    songData.timeVector,    songData.deltaT,    songChannel,    songData.metaData,    songData.data,    true);
-                writeIntanNcFile(full_effcopyfile_name, effCopyData.timeVector, effCopyData.deltaT, effCopyChannel, effCopyData.metaData, effCopyData.data, true);
+                if recordEffCopy
+                    writeIntanNcFile(full_effcopyfile_name, effCopyData.timeVector, effCopyData.deltaT, effCopyChannel, effCopyData.metaData, effCopyData.data, true);
+                end
                 
                 fprintf('\t\tWriting chunk: %f seconds\n', length(songData.data)/fs);
                 
