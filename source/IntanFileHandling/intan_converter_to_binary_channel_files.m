@@ -230,7 +230,7 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
                         effCopyData.data = data.board_dig_in_data((n),(k-(buffer_start*fs)):(numel(data.board_adc_data(n,:))));
                     end
                 elseif k <(buffer_start*fs+1)
-                    songData.data =       data.board_adc_data((n),1:(k+(buffer_end*fs)));\
+                    songData.data =       data.board_adc_data((n),1:(k+(buffer_end*fs)));
                     if recordEffCopy
                         effCopyData.data = data.board_dig_in_data((n),1:(k+(buffer_end*fs)));
                     end
