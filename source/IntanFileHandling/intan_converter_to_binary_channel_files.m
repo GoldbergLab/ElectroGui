@@ -1,4 +1,4 @@
-function intan_converter_to_binary_channel_files(acc_array, acc_present, path_input)
+function intan_converter_to_binary_channel_files(acc_array, acc_present, path_input, start_index)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % intan_converter_to_binary_channel_files: Convert Intan .rhd files to
 %   individual binary .nc channel files
@@ -73,6 +73,10 @@ function intan_converter_to_binary_channel_files(acc_array, acc_present, path_in
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+if ~exist('start_index')
+    start_index = 1;
+end
+
 if ~exist('path_input', 'var') || isempty(path_input)
     path_input = ...
         uigetdir('.', 'Select RHD data folder for extraction');  % directory where the rhd files to be analysed are stored
@@ -118,12 +122,12 @@ file_count=1;
 % acc_present=0; %(variable to check if accelerometer signal is present.)
 
 
-for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory (one recording session)
-    fprintf('Reading rhd file %d of %d\n', j, numel(Intan_file_dir));
+for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files in one directory (one recording session)
+    fprintf('Reading rhd file %d of %d\n', file_num, numel(Intan_file_dir));
     
-    data = read_Intan_RHD2000_file_to_struct(path_input, Intan_file_dir(j).name, false);       %reads *rhd files into a data struct.
+    data = read_Intan_RHD2000_file_to_struct(path_input, Intan_file_dir(file_num).name, false);       %reads *rhd files into a data struct.
     
-    rhd_file = Intan_file_dir(j).name;
+    rhd_file = Intan_file_dir(file_num).name;
     hour_filename = str2double(rhd_file((numel(rhd_file)-4-5):(numel(rhd_file)-4-4)));
     minute_filename = str2double(rhd_file((numel(rhd_file)-4-3):(numel(rhd_file)-4-2)));
     second_filename = str2double(rhd_file((numel(rhd_file)-4-1):(numel(rhd_file)-4)));
@@ -137,12 +141,12 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
     total_headstage = size(data.amplifier_channels,2)/channel_count;
     headstage_count=1;
     
-    if j==1
+    if file_num==start_index
         motif_number_array=zeros(1,total_headstage);   % needs to be initialized only once
     end
     
     n_acc=0; % used later to keep track of headstages with acc based on the acc_array input by user before running this script
-    if (j==1) && (isfield(data, 'aux_input_channels'))
+    if (file_num==start_index) && (isfield(data, 'aux_input_channels'))
         acc_present=1;
         number_aux = size(data.aux_input_channels, 2);
         fs_aux = data.frequency_parameters.aux_input_sample_rate;
@@ -152,8 +156,8 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%writing the song file on chan 0, efference copy on chan 17
     
-    for n = 1:total_headstage
-        fprintf('\tHandling headstage %d of %d\n', n, total_headstage);
+    for headstage_num = 1:total_headstage
+        fprintf('\tHandling headstage %d of %d\n', headstage_num, total_headstage);
 
         path_output = sprintf('%s%sHeadstage%d', path_input, '\Data_extracted\',headstage_count);   %new directory where extracted files will be stored
         [success, msg, err] = mkdir(path_output);
@@ -161,24 +165,24 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
             error('Error while making headstage subfolder:\n%s\n%s', err, msg);
         end
         
-        motif_number=motif_number_array(n);
+        motif_number=motif_number_array(headstage_num);
         %k=(buffer_start*fs)+1;
         k=1;
         
-        if (acc_present == 1) && (acc_array(n)==1)
+        if (acc_present == 1) && (acc_array(headstage_num)==1)
             n_acc=n_acc+1;
         end
         
-        while k < numel(data.board_adc_data(n,:))   %going through the analog channel for song
+        while k < numel(data.board_adc_data(headstage_num,:))   %going through the analog channel for song
             hour=hour_first;
             minute=minute_first;
             second=second_first;
             
-            if abs(data.board_adc_data(n,k)) > 0.6 %|| abs((data.amplifier_data(1,k)*unit)) > 0.003  %checks for stims if it is NOT a song file ************************ 12/4/2020 Anna Changed from 0.17 to 0.25 *** 12/16/2020 Anna Changed from 0.25 to 0.6
+            if abs(data.board_adc_data(headstage_num,k)) > 0.6 %|| abs((data.amplifier_data(1,k)*unit)) > 0.003  %checks for stims if it is NOT a song file ************************ 12/4/2020 Anna Changed from 0.17 to 0.25 *** 12/16/2020 Anna Changed from 0.25 to 0.6
                 % ***** 1/3/2021 Anna Changed from 0.6 to 0.7 (for the files from 12/24/2020)
            
                 motif_number=motif_number+1;
-                motif_number_array(n)=motif_number;
+                motif_number_array(headstage_num)=motif_number;
                 %k
 %                 fprintf ('headstage number= %f\n', n);
 %                 fprintf ('motif number = %f\n', motif_number);
@@ -205,14 +209,14 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
                 effCopyChannel = 17;
                 
                 time_string= sprintf('%s%s%s',num2str(hour_filename), num2str(minute_filename),num2str(second_filename,'% 10.0f')); %this is only for labelling txt files and does not get updated for the same rhd file
-                songfile_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(n),date_string, time_string, songChannel);
+                songfile_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(headstage_num),date_string, time_string, songChannel);
                 full_songfile_name = fullfile(path_output,songfile_name);
                 
-                effcopyfile_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(n),date_string, time_string, effCopyChannel);
+                effcopyfile_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(headstage_num),date_string, time_string, effCopyChannel);
                 full_effcopyfile_name = fullfile(path_output,effcopyfile_name);
                 
                 songData.timeVector = abs([year, month, day, hour, minute, second]);
-                songData.metaData = sprintf('%s\t%s%d\r\n', Intan_file_dir(j).name, 'Motif file', motif_number);
+                songData.metaData = sprintf('%s\t%s%d\r\n', Intan_file_dir(file_num).name, 'Motif file', motif_number);
                 songData.deltaT = delta_t;
                 
                 % If no digital signals are present (typically DAF EC
@@ -224,20 +228,20 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
                     effCopyData = songData;
                 end
                 
-                if k > (numel(data.board_adc_data(n,:))- buffer_end*fs) %&& k >(numel(data.board_adc_data(2*n-1,:))- buffer_start*fs)
-                    songData.data = data.board_adc_data((n),(k-(buffer_start*fs)):(numel(data.board_adc_data(n,:))));
+                if k > (numel(data.board_adc_data(headstage_num,:))- buffer_end*fs) %&& k >(numel(data.board_adc_data(2*n-1,:))- buffer_start*fs)
+                    songData.data = data.board_adc_data((headstage_num),(k-(buffer_start*fs)):(numel(data.board_adc_data(headstage_num,:))));
                     if recordEffCopy
-                        effCopyData.data = data.board_dig_in_data((n),(k-(buffer_start*fs)):(numel(data.board_adc_data(n,:))));
+                        effCopyData.data = data.board_dig_in_data((headstage_num),(k-(buffer_start*fs)):(numel(data.board_adc_data(headstage_num,:))));
                     end
                 elseif k <(buffer_start*fs+1)
-                    songData.data =       data.board_adc_data((n),1:(k+(buffer_end*fs)));
+                    songData.data =       data.board_adc_data((headstage_num),1:(k+(buffer_end*fs)));
                     if recordEffCopy
-                        effCopyData.data = data.board_dig_in_data((n),1:(k+(buffer_end*fs)));
+                        effCopyData.data = data.board_dig_in_data((headstage_num),1:(k+(buffer_end*fs)));
                     end
                 else
-                    songData.data = data.board_adc_data((n),(k-(buffer_start*fs)):(k+(buffer_end*fs)));
+                    songData.data = data.board_adc_data((headstage_num),(k-(buffer_start*fs)):(k+(buffer_end*fs)));
                     if recordEffCopy
-                        effCopyData.data = data.board_dig_in_data((n),(k-(buffer_start*fs)):(k+(buffer_end*fs)));
+                        effCopyData.data = data.board_dig_in_data((headstage_num),(k-(buffer_start*fs)):(k+(buffer_end*fs)));
                     end
                 end
                 
@@ -255,7 +259,7 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
                 %%%% This section writes the accelerometer data if present
                 %%%% for the coresponding song-containg section
                 
-                if (acc_present == 1) && (acc_array(n)==1)
+                if (acc_present == 1) && (acc_array(headstage_num)==1)
                     
                     k_aux= round(fs_aux*(k/fs));   % since sampling freq of analg chans and acc chans are different
                     if k_aux < 1
@@ -280,23 +284,23 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
                     
                     time_string= sprintf('%s%s%s',num2str(hour_filename), num2str(minute_filename),num2str(second_filename,'% 10.0f')); %this is only for labelling txt files and does not get updated for the same rhd file
                     
-                    accfile1_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(n),date_string, time_string, acc1Channel);
+                    accfile1_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(headstage_num),date_string, time_string, acc1Channel);
                     full_accfile1_name = fullfile(path_output,accfile1_name);
                     
-                    accfile2_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(n),date_string, time_string, acc2Channel);
+                    accfile2_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(headstage_num),date_string, time_string, acc2Channel);
                     full_accfile2_name = fullfile(path_output,accfile2_name);
                     
-                    accfile3_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(n),date_string, time_string, acc3Channel);
+                    accfile3_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(headstage_num),date_string, time_string, acc3Channel);
                     full_accfile3_name = fullfile(path_output,accfile3_name);
                     
                     acc1.timeVector = abs([year, month, day, hour, minute, second]);
-                    acc1.metaData = sprintf('%s\t%s%d\r\n', Intan_file_dir(j).name, 'Motif file', motif_number);
+                    acc1.metaData = sprintf('%s\t%s%d\r\n', Intan_file_dir(file_num).name, 'Motif file', motif_number);
                     acc1.deltaT = delta_t;
                     
                     acc2 = acc1;
                     acc3 = acc1;
                     
-                    if k > (numel(data.board_adc_data(n,:))- buffer_end*fs) %&& k >(numel(data.board_adc_data(2*n-1,:))- buffer_start*fs)
+                    if k > (numel(data.board_adc_data(headstage_num,:))- buffer_end*fs) %&& k >(numel(data.board_adc_data(2*n-1,:))- buffer_start*fs)
                         acc1.data = data.aux_input_data((3*n_acc-2),(k_aux-(buffer_start*fs_aux)):(numel(data.aux_input_data((3*n_acc-2),:))));
                         acc2.data = data.aux_input_data((3*n_acc-1),(k_aux-(buffer_start*fs_aux)):(numel(data.aux_input_data((3*n_acc-1),:))));
                         acc3.data = data.aux_input_data((3*n_acc),(k_aux-(buffer_start*fs_aux)):(numel(data.aux_input_data((3*n_acc),:))));
@@ -322,7 +326,7 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
                 %%section
                 
                 amplifier_file_count=1;
-                for chan = (channel_count*(n-1)+1):(channel_count*n)
+                for chan = (channel_count*(headstage_num-1)+1):(channel_count*headstage_num)
                     hour=hour_first;
                     minute=minute_first;
                     second=second_first+data.t_amplifier(k);    %update time
@@ -336,15 +340,15 @@ for j = 1:numel(Intan_file_dir)    % goes through all rhd files in one directory
                     end
                     time_string= sprintf('%s%s%s',num2str(hour_filename), num2str(minute_filename),num2str(second_filename,'% 10.0f')); %this is only for labelling txt files and does not get updated for the same rhd file
 
-                    file_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(n),date_string, time_string,amplifier_file_count);
+                    file_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(headstage_num),date_string, time_string,amplifier_file_count);
                     full_file_name = fullfile(path_output,file_name);
 
                     otherChannel.timeVector = abs([year, month, day, hour, minute, second]);
-                    otherChannel.metaData = sprintf('%s\t%s%d\r\n', Intan_file_dir(j).name, 'Motif file', motif_number);
+                    otherChannel.metaData = sprintf('%s\t%s%d\r\n', Intan_file_dir(file_num).name, 'Motif file', motif_number);
                     otherChannel.deltaT = delta_t;
                     
-                    if k > (numel(data.board_adc_data(n,:))- buffer_end*fs) %&& k >(numel(data.board_adc_data(2*n-1,:))- buffer_start*fs)
-                        otherChannel.data = data.amplifier_data(chan,(k-(buffer_start*fs)):(numel(data.board_adc_data(n,:))))*unit;
+                    if k > (numel(data.board_adc_data(headstage_num,:))- buffer_end*fs) %&& k >(numel(data.board_adc_data(2*n-1,:))- buffer_start*fs)
+                        otherChannel.data = data.amplifier_data(chan,(k-(buffer_start*fs)):(numel(data.board_adc_data(headstage_num,:))))*unit;
                     elseif k <(buffer_start*fs+1)
                         otherChannel.data = data.amplifier_data(chan,1:(k+(buffer_end*fs)))*unit;
                     else
