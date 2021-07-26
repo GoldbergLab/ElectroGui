@@ -1,4 +1,4 @@
-function intan_converter_to_binary_channel_files(acc_array, acc_present, path_input, start_index)
+function intan_converter_to_binary_channel_files(acc_array, acc_present, path_input, start_index, verbose)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % intan_converter_to_binary_channel_files: Convert Intan .rhd files to
 %   individual binary .nc channel files
@@ -73,10 +73,12 @@ function intan_converter_to_binary_channel_files(acc_array, acc_present, path_in
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-if ~exist('start_index')
+if ~exist('start_index', 'var')
     start_index = 1;
 end
-
+if ~exist('verbose', 'var')
+    verbose = 0;
+end
 if ~exist('path_input', 'var') || isempty(path_input)
     path_input = ...
         uigetdir('.', 'Select RHD data folder for extraction');  % directory where the rhd files to be analysed are stored
@@ -125,7 +127,7 @@ file_count=1;
 for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files in one directory (one recording session)
     fprintf('Reading rhd file %d of %d\n', file_num, numel(Intan_file_dir));
     
-    data = read_Intan_RHD2000_file_to_struct(path_input, Intan_file_dir(file_num).name, false);       %reads *rhd files into a data struct.
+    data = read_Intan_RHD2000_file_to_struct(path_input, Intan_file_dir(file_num).name, verbose);       %reads *rhd files into a data struct.
     
     rhd_file = Intan_file_dir(file_num).name;
     hour_filename = str2double(rhd_file((numel(rhd_file)-4-5):(numel(rhd_file)-4-4)));
