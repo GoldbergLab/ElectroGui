@@ -78,6 +78,16 @@ user = lic(1).user;
 f = regexpi(user,'[A-Z1-9]');
 user = user(f);
 
+% Segment/Marker colors
+handles.SegmentSelectColor = 'r';
+handles.MarkerSelectColor = 'b';
+handles.SegmentUnSelectColor = [0.7, 0.5, 0.5];
+handles.MarkerUnSelectColor = [0.5, 0.5, 0.7];
+handles.SegmentActiveColor = 'y';
+handles.MarkerActiveColor = 'y';
+handles.SegmentInactiveColor = 'k';
+handles.MarkerInactiveColor = 'k';
+
 handles.userfile = ['defaults_' user '.m'];
 mt = dir(handles.userfile);
 if isempty(mt)
@@ -1028,7 +1038,7 @@ if ~isempty(handles.amplitude)
     else
         handles.CurrentThreshold = handles.SoundThresholds(fileNum);
     end
-    handles.LabelHandles = [];
+    handles.SegmentLabelHandles = [];
     handles = SetThreshold(handles);
 end
 
@@ -1368,35 +1378,93 @@ handles.SegmentSelection{filenum} = ones(1,size(handles.SegmentTimes{filenum},1)
 
 handles = PlotSegments(handles);
 
+function [markerHandles, labelHandles] = CreateMarkers(handles, times, titles, selects, selectColor, unselectColor, activeColor, inactiveColor, yExtent)
+% Create the markers for a set of timed segments (used for plotting both
+% "segments" and "markers")
 
-function handles = PlotSegments(handles)
+% Create a time vector that corresponds to the loaded audio samples
+xs = linspace(0,length(handles.sound)/handles.fs,length(handles.sound));
 
-subplot(handles.axes_Segments);
-cla
-hold on
-handles.SegmentHandles = [];
-handles.LabelHandles = [];
-filenum = getCurrentFileNum(handles);
-for c = 1:size(handles.SegmentTimes{filenum},1)
-    xs = linspace(0,length(handles.sound)/handles.fs,length(handles.sound));
-    x1 = xs(handles.SegmentTimes{filenum}(c,1));
-    x2 = xs(handles.SegmentTimes{filenum}(c,2));
-    handles.SegmentHandles(c) = patch([x1 x2 x2 x1],[-1 -1 0 0],'r');
-    set(handles.SegmentHandles(c),'buttondownfcn','electro_gui(''click_segment'',gcbo,[],guidata(gcbo))');
-    handles.LabelHandles(c) = text((x1+x2)/2,0,handles.SegmentTitles{filenum}(c));
+y0 = yExtent(1);
+y1 = mean(yExtent);
+% y2 = yExtent(2);
+
+markerHandles = [];
+labelHandles = [];
+
+% Loop over stored segment start/end times pairs
+for c = 1:size(times,1)
+    % Extract the start (x1) and end (x2) times of this segment
+    x1 = xs(times(c,1));
+    x2 = xs(times(c,2));
+    if selects(c)
+        faceColor = selectColor;
+    else
+        faceColor = unselectColor;
+    end
+    % Create a rectangle to represent the segment
+    markerHandles(c) = patch([x1 x2 x2 x1],[y0 y0 y1 y1],faceColor);
+    % Create a text graphics object right above the middle of the segment
+    % rectangle
+    labelHandles(c) = text((x1+x2)/2,y1,titles(c));
     if c==1
-        set(handles.SegmentHandles(c),'edgecolor','y','linewidth',2);
+        % Set the first segment to be the selected one
+        set(markerHandles(c), 'edgecolor', activeColor, 'linewidth', 2);
+    else
+        set(markerHandles(c), 'edgecolor', inactiveColor, 'linewidth', 1);
     end
 end
-set(handles.SegmentHandles(find(handles.SegmentSelection{filenum}==0)),'facecolor',[.5 .5 .5]);
-set(handles.LabelHandles,'horizontalalignment','center','verticalalignment','bottom');
+% Attach click handler "click_segment" to segment rectangle
+set(markerHandles,'buttondownfcn','electro_gui(''click_segment'',gcbo,[],guidata(gcbo))');
+
+function handles = PlotSegments(handles)
+% Get segment axes
+ax = subplot(handles.axes_Segments);
+% Clear segment axes
+cla(ax)
+hold(ax, 'on')
+% Clear segment handles and segment label handles
+handles.SegmentHandles = [];
+handles.SegmentLabelHandles = [];
+% Clear marker handles and marker label handles
+handles.MarkerHandles = [];
+handles.MarkerLabelHandles = [];
+
+filenum = getCurrentFileNum(handles);
+
+[handles.SegmentHandles, handles.SegmentLabelHandles] = CreateMarkers(handles, ...
+    handles.SegmentTimes{filenum}, ...
+    handles.SegmentTitles{filenum}, ...
+    handles.SegmentSelection{filenum}, ...
+    handles.SegmentSelectColor, handles.SegmentUnSelectColor, ...
+    handles.SegmentActiveColor, handles.SegmentInactiveColor, [-1, 1]);
+
+[handles.MarkerHandles, handles.MarkerLabelHandles] = CreateMarkers(handles, ...
+    handles.MarkerTimes{filenum}, ...
+    handles.MarkerTitles{filenum}, ...
+    handles.MarkerSelection{filenum}, ...
+    handles.MarkerSelectColor, handles.MarkerUnSelectColor, ...
+    handles.MarkerActiveColor, handles.MarkerInactiveColor, [-1, 1]);
+
+% Set any unselected segments to have a gray face color
+set(handles.SegmentHandles(find(handles.SegmentSelection{filenum}==0)),'facecolor',handles.SegmentUnSelectColor);
+% Center-justify segment label text
+set(handles.SegmentLabelHandles,'horizontalalignment','center','verticalalignment','bottom');
+% Get current time-zoom state of audio data
 xd = get(handles.xlimbox,'xdata');
-xlim(xd(1:2));
-ylim([-2 3]);
+% Set time-zoom state of segment axes to match audio axes
+xlim(ax, xd(1:2));
+% Set y-scale of axes
+ylim(ax, [-2 3]);
+% Get figure background color
 bg = get(gcf,'color');
-set(gca,'xcolor',bg,'ycolor',bg,'color',bg);
-set(gca,'uicontextmenu',handles.context_Segments,'buttondownfcn','electro_gui(''click_segmentaxes'',gcbo,[],guidata(gcbo))');
-set(get(gca,'children'),'uicontextmenu',get(gca,'uicontextmenu'));
+% Set segment axes background & axis colors to the figure background color, I guess to hide them
+set(ax,'xcolor',bg,'ycolor',bg,'color',bg);
+% Assign context menu and click listener to segment axes
+set(ax,'uicontextmenu',handles.context_Segments,'buttondownfcn','electro_gui(''click_segmentaxes'',gcbo,[],guidata(gcbo))');
+% Assign context menu to all children of segment axes (segments and labels)
+set(get(ax,'children'),'uicontextmenu',get(ax,'uicontextmenu'));
+% Assign key press function to figure (labelsegment) for labeling segments
 set(gcf,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
 
 
@@ -1586,13 +1654,13 @@ set(handles.slider_Time,'value',xd(1));
 stp = min([1 (xd(2)-xd(1))/((length(handles.sound)/handles.fs-(xd(2)-xd(1)))+eps)]);
 set(handles.slider_Time,'sliderstep',[0.1*stp 0.5*stp]);
 
-for c = 1:length(handles.LabelHandles)
-    if ishandle(handles.LabelHandles(c))
-        pos = get(handles.LabelHandles(c),'extent');
+for c = 1:length(handles.SegmentLabelHandles)
+    if ishandle(handles.SegmentLabelHandles(c))
+        pos = get(handles.SegmentLabelHandles(c),'extent');
         if pos(1)<xd(1) | pos(1)+pos(3)>xd(2)
-            set(handles.LabelHandles(c),'visible','off');
+            set(handles.SegmentLabelHandles(c),'visible','off');
         else
-            set(handles.LabelHandles(c),'visible','on');
+            set(handles.SegmentLabelHandles(c),'visible','on');
         end
     end
 end
@@ -1652,28 +1720,48 @@ end
 
 
 function click_sound(hObject, ~, handles)
+% Callback for a mouse click on the spectrogram 
 
 if strcmp(get(gcf,'selectiontype'),'normal')
+    % Normal left mouse button click
+    %   Zoom in (either with a box if it's a
+    %   click/drag, or just shift the zoom box over to click location if 
+    %   it's just a click.
+    
+    % Temporarily switch axes units to pixels to make it easier to convert
+    % the user click coordinates?
     set(gca,'units','pixels');
     set(get(gca,'parent'),'units','pixels');
+    % Set up a "rubber band box" to display user mouse click/drag. This
+    %   blocks until user lets go of mouse, and returns the coordinates of
+    %   the click/drag rectangle
     rect = rbbox;
 
+    % Get 
     pos = get(gca,'position');
+    
+    % Switch the axes back to normalized units
     set(get(gca,'parent'),'units','normalized');
     set(gca,'units','normalized');
     xl = xlim;
     yl = ylim;
 
+    % I think we're converting the x coordinate and width of rectangle to
+    % units of audio samples?
     rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
     rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
 
+    % Get x bounds of zoom box in top plot
     xd = get(handles.xlimbox,'xdata');
 
     if rect(3) == 0
+        % Click/drag box has zero width, so we're going to shift the zoom
+        % box so the left size aligns with the cllick location
         shift = rect(1)-xd(1);
         xd = xd+shift;
     else
         if strcmp(get(handles.menu_FrequencyZoom,'checked'),'on') & (hObject==handles.axes_Sonogram | get(hObject,'parent')==handles.axes_Sonogram)
+            % We're zooming along the y-axis (frequency) as well as x
             rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
             rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
             handles.CustomFreqLim = [rect(2) rect(2)+rect(4)];
@@ -1682,9 +1770,13 @@ if strcmp(get(gcf,'selectiontype'),'normal')
         xd([1 4:5]) = rect(1);
         xd(2:3) = rect(1)+rect(3);
     end
+    % Update zoom box in top plot
     set(handles.xlimbox,'xdata',xd);
+    % Update spectrogram scales
     handles = eg_EditTimescale(handles);
 elseif strcmp(get(gcf,'selectiontype'),'extend')
+    % Shift-click
+    %   Shift zoom box so the right side aligns with click location
     pos = get(gca,'CurrentPoint');
     xd = get(handles.xlimbox,'xdata');
     if pos(1,1) < xd(1)
@@ -1692,16 +1784,23 @@ elseif strcmp(get(gcf,'selectiontype'),'extend')
     end
     xd(2:3) = pos(1,1);
     set(handles.xlimbox,'xdata',xd);
+    % Update spectrogram scales
     handles = eg_EditTimescale(handles);
 elseif strcmp(get(gcf,'selectiontype'),'open')
+    % Double-click
+    %   Reset zoom
     xd = [0 length(handles.sound)/handles.fs length(handles.sound)/handles.fs 0 0];
+    % Update zoom box in top plot
     set(handles.xlimbox,'xdata',xd);
     if strcmp(get(handles.menu_FrequencyZoom,'checked'),'on')
+        % We're resetting y-axis (frequency) zoom too
         handles.CustomFreqLim = handles.FreqLim;
     end
+    % Update spectrogram scales
     handles = eg_EditTimescale(handles);
+elseif strcmp(get(gcf, 'selectiontype'), 'alt')
+    disp('make a marker!')
 end
-
 
 guidata(gca, handles);
 
@@ -1967,9 +2066,15 @@ function handles = InitializeVariables(handles)
 handles.SoundThresholds = repmat(inf,1,handles.TotalFileNumber);
 handles.CurrentTheshold = inf;
 handles.DatesAndTimes = zeros(1,handles.TotalFileNumber);
+
 handles.SegmentTimes = cell(1,handles.TotalFileNumber);
 handles.SegmentTitles = cell(1,handles.TotalFileNumber);
 handles.SegmentSelection = cell(1,handles.TotalFileNumber);
+handles.MarkerTimes = cell(1,handles.TotalFileNumber);
+handles.MarkerTitles = cell(1,handles.TotalFileNumber);
+handles.MarkerSelection = cell(1,handles.TotalFileNumber);
+
+
 
 handles.BackupChan = cell(1,2);
 handles.BackupLabel = cell(1,2);
@@ -2032,6 +2137,16 @@ handles.SoundThresholds = dbase.SegmentThresholds;
 handles.SegmentTimes = dbase.SegmentTimes;
 handles.SegmentTitles = dbase.SegmentTitles;
 handles.SegmentSelection = dbase.SegmentIsSelected;
+
+if isfield(dbase, 'MarkerTimes')
+    handles.MarkerTimes = dbase.MarkerTimes;
+end
+if isfield(dbase, 'MarkerTitles')
+    handles.MarkerTitles = dbase.MarkerTitles;
+end
+if isfield(dbase, 'MarkerIsSelected')
+    handles.MarkerSelection = dbase.MarkerIsSelected;
+end
 
 handles.EventSources = dbase.EventSources;
 handles.EventFunctions = dbase.EventFunctions;
@@ -2520,8 +2635,8 @@ if strcmp(get(gcf,'selectiontype'),'normal')
 
     handles.SegmentSelection{filenum}(f) = sum(handles.SegmentSelection{filenum}(f))<=length(f)/2;
 
-    set(handles.SegmentHandles,'facecolor','r');
-    set(handles.SegmentHandles(find(handles.SegmentSelection{filenum}==0)),'facecolor',[.5 .5 .5]);
+    set(handles.SegmentHandles,'facecolor',handles.SegmentSelectColor);
+    set(handles.SegmentHandles(find(handles.SegmentSelection{filenum}==0)),'facecolor',handles.SegmentUnSelectColor);
 elseif strcmp(get(gcf,'selectiontype'),'open')
     xd = [0 length(handles.sound)/handles.fs length(handles.sound)/handles.fs 0 0];
     set(handles.xlimbox,'xdata',xd);
@@ -2529,10 +2644,10 @@ elseif strcmp(get(gcf,'selectiontype'),'open')
 elseif strcmp(get(gcf,'selectiontype'),'extend')
     if sum(handles.SegmentSelection{filenum})==length(handles.SegmentSelection{filenum})
         handles.SegmentSelection{filenum} = zeros(size(handles.SegmentSelection{filenum}));
-        set(handles.SegmentHandles,'facecolor',[.5 .5 .5]);
+        set(handles.SegmentHandles,'facecolor',handles.SegmentUnSelectColor);
     else
         handles.SegmentSelection{filenum} = ones(size(handles.SegmentSelection{filenum}));
-        set(handles.SegmentHandles,'facecolor','r');
+        set(handles.SegmentHandles,'facecolor',handles.SegmentSelectColor);
     end
 end
 
@@ -2607,7 +2722,7 @@ function menu_DeleteAll_Callback(hObject, ~, handles)
 filenum = getCurrentFileNum(handles);
 handles.SegmentSelection{filenum} = zeros(size(handles.SegmentSelection{filenum}));
 
-set(handles.SegmentHandles,'facecolor',[.5 .5 .5]);
+set(handles.SegmentHandles,'facecolor',handles.SegmentUnSelectColor);
 
 guidata(hObject, handles);
 
@@ -2622,7 +2737,7 @@ function menu_UndeleteAll_Callback(hObject, ~, handles)
 filenum = getCurrentFileNum(handles);
 handles.SegmentSelection{filenum} = ones(size(handles.SegmentSelection{filenum}));
 
-set(handles.SegmentHandles,'facecolor','r');
+set(handles.SegmentHandles,'facecolor',handles.SegmentSelectColor);
 
 guidata(hObject, handles);
 
@@ -2632,17 +2747,17 @@ function click_segment(hObject, ~, handles)
 f = find(handles.SegmentHandles==hObject);
 filenum = getCurrentFileNum(handles);
 if strcmp(get(gcf,'selectiontype'),'normal')
-    set(handles.SegmentHandles,'edgecolor','k','linewidth',1);
-    set(hObject,'edgecolor','y','linewidth',2);
+    set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
+    set(hObject,'edgecolor',handles.SegmentActiveColor,'linewidth',2);
     set(gcf,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
 
 elseif strcmp(get(gcf,'selectiontype'),'extend')
     if handles.SegmentSelection{filenum}(f)==0
         handles.SegmentSelection{filenum}(f) = 1;
-        set(hObject,'facecolor','r');
+        set(hObject,'facecolor',handles.SegmentSelectColor);
     else
         handles.SegmentSelection{filenum}(f) = 0;
-        set(hObject,'facecolor',[.5 .5 .5]);
+        set(hObject,'facecolor',handles.SegmentUnSelectColor);
     end
 
 elseif strcmp(get(gcf,'selectiontype'),'open')
@@ -2653,8 +2768,8 @@ elseif strcmp(get(gcf,'selectiontype'),'open')
         handles.SegmentSelection{filenum}(f+1) = [];
         handles = PlotSegments(handles);
         hObject = handles.SegmentHandles(f);
-        set(handles.SegmentHandles,'edgecolor','k','linewidth',1);
-        set(hObject,'edgecolor','y','linewidth',2);
+        set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
+        set(hObject,'edgecolor',handles.SegmentActiveColor,'linewidth',2);
         set(gcf,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
     end
 end
@@ -2662,13 +2777,19 @@ end
 guidata(hObject, handles);
 
 function labelsegment(hObject, ~, handles)
+% Callback to handle a key press labeling the selected segment
+% Ok on closer examination this is a poorly named general keypress handler.
 
-
+% Get currently loaded file num
 filenum = getCurrentFileNum(handles);
+% Get the last key press captured by the figure
 ch = get(gcf,'currentcharacter');
+% I think this is an awkward way of converting the character to a numeric ASCII code?
 chn = sum(ch);
-obj = findobj('parent',handles.axes_Segments,'edgecolor','y');
+% Find the handle for the currently active segment
+obj = findobj('parent',handles.axes_Segments,'edgecolor',handles.SegmentActiveColor);
 
+% Keypress is a "comma" - load previous file
 if chn==44
     filenum = getCurrentFileNum(handles);
     filenum = filenum-1;
@@ -2681,6 +2802,7 @@ if chn==44
     guidata(hObject, handles);
     return
 end
+% Keypress is a "period" - load next file
 if chn==46
     filenum = getCurrentFileNum(handles);
     filenum = filenum+1;
@@ -2694,50 +2816,69 @@ if chn==46
     return
 end
 
-
+% No segments defined, do nothing
 if isempty(handles.SegmentHandles)
     return
 end
 if isempty(obj)
+    % No active segment, do nothing
     return
 else
+    % Get the index of the active segment
     segnum = find(handles.SegmentHandles==obj);
 end
-if chn>32 & chn<=128 & chn~=44 & chn~=46
+if chn>32 && chn<=128 && chn~=44 && chn~=46
+    % Key was in the range of normal printable keyboard characters, but
+    %   isn't a comma or period
+    % Set the currently active segment title to the pressed key
     handles.SegmentTitles{filenum}{segnum} = ch;
-    set(handles.LabelHandles(segnum),'string',ch);
+    % Update the segment label to reflect the new segment title
+    set(handles.SegmentLabelHandles(segnum),'string',ch);
     newseg = segnum + 1;
 elseif chn==8
+    % User pressed "backspace" - clear segment title
     handles.SegmentTitles{filenum}{segnum} = '';
-    set(handles.LabelHandles(segnum),'string','');
+    % Clear segment label
+    set(handles.SegmentLabelHandles(segnum),'string','');
     newseg = segnum + 1;
 elseif chn==28
+    % This is the "File separator" character. I guess this advances the
+    % active marker to the next segment?
     newseg = segnum - 1;
 elseif chn==29
+    % This is the "Group separator" character. I guess this activates the
+    % previous segment?
     newseg = segnum + 1;
 elseif chn==32
+    % User pressed "space" - toggle active segment "selection"
     if handles.SegmentSelection{filenum}(segnum)==0
         handles.SegmentSelection{filenum}(segnum) = 1;
-        set(handles.SegmentHandles(segnum),'facecolor','r');
+        set(handles.SegmentHandles(segnum),'facecolor',handles.SegmentSelectColor);
     else
         handles.SegmentSelection{filenum}(segnum) = 0;
-        set(handles.SegmentHandles(segnum),'facecolor',[.5 .5 .5]);
+        set(handles.SegmentHandles(segnum),'facecolor',handles.SegmentUnSelectColor);
     end
     newseg = segnum;
 else
     return
 end
 
-set(handles.SegmentHandles(segnum),'edgecolor','k','linewidth',1);
+% Update previously active segment to not active
+set(handles.SegmentHandles(segnum),'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
 
 if newseg < 1
+    % If nonexistent segment before first one was going to be activated,
+    % instead activate the first segment.
     newseg = 1;
 end
 if newseg > length(handles.SegmentHandles)
+    % If nonexistent segment after the last one was going to be activated,
+    % instead activate the last segment.
     newseg = length(handles.SegmentHandles);
 end
 
-set(handles.SegmentHandles(newseg),'edgecolor','y','linewidth',2);
+% Mark new active segment as active
+set(handles.SegmentHandles(newseg),'edgecolor',handles.SegmentActiveColor,'linewidth',2);
 
 guidata(hObject, handles);
 
@@ -5872,7 +6013,7 @@ elseif get(handles.radio_PowerPoint,'value')==1
                         xs = linspace(0,length(handles.sound)/handles.fs,length(handles.sound));
                         for j = f'
                             if sel(j)==1
-                                patch(xs([st(j,1) st(j,2) st(j,2) st(j,1)]),[0 0 1 1],'r');
+                                patch(xs([st(j,1) st(j,2) st(j,2) st(j,1)]),[0 0 1 1],handles.SegmentSelectColor);
                             end
                         end
 
@@ -7628,8 +7769,8 @@ handles.SegmentTitles{filenum}(min(f)+1:max(f)) = [];
 handles.SegmentSelection{filenum}(min(f)+1:max(f)) = [];
 handles = PlotSegments(handles);
 
-set(handles.SegmentHandles,'edgecolor','k','linewidth',1);
-set(handles.SegmentHandles(min(f)),'edgecolor','y','linewidth',2);
+set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
+set(handles.SegmentHandles(min(f)),'edgecolor',handles.SegmentActiveColor,'linewidth',2);
 set(gcf,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
 
 guidata(hObject, handles);
@@ -8938,6 +9079,19 @@ bck = handles.EventThresholds(:,oldnum);
 handles.EventThresholds = inf*ones(size(bck,1),handles.TotalFileNumber);
 handles.EventThresholds(:,newnum) = bck;
 
+bck = handles.MarkerTimes(oldnum);
+handles.MarkerTimes = cell(1,handles.TotalFileNumber);
+handles.MarkerTimes(newnum) = bck;
+
+bck = handles.MarkerTitles(oldnum);
+handles.MarkerTitles = cell(1,handles.TotalFileNumber);
+handles.MarkerTitles(newnum) = bck;
+
+bck = handles.MarkerSelection(oldnum);
+handles.MarkerSelection = cell(1,handles.TotalFileNumber);
+handles.MarkerSelection(newnum) = bck;
+
+
 bck = handles.EventTimes;
 for c = 1:length(bck)
     handles.EventTimes{c} = cell(size(bck{c},1),handles.TotalFileNumber);
@@ -9002,6 +9156,10 @@ dbase.SegmentThresholds = handles.SoundThresholds;
 dbase.SegmentTimes = handles.SegmentTimes;
 dbase.SegmentTitles = handles.SegmentTitles;
 dbase.SegmentIsSelected = handles.SegmentSelection;
+
+dbase.MarkerTimes = handles.MarkerTimes;
+dbase.MarkerTitles = handles.MarkerTitles;
+dbase.MarkerIsSelected = handles.MarkerSelection;
 
 dbase.EventSources = handles.EventSources;
 dbase.EventFunctions = handles.EventFunctions;
