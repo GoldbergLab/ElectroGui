@@ -1800,10 +1800,29 @@ elseif strcmp(get(gcf,'selectiontype'),'open')
     handles = eg_EditTimescale(handles);
 elseif strcmp(get(gcf, 'selectiontype'), 'alt')
     disp('make a marker!')
+    % Ensure the axes are in normalized units
+    set(get(gca,'parent'),'units','normalized');
+    set(gca,'units','normalized');
+    % Set up a "rubber band box" to display user mouse click/drag. This
+    %   blocks until user lets go of mouse, and returns the coordinates of
+    %   the click/drag rectangle
+    rect = rbbox;
+    
+    x = [rect(1), rect(1)+rect(3)];
+    x = round(x * length(handles.sound));
+
+    handles = CreateNewMarker(handles, x);
 end
 
 guidata(gca, handles);
 
+function handles = CreateNewMarker(handles, x)
+% Create a new marker from time x(1) to time x(2)
+filenum = getCurrentFileNum(handles);
+handles.MarkerTimes{filenum}(end+1, :) = x;
+handles.MarkerSelection{end+1} = 1;
+handles.MarkerTitles{end+1} = '';
+handles = PlotSegments(handles);
 
 % --- Executes on button press in push_Calculate.
 function push_Calculate_Callback(hObject, ~, handles)
