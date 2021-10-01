@@ -1308,36 +1308,45 @@ set(get(gca,'children'),'buttondownfcn',get(gca,'buttondownfcn'));
 
 
 function handles = SetThreshold(handles)
-
+% Clear segments axes
 cla(handles.axes_Segments);
 
+% Find threshold line handle on amplitude axes
 thr = findobj('parent',handles.axes_Amplitude,'linestyle',':');
 if isempty(thr)
-    subplot(handles.axes_Amplitude);
-    hold on
-    xl = xlim;
+    % No threshold line has been created yet
+    ax = subplot(handles.axes_Amplitude);
+    hold(ax, 'on')
+    xl = xlim(ax);
+    % Create new threshold line
     plot([0 length(handles.sound)/handles.fs],[handles.CurrentThreshold handles.CurrentThreshold],':',...
         'color',handles.AmplitudeThresholdColor);
-    xlim(xl);
-    hold off;
+    xlim(ax, xl);
+    hold(ax, 'off');
 
+    % Check if there are any segment times recorded
     if size(handles.SegmentTimes{getCurrentFileNum(handles)},2)==0
+        % No segment times found
         if strcmp(get(handles.menu_AutoSegment,'checked'),'on')
+            % User has requested auto-segmentation. Auto segment!
             handles = SegmentSounds(handles);
         end
     else
+        % Segment times already exist, just plot them (probably preexisting
+        % from loaded dbase?)
         handles = PlotSegments(handles);
     end
 else
+    % Threshold line already exists, just update its Y position
     set(thr,'ydata',[handles.CurrentThreshold handles.CurrentThreshold]);
     if strcmp(get(handles.menu_AutoSegment,'checked'),'on')
+        % User has requested auto-segmentation. Auto-segment!
         handles = SegmentSounds(handles);
     end
 end
 
+% Link segment context menu to segment axes
 set(handles.axes_Segments,'uicontextmenu',handles.context_Segments,'buttondownfcn','electro_gui(''click_segmentaxes'',gcbo,[],guidata(gcbo))');
-
-
 
 function handles = SegmentSounds(handles)
 
