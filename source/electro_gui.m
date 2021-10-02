@@ -1851,7 +1851,7 @@ function handles = DeleteMarker(handles, filenum, markerNum)
 % Delete the specified marker
 handles.MarkerTimes{filenum}(markerNum, :) = [];
 handles.MarkerSelection{filenum}(markerNum) = [];
-handles.MarkerTitles{filenum}(marker) = [];
+handles.MarkerTitles{filenum}(markerNum) = [];
 
 function [handles, order] = SortMarkers(handles, filenum)
 % Sort the order of the markers. Note that this doesn't affect the marker
@@ -2873,6 +2873,12 @@ function handles = ToggleMarkerSelect(handles, filenum, markerNum)
 handles.MarkerSelection{filenum}(markerNum) = ~handles.MarkerSelection{filenum}(markerNum);
 set(handles.MarkerHandles(markerNum),'facecolor',handles.MarkerSelectColors{handles.MarkerSelection{filenum}(markerNum)+1});
 
+function markerNum = FindActiveMarker(handles)
+marker = findobj('parent',handles.axes_Segments,'edgecolor',handles.MarkerActiveColor);
+markerNum = find(handles.MarkerHandles == marker);
+function segmentNum = FindActiveSegment(handles)
+segment = findobj('parent',handles.axes_Segments,'edgecolor',handles.SegmentActiveColor);
+segmentNum = find(handles.SegmentHandles == segment);
 
 function handles = JoinSegmentWithNext(handles, filenum, segmentNum)
 if segmentNum < length(handles.SegmentHandles)
@@ -2897,7 +2903,8 @@ ch = get(gcf,'currentcharacter');
 % I think this is an awkward way of converting the character to a numeric ASCII code?
 chn = sum(ch);
 % Find the handle for the currently active segment
-obj = findobj('parent',handles.axes_Segments,'edgecolor',handles.SegmentActiveColor);
+activeSegmentNum = FindActiveSegment(handles);
+activeMarkerNum = FindActiveMarker(handles);
 
 % Keypress is a "comma" - load previous file
 if chn==44
@@ -2930,14 +2937,14 @@ end
 if isempty(handles.SegmentHandles)
     return
 end
-if isempty(obj)
+if isempty(activeSegmentNum)
     % No active segment, do nothing
     return
 else
     % Get the index of the active segment
-    segnum = find(handles.SegmentHandles==obj);
+    segnum = find(handles.SegmentHandles==activeSegmentNum);
 end
-if chn>32 && chn<=128 && chn~=44 && chn~=46
+if chn>32 && chn<127 && chn~=44 && chn~=46
     % Key was in the range of normal printable keyboard characters, but
     %   isn't a comma or period
     % Set the currently active segment title to the pressed key
@@ -2967,6 +2974,10 @@ elseif chn==116
     % User pressed "t" - toggle active segment "selection"
     handles = ToggleSegmentSelect(handles, filenum, segnum);
     newseg = segnum;
+elseif chn==127
+    % User pressed "delete" - delete selected marker
+    handles = DeleteMarker(handles, filenum, activeMarkerNum);
+    handles = PlotSegments(handles);
 else
     return
 end
@@ -2982,6 +2993,7 @@ if newseg > length(handles.SegmentHandles)
     newseg = length(handles.SegmentHandles);
 end
 
+handles = SetActiveSegment(handles, activeMarkerNum);
 handles = SetActiveSegment(handles, newseg);
 % % Update previously active segment to not active
 % set(handles.SegmentHandles(segnum),'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
