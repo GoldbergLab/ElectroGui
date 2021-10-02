@@ -3009,8 +3009,7 @@ elseif chn==8
             newMarkerNum = markerNum + 1;
     end
 elseif chn==28
-    % This is the "File separator" character. I guess this advances the
-    % active marker to the next segment?
+    % User pressed right arrow
     switch activeType
         case 'segment'
             newSegmentNum = segmentNum - 1;
@@ -3018,13 +3017,48 @@ elseif chn==28
             newMarkerNum = markerNum - 1;
     end
 elseif chn==29
-    % This is the "Group separator" character. I guess this activates the
-    % previous segment?
+    % User pressed left arrow
     switch activeType
         case 'segment'
             newSegmentNum = segmentNum + 1;
         case 'marker'
             newMarkerNum = markerNum + 1;
+    end
+elseif chn==31
+    % User pressed down arrow
+    switch activeType
+        case 'segment'
+            % This is the bottom row - do nothing
+            return
+        case 'marker'
+            if isempty(handles.SegmentHandles)
+                % No segments to switch to, do nothing
+                return
+            end
+            markerTime = mean(handles.MarkerTimes{filenum}(markerNum, :));
+            segmentTimes = mean(handles.SegmentTimes{filenum}, 2);
+            % Find segment closest in time to the active marker, and switch
+            % to that active segment.
+            [~, newSegmentNum] = min(abs(segmentTimes - markerTime));
+            activeType = 'segment';
+    end
+elseif chn==30
+    % User pressed up arrow
+    switch activeType
+        case 'segment'
+            if isempty(handles.MarkerHandles)
+                % No markers to switch to, do nothing
+                return
+            end
+            segmentTime = mean(handles.SegmentTimes{filenum}(segmentNum, :));
+            markerTimes = mean(handles.MarkerTimes{filenum}, 2);
+            % Find segment closest in time to the active marker, and switch
+            % to that active segment.
+            [~, newMarkerNum] = min(abs(markerTimes - segmentTime));
+            activeType = 'marker';
+        case 'marker'
+            % This is the bottom row - do nothing
+            return
     end
 elseif chn==32
     % User pressed "space" - join this segment with next segment
