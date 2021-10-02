@@ -1460,7 +1460,7 @@ xd = get(handles.xlimbox,'xdata');
 % Set time-zoom state of segment axes to match audio axes
 xlim(ax, xd(1:2));
 % Set y-scale of axes
-ylim(ax, [-2 5]);
+ylim(ax, [-2 6]);
 % Get figure background color
 bg = get(gcf,'color');
 % Set segment axes background & axis colors to the figure background color, I guess to hide them
@@ -2988,9 +2988,9 @@ if chn>32 && chn<127 && chn~=44 && chn~=46
             newSegmentNum = segmentNum + 1;
         case 'marker'
             % Set the currently active marker title to the pressed key
-            handles.MarkerTitles{filenum}{segmentNum} = ch;
+            handles.MarkerTitles{filenum}{markerNum} = ch;
             % Update the segment label to reflect the new segment title
-            set(handles.SegmentLabelHandles(segmentNum),'string',ch);
+            set(handles.MarkerLabelHandles(markerNum),'string',ch);
             newMarkerNum = markerNum + 1;
     end
 elseif chn==8
