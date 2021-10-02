@@ -1865,12 +1865,29 @@ handles.MarkerTitles{filenum} = handles.MarkerTitles{filenum}(order);
 handles.MarkerHandles = handles.MarkerHandles(order);
 
 function handles = SetActiveMarker(handles, markerNum)
+% Inactivate all markers
 set(handles.MarkerHandles, 'edgecolor', handles.MarkerInactiveColor, 'linewidth', 1);
-set(handles.MarkerHandles(markerNum), 'edgecolor', handles.MarkerActiveColor, 'linewidth', 2);
+% Inactivate all segments
+set(handles.SegmentHandles, 'edgecolor', handles.SegmentInactiveColor, 'linewidth', 1);
+% Activate requested marker
+if ~isempty(handles.MarkerHandles)
+    markerNum = coerceToRange(markerNum, [1, length(handles.MarkerHandles)]);
+    set(handles.MarkerHandles(markerNum), 'edgecolor', handles.MarkerActiveColor, 'linewidth', 2);
+end
 
 function handles = SetActiveSegment(handles, segmentNum)
+% Inactivate all segments
 set(handles.SegmentHandles, 'edgecolor', handles.SegmentInactiveColor, 'linewidth', 1);
-set(handles.SegmentHandles(segmentNum), 'edgecolor', handles.SegmentActiveColor, 'linewidth', 2);
+% Inactivate all markers
+set(handles.MarkerHandles, 'edgecolor', handles.MarkerInactiveColor, 'linewidth', 1);
+% Activate requested segment
+if ~isempty(handles.SegmentHandles)
+    segmentNum = coerceToRange(segmentNum, [1, length(handles.SegmentHandles)]);
+    set(handles.SegmentHandles(segmentNum), 'edgecolor', handles.SegmentActiveColor, 'linewidth', 2);
+end
+
+function value = coerceToRange(value, valueRange)
+value = min(max(value, valueRange(1)), valueRange(2));
 
 % --- Executes on button press in push_Calculate.
 function push_Calculate_Callback(hObject, ~, handles)
@@ -2813,10 +2830,10 @@ function click_segment(hObject, ~, handles)
 % Callback for clicking anything on the axes_Segments
 
 % Search for clicked item among segments
-f = find(handles.SegmentHandles==hObject);
-if isempty(f)
+activeSegNum = find(handles.SegmentHandles==hObject);
+if isempty(activeSegNum)
     % No matching segment found. Must be a marker.
-    f = find(handles.MarkerHandles==hObject);
+    activeSegNum = find(handles.MarkerHandles==hObject);
     elementType = 'marker';
 else
     elementType = 'segment';
@@ -2827,9 +2844,9 @@ switch get(gcf,'selectiontype')
     case 'normal'
         switch elementType
             case 'segment'
-                handles = SetActiveSegment(handles, f);
+                handles = SetActiveSegment(handles, activeSegNum);
             case 'marker'
-                handles = SetActiveMarker(handles, f);
+                handles = SetActiveMarker(handles, activeSegNum);
         end
 %         set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
 %         set(hObject,'edgecolor',handles.SegmentActiveColor,'linewidth',2);
@@ -2837,24 +2854,25 @@ switch get(gcf,'selectiontype')
     case 'extend'
         switch elementType
             case 'segment'
-                handles.SegmentSelection{filenum}(f) = ~handles.SegmentSelection{filenum}(f);
-                set(hObject,'facecolor',handles.SegmentSelectColors{handles.SegmentSelection{filenum}(f)+1});
+                handles.SegmentSelection{filenum}(activeSegNum) = ~handles.SegmentSelection{filenum}(activeSegNum);
+                set(hObject,'facecolor',handles.SegmentSelectColors{handles.SegmentSelection{filenum}(activeSegNum)+1});
             case 'marker'
-                handles.MarkerSelection{filenum}(f) = ~handles.MarkerSelection{filenum}(f);
-                set(hObject,'facecolor',handles.MarkerSelectColors{handles.MarkerSelection{filenum}(f)+1});
+                handles.MarkerSelection{filenum}(activeSegNum) = ~handles.MarkerSelection{filenum}(activeSegNum);
+                set(hObject,'facecolor',handles.MarkerSelectColors{handles.MarkerSelection{filenum}(activeSegNum)+1});
         end
     case 'open'
         switch elementType
             case 'segment'
-                if f < length(handles.SegmentHandles)
-                    handles.SegmentTimes{filenum}(f,2) = handles.SegmentTimes{filenum}(f+1,2);
-                    handles.SegmentTimes{filenum}(f+1,:) = [];
-                    handles.SegmentTitles{filenum}(f+1) = [];
-                    handles.SegmentSelection{filenum}(f+1) = [];
+                if activeSegNum < length(handles.SegmentHandles)
+                    handles.SegmentTimes{filenum}(activeSegNum,2) = handles.SegmentTimes{filenum}(activeSegNum+1,2);
+                    handles.SegmentTimes{filenum}(activeSegNum+1,:) = [];
+                    handles.SegmentTitles{filenum}(activeSegNum+1) = [];
+                    handles.SegmentSelection{filenum}(activeSegNum+1) = [];
                     handles = PlotSegments(handles);
-                    hObject = handles.SegmentHandles(f);
+                    hObject = handles.SegmentHandles(activeSegNum);
                     set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
-                    set(hObject,'edgecolor',handles.SegmentActiveColor,'linewidth',2);
+                    handles = SetActiveSegment(handles, f);
+%                     set(hObject,'edgecolor',handles.SegmentActiveColor,'linewidth',2);
                     set(gcf,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
                 end
             case 'marker'
@@ -2875,9 +2893,17 @@ set(handles.MarkerHandles(markerNum),'facecolor',handles.MarkerSelectColors{hand
 
 function markerNum = FindActiveMarker(handles)
 marker = findobj('parent',handles.axes_Segments,'edgecolor',handles.MarkerActiveColor);
+if isempty(marker)
+    markerNum = [];
+    return;
+end
 markerNum = find(handles.MarkerHandles == marker);
 function segmentNum = FindActiveSegment(handles)
 segment = findobj('parent',handles.axes_Segments,'edgecolor',handles.SegmentActiveColor);
+if isempty(segment)
+    segmentNum = [];
+    return;
+end
 segmentNum = find(handles.SegmentHandles == segment);
 
 function handles = JoinSegmentWithNext(handles, filenum, segmentNum)
@@ -2902,9 +2928,6 @@ filenum = getCurrentFileNum(handles);
 ch = get(gcf,'currentcharacter');
 % I think this is an awkward way of converting the character to a numeric ASCII code?
 chn = sum(ch);
-% Find the handle for the currently active segment
-activeSegmentNum = FindActiveSegment(handles);
-activeMarkerNum = FindActiveMarker(handles);
 
 % Keypress is a "comma" - load previous file
 if chn==44
@@ -2933,68 +2956,117 @@ if chn==46
     return
 end
 
-% No segments defined, do nothing
-if isempty(handles.SegmentHandles)
+% Find the handle for the currently active segment
+segmentNum = FindActiveSegment(handles);
+markerNum = FindActiveMarker(handles);
+
+if isempty(handles.SegmentHandles) && isempty(handles.MarkerHandles)
+    % No segments or markers defined, do nothing
     return
 end
-if isempty(activeSegmentNum)
-    % No active segment, do nothing
+if isempty(segmentNum) && isempty(markerNum)
+    % No active segment or active marker, do nothing
     return
+elseif ~isempty(segmentNum) && ~isempty(markerNum)
+    error('Both a marker and a segment were active. This shouldn''t happen');
 else
-    % Get the index of the active segment
-    segnum = find(handles.SegmentHandles==activeSegmentNum);
+    if ~isempty(segmentNum)
+        activeType = 'segment';
+    elseif ~isempty(markerNum)
+        activeType = 'marker';
+    end
 end
 if chn>32 && chn<127 && chn~=44 && chn~=46
     % Key was in the range of normal printable keyboard characters, but
     %   isn't a comma or period
-    % Set the currently active segment title to the pressed key
-    handles.SegmentTitles{filenum}{segnum} = ch;
-    % Update the segment label to reflect the new segment title
-    set(handles.SegmentLabelHandles(segnum),'string',ch);
-    newseg = segnum + 1;
+    switch activeType
+        case 'segment'
+            % Set the currently active segment title to the pressed key
+            handles.SegmentTitles{filenum}{segmentNum} = ch;
+            % Update the segment label to reflect the new segment title
+            set(handles.SegmentLabelHandles(segmentNum),'string',ch);
+            newSegmentNum = segmentNum + 1;
+        case 'marker'
+            % Set the currently active marker title to the pressed key
+            handles.MarkerTitles{filenum}{segmentNum} = ch;
+            % Update the segment label to reflect the new segment title
+            set(handles.SegmentLabelHandles(segmentNum),'string',ch);
+            newMarkerNum = markerNum + 1;
+    end
 elseif chn==8
-    % User pressed "backspace" - clear segment title
-    handles.SegmentTitles{filenum}{segnum} = '';
-    % Clear segment label
-    set(handles.SegmentLabelHandles(segnum),'string','');
-    newseg = segnum + 1;
+    switch activeType
+        case 'segment'
+            % User pressed "backspace" - clear segment title
+            handles.SegmentTitles{filenum}{segmentNum} = '';
+            % Clear segment label
+            set(handles.SegmentLabelHandles(segmentNum),'string','');
+            newSegmentNum = segmentNum + 1;
+        case 'marker'
+            % User pressed "backspace" - clear marker title
+            handles.MarkerTitles{filenum}{markerNum} = '';
+            % Clear segment label
+            set(handles.MarkerLabelHandles(markerNum),'string','');
+            newMarkerNum = markerNum + 1;
+    end
 elseif chn==28
     % This is the "File separator" character. I guess this advances the
     % active marker to the next segment?
-    newseg = segnum - 1;
+    switch activeType
+        case 'segment'
+            newSegmentNum = segmentNum - 1;
+        case 'marker'
+            newMarkerNum = markerNum - 1;
+    end
 elseif chn==29
     % This is the "Group separator" character. I guess this activates the
     % previous segment?
-    newseg = segnum + 1;
+    switch activeType
+        case 'segment'
+            newSegmentNum = segmentNum + 1;
+        case 'marker'
+            newMarkerNum = markerNum + 1;
+    end
 elseif chn==32
     % User pressed "space" - join this segment with next segment
-    handles = JoinSegmentWithNext(handles, filenum, segnum);
-    newseg = segnum;
+    switch activeType
+        case 'segment'
+            handles = JoinSegmentWithNext(handles, filenum, segmentNum);
+            newSegmentNum = segmentNum;
+        case 'marker'
+            % Don't really need to do this with markers
+    end
 elseif chn==116
     % User pressed "t" - toggle active segment "selection"
-    handles = ToggleSegmentSelect(handles, filenum, segnum);
-    newseg = segnum;
+    switch activeType
+        case 'segment'
+            handles = ToggleSegmentSelect(handles, filenum, segmentNum);
+            newSegmentNum = segmentNum;
+        case 'marker'
+            handles = ToggleMarkerSelect(handles, filenum, markerNum);
+            newMarkerNum = markerNum;
+    end
 elseif chn==127
     % User pressed "delete" - delete selected marker
-    handles = DeleteMarker(handles, filenum, activeMarkerNum);
+    switch activeType
+        case 'segment'
+            handles = DeleteSegment(handles, filenum, segmentNum);
+            newSegmentNum = segmentNum;
+        case 'marker'
+            handles = DeleteMarker(handles, filenum, markerNum);
+            newMarkerNum = markerNum;
+    end
     handles = PlotSegments(handles);
 else
     return
 end
 
-if newseg < 1
-    % If nonexistent segment before first one was going to be activated,
-    % instead activate the first segment.
-    newseg = 1;
-end
-if newseg > length(handles.SegmentHandles)
-    % If nonexistent segment after the last one was going to be activated,
-    % instead activate the last segment.
-    newseg = length(handles.SegmentHandles);
+switch activeType
+    case 'segment'
+        handles = SetActiveSegment(handles, newSegmentNum);
+    case 'marker'
+        handles = SetActiveMarker(handles, newMarkerNum);
 end
 
-handles = SetActiveSegment(handles, activeMarkerNum);
-handles = SetActiveSegment(handles, newseg);
 % % Update previously active segment to not active
 % set(handles.SegmentHandles(segnum),'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
 % % Mark new active segment as active
@@ -7889,8 +7961,9 @@ handles.SegmentTitles{filenum}(min(f)+1:max(f)) = [];
 handles.SegmentSelection{filenum}(min(f)+1:max(f)) = [];
 handles = PlotSegments(handles);
 
-set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
-set(handles.SegmentHandles(min(f)),'edgecolor',handles.SegmentActiveColor,'linewidth',2);
+handles = SetActiveSegment(handles, min(f));
+% set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
+% set(handles.SegmentHandles(min(f)),'edgecolor',handles.SegmentActiveColor,'linewidth',2);
 set(gcf,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
 
 guidata(hObject, handles);
