@@ -1391,7 +1391,7 @@ function [markerHandles, labelHandles] = CreateMarkers(handles, times, titles, s
 xs = linspace(0,length(handles.sound)/handles.fs,length(handles.sound));
 
 y0 = yExtent(1);
-y1 = mean(yExtent);
+y1 = yExtent(1) + (yExtent(2) - yExtent(1))*0.3;
 % y2 = yExtent(2);
 
 markerHandles = [];
@@ -1411,7 +1411,7 @@ for c = 1:size(times,1)
     markerHandles(c) = patch([x1 x2 x2 x1],[y0 y0 y1 y1],faceColor);
     % Create a text graphics object right above the middle of the segment
     % rectangle
-    labelHandles(c) = text((x1+x2)/2,y1,titles(c));
+    labelHandles(c) = text((x1+x2)/2,y1,titles(c), 'VerticalAlignment', 'bottom');
     if c==1
         % Set the first segment to be the selected one
         set(markerHandles(c), 'edgecolor', activeColor, 'linewidth', 2);
@@ -1426,8 +1426,8 @@ function handles = PlotSegments(handles)
 % Get segment axes
 ax = subplot(handles.axes_Segments);
 % Clear segment axes
-cla(ax)
-hold(ax, 'on')
+cla(ax);
+hold(ax, 'on');
 % Clear segment handles and segment label handles
 handles.SegmentHandles = [];
 handles.SegmentLabelHandles = [];
@@ -1449,7 +1449,7 @@ filenum = getCurrentFileNum(handles);
     handles.MarkerTitles{filenum}, ...
     handles.MarkerSelection{filenum}, ...
     handles.MarkerSelectColor, handles.MarkerUnSelectColor, ...
-    handles.MarkerActiveColor, handles.MarkerInactiveColor, [2, 4]);
+    handles.MarkerActiveColor, handles.MarkerInactiveColor, [1, 3]);
 
 % Set any unselected segments to have a gray face color
 set(handles.SegmentHandles(find(handles.SegmentSelection{filenum}==0)),'facecolor',handles.SegmentUnSelectColor);
@@ -1460,7 +1460,7 @@ xd = get(handles.xlimbox,'xdata');
 % Set time-zoom state of segment axes to match audio axes
 xlim(ax, xd(1:2));
 % Set y-scale of axes
-ylim(ax, [-2 6]);
+ylim(ax, [-2 3.5]);
 % Get figure background color
 bg = get(gcf,'color');
 % Set segment axes background & axis colors to the figure background color, I guess to hide them
@@ -1804,8 +1804,6 @@ elseif strcmp(get(gcf,'selectiontype'),'open')
     % Update spectrogram scales
     handles = eg_EditTimescale(handles);
 elseif strcmp(get(gcf, 'selectiontype'), 'alt')
-    disp('make a marker!')
-
     % Switch the axes back to normalized units
     set(get(gca,'parent'),'units','normalized');
     set(gca,'units','normalized');
@@ -2871,7 +2869,7 @@ switch get(gcf,'selectiontype')
                     handles = PlotSegments(handles);
                     hObject = handles.SegmentHandles(activeSegNum);
                     set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
-                    handles = SetActiveSegment(handles, f);
+                    handles = SetActiveSegment(handles, activeSegNum);
 %                     set(hObject,'edgecolor',handles.SegmentActiveColor,'linewidth',2);
                     set(gcf,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
                 end
@@ -3068,9 +3066,10 @@ elseif chn==32
             newSegmentNum = segmentNum;
         case 'marker'
             % Don't really need to do this with markers
+            return
     end
-elseif chn==116
-    % User pressed "t" - toggle active segment "selection"
+elseif chn==13
+    % User pressed "enter" key - toggle active segment "selection"
     switch activeType
         case 'segment'
             handles = ToggleSegmentSelect(handles, filenum, segmentNum);
