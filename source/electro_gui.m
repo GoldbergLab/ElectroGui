@@ -2865,7 +2865,16 @@ end
 
 guidata(hObject, handles);
 
-function handles = JoinSegmentWithNext(handles, fileNum, segmentNum)
+function handles = ToggleSegmentSelect(handles, filenum, segmentNum)
+handles.SegmentSelection{filenum}(segmentNum) = ~handles.SegmentSelection{filenum}(segmentNum);
+set(handles.SegmentHandles(segmentNum),'facecolor',handles.SegmentSelectColors{handles.SegmentSelection{filenum}(segmentNum)+1});
+
+function handles = ToggleMarkerSelect(handles, filenum, markerNum)
+handles.MarkerSelection{filenum}(markerNum) = ~handles.MarkerSelection{filenum}(markerNum);
+set(handles.MarkerHandles(markerNum),'facecolor',handles.MarkerSelectColors{handles.MarkerSelection{filenum}(markerNum)+1});
+
+
+function handles = JoinSegmentWithNext(handles, filenum, segmentNum)
 if segmentNum < length(handles.SegmentHandles)
     % This is not the last segment in the file
     handles.SegmentTimes{filenum}(segmentNum,2) = handles.SegmentTimes{filenum}(segmentNum+1,2);
@@ -2951,21 +2960,16 @@ elseif chn==29
     % previous segment?
     newseg = segnum + 1;
 elseif chn==32
-    % User pressed "space" - toggle active segment "selection"
-    if handles.SegmentSelection{filenum}(segnum)==0
-        handles.SegmentSelection{filenum}(segnum) = 1;
-        set(handles.SegmentHandles(segnum),'facecolor',handles.SegmentSelectColor);
-    else
-        handles.SegmentSelection{filenum}(segnum) = 0;
-        set(handles.SegmentHandles(segnum),'facecolor',handles.SegmentUnSelectColor);
-    end
+    % User pressed "space" - join this segment with next segment
+    handles = JoinSegmentWithNext(handles, filenum, segnum);
+    newseg = segnum;
+elseif chn==116
+    % User pressed "t" - toggle active segment "selection"
+    handles = ToggleSegmentSelect(handles, filenum, segnum);
     newseg = segnum;
 else
     return
 end
-
-% Update previously active segment to not active
-set(handles.SegmentHandles(segnum),'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
 
 if newseg < 1
     % If nonexistent segment before first one was going to be activated,
@@ -2978,8 +2982,11 @@ if newseg > length(handles.SegmentHandles)
     newseg = length(handles.SegmentHandles);
 end
 
-% Mark new active segment as active
-set(handles.SegmentHandles(newseg),'edgecolor',handles.SegmentActiveColor,'linewidth',2);
+handles = SetActiveSegment(handles, newseg);
+% % Update previously active segment to not active
+% set(handles.SegmentHandles(segnum),'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
+% % Mark new active segment as active
+% set(handles.SegmentHandles(newseg),'edgecolor',handles.SegmentActiveColor,'linewidth',2);
 
 guidata(hObject, handles);
 
