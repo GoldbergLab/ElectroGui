@@ -1866,6 +1866,12 @@ handles.MarkerTimes{filenum}(markerNum, :) = [];
 handles.MarkerSelection{filenum}(markerNum) = [];
 handles.MarkerTitles{filenum}(markerNum) = [];
 
+function handles = DeleteSegment(handles, filenum, segmentNum)
+% Delete the specified marker
+handles.SegmentTimes{filenum}(segmentNum, :) = [];
+handles.SegmentSelection{filenum}(segmentNum) = [];
+handles.SegmentTitles{filenum}(segmentNum) = [];
+
 function [handles, order] = SortMarkers(handles, filenum)
 % Sort the order of the markers. Note that this doesn't affect the marker
 % data at all, just keeps them stored in chronological order.
@@ -1904,6 +1910,54 @@ end
 
 function value = coerceToRange(value, valueRange)
 value = min(max(value, valueRange(1)), valueRange(2));
+
+function [handles, newSegmentNum] = ConvertMarkerToSegment(handles, filenum, markerNum)
+t0 = handles.MarkerTimes{filenum}(markerNum, 1);
+t1 = handles.MarkerTimes{filenum}(markerNum, 2);
+MS = handles.MarkerSelection{filenum}(markerNum);
+MN = handles.MarkerTitles{filenum}(markerNum);
+STs = handles.SegmentTimes{filenum};
+SSs = handles.SegmentSelection{filenum};
+SNs = handles.SegmentTitles{filenum};
+
+if isempty(STs)
+    ind = 1;
+else
+    ind = getSortedArrayInsertion(STs, t0);
+end
+handles.SegmentTimes{filenum} = [STs(1:ind-1, :); [t0, t1]; STs(ind:end, :)];
+handles.SegmentSelection{filenum} = [SSs(1:ind-1), MS, SSs(ind:end)];
+handles.SegmentTitles{filenum} = [SNs(1:ind-1), MN, SNs(ind:end)];
+
+newSegmentNum = ind;
+
+handles = DeleteMarker(handles, filenum, markerNum);
+
+function [handles, newMarkerNum] = ConvertSegmentToMarker(handles, filenum, segmentNum)
+t0 = handles.SegmentTimes{filenum}(segmentNum, 1);
+t1 = handles.SegmentTimes{filenum}(segmentNum, 2);
+SS = handles.SegmentSelection{filenum}(segmentNum);
+SN = handles.SegmentTitles{filenum}(segmentNum);
+MTs = handles.MarkerTimes{filenum};
+MSs = handles.MarkerSelection{filenum};
+MNs = handles.MarkerTitles{filenum};
+
+if isempty(MTs)
+    ind = 1;
+else
+    ind = getSortedArrayInsertion(MTs(:, 1), t0);
+end
+handles.MarkerTimes{filenum} = [MTs(1:ind-1, :); [t0, t1]; MTs(ind:end, :)];
+handles.MarkerSelection{filenum} = [MSs(1:ind-1), SS, MSs(ind:end)];
+handles.MarkerTitles{filenum} = [MNs(1:ind-1), SN, MNs(ind:end)];
+
+newMarkerNum = ind;
+
+handles = DeleteSegment(handles, filenum, segmentNum);
+
+function ind = getSortedArrayInsertion(sortedArr, value)
+[~, ind] = min(abs(sortedArr-value));
+ind = ind + (value > sortedArr(ind)); 
 
 % --- Executes on button press in push_Calculate.
 function push_Calculate_Callback(hObject, ~, handles)
@@ -2992,7 +3046,7 @@ else
         activeType = 'marker';
     end
 end
-if chn>32 && chn<127 && chn~=44 && chn~=46
+if chn>32 && chn<127 && chn~=44 && chn~=46 && chn~=96
     % Key was in the range of normal printable keyboard characters, but
     %   isn't a comma or period
     switch activeType
@@ -3105,6 +3159,18 @@ elseif chn==127
         case 'marker'
             handles = DeleteMarker(handles, filenum, markerNum);
             newMarkerNum = markerNum;
+    end
+    handles = PlotSegments(handles);
+elseif chn==96
+    % User pressed the "`" / "~" button - transform active marker into
+    %   segment or vice versa
+    switch activeType
+        case 'segment'
+            [handles, newMarkerNum] = ConvertSegmentToMarker(handles, filenum, segmentNum);
+            activeType = 'marker';
+        case 'marker'
+            [handles, newSegmentNum] = ConvertMarkerToSegment(handles, filenum, markerNum);
+            activeType = 'segment';
     end
     handles = PlotSegments(handles);
 else
