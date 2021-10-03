@@ -865,7 +865,6 @@ electro_gui('edit_Timescale_Callback',gcbo,[],guidata(gcbo));
 
 guidata(hObject, handles);
 
-
 function edit_Timescale_Callback(hObject, ~, handles)
 % hObject    handle to edit_Timescale (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -886,7 +885,6 @@ handles = eg_EditTimescale(handles);
 
 guidata(hObject, handles);
 
-
 % --- Executes during object creation, after setting all properties.
 function edit_Timescale_CreateFcn(hObject, ~, handles)
 % hObject    handle to edit_Timescale (see GCBO)
@@ -898,10 +896,6 @@ function edit_Timescale_CreateFcn(hObject, ~, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
-
-
-
-
 
 function handles = eg_LoadFile(handles)
 
@@ -1276,7 +1270,6 @@ end
 
 handles = eg_Overlay(handles);
 
-
 function handles = eg_PlotChannel(handles,axnum)
 
 subplot(handles.axes_Channel(axnum));
@@ -1320,7 +1313,6 @@ set(gca,'uicontextmenu',handles.(['context_Channel',num2str(axnum)]));
 set(gca,'buttondownfcn','electro_gui(''click_Channel'',gcbo,[],guidata(gcbo))');
 set(get(gca,'children'),'uicontextmenu',get(gca,'uicontextmenu'));
 set(get(gca,'children'),'buttondownfcn',get(gca,'buttondownfcn'));
-
 
 function handles = SetThreshold(handles)
 % Clear segments axes
@@ -1412,17 +1404,34 @@ for c = 1:size(times,1)
     % Create a text graphics object right above the middle of the segment
     % rectangle
     labelHandles(c) = text((x1+x2)/2,y1,titles(c), 'VerticalAlignment', 'bottom');
-    if c==1
-        % Set the first segment to be the selected one
-        set(markerHandles(c), 'edgecolor', activeColor, 'linewidth', 2);
-    else
+%     if c==1
+%         % Set the first segment to be the selected one
+%         set(markerHandles(c), 'edgecolor', activeColor, 'linewidth', 2);
+%     else
         set(markerHandles(c), 'edgecolor', inactiveColor, 'linewidth', 1);
-    end
+%     end
 end
 % Attach click handler "click_segment" to segment rectangle
 set(markerHandles,'buttondownfcn','electro_gui(''click_segment'',gcbo,[],guidata(gcbo))');
 
-function handles = PlotSegments(handles)
+function handles = PlotSegments(handles, activeSegmentNum, activeMarkerNum)
+if ~exist('activeSegmentNum', 'var')
+    activeSegmentNum = [];
+end
+if ~exist('activeMarkerNum', 'var')
+    activeMarkerNum = [];
+end
+
+if isempty(activeMarkerNum)
+    activeType = 'segment';
+    if isempty(activeSegmentNum)
+        % No active segment or marker? Set it to active segment #1
+        activeSegmentNum = 1;
+    end
+else
+    activeType = 'marker';
+end
+
 % Get segment axes
 ax = subplot(handles.axes_Segments);
 % Clear segment axes
@@ -1472,6 +1481,12 @@ set(get(ax,'children'),'uicontextmenu',get(ax,'uicontextmenu'));
 % Assign key press function to figure (labelsegment) for labeling segments
 set(gcf,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
 
+switch activeType
+    case 'segment'
+        handles = SetActiveSegment(handles, activeSegmentNum);
+    case 'marker'
+        handles = SetActiveMarker(handles, activeMarkerNum);
+end
 
 function h = eg_peak_detect(ax,x,y)
 
@@ -1500,7 +1515,6 @@ else
     hold off
 end
 xlim(xl);
-
 
 % --------------------------------------------------------------------
 function context_Sonogram_Callback(hObject, ~, handles)
@@ -1872,6 +1886,9 @@ set(handles.SegmentHandles, 'edgecolor', handles.SegmentInactiveColor, 'linewidt
 if ~isempty(handles.MarkerHandles)
     markerNum = coerceToRange(markerNum, [1, length(handles.MarkerHandles)]);
     set(handles.MarkerHandles(markerNum), 'edgecolor', handles.MarkerActiveColor, 'linewidth', 2);
+else
+    % No markers? Set active segment instead.
+    handles = SetActiveSegment(handles, 1);
 end
 
 function handles = SetActiveSegment(handles, segmentNum)
