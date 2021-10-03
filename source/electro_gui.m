@@ -23,7 +23,7 @@ function varargout = electro_gui(varargin)
 
 % Edit the above text to modify the response to help electro_gui
 
-% Last Modified by GUIDE v2.5 20-Apr-2021 10:08:07
+% Last Modified by GUIDE v2.5 03-Oct-2021 19:44:51
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -9721,3 +9721,11 @@ context_UpdateList_Callback;
 menu_ChangeFiles_Callback;
 menu_DeleteFiles_Callback;
 menu_AutoApplyYLim_Callback;
+
+
+% --- Executes on button press in ShowHelpButton.
+function ShowHelpButton_Callback(hObject, eventdata, handles)
+% hObject    handle to ShowHelpButton (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+msgbox(eg_HelpText(handles), 'electro_gui info and help:');
