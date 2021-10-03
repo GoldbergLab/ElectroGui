@@ -1843,6 +1843,7 @@ handles = PlotSegments(handles);
 [handles, order] = SortMarkers(handles, filenum);
 [~, mostRecentMarkerNum] = max(order);
 % Set active marker again, so the same marker is still active
+handles = PlotSegments(handles);
 handles = SetActiveMarker(handles, mostRecentMarkerNum);
 
 function handles = DeleteMarker(handles, filenum, markerNum)
