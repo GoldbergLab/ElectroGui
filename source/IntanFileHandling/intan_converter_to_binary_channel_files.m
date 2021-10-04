@@ -94,7 +94,6 @@ month = first_rhd_file((numel(first_rhd_file)-11-3):(numel(first_rhd_file)-11-2)
 day = first_rhd_file((numel(first_rhd_file)-11-1):(numel(first_rhd_file)-11));
 year = first_rhd_file((numel(first_rhd_file)-11-5):(numel(first_rhd_file)-11-4));
 rhd_file_first = Intan_file_dir(1).name;
-
 year = 2000 + str2double(year);
 month = str2double(month);
 day = str2double(day);
@@ -180,9 +179,13 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
             minute=minute_first;
             second=second_first;
             
+<<<<<<< Updated upstream
             if abs(data.board_adc_data(headstage_num,k)) > 0.6 %|| abs((data.amplifier_data(1,k)*unit)) > 0.003  %checks for stims if it is NOT a song file ************************ 12/4/2020 Anna Changed from 0.17 to 0.25 *** 12/16/2020 Anna Changed from 0.25 to 0.6
                 % ***** 1/3/2021 Anna Changed from 0.6 to 0.7 (for the files from 12/24/2020)
            
+=======
+            if abs(data.board_adc_data(n,k)) > 0.5 %|| abs((data.amplifier_data(1,k)*unit)) > 0.003  %checks for stims if it is NOT a song file************* Changed to 0.5 CBJ 6/17/21
+>>>>>>> Stashed changes
                 motif_number=motif_number+1;
                 motif_number_array(headstage_num)=motif_number;
                 %k
