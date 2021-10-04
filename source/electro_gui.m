@@ -698,7 +698,6 @@ catch
     errordlg('Java is not working properly. You must right-click the button.','Java error');
 end
 
-
 % --- Executes on slider movement.
 function slider_Time_Callback(hObject, ~, handles)
 % hObject    handle to slider_Time (see GCBO)
@@ -708,6 +707,10 @@ function slider_Time_Callback(hObject, ~, handles)
 % Hints: get(hObject,'Value') returns position of slider
 %        get(hObject,'Min') and get(hObject,'Max') to determine range of slider
 
+if ~isfield(handles, 'xlimbox')
+    % No xlimbox yet, probably nothing to slide.
+    return;
+end
 xd = get(handles.xlimbox,'xdata');
 shift = get(handles.slider_Time,'value')-xd(1);
 xd = xd+shift;
@@ -715,7 +718,6 @@ set(handles.xlimbox,'xdata',xd);
 handles = eg_EditTimescale(handles);
 
 guidata(hObject, handles);
-
 
 % --- Executes during object creation, after setting all properties.
 function slider_Time_CreateFcn(hObject, ~, handles)
