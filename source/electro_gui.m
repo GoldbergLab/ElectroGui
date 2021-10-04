@@ -398,14 +398,14 @@ handles.SegmenterParams.Names = {};
 handles.SegmenterParams.Values = {};
 handles.SonogramParams.Names = {};
 handles.SonogramParams.Values = {};
-handles.EventParams(1).Names = {};
-handles.EventParams(1).Values = {};
-handles.EventParams(2).Names = {};
-handles.EventParams(2).Values = {};
-handles.FunctionParams(1).Names = {};
-handles.FunctionParams(1).Values = {};
-handles.FunctionParams(2).Names = {};
-handles.FunctionParams(2).Values = {};
+handles.EventParams{1}.Names = {};
+handles.EventParams{1}.Values = {};
+handles.EventParams{2}.Names = {};
+handles.EventParams{2}.Values = {};
+handles.FunctionParams{1}.Names = {};
+handles.FunctionParams{1}.Values = {};
+handles.FunctionParams{2}.Names = {};
+handles.FunctionParams{2}.Values = {};
 handles.FilterParams.Names = {};
 handles.FilterParams.Values = {};
 
@@ -1198,7 +1198,8 @@ if get(handles.popup_Functions(axnum),'value') > 1
     val = handles.loadedChannelData{axnum};
     f = findstr(str,' - ');
     if isempty(f)
-        [chan lab] = eval(['egf_' str '(val,handles.fs,handles.FunctionParams' num2str(axnum) ')']);
+        [chan, lab] = eg_runPlugin(handles.plugins.filters, str, val, handles.fs, handles.FunctionParams{axnum});
+%        [chan lab] = eval(['egf_' str '(val,handles.fs,handles.FunctionParams' num2str(axnum) ')']);
         if iscell(lab)
             handles.Labels{axnum} = lab{1};
             handles.loadedChannelData{axnum} = chan{1};
@@ -1240,7 +1241,8 @@ if get(handles.popup_Functions(axnum),'value') > 1
             handles.Labels{axnum} = handles.BackupLabel{axnum}{count};
             handles.loadedChannelData{axnum} = handles.BackupChan{axnum}{count};
         else
-            [chan lab] = eval(['egf_' str(1:f-1) '(val,handles.fs,handles.FunctionParams' num2str(axnum) ')']);
+            [chan, lab] = eg_runPlugin(handles.plugins.filters, str(1:f-1), val, handles.fs, handles.FunctionParams{axnum});
+%            [chan lab] = eval(['egf_' str(1:f-1) '(val,handles.fs,handles.FunctionParams' num2str(axnum) ')']);
             handles.Labels{axnum} = lab{count};
             handles.loadedChannelData{axnum} = chan{count};
             handles.BackupChan{axnum} = chan;
@@ -1741,26 +1743,26 @@ end
 
 
 function click_sound(hObject, ~, handles)
-% Callback for a mouse click on the spectrogram 
+% Callback for a mouse click on the spectrogram
 
 if strcmp(get(gcf,'selectiontype'),'normal')
     % Normal left mouse button click
     %   Zoom in (either with a box if it's a
-    %   click/drag, or just shift the zoom box over to click location if 
+    %   click/drag, or just shift the zoom box over to click location if
     %   it's just a click.
-    
+
     % Temporarily switch axes units to pixels to make it easier to convert
     % the user click coordinates?
     set(gca,'units','pixels');
     set(get(gca,'parent'),'units','pixels');
     % Set up a "rubber band box" to display user mouse click/drag. This
-    %   blocks until user lets go of mouse, and returns the *figure* 
+    %   blocks until user lets go of mouse, and returns the *figure*
     %   coordinates of the click/drag rectangle
     rect = rbbox;
 
     % Get axis upper left position to subtract off
     pos = get(gca,'position');
-    
+
     % Switch the axes back to normalized units
     set(get(gca,'parent'),'units','normalized');
     set(gca,'units','normalized');
@@ -1824,13 +1826,13 @@ elseif strcmp(get(gcf, 'selectiontype'), 'alt')
     set(get(gca,'parent'),'units','normalized');
     set(gca,'units','normalized');
     % Set up a "rubber band box" to display user mouse click/drag. This
-    %   blocks until user lets go of mouse, and returns the *figure* 
+    %   blocks until user lets go of mouse, and returns the *figure*
     %   coordinates of the click/drag rectangle
     rect = rbbox;
 
     % Get axis upper left position to subtract off
     pos = get(gca,'position');
-    
+
     xl = xlim;
 %    yl = ylim;
 
@@ -1840,7 +1842,7 @@ elseif strcmp(get(gcf, 'selectiontype'), 'alt')
     x(1) = (xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1)));
     x(2) = x(1) + (rect(3)/pos(3)*(xl(2)-xl(1)));
     x = round(handles.fs * x);
-    
+
     handles = CreateNewMarker(handles, x);
 end
 
@@ -1959,7 +1961,7 @@ handles = DeleteSegment(handles, filenum, segmentNum);
 
 function ind = getSortedArrayInsertion(sortedArr, value)
 [~, ind] = min(abs(sortedArr-value));
-ind = ind + (value > sortedArr(ind)); 
+ind = ind + (value > sortedArr(ind));
 
 % --- Executes on button press in push_Calculate.
 function push_Calculate_Callback(hObject, ~, handles)
@@ -2165,11 +2167,12 @@ for axnum = 1:2
     if isempty(ud{v}) & v>1
         str = get(handles.(['popup_EventDetector' num2str(axnum)]),'string');
         dtr = str{v};
-        [handles.(['EventParams' num2str(axnum)]) labels] = eval(['ege_' dtr '(''params'')']);
-        ud{v} = handles.(['EventParams' num2str(axnum)]);
+        [handles.EventParams{axnum}, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, 'params');
+%        [handles.EventParams{axnum} labels] = eval(['ege_' dtr '(''params'')']);
+        ud{v} = handles.EventParams{axnum};
         set(handles.(['popup_EventDetector' num2str(axnum)]),'userdata',ud);
     else
-        handles.(['EventParams' num2str(axnum)]) = ud{v};
+        handles.EventParams{axnum} = ud{v};
     end
 end
 
@@ -2180,11 +2183,12 @@ for axnum = 1:2
     if isempty(ud{v}) & v>1
         str = get(handles.popup_Functions(axnum),'string');
         dtr = str{v};
-        [handles.(['FunctionParams' num2str(axnum)]) labels] = eval(['egf_' dtr '(''params'')']);
-        ud{v} = handles.(['FunctionParams' num2str(axnum)]);
+        [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
+%        [handles.FunctionParams{axnum} labels] = eval(['egf_' dtr '(''params'')']);
+        ud{v} = handles.FunctionParams{axnum};
         set(handles.popup_Functions(axnum),'userdata',ud);
     else
-        handles.(['FunctionParams' num2str(axnum)]) = ud{v};
+        handles.FunctionParams{axnum} = ud{v};
     end
 end
 
@@ -2327,7 +2331,7 @@ if isfield(dbase, 'MarkerTitles')
 else
     % This must be an older type of dbase - add blank marker field
     handles.MarkerTitles = cell(1,handles.TotalFileNumber);
-end    
+end
 if isfield(dbase, 'MarkerIsSelected')
     handles.MarkerSelection = dbase.MarkerIsSelected;
 else
@@ -2431,11 +2435,12 @@ for axnum = 1:2
     if isempty(ud{v}) & v>1
         str = get(handles.(['popup_EventDetector' num2str(axnum)]),'string');
         dtr = str{v};
-        [handles.(['EventParams' num2str(axnum)]) labels] = eval(['ege_' dtr '(''params'')']);
-        ud{v} = handles.(['EventParams' num2str(axnum)]);
+        [handles.EventParams{axnum}, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, 'params');
+%        [handles.EventParams{axnum} labels] = eval(['ege_' dtr '(''params'')']);
+        ud{v} = handles.EventParams{axnum};
         set(handles.(['popup_EventDetector' num2str(axnum)]),'userdata',ud);
     else
-        handles.(['EventParams' num2str(axnum)]) = ud{v};
+        handles.EventParams{axnum} = ud{v};
     end
 end
 
@@ -2446,11 +2451,12 @@ for axnum = 1:2
     if isempty(ud{v}) & v>1
         str = get(handles.popup_Functions(axnum),'string');
         dtr = str{v};
-        [handles.(['FunctionParams' num2str(axnum)]) labels] = eval(['egf_' dtr '(''params'')']);
-        ud{v} = handles.(['FunctionParams' num2str(axnum)]);
+        [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
+%        [handles.FunctionParams{axnum} labels] = eval(['egf_' dtr '(''params'')']);
+        ud{v} = handles.FunctionParams{axnum};
         set(handles.popup_Functions(axnum),'userdata',ud);
     else
-        handles.(['FunctionParams' num2str(axnum)]) = ud{v};
+        handles.FunctionParams{axnum} = ud{v};
     end
 end
 
@@ -3212,6 +3218,8 @@ function popup_Function1_Callback(hObject, ~, handles)
 % Hints: contents = get(hObject,'String') returns popup_Function1 contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from popup_Function1
 
+axnum = 1;
+
 v = get(handles.popup_Function1,'value');
 ud = get(handles.popup_Function1,'userdata');
 if isempty(ud{v}) & v>1
@@ -3219,14 +3227,16 @@ if isempty(ud{v}) & v>1
     dtr = str{v};
     f = findstr(dtr,' - ');
     if isempty(f)
-        [handles.FunctionParams1 labels] = eval(['egf_' dtr '(''params'')']);
+        [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
+%        [handles.FunctionParams1 labels] = eval(['egf_' dtr '(''params'')']);
     else
-        [handles.FunctionParams1 labels] = eval(['egf_' dtr(1:f-1) '(''params'')']);
+        [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr(1:f-1), 'params');
+%        [handles.FunctionParams1 labels] = eval(['egf_' dtr(1:f-1) '(''params'')']);
     end
-    ud{v} = handles.FunctionParams1;
+    ud{v} = handles.FunctionParams{axnum};
     set(handles.popup_Function1,'userdata',ud);
 else
-    handles.FunctionParams1 = ud{v};
+    handles.FunctionParams{axnum} = ud{v};
 end
 
 if isempty(findobj('parent',handles.axes_Sonogram,'type','text'))
@@ -3277,6 +3287,8 @@ function popup_Function2_Callback(hObject, ~, handles)
 % Hints: contents = get(hObject,'String') returns popup_Function2 contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from popup_Function2
 
+axnum = 2;
+
 v = get(handles.popup_Function2,'value');
 ud = get(handles.popup_Function2,'userdata');
 if isempty(ud{v}) & v>1
@@ -3284,14 +3296,16 @@ if isempty(ud{v}) & v>1
     dtr = str{v};
     f = findstr(dtr,' - ');
     if isempty(f)
-        [handles.FunctionParams2 labels] = eval(['egf_' dtr '(''params'')']);
+        [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
+%        [handles.FunctionParams1 labels] = eval(['egf_' dtr '(''params'')']);
     else
-        [handles.FunctionParams2 labels] = eval(['egf_' dtr(1:f-1) '(''params'')']);
+        [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr(1:f-1), 'params');
+%        [handles.FunctionParams1 labels] = eval(['egf_' dtr(1:f-1) '(''params'')']);
     end
-    ud{v} = handles.FunctionParams2;
+    ud{v} = handles.FunctionParams{axnum};
     set(handles.popup_Function2,'userdata',ud);
 else
-    handles.FunctionParams2 = ud{v};
+    handles.FunctionParams{axnum} = ud{v};
 end
 
 if isempty(findobj('parent',handles.axes_Sonogram,'type','text'))
@@ -3928,11 +3942,12 @@ ud = get(handles.(['popup_EventDetector' num2str(axnum)]),'userdata');
 if isempty(ud{v}) & v>1
     str = get(handles.(['popup_EventDetector' num2str(axnum)]),'string');
     dtr = str{v};
-    [handles.(['EventParams' num2str(axnum)]) labels] = eval(['ege_' dtr '(''params'')']);
-    ud{v} = handles.(['EventParams' num2str(axnum)]);
+    [handles.EventParams{axnum}, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, 'params');
+%    [handles.EventParams{axnum} labels] = eval(['ege_' dtr '(''params'')']);
+    ud{v} = handles.EventParams{axnum};
     set(handles.(['popup_EventDetector' num2str(axnum)]),'userdata',ud);
 else
-    handles.(['EventParams' num2str(axnum)]) = ud{v};
+    handles.EventParams{axnum} = ud{v};
 end
 
 if strcmp(get(handles.(['axes_Channel' num2str(axnum)]),'visible'),'off')
@@ -3979,7 +3994,7 @@ else
         handles.EventThresholds = [handles.EventThresholds; inf*ones(1,size(handles.EventThresholds,2))];
         handles.EventCurrentThresholds(end+1) = inf;
 
-        [events, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, [], handles.fs, inf, handles.EventParams(axnum));
+        [events, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, [], handles.fs, inf, handles.EventParams{axnum});
 
         str = get(handles.popup_Channel1,'string');
         strv = get(handles.popup_EventList,'string');
@@ -4257,7 +4272,7 @@ dtr = str{get(handles.(['popup_EventDetector' num2str(axnum)]),'value')};
 if strcmp(dtr,'(None)')
     return
 end
-[events, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, val, handles.fs, thres, handles.EventParams(axnum));
+[events, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, val, handles.fs, thres, handles.EventParams{axnum});
 
 for c = 1:length(events)
     handles.EventTimes{indx}{c,getCurrentFileNum(handles)} = events{c};
@@ -7799,7 +7814,7 @@ function menu_EventParams1_Callback(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-handles = EventParams(handles,1);
+handles = menu_EventParams(handles,1);
 
 guidata(hObject, handles);
 
@@ -7810,14 +7825,14 @@ function menu_EventParams2_Callback(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-handles = EventParams(handles,2);
+handles = menu_EventParams(handles,2);
 
 guidata(hObject, handles);
 
 
-function handles = EventParams(handles,axnum)
+function handles = menu_EventParams(handles,axnum)
 
-pr = handles.(['EventParams' num2str(axnum)]);
+pr = handles.EventParams{axnum};
 
 if ~isfield(pr,'Names') | isempty(pr.Names)
     errordlg('Current event detector does not require parameters.','Event detector error');
@@ -7830,11 +7845,11 @@ if isempty(answer)
 end
 pr.Values = answer;
 
-handles.(['EventParams' num2str(axnum)]) = pr;
+handles.EventParams{axnum} = pr;
 
 v = get(handles.(['popup_EventDetector' num2str(axnum)]),'value');
 ud = get(handles.(['popup_EventDetector' num2str(axnum)]),'userdata');
-ud{v} = handles.(['EventParams' num2str(axnum)]);
+ud{v} = handles.EventParams{axnum};
 set(handles.(['popup_EventDetector' num2str(axnum)]),'userdata',ud);
 
 handles = DetectEvents(handles,axnum);
@@ -7846,7 +7861,7 @@ function menu_FunctionParams1_Callback(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-handles = FunctionParams(handles,1);
+handles = menu_FunctionParams(handles,1);
 
 guidata(hObject, handles);
 
@@ -7856,15 +7871,15 @@ function menu_FunctionParams2_Callback(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-handles = FunctionParams(handles,2);
+handles = menu_FunctionParams(handles,2);
 
 guidata(hObject, handles);
 
 
 
-function handles = FunctionParams(handles,axnum)
+function handles = menu_FunctionParams(handles,axnum)
 
-pr = handles.(['FunctionParams' num2str(axnum)]);
+pr = handles.FunctionParams{axnum};
 
 if ~isfield(pr,'Names') | isempty(pr.Names)
     errordlg('Current function does not require parameters.','Function error');
@@ -7877,11 +7892,11 @@ if isempty(answer)
 end
 pr.Values = answer;
 
-handles.(['FunctionParams' num2str(axnum)]) = pr;
+handles.FunctionParams{axnum} = pr;
 
 v = get(handles.popup_Functions(axnum),'value');
 ud = get(handles.popup_Functions(axnum),'userdata');
-ud{v} = handles.(['FunctionParams' num2str(axnum)]);
+ud{v} = handles.FunctionParams{axnum};
 set(handles.popup_Functions(axnum),'userdata',ud);
 
 if isempty(findobj('parent',handles.axes_Sonogram,'type','text'))
