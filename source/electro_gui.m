@@ -2093,7 +2093,7 @@ end
 set(handles.list_Files,'string',str);
 
 
-str = {'(None)','Channel 0 - Sound'};
+str = {'(None)','Sound'};
 for c = 1:length(handles.chan_files)
     if ~isempty(handles.chan_files{c})
         str{end+1} = ['Channel ' num2str(c)];
