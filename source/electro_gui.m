@@ -2294,16 +2294,6 @@ handles.SegmentTimes = dbase.SegmentTimes;
 handles.SegmentTitles = dbase.SegmentTitles;
 handles.SegmentSelection = dbase.SegmentIsSelected;
 
-if isfield(dbase, 'MarkerTimes')
-    handles.MarkerTimes = dbase.MarkerTimes;
-end
-if isfield(dbase, 'MarkerTitles')
-    handles.MarkerTitles = dbase.MarkerTitles;
-end
-if isfield(dbase, 'MarkerIsSelected')
-    handles.MarkerSelection = dbase.MarkerIsSelected;
-end
-
 handles.EventSources = dbase.EventSources;
 handles.EventFunctions = dbase.EventFunctions;
 handles.EventDetectors = dbase.EventDetectors;
@@ -2325,6 +2315,25 @@ if strcmp(handles.WorksheetTitle,'Untitled')
 end
 
 handles.TotalFileNumber = length(handles.sound_files);
+
+if isfield(dbase, 'MarkerTimes')
+    handles.MarkerTimes = dbase.MarkerTimes;
+else
+    % This must be an older type of dbase - add blank marker field
+    handles.MarkerTimes = cell(1,handles.TotalFileNumber);
+end
+if isfield(dbase, 'MarkerTitles')
+    handles.MarkerTitles = dbase.MarkerTitles;
+else
+    % This must be an older type of dbase - add blank marker field
+    handles.MarkerTitles = cell(1,handles.TotalFileNumber);
+end    
+if isfield(dbase, 'MarkerIsSelected')
+    handles.MarkerSelection = dbase.MarkerIsSelected;
+else
+    % This must be an older type of dbase - add blank marker field
+    handles.MarkerSelection = cell(1,handles.TotalFileNumber);
+end
 
 handles.ShuffleOrder = randperm(handles.TotalFileNumber);
 
