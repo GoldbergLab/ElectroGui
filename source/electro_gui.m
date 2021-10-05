@@ -7995,7 +7995,7 @@ end
 
 handles.SegmenterParams.IsSplit = 1;
 sg = eg_runPlugin(handles.plugins.segmenters, alg, handles.amplitude, ...
-    handles.fs, num2str(rect(2)), handles.SegmenterParams);
+    handles.fs, rect(2), handles.SegmenterParams);
 %sg = eval(['egg_' alg '(handles.amplitude,handles.fs,' num2str(rect(2)) ',handles.SegmenterParams)']);
 
 f = find(sg(:,1)>rect(1)*handles.fs & sg(:,1)<(rect(1)+rect(3))*handles.fs);
