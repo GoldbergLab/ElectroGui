@@ -3768,11 +3768,14 @@ function menu_AllowYZoom1_Callback(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
+axnum = 1;
+
 if strcmp(get(handles.menu_AllowYZoom1,'checked'),'on')
     set(handles.menu_AllowYZoom1,'checked','off');
     subplot(handles.axes_Channel1);
     if strcmp(get(handles.menu_AutoLimits1,'checked'),'on')
-        yl = [min(handles.chan1) max(handles.chan1)];
+        yl = [min(handles.loadedChannelData{axnum}), ...
+              max(handles.loadedChannelData{axnum})];
         if yl(1)==yl(2)
             yl = [yl(1)-1 yl(2)+1];
         end
@@ -3794,11 +3797,14 @@ function menu_AllowYZoom2_Callback(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
+axnum = 2;
+
 if strcmp(get(handles.menu_AllowYZoom2,'checked'),'on')
     set(handles.menu_AllowYZoom2,'checked','off');
     subplot(handles.axes_Channel2);
     if strcmp(get(handles.menu_AutoLimits2,'checked'),'on')
-        yl = [min(handles.chan2) max(handles.chan2)];
+        yl = [min(handles.loadedChannelData{axnum}), ...
+              max(handles.loadedChannelData{axnum})];
         if yl(1)==yl(2)
             yl = [yl(1)-1 yl(2)+1];
         end
@@ -3820,6 +3826,8 @@ function menu_AutoLimits1_Callback(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
+axnum = 1;
+
 if strcmp(get(handles.menu_AutoLimits1,'checked'),'on')
     set(handles.menu_AutoLimits1,'checked','off');
     subplot(handles.axes_Channel1);
@@ -3827,7 +3835,8 @@ if strcmp(get(handles.menu_AutoLimits1,'checked'),'on')
 else
     set(handles.menu_AutoLimits1,'checked','on');
     subplot(handles.axes_Channel1);
-    yl = [min(handles.chan1) max(handles.chan1)];
+    yl = [min(handles.loadedChannelData{axnum}), ...
+          max(handles.loadedChannelData{axnum})];
     if yl(1)==yl(2)
         yl = [yl(1)-1 yl(2)+1];
     end
@@ -3843,6 +3852,8 @@ function menu_AutoLimits2_Callback(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
+axnum = 2;
+
 if strcmp(get(handles.menu_AutoLimits2,'checked'),'on')
     set(handles.menu_AutoLimits2,'checked','off');
     subplot(handles.axes_Channel2);
@@ -3850,7 +3861,8 @@ if strcmp(get(handles.menu_AutoLimits2,'checked'),'on')
 else
     set(handles.menu_AutoLimits2,'checked','on');
     subplot(handles.axes_Channel2);
-    yl = [min(handles.chan2) max(handles.chan2)];
+    yl = [min(handles.loadedChannelData{axnum}), ...
+          max(handles.loadedChannelData{axnum})];
     if yl(1)==yl(2)
         yl = [yl(1)-1 yl(2)+1];
     end
@@ -4968,14 +4980,14 @@ end
 
 if strcmp(get(handles.menu_AnalyzeTop,'checked'),'on')
     if strcmp(get(handles.axes_Channel1,'visible'),'on')
-        chan = handles.chan1;
+        chan = handles.loadedChannelData{1};
         ystr = (get(get(handles.axes_Channel1,'ylabel'),'string'));
     else
         chan = [];
     end
 else
     if strcmp(get(handles.axes_Channel2,'visible'),'on')
-        chan = handles.chan2;
+        chan = handles.loadedChannelData{2};
         ystr = (get(get(handles.axes_Channel2,'ylabel'),'string'));
     else
         chan = [];
@@ -5151,7 +5163,7 @@ plot([xs(tm(i)) xs(tm(i))],ylim,'-.','linewidth',2,'color','r');
 hold off;
 h = [];
 if strcmp(get(handles.axes_Channel1,'visible'),'on')
-    ys = handles.chan1;
+    ys = handles.loadedChannelData{1};
     subplot(handles.axes_Channel1);
     hold on
     yl = ylim;
@@ -5159,7 +5171,7 @@ if strcmp(get(handles.axes_Channel1,'visible'),'on')
     hold off;
 end
 if strcmp(get(handles.axes_Channel2,'visible'),'on')
-    ys = handles.chan2;
+    ys = handles.loadedChannelData{2};
     subplot(handles.axes_Channel2);
     hold on;
     yl = ylim;
@@ -8086,7 +8098,7 @@ else
         labs = 'Loudness (dB)';
     elseif strcmp(get(handles.menu_SourceTopPlot,'checked'),'on')
         if strcmp(get(handles.axes_Channel1,'visible'),'on');
-            amp = smooth(handles.chan1,wind);
+            amp = smooth(handles.loadedChannelData{1},wind);
             labs = get(get(handles.axes_Channel1,'ylabel'),'string');
         else
             amp = zeros(size(handles.sound));
@@ -8094,7 +8106,7 @@ else
         end
     elseif strcmp(get(handles.menu_SourceBottomPlot,'checked'),'on')
         if strcmp(get(handles.axes_Channel2,'visible'),'on');
-            amp = smooth(handles.chan2,wind);
+            amp = smooth(handles.loadedChannelData{2},wind);
             labs = get(get(handles.axes_Channel2,'ylabel'),'string');
         else
             amp = zeros(size(handles.sound));
@@ -8216,7 +8228,7 @@ end
 
 if strcmp(sound_type,'mix')
     if strcmp(get(handles.axes_Channel1,'visible'),'on') & get(handles.check_TopPlot,'value')==1
-        addval = handles.chan1;
+        addval = handles.loadedChannelData{1};
         addval(find(abs(addval) < handles.SoundClippers(1))) = 0;
         addval = addval * handles.SoundWeights(2);
         if size(addval,2)>size(addval,1)
@@ -8225,7 +8237,7 @@ if strcmp(sound_type,'mix')
         snd = snd + addval;
     end
     if strcmp(get(handles.axes_Channel2,'visible'),'on') & get(handles.check_BottomPlot,'value')==1
-        addval = handles.chan2;
+        addval = handles.loadedChannelData{2};
         addval(find(abs(addval) < handles.SoundClippers(2))) = 0;
         addval = addval * handles.SoundWeights(3);
         if size(addval,2)>size(addval,1)
