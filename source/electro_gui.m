@@ -1076,12 +1076,16 @@ set(handles.popup_EventDetectors(axnum), 'value', newIndex);
 function channelName = channelNumToName(channelNum)
 channelName = ['Channel ', num2str(channelNum)];
 function channelNum = channelNameToNum(channelName)
-channelNumMatch = regexp(channelName, 'Channel ([0-9]+)', 'tokens');
-if isempty(channelNumMatch)
-    % Not a valid channel name
-    channelNum = NaN;
+if strcmp(channelName, 'Sound')
+    channelNum = 0;
 else
-    channelNum = str2double(channelNumMatch{1});
+    channelNumMatch = regexp(channelName, 'Channel ([0-9]+)', 'tokens');
+    if isempty(channelNumMatch)
+        % Not a valid channel name
+        channelNum = NaN;
+    else
+        channelNum = str2double(channelNumMatch{1});
+    end
 end
 
 function handles = setSelectedEventFunction(handles, axnum, eventFunction)
