@@ -7535,7 +7535,7 @@ handles.dbase = GetDBase(handles);
 f = find(handles.menu_Macros==hObject);
 
 mcr = get(handles.menu_Macros(f),'label');
-mcr = eg_runPlugin(handles.plugins.macros, mcr, handles);
+handles = eg_runPlugin(handles.plugins.macros, mcr, handles);
 %handles = eval(['egm_' mcr '(handles)']);
 
 guidata(hObject, handles);
