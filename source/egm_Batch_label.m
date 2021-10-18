@@ -40,92 +40,13 @@ ax = handles.axes_Sonogram;
 txt = text(ax, mean(xlim),mean(ylim),'Labelling... Click to quit.','horizontalalignment','center','fontsize',14,'color','r','backgroundcolor','w');
 set(txt,'ButtonDownFcn','set(gco,''color'',''g''); drawnow;');
 
-labelledSyllableCount = 0;
-unlabelledSyllableCount = 0;
-acceptedSyllableCount = struct();
-rejectedSyllableCount = struct();
-
 maxISI = Inf; %3000;  % Disregard ISIs larger than this.
 
-% Create a blank struct array...why is this so hard in MATLAB
-initSyllablePrint = createSyllablePrint([2, 3], 'unknown', [0, 1], 'unknown', [4, 5], 'unknown', 1:10, fftLength, maxISI);
-syllablePrints = initSyllablePrint([]);
-
-% Loop over all files and collect syllablePrints for manually labelled
-% syllables
-for fileIdx = 1:length(trainingFileNums)
-    count = fileIdx;
-    fileNum = trainingFileNums(fileIdx);
-    if sum(get(txt,'color')==[0 1 0])==3
-        count = count-1;
-        break
-    end
-
-    % Get all labelled segment titles and times that are in include list
-    includeIdx = cellfun(@(title)~isempty(title) && any(syllableTitleIncludeList == title), handles.SegmentTitles{fileNum});
-    syllableTimes = handles.SegmentTimes{fileNum}(includeIdx, :);
-    syllableTitles = handles.SegmentTitles{fileNum}(includeIdx);
-    numSegments = size(syllableTitles, 2);
-    labelledSyllableCount = labelledSyllableCount + 1;
-
-    if isempty(syllableTitles)
-        % If no labelled syllables found, don't bother laoding audio.
-        continue;
-    end
-    
-    [snd, fs, dt, label, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.path_name, handles.sound_files(fileNum).name), true);
-    if size(snd,2)>size(snd,1)
-        snd = snd';
-    end
-
-    for syllableNum = 1:size(syllableTimes, 1)
-        % Loop over manually lableed syllables and extract syllable prints
-        syllableStart = syllableTimes(syllableNum, 1);
-        syllableEnd = syllableTimes(syllableNum, 2);
-        
-        % Get normalized FFt of syllable
-        syllableAudio = snd(syllableStart:syllableEnd);
-        syllableTitle = syllableTitles{syllableNum};
-
-        if syllableNum > 1
-            preSyllableTimes = syllableTimes(syllableNum-1, :);
-            preSyllableTitle = syllableTitles{syllableNum-1};
-        else
-            preSyllableTimes = [nan, nan];
-            preSyllableTitle = '';
-        end
-        if syllableNum > numSegments - 1
-            postSyllableTimes = [nan, nan];
-            postSyllableTitle = '';
-        else
-            postSyllableTimes = syllableTimes(syllableNum+1, :);
-            postSyllableTitle = syllableTitles{syllableNum+1};
-        end
-        
-        % Find the index corresponding to this syllable label, if it exists
-        % yet.
-        printIdx = find(strcmp({syllablePrints.title}, syllableTitle));
-        
-        if isempty(printIdx)
-            % Create new syllablePrint entry:
-            printIdx = length(syllablePrints)+1;
-            syllablePrints(printIdx) = createSyllablePrint(syllableTimes(syllableNum, :), syllableTitle, preSyllableTimes, preSyllableTitle, postSyllableTimes, postSyllableTitle, syllableAudio, fftLength, maxISI);
-        else
-            % Update syllablePrint with new info
-            newSyllable = createSyllablePrint(syllableTimes(syllableNum, :), syllableTitle, preSyllableTimes, preSyllableTitle, postSyllableTimes, postSyllableTitle, syllableAudio, fftLength, maxISI);
-            syllablePrints(printIdx) = combineSyllablePrints(syllablePrints(printIdx), newSyllable);
-        end
-        
-    end
-
-end
-
-% Calculate syllablePrint stats
-for k = 1:length(syllablePrints)
-    syllablePrintsWithStats(k) = addStatisticsToSyllablePrint(syllablePrints(k));
-end
+timingNeighborhoodRadius = 5;  % Number of syllables before and after current syllable to record timing info for.
 
 printCount = 0;
+
+manualLabelCount = 0;
 
 % Loop over files and automatically label unlablled syllables
 for fileIdx = 1:length(labellingFileNums)
@@ -156,95 +77,66 @@ for fileIdx = 1:length(labellingFileNums)
         syllableAudio = snd(syllableStart:syllableEnd);
         syllableTitle = syllableTitles{syllableNum};
         
-        unlabelledSyllableCount = unlabelledSyllableCount + 1;
+%         unlabelledSyllableCount = unlabelledSyllableCount + 1;
 
-        if syllableNum > 1
-            preSyllableTimes = syllableTimes(syllableNum-1, :);
-            preSyllableTitle = syllableTitles{syllableNum-1};
-        else
-            preSyllableTimes = [nan, nan];
-            preSyllableTitle = '';
-        end
-        if syllableNum > numSegments - 1
-            postSyllableTimes = [nan, nan];
-            postSyllableTitle = '';
-        else
-            postSyllableTimes = syllableTimes(syllableNum+1, :);
-            postSyllableTitle = syllableTitles{syllableNum+1};
-        end
+        % Get entire timing neighborhood of the syllable
+        neighborhoodIdx = (syllableNum - timingNeighborhoodRadius:syllableNum + timingNeighborhoodRadius)';
+        prePad = sum(neighborhoodIdx < 1);
+        postPad = sum(neighborhoodIdx > size(syllableTimes, 1));
+        neighborhoodIdx = neighborhoodIdx(neighborhoodIdx <= size(syllableTimes, 1) & neighborhoodIdx >= 1);
+        timingNeighborhood = (cat(1, nan([prePad, 2]), syllableTimes(neighborhoodIdx, :), nan([postPad, 2])) - syllableStart)';
+        titleNeighborhood = cat(2, repmat({''}, [1, prePad]), syllableTitles(neighborhoodIdx), repmat({''}, [1, postPad]));
 
         if isempty(syllableTitle)
             syllableTitle = 'unknown';
+        else
+            manualLabelCount = manualLabelCount + 1;
         end
-        newSyllablePrint = createSyllablePrint(syllableTimes(syllableNum, :), syllableTitle, preSyllableTimes, preSyllableTitle, postSyllableTimes, postSyllableTitle, syllableAudio, fftLength, maxISI);
+        newSyllablePrint = createSyllablePrint(timingNeighborhood, titleNeighborhood, syllableTitle, syllableAudio, fileNum, syllableNum, fftLength, maxISI);
         printCount = printCount + 1;
         collectedSyllablePrints(printCount) = newSyllablePrint;
 
-        [ID, conf, diffConf, ID2] = IDSyllable(newSyllablePrint, syllablePrintsWithStats);
-        IDTitle = syllablePrints(ID).title;
-        IDTitle2 = syllablePrints(ID2).title;
-        if conf >= minConfidence && diffConf >= minDiffConfidence
-            % We got a valid ID!
-            if isempty(syllableTitle)
-                handles.SegmentTitles{fileNum}{syllableNum} = IDTitle;
-            else
-                if strcmp(IDTitle, syllableTitle)
-                    fprintf('RIGHT ID= %s ==> ', syllableTitle);
-                else
-                    fprintf('WRONG ID= %s ==> ', syllableTitle);
-                end
-            end
-            fprintf('File #%d syllable #%d ACCEPTED ID = %s, c=%.03f, dc=%.03f, secondID=%s\n', fileNum, syllableNum, IDTitle, conf, diffConf, IDTitle2); 
-            if isfield(acceptedSyllableCount, IDTitle)
-                acceptedSyllableCount.(IDTitle) = acceptedSyllableCount.(IDTitle) + 1;
-            else
-                acceptedSyllableCount.(IDTitle) = 1;
-            end
-        else
-            if ~isempty(syllableTitle)
-                if strcmp(IDTitle, syllableTitle)
-                    fprintf('RIGHT ID= %s ==> ', syllableTitle);
-                else
-                    fprintf('WRONG ID= %s ==> ', syllableTitle);
-                end
-            end
-            fprintf('File #%d syllable #%d REJECTED ID = %s, c=%.03f, dc=%.03f, secondID=%s\n', fileNum, syllableNum, IDTitle, conf, diffConf, IDTitle2); 
-            if isfield(rejectedSyllableCount, IDTitle)
-                rejectedSyllableCount.(IDTitle) = rejectedSyllableCount.(IDTitle) + 1;
-            else
-                rejectedSyllableCount.(IDTitle) = 1;
-            end
-        end
     end
     
     set(txt,'string',['Labelled file ' num2str(trainingFileNums(fileIdx)) ' (' num2str(fileIdx) '/' num2str(length(trainingFileNums)) '). Click to quit.']);
     drawnow;
 end
 
-delete(txt);
+[clusterIdx, clusterTitles] = syllableClustering(collectedSyllablePrints);
 
-% Compute and report summary report
 totalAcceptedSyllableCount = 0;
 totalRejectedSyllableCount = 0;
-acceptedTitles = fields(acceptedSyllableCount);
-for k = 1:length(acceptedTitles)
-    totalAcceptedSyllableCount = totalAcceptedSyllableCount + acceptedSyllableCount.(acceptedTitles{k});
-end
-rejectedTitles = fields(rejectedSyllableCount);
-for k = 1:length(rejectedTitles)
-    totalRejectedSyllableCount = totalRejectedSyllableCount + rejectedSyllableCount.(rejectedTitles{k});
+acceptedClusterTitles = {};
+rejectedClusterTitles = {};
+for s = 1:length(clusterIdx)
+    fileNum = collectedSyllablePrints(s).fileNum;
+    syllableNum = collectedSyllablePrints(s).syllableNum;
+    if isempty(handles.SegmentTitles{fileNum}{syllableNum})
+        if ~isnan(clusterIdx(s))
+            acceptedClusterTitles(end+1) = clusterTitles(s);
+            disp('labelling!');
+            handles.SegmentTitles{fileNum}(syllableNum) = clusterTitles(s);
+        else
+            rejectedClusterTitles(end+1) = clusterTitles(s);
+        end
+    end
 end
 
+delete(txt);
+
+uniqueAcceptedTitles = unique(acceptedClusterTitles)';
+uniqueRejectedTitles = unique(rejectedClusterTitles)';
+
 fprintf('AutoLabelling report:\n');
-fprintf('Trained on %d labelled syllables\n', labelledSyllableCount)
-fprintf('Found %d unlabelled syllables\n', unlabelledSyllableCount)
-fprintf('   Identified and labelled %d syllables\n', totalAcceptedSyllableCount)
-for k = 1:length(acceptedTitles)
-fprintf('      %s - %d\n', acceptedTitles{k}, acceptedSyllableCount.(acceptedTitles{k}))
+fprintf('Trained on %d labelled syllables\n', manualLabelCount);
+fprintf('Found %d unlabelled syllables\n', printCount - manualLabelCount);
+fprintf('   Identified and labelled %d syllables\n', length(acceptedClusterTitles))
+for k = 1:length(uniqueAcceptedTitles)
+    fprintf('      %s - %d\n', uniqueAcceptedTitles{k}, sum(strcmp(clusterTitles, uniqueAcceptedTitles{k})));
 end
-fprintf('   Rejected %d low-confidence syllabel IDs\n', totalRejectedSyllableCount)
-for k = 1:length(rejectedTitles)
-fprintf('      %s - %d\n', rejectedTitles{k}, rejectedSyllableCount.(rejectedTitles{k}))
+fprintf('   Rejected %d low-confidence syllabel IDs\n', length(rejectedClusterTitles))
+for k = 1:length(uniqueRejectedTitles)
+    fprintf('      %s - %d\n', uniqueRejectedTitles{k}, sum(strcmp(clusterTitles, uniqueRejectedTitles{k})));
 end
 fprintf('AutoLabelling complete.\n');
 
@@ -252,130 +144,25 @@ fprintf('AutoLabelling complete.\n');
 msgbox('Autolabelling complete!', 'Autolabelling complete!');
 %msgbox(['Segmented ' num2str(count) ' files.'],'Segmentation complete')
 
-function syllablePrint = addStatisticsToSyllablePrint(syllablePrint)
-syllablePrint.meanDuration = mean(syllablePrint.durations);
-syllablePrint.stdDuration = std(syllablePrint.durations);
-if syllablePrint.stdDuration == 0
-    syllablePrint.stdDuration = syllablePrint.meanDuration/2;
-end
-syllablePrint.meanPreDuration = mean(syllablePrint.preSyllableDurations);
-syllablePrint.meanPreISI = mean(syllablePrint.preSyllableISIs);
-syllablePrint.meanPostISI = mean(syllablePrint.postSyllableISIs);
-syllablePrint.meanPreIOI = mean(syllablePrint.preSyllableIOIs);
-syllablePrint.meanPostIOI = mean(syllablePrint.postSyllableIOIs);
-syllablePrint.meanPostDuration = mean(syllablePrint.postSyllableDurations);
-syllablePrint.stdPreDuration = std(syllablePrint.preSyllableDurations);
-syllablePrint.stdPreISI = std(syllablePrint.preSyllableISIs);
-syllablePrint.stdPostISI = std(syllablePrint.postSyllableISIs);
-syllablePrint.stdPreIOI = std(syllablePrint.preSyllableIOIs);
-syllablePrint.stdPostIOI = std(syllablePrint.postSyllableIOIs);
-syllablePrint.stdPostDuration = std(syllablePrint.postSyllableDurations);
-
-syllablePrint.meanFFT = mean(syllablePrint.ffts, 1);
-syllablePrint.stdFFT = std(syllablePrint.ffts, 0, 1);
-
-function syllablePrint = combineSyllablePrints(syllablePrintA, syllablePrintB)
-% Aggregate data from two syllable prints for the same syllable
-if ~strcmp(syllablePrintA.title, syllablePrintB.title)
-    error('Cannot combine syllable prints for different syllables.');
-end
-
-% Titles should be the same - get it from syllablePrintA
-syllablePrint.title = syllablePrintA.title;
-% Append syllable duration lists
-syllablePrint.durations = [syllablePrintA.durations, syllablePrintB.durations];
-% Combine pre/postSyllable data
-syllablePrint.preSyllableTitles = [syllablePrintA.preSyllableTitles, syllablePrintB.preSyllableTitles];
-syllablePrint.preSyllableISIs = [syllablePrintA.preSyllableISIs, syllablePrintB.preSyllableISIs];
-syllablePrint.preSyllableIOIs = [syllablePrintA.preSyllableIOIs, syllablePrintB.preSyllableIOIs];
-syllablePrint.preSyllableDurations = [syllablePrintA.preSyllableDurations, syllablePrintB.preSyllableDurations];
-syllablePrint.postSyllableTitles = [syllablePrintA.postSyllableTitles, syllablePrintB.postSyllableTitles];
-syllablePrint.postSyllableISIs = [syllablePrintA.postSyllableISIs, syllablePrintB.postSyllableISIs];
-syllablePrint.postSyllableIOIs = [syllablePrintA.postSyllableIOIs, syllablePrintB.postSyllableIOIs];
-syllablePrint.postSyllableDurations = [syllablePrintA.postSyllableDurations, syllablePrintB.postSyllableDurations];
-% Stack ffts
-syllablePrint.ffts = cat(1, syllablePrintA.ffts, syllablePrintB.ffts);
-
-function syllablePrint = createSyllablePrint(syllableTimes, syllableTitle, preSyllableTimes, preSyllableTitle, postSyllableTimes, postSyllableTitle, syllableAudio, fftLength, maxISI)
-syllableStart = syllableTimes(1);
-syllableEnd = syllableTimes(2);
-preSyllableStart = preSyllableTimes(1);
-preSyllableEnd = preSyllableTimes(2);
-postSyllableStart = postSyllableTimes(1);
-postSyllableEnd = postSyllableTimes(2);
-
+function syllablePrint = createSyllablePrint(timingNeighborhood, titleNeighborhood, syllableTitle, syllableAudio, fileNum, syllableNum, fftLength, maxISI)
 midPoint = floor(length(syllableAudio)/2);
 audioStart = syllableAudio(1:midPoint);
 audioEnd = syllableAudio(midPoint+1:end);
 
-%actualFFTLength = fftLength;
-% fftBins = 100;
-% % fftLength must be made a multiple of fftBins
-% actualFFTLength = fftBins * round(fftLength / fftBins);
-% if actualFFTLength == 0
-%     error('fftLength must be at least %d.', fftBins);
-% end
-
+X = getFFT(syllableAudio, fftLength);
 Xstart = getFFT(audioStart, fftLength);
 Xend = getFFT(audioEnd, fftLength);
-% % Get normalized FFt of syllable
-% X = abs(fft(syllableAudio));
-% % Make fft one-sided
-% X = X(1:floor(length(X)/2));
-% % Z-score normalize fft
-% stdX = std(X);
-% meanX = mean(X);
-% X = (X - meanX)/stdX;
-% % Interpolate to force fft to be a standard size for ease of comparison
-% X = interp1(1:length(X), X, (1:actualFFTLength)*length(X)/actualFFTLength, 'spline');
-% % Reduce size of fft vector to reduce impact of small variations
-% % downFactor = fftLength / fftBins;
-% % X = mean(reshape(X, downFactor, []));
-
-duration = syllableEnd - syllableStart + 1;
-
-preSyllableIOI = syllableStart - preSyllableStart;
-preSyllableISI = syllableStart - preSyllableEnd;
-preSyllableDuration = preSyllableEnd - preSyllableStart;
-postSyllableISI = postSyllableStart - syllableEnd;
-postSyllableIOI = postSyllableStart - syllableStart;
-postSyllableDuration = postSyllableEnd - postSyllableStart;
 
 % Create new syllablePrint entry:
 syllablePrint.title = syllableTitle;
-syllablePrint.durations = duration;
-if isempty(preSyllableTitle)
-    preSyllableTitle = 'unknown';
-end
-if isempty(postSyllableTitle)
-    postSyllableTitle = 'unknown';
-end
-if (preSyllableISI <= maxISI) && (~isnan(preSyllableISI) || ~isempty(preSyllableISI))
-    % There is a preceding syllable
-    syllablePrint.preSyllableTitles = {preSyllableTitle};
-    syllablePrint.preSyllableISIs = preSyllableISI;
-    syllablePrint.preSyllableIOIs = preSyllableIOI;
-    syllablePrint.preSyllableDurations = preSyllableDuration;
-elseif ~isfield(syllablePrint, 'preSyllables')
-    % Initialize empty preISI field
-    syllablePrint.preSyllableTitles = {};
-    syllablePrint.preSyllableISIs = [];
-    syllablePrint.preSyllableIOIs = [];
-    syllablePrint.preSyllableDurations = [];
-end
-if (postSyllableISI <= maxISI) && (~isnan(postSyllableISI) || ~isempty(postSyllableISI))
-    syllablePrint.postSyllableTitles = {postSyllableTitle};
-    syllablePrint.postSyllableISIs = postSyllableISI;
-    syllablePrint.postSyllableIOIs = postSyllableIOI;
-    syllablePrint.postSyllableDurations = postSyllableDuration;
-elseif ~isfield(syllablePrint, 'postSyllables')
-    % Initialize empty postISI field
-    syllablePrint.postSyllableTitles = {};
-    syllablePrint.postSyllableISIs = [];
-    syllablePrint.postSyllableIOIs = [];
-    syllablePrint.postSyllableDurations = [];
-end
-syllablePrint.ffts = cat(2, Xstart, Xend);
+syllablePrint.timingNeighborhood = timingNeighborhood;
+syllablePrint.titleNeighborhood = titleNeighborhood;
+
+a = interp1(1:length(syllableAudio), syllableAudio', (1:fftLength)*length(syllableAudio)/fftLength, 'spline');
+
+syllablePrint.ffts = cat(2, X); %Xstart, Xend, a);
+syllablePrint.fileNum = fileNum;
+syllablePrint.syllableNum = syllableNum;
 
 function discrepancy = getFFTDiscrepancy(fft, syllablePrint)
 discrepancy = 0; return;
