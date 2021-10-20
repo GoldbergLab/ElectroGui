@@ -134,9 +134,9 @@ end
 
 centroidScale = max(startingCentroids(:));
 
-permutation = randperm(size(transformedObservations, 1));
-transformedObservations = transformedObservations(permutation, :);
-titles = titles(permutation);
+% permutation = randperm(size(transformedObservations, 1));
+% transformedObservations = transformedObservations(permutation, :);
+% titles = titles(permutation);
 
 clusteringAlgorithm = 'kmeans';
 
