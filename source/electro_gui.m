@@ -2811,27 +2811,29 @@ function click_segmentaxes(hObject, ~, handles)
 filenum = getCurrentFileNum(handles);
 
 if strcmp(get(gcf,'selectiontype'),'normal')
-    set(gca,'units','pixels');
-    set(get(gca,'parent'),'units','pixels');
-    rect = rbbox;
-
-    pos = get(gca,'position');
-    set(get(gca,'parent'),'units','normalized');
-    set(gca,'units','normalized');
-    xl = xlim;
-
-    rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
-    rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
-
-    f = find(handles.SegmentTimes{filenum}(:,1)>rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*handles.fs);
-    g = find(handles.SegmentTimes{filenum}(:,2)>rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*handles.fs);
-    h = find(handles.SegmentTimes{filenum}(:,1)<rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*handles.fs);
-    f = unique([f; g; h]);
-
-    handles.SegmentSelection{filenum}(f) = sum(handles.SegmentSelection{filenum}(f))<=length(f)/2;
-
-    set(handles.SegmentHandles,'facecolor',handles.SegmentSelectColor);
-    set(handles.SegmentHandles(find(handles.SegmentSelection{filenum}==0)),'facecolor',handles.SegmentUnSelectColor);
+    % This appears to be code that causes a click on the segment border
+    %   to deselect the segment. Users did not like it.
+%     set(gca,'units','pixels');
+%     set(get(gca,'parent'),'units','pixels');
+%     rect = rbbox;
+% 
+%     pos = get(gca,'position');
+%     set(get(gca,'parent'),'units','normalized');
+%     set(gca,'units','normalized');
+%     xl = xlim;
+% 
+%     rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
+%     rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
+% 
+%     f = find(handles.SegmentTimes{filenum}(:,1)>rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*handles.fs);
+%     g = find(handles.SegmentTimes{filenum}(:,2)>rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*handles.fs);
+%     h = find(handles.SegmentTimes{filenum}(:,1)<rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*handles.fs);
+%     f = unique([f; g; h]);
+% 
+%     handles.SegmentSelection{filenum}(f) = sum(handles.SegmentSelection{filenum}(f))<=length(f)/2;
+% 
+%     set(handles.SegmentHandles,'facecolor',handles.SegmentSelectColor);
+%     set(handles.SegmentHandles(find(handles.SegmentSelection{filenum}==0)),'facecolor',handles.SegmentUnSelectColor);
 elseif strcmp(get(gcf,'selectiontype'),'open')
     xd = [0 length(handles.sound)/handles.fs length(handles.sound)/handles.fs 0 0];
     set(handles.xlimbox,'xdata',xd);
