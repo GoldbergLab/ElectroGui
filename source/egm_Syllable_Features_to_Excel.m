@@ -24,10 +24,10 @@ end
 
 chan = cell(1,2);
 lab = cell(1,2);
-for axnum = 1:2
-    if strcmp(get(handles.(['axes_Channel' num2str(axnum)]),'visible'),'on')
-        v = get(handles.(['popup_Function' num2str(axnum)]),'value');
-        str = get(handles.(['popup_Function' num2str(axnum)]),'string');
+for axnum = 1:length(handles.axes_Channel)
+    if strcmp(get(handles.axes_Channel(axnum),'visible'),'on')
+        v = get(handles.popup_Functions(axnum),'value');
+        str = get(handles.popup_Functions(axnum),'string');
         str = str{v};
         if isempty(findstr(str,' - '))
             chan{axnum}{1} = handles.(['chan' num2str(axnum)]);
@@ -47,7 +47,7 @@ if row == 1
     set(get(sheet,'Range','E1'),'Value','Label');
     
     col = 5;
-    for axnum = 1:2
+    for axnum = 1:length(handles.axes_Channel)
         for j = 1:length(lab{axnum})
                 col = col + 1;
                 vl = dec2base(col-1,26);

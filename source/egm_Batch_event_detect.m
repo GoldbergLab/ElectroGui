@@ -36,10 +36,10 @@ for j = 1:length(fls)
         end
         if val <= length(str)-sum(nums) & val > 1
             if length(str{val})>4 & strcmp(str{val}(1:5),'Sound')
-                [chan fs dt lab props] = eval(['egl_' handles.sound_loader '([''' handles.path_name '\' handles.sound_files(fls(j)).name '''],1)']);
+                [chan, fs, dt, lab, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.path_name, handles.sound_files(fls(j)).name), true);
             else
                 chan = str2num(str{val}(9:end));
-                [chan fs dt lab props] = eval(['egl_' handles.chan_loader{chan} '([''' handles.path_name '\' handles.chan_files{chan}(fls(j)).name '''],1)']);
+                [chan, fs, dt, lab, props] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{chan}, fullfile(handles.path_name, handles.chan_files{chan}(fls(j)).name), true);
             end
             handles.FileLength(fls(j)) = length(chan);
             handles.DatesAndTimes(fls(j)) = dt;
@@ -48,9 +48,9 @@ for j = 1:length(fls)
                 str = str{get(handles.(['popup_Function',num2str(axnum)]),'value')};
                 f = findstr(str,' - ');
                 if isempty(f) % regular function
-                    [chan lab] = eval(['egf_' str '(chan,handles.fs,handles.FunctionParams' num2str(axnum) ')']);
+                    [chan, lab] = eg_runPlugin(handles.plugins.filters, str, chan, handles.fs, handles.FunctionParams{axnum});
                 else % multiple-value function
-                    [chan lab] = eval(['egf_' str(1:f-1) '(chan,handles.fs,handles.FunctionParams' num2str(axnum) ')']);
+                    [chan, lab] = eg_runPlugin(handles.plugins.filters, str(1:f-1), chan, handles.fs, handles.FunctionParams{axnum});
                 end
             end
 
@@ -59,7 +59,7 @@ for j = 1:length(fls)
             if ~strcmp(dtr,'(None)')
                 indx = handles.EventCurrentIndex(axnum);
                 thres = handles.EventCurrentThresholds(indx);
-                [events labels] = eval(['ege_' dtr '(chan,handles.fs,thres,handles.EventParams' num2str(axnum) ')']);
+                [events, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, chan, handles.fs, thres, handles.EventParams{axnum});
                 
                 for c = 1:length(events)
                     handles.EventThresholds(indx,fls(j)) = thres;

@@ -23,7 +23,7 @@ function varargout = electro_gui(varargin)
 
 % Edit the above text to modify the response to help electro_gui
 
-% Last Modified by GUIDE v2.5 20-Apr-2021 10:08:07
+% Last Modified by GUIDE v2.5 03-Oct-2021 19:44:51
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -46,7 +46,7 @@ end
 
 
 % --- Executes just before electro_gui is made visible.
-function electro_gui_OpeningFcn(hObject, eventdata, handles, varargin)
+function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
 % This function has no output args, see OutputFcn.
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -77,6 +77,21 @@ lic = license('inuse');
 user = lic(1).user;
 f = regexpi(user,'[A-Z1-9]');
 user = user(f);
+
+% Segment/Marker colors
+handles.SegmentSelectColor = 'r';
+handles.SegmentUnSelectColor = [0.7, 0.5, 0.5];
+handles.MarkerSelectColor = 'b';
+handles.MarkerUnSelectColor = [0.5, 0.5, 0.7];
+handles.SegmentActiveColor = 'y';  % Note the GUI depends on this being different from MarkerActiveColor.
+handles.MarkerActiveColor = 'g';
+handles.SegmentInactiveColor = 'k';
+handles.MarkerInactiveColor = 'k';
+
+handles.SegmentSelectColors = {handles.SegmentUnSelectColor, handles.SegmentSelectColor};
+handles.MarkerSelectColors = {handles.MarkerUnSelectColor, handles.MarkerSelectColor};
+handles.SegmentActiveColors = {handles.SegmentInactiveColor, handles.SegmentActiveColor};
+handles.MarkerActiveColors = {handles.MarkerInactiveColor, handles.MarkerActiveColor};
 
 handles.userfile = ['defaults_' user '.m'];
 mt = dir(handles.userfile);
@@ -128,6 +143,31 @@ end
 
 dr = dir([mfilename('fullpath') '*m']);
 set(handles.figure_Main,'name',['ElectroGui v. ' datestr(datenum(dr.date),'yy.mm.dd.HH.MM')]);
+
+% Set up axes-indexed lists of GUI elements, to make code more extensible
+
+% handles.popup_Channels are dropdown menus for the channel axes to select a channel of data to display.
+handles.popup_Channels = [handles.popup_Channel1, handles.popup_Channel2];
+% handles.popup_Function are dropdown menus for the channel axes to select a filter function.
+handles.popup_Functions = [handles.popup_Function1, handles.popup_Function2];
+% handles.popup_EventDetector are dropdown menus for the channel axes to select an event detector algorithm.
+handles.popup_EventDetectors = [handles.popup_EventDetector1, handles.popup_EventDetector2];
+% handles.axes_Channel are the channel data display axes
+handles.axes_Channel = [handles.axes_Channel1, handles.axes_Channel2];
+
+handles.menu_AutoLimits = [handles.menu_AutoLimits1, handles.menu_AutoLimits2];
+handles.menu_PeakDetect = [handles.menu_PeakDetect1, handles.menu_PeakDetect2];
+handles.context_Channels = [handles.context_Channel1, handles.context_Channel2];
+handles.menu_AllowYZoom = [handles.menu_AllowYZoom1, handles.menu_AllowYZoom2];
+handles.menu_EventAutoDetect = [handles.menu_EventAutoDetect1, handles.menu_EventAutoDetect2];
+handles.menu_EventsDisplay = [handles.menu_EventsDisplay1, handles.menu_EventsDisplay2];
+
+% handles.loadedChannelData = {};
+% handles.Labels = {};
+% % handles.ChanLimits = {};
+
+handles.menu_Events = [handles.menu_Events1, handles.menu_Events2];
+handles.push_Detects = [handles.push_Detect1, handles.push_Detect2];
 
 
 handles.ChanLimits1 = handles.ChanLimits(1,:);
@@ -358,14 +398,14 @@ handles.SegmenterParams.Names = {};
 handles.SegmenterParams.Values = {};
 handles.SonogramParams.Names = {};
 handles.SonogramParams.Values = {};
-handles.EventParams1.Names = {};
-handles.EventParams1.Values = {};
-handles.EventParams2.Names = {};
-handles.EventParams2.Values = {};
-handles.FunctionParams1.Names = {};
-handles.FunctionParams1.Values = {};
-handles.FunctionParams2.Names = {};
-handles.FunctionParams2.Values = {};
+handles.EventParams{1}.Names = {};
+handles.EventParams{1}.Values = {};
+handles.EventParams{2}.Names = {};
+handles.EventParams{2}.Values = {};
+handles.FunctionParams{1}.Names = {};
+handles.FunctionParams{1}.Values = {};
+handles.FunctionParams{2}.Names = {};
+handles.FunctionParams{2}.Values = {};
 handles.FilterParams.Names = {};
 handles.FilterParams.Values = {};
 
@@ -461,7 +501,7 @@ guidata(hObject, handles);
 
 
 % --- Outputs from this function are returned to the command line.
-function varargout = electro_gui_OutputFcn(hObject, eventdata, handles)
+function varargout = electro_gui_OutputFcn(hObject, ~, handles)
 % varargout  cell array for returning output args (see VARARGOUT);
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -516,20 +556,18 @@ handles.plugins.filters = findPlugins('egf_');
 % Find all colormaps
 handles.plugins.colormaps = findPlugins('egc_');
 % % Find all function algorithms
-% handles.plugins.functions = findPlugins('egf_');
-% str = {'(Raw)'};
+handles.plugins.functions = findPlugins('egf_');
 % Find all macros
 handles.plugins.macros = findPlugins('egm_');
 % Find all event detector algorithms
 handles.plugins.eventDetectors = findPlugins('ege_');
-% str = {'(None)'};
 % Find all event feature algorithms
 handles.plugins.eventFeatures = findPlugins('ega_');
 % Find all loaders
 handles.plugins.loaders= findPlugins('egl_');
 
 
-function edit_FileNumber_Callback(hObject, eventdata, handles)
+function edit_FileNumber_Callback(hObject, ~, handles)
 % hObject    handle to edit_FileNumber (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -543,7 +581,7 @@ guidata(hObject, handles);
 
 
 % --- Executes during object creation, after setting all properties.
-function edit_FileNumber_CreateFcn(hObject, eventdata, handles)
+function edit_FileNumber_CreateFcn(hObject, ~, handles)
 % hObject    handle to edit_FileNumber (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -555,12 +593,12 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 % --- Executes on button press in push_PreviousFile.
-function push_PreviousFile_Callback(hObject, eventdata, handles)
+function push_PreviousFile_Callback(hObject, ~, handles)
 % hObject    handle to push_PreviousFile (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-filenum = str2num(get(handles.edit_FileNumber,'string'));
+filenum = getCurrentFileNum(handles);
 if get(handles.check_Shuffle,'value')==0
     filenum = filenum-1;
     if filenum == 0
@@ -581,12 +619,12 @@ handles = eg_LoadFile(handles);
 guidata(hObject, handles);
 
 % --- Executes on button press in push_NextFile.
-function push_NextFile_Callback(hObject, eventdata, handles)
+function push_NextFile_Callback(hObject, ~, handles)
 % hObject    handle to push_NextFile (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-filenum = str2num(get(handles.edit_FileNumber,'string'));
+filenum = getCurrentFileNum(handles);
 if get(handles.check_Shuffle,'value')==0
     filenum = filenum+1;
     if filenum > handles.TotalFileNumber
@@ -607,7 +645,7 @@ handles = eg_LoadFile(handles);
 guidata(hObject, handles);
 
 % --- Executes on selection change in list_Files.
-function list_Files_Callback(hObject, eventdata, handles)
+function list_Files_Callback(hObject, ~, handles)
 % hObject    handle to list_Files (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -627,7 +665,7 @@ handles = eg_LoadFile(handles);
 guidata(hObject, handles);
 
 % --- Executes during object creation, after setting all properties.
-function list_Files_CreateFcn(hObject, eventdata, handles)
+function list_Files_CreateFcn(hObject, ~, handles)
 % hObject    handle to list_Files (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -639,7 +677,7 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 % --- Executes on button press in push_Properties.
-function push_Properties_Callback(hObject, eventdata, handles)
+function push_Properties_Callback(hObject, ~, handles)
 % hObject    handle to push_Properties (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -658,9 +696,8 @@ catch
     errordlg('Java is not working properly. You must right-click the button.','Java error');
 end
 
-
 % --- Executes on slider movement.
-function slider_Time_Callback(hObject, eventdata, handles)
+function slider_Time_Callback(hObject, ~, handles)
 % hObject    handle to slider_Time (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -668,6 +705,10 @@ function slider_Time_Callback(hObject, eventdata, handles)
 % Hints: get(hObject,'Value') returns position of slider
 %        get(hObject,'Min') and get(hObject,'Max') to determine range of slider
 
+if ~isfield(handles, 'xlimbox')
+    % No xlimbox yet, probably nothing to slide.
+    return;
+end
 xd = get(handles.xlimbox,'xdata');
 shift = get(handles.slider_Time,'value')-xd(1);
 xd = xd+shift;
@@ -676,9 +717,8 @@ handles = eg_EditTimescale(handles);
 
 guidata(hObject, handles);
 
-
 % --- Executes during object creation, after setting all properties.
-function slider_Time_CreateFcn(hObject, eventdata, handles)
+function slider_Time_CreateFcn(hObject, ~, handles)
 % hObject    handle to slider_Time (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -690,7 +730,7 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_Experiment_Callback(hObject, eventdata, handles)
+function menu_Experiment_Callback(hObject, ~, handles)
 % hObject    handle to menu_Experiment (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -699,7 +739,7 @@ function menu_Experiment_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on button press in push_Play.
-function push_Play_Callback(hObject, eventdata, handles)
+function push_Play_Callback(hObject, ~, handles)
 % hObject    handle to push_Play (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -774,7 +814,7 @@ else
 end
 
 % --- Executes on button press in push_TimescaleRight.
-function push_TimescaleRight_Callback(hObject, eventdata, handles)
+function push_TimescaleRight_Callback(hObject, ~, handles)
 % hObject    handle to push_TimescaleRight (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -801,7 +841,7 @@ electro_gui('edit_Timescale_Callback',gcbo,[],guidata(gcbo));
 guidata(hObject, handles);
 
 % --- Executes on button press in push_TimescaleLeft.
-function push_TimescaleLeft_Callback(hObject, eventdata, handles)
+function push_TimescaleLeft_Callback(hObject, ~, handles)
 % hObject    handle to push_TimescaleLeft (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -825,8 +865,7 @@ electro_gui('edit_Timescale_Callback',gcbo,[],guidata(gcbo));
 
 guidata(hObject, handles);
 
-
-function edit_Timescale_Callback(hObject, eventdata, handles)
+function edit_Timescale_Callback(hObject, ~, handles)
 % hObject    handle to edit_Timescale (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -846,9 +885,8 @@ handles = eg_EditTimescale(handles);
 
 guidata(hObject, handles);
 
-
 % --- Executes during object creation, after setting all properties.
-function edit_Timescale_CreateFcn(hObject, eventdata, handles)
+function edit_Timescale_CreateFcn(hObject, ~, handles)
 % hObject    handle to edit_Timescale (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -859,17 +897,13 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
     set(hObject,'BackgroundColor','white');
 end
 
-
-
-
-
 function handles = eg_LoadFile(handles)
 
-filenum = str2num(get(handles.edit_FileNumber,'string'));
-set(handles.list_Files,'value',filenum);
+fileNum = getCurrentFileNum(handles);
+set(handles.list_Files,'value',fileNum);
 str = get(handles.list_Files,'string');
-if strcmp(str{filenum}(26:27),'× ')
-    str{filenum} = str{filenum}([1:25 28:end]);
+if strcmp(str{fileNum}(26:27),'ï¿½ ')
+    str{fileNum} = str{fileNum}([1:25 28:end]);
     set(handles.list_Files,'string',str);
 end
 
@@ -878,16 +912,16 @@ cd(handles.path_name);
 
 
 % Label
-set(handles.text_FileName,'string',handles.sound_files(filenum).name);
+set(handles.text_FileName,'string',handles.sound_files(fileNum).name);
 
 handles.BackupTitle = {'',''};
 
 
 % Plot sound
 subplot(handles.axes_Sound)
-[handles.sound handles.fs dt label props] = eval(['egl_' handles.sound_loader '([''' handles.path_name '\' handles.sound_files(filenum).name '''],1)']);
-handles.DatesAndTimes(filenum) = dt;
-handles.FileLength(filenum) = length(handles.sound);
+[handles.sound, handles.fs, dt, label, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.path_name, handles.sound_files(fileNum).name), true);
+handles.DatesAndTimes(fileNum) = dt;
+handles.FileLength(fileNum) = length(handles.sound);
 set(handles.text_DateAndTime,'string',datestr(dt,0));
 if size(handles.sound,2)>size(handles.sound,1)
     handles.sound = handles.sound';
@@ -899,7 +933,7 @@ for c = 1:length(handles.menu_Filter)
     end
 end
 
-handles.filtered_sound = eval(['egf_' alg '(handles.sound,handles.fs,handles.FilterParams)']);
+handles.filtered_sound = eg_runPlugin(handles.plugins.filters, alg, handles.sound, handles.fs, handles.FilterParams);
 
 h = eg_peak_detect(gca,linspace(0,length(handles.sound)/handles.fs,length(handles.sound)),handles.filtered_sound);
 set(h,'color','c');
@@ -995,15 +1029,15 @@ if ~isempty(handles.amplitude)
     set(get(gca,'children'),'uicontextmenu',get(gca,'uicontextmenu'));
     set(get(gca,'children'),'buttondownfcn',get(gca,'buttondownfcn'));
 
-    if handles.SoundThresholds(filenum)==inf
+    if handles.SoundThresholds(fileNum)==inf
         if strcmp(get(handles.menu_AutoThreshold,'checked'),'on')
             handles.CurrentThreshold = eg_AutoThreshold(handles.amplitude);
         end
-        handles.SoundThresholds(filenum) = handles.CurrentThreshold;
+        handles.SoundThresholds(fileNum) = handles.CurrentThreshold;
     else
-        handles.CurrentThreshold = handles.SoundThresholds(filenum);
+        handles.CurrentThreshold = handles.SoundThresholds(fileNum);
     end
-    handles.LabelHandles = [];
+    handles.SegmentLabelHandles = [];
     handles = SetThreshold(handles);
 end
 
@@ -1012,25 +1046,121 @@ handles = eg_EditTimescale(handles);
 
 cd(curr);
 
+function currentFileNum = getCurrentFileNum(handles)
+currentFileNum = str2double(get(handles.edit_FileNumber, 'string'));
+function [selectedChannelNum, selectedChannelName, isSound] = getSelectedChannel(handles, axnum)
+% Return the name and number of the selected channel from the specified
+%   axis. If the name is not a valid channel, selectedChannelNum will be
+%   NaN.
+channelOptionList = get(handles.popup_Channels(axnum),'string');
+selectedChannelName = channelOptionList{get(handles.popup_Channels(axnum),'value')};
+selectedChannelNum = channelNameToNum(selectedChannelName);
+isSound = (selectedChannelNum == 0);
+function selectedEventDetector = getSelectedEventDetector(handles, axnum)
+% Return the name of the selected event detector from the specified axis.
+eventDetectorOptionList = get(handles.popup_EventDetectors(axnum),'string');
+selectedEventDetector = eventDetectorOptionList{get(handles.popup_EventDetectors(axnum),'value')};
+function selectedEventFunction = getSelectedEventFunction(handles, axnum)
+% Return the name of the selected event detector function (filter) from the
+%   specified axis.
+functionOptionList = get(handles.popup_Functions(axnum),'string');
+selectedEventFunction = functionOptionList{get(handles.popup_Functions(axnum),'value')};
+function handles = setSelectedEventDetector(handles, axnum, eventDetector)
+% Set the currently selected event detector for the selected axis
+eventDetectorOptionList = get(handles.popup_EventDetectors(axnum),'string');
+newIndex = find(strcmp(eventDetectorOptionList, eventDetector));
+if isempty(newIndex)
+    error('Error: Could not set selected event detector to ''%s'', as it is not in the option list.', eventDetector);
+end
+set(handles.popup_EventDetectors(axnum), 'value', newIndex);
+function channelName = channelNumToName(channelNum)
+channelName = ['Channel ', num2str(channelNum)];
+function channelNum = channelNameToNum(channelName)
+if strcmp(channelName, 'Sound')
+    channelNum = 0;
+else
+    channelNumMatch = regexp(channelName, 'Channel ([0-9]+)', 'tokens');
+    if isempty(channelNumMatch)
+        % Not a valid channel name
+        channelNum = NaN;
+    else
+        channelNum = str2double(channelNumMatch{1});
+    end
+end
 
+function handles = setSelectedEventFunction(handles, axnum, eventFunction)
+% Set the currently selected event function for the selected axis
+eventFunctionOptionList = get(handles.popup_Functions(axnum),'string');
+newIndex = find(strcmp(eventFunctionOptionList, eventFunction));
+if isempty(newIndex)
+    error('Error: Could not set selected event function to ''%s'', as it is not in the option list.', eventFunction);
+end
+set(handles.popup_Functions(axnum), 'value', newIndex);
+
+function [handles, isValidEventDetector] = updateEventDetectorInfo(handles, channelNum, newEventDetector)
+% Update stored event detector info
+isValidEventDetector = isValidPlugin(handles.plugins.eventDetectors, newEventDetector);
+if isnan(channelNum)
+    % Not a valid channel
+    return
+end
+fileNum = getCurrentFileNum(handles);
+if ~strcmp(getEventDetector(handles, fileNum, channelNum), newEventDetector)
+    % This is a different event detector from the one previously stored
+    % Have to get new params
+    if isValidEventDetector
+        [handles.EventParams{fileNum, channelNum}, ~] = eg_runPlugin(handles.plugins.eventDetectors, newEventDetector, 'params');
+    else
+        handles.EventParams{fileNum, channelNum} = [];
+    end
+    handles = setEventDetector(handles, fileNum, channelNum, newEventDetector);
+end
+% Get labels for current detector
+if ~strcmp(newEventDetector, handles.nullEventDetector)
+    [~, labels] = eg_runPlugin(handles.plugins.eventDetectors, newEventDetector, 'params');
+else
+    labels = {};
+end
+% Add empty entry for event times for this new detector function.
+handles.EventTimes{fileNum, channelNum} = cell(1, length(labels));
+handles.EventSelected = [];
+
+function [handles, isValidEventFunction] = updateEventFunctionInfo(handles, channelNum, newEventFunction)
+isValidEventFunction = isValidPlugin(handles.plugins.filters, newEventFunction);
+if isnan(channelNum)
+    % Not a valid channel
+    return
+end
+fileNum = getCurrentFileNum(handles);
+if ~strcmp(getEventFunction(handles, fileNum, channelNum), newEventFunction)
+    % This is a different event function (filter)
+    % Have to get new params
+    if isValidEventFunction
+        [handles.EventFunctionParams{fileNum, channelNum}, ~] = eg_runPlugin(handles.plugins.filters, newEventFunction, 'params');
+    else
+        handles.EventFunctionParams{fileNum, channelNum} = [];
+    end
+    handles = setEventFunction(handles, fileNum, channelNum, newEventFunction);
+end
 
 function handles = eg_LoadChannel(handles,axnum)
 
 if get(handles.(['popup_Channel',num2str(axnum)]),'value')==1
-    cla(handles.(['axes_Channel',num2str(axnum)]));
-    set(handles.(['axes_Channel',num2str(axnum)]),'visible','off');
-    set(handles.(['popup_Function',num2str(axnum)]),'enable','off');
+    cla(handles.axes_Channel(axnum));
+    set(handles.axes_Channel(axnum),'visible','off');
+    set(handles.popup_Functions(axnum),'enable','off');
     set(handles.(['popup_EventDetector',num2str(axnum)]),'enable','off');
     set(handles.(['push_Detect',num2str(axnum)]),'enable','off');
     handles.SelectedEvent = [];
     handles = UpdateEventBrowser(handles);
     return
 else
-    set(handles.(['axes_Channel',num2str(axnum)]),'visible','on');
-    set(handles.(['popup_Function',num2str(axnum)]),'enable','on');
+    set(handles.axes_Channel(axnum),'visible','on');
+    set(handles.popup_Functions(axnum),'enable','on');
 end
 
-filenum = str2num(get(handles.edit_FileNumber,'string'));
+filenum = getCurrentFileNum(handles);
+[selectedChannelNum, ~, isSound] = getSelectedChannel(handles, axnum);
 
 val = get(handles.(['popup_Channel',num2str(axnum)]),'value');
 str = get(handles.(['popup_Channel',num2str(axnum)]),'string');
@@ -1039,11 +1169,10 @@ for c = 1:length(handles.EventTimes);
     nums(c) = size(handles.EventTimes{c},1);
 end
 if val <= length(str)-sum(nums)
-    chan = str2num(str{val}(9:end));
-    if length(str{val})>4 & strcmp(str{val}(1:5),'Sound')
-        [handles.(['chan',num2str(axnum)]) fs dt handles.(['Label',num2str(axnum)]) props] = eval(['egl_' handles.sound_loader '([''' handles.path_name '\' handles.sound_files(filenum).name '''],1)']);
+    if isSound
+        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.path_name, handles.sound_files(filenum).name), true);
     else
-        [handles.(['chan',num2str(axnum)]) fs dt handles.(['Label',num2str(axnum)]) props] = eval(['egl_' handles.chan_loader{chan} '([''' handles.path_name '\' handles.chan_files{chan}(filenum).name '''],1)']);
+        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{selectedChannelNum}, fullfile(handles.path_name, handles.chan_files{selectedChannelNum}(filenum).name), true);
     end
 else
     ev = zeros(1,length(handles.sound));
@@ -1058,34 +1187,35 @@ else
     tm = handles.EventTimes{f}{g,filenum};
     issel = handles.EventSelected{f}{g,filenum};
     ev(tm(find(issel==1))) = 1;
-    handles.(['chan',num2str(axnum)]) = ev;
+    handles.loadedChannelData{axnum} = ev;
     str = str{val};
     f = findstr(str,' - ');
     f = f(end);
-    handles.(['Label',num2str(axnum)]) = str(f+3:end);
+    handles.Labels{axnum} = str(f+3:end);
 end
 
-if get(handles.(['popup_Function',num2str(axnum)]),'value') > 1
-    str = get(handles.(['popup_Function',num2str(axnum)]),'string');
-    str = str{get(handles.(['popup_Function',num2str(axnum)]),'value')};
-    val = handles.(['chan',num2str(axnum)]);
+if get(handles.popup_Functions(axnum),'value') > 1
+    str = get(handles.popup_Functions(axnum),'string');
+    str = str{get(handles.popup_Functions(axnum),'value')};
+    val = handles.loadedChannelData{axnum};
     f = findstr(str,' - ');
     if isempty(f)
-        [chan lab] = eval(['egf_' str '(val,handles.fs,handles.FunctionParams' num2str(axnum) ')']);
+        [chan, lab] = eg_runPlugin(handles.plugins.filters, str, val, handles.fs, handles.FunctionParams{axnum});
+%        [chan lab] = eval(['egf_' str '(val,handles.fs,handles.FunctionParams' num2str(axnum) ')']);
         if iscell(lab)
-            handles.(['Label',num2str(axnum)]) = lab{1};
-            handles.(['chan',num2str(axnum)]) = chan{1};
+            handles.Labels{axnum} = lab{1};
+            handles.loadedChannelData{axnum} = chan{1};
             handles.BackupChan{axnum} = chan;
             handles.BackupLabel{axnum} = lab;
             handles.BackupTitle{axnum} = str;
-            str = get(handles.(['popup_Function',num2str(axnum)]),'string');
+            str = get(handles.popup_Functions(axnum),'string');
             ud1 = get(handles.popup_Function1,'userdata');
             ud2 = get(handles.popup_Function2,'userdata');
             str2 = {};
             udn1 = {};
             udn2 = {};
             for c = 1:length(str)
-                if c==get(handles.(['popup_Function',num2str(axnum)]),'value')
+                if c==get(handles.popup_Functions(axnum),'value')
                     for d = 1:length(lab)
                         str2{end+1} = [str{c} ' - ' lab{d}];
                         udn1{end+1} = ud1{c};
@@ -1100,22 +1230,23 @@ if get(handles.(['popup_Function',num2str(axnum)]),'value') > 1
             set(handles.popup_Function1,'string',str2,'userdata',udn1);
             set(handles.popup_Function2,'string',str2,'userdata',udn2);
         else
-            handles.(['Label',num2str(axnum)]) = lab;
-            handles.(['chan',num2str(axnum)]) = chan;
+            handles.Labels{axnum} = lab;
+            handles.loadedChannelData{axnum} = chan;
         end
     else
-        strall = get(handles.(['popup_Function',num2str(axnum)]),'string');
+        strall = get(handles.popup_Functions(axnum),'string');
         count = 0;
-        for c = 1:get(handles.(['popup_Function',num2str(axnum)]),'value')
+        for c = 1:get(handles.popup_Functions(axnum),'value')
             count = count + strcmp(strall{c}(1:min([f-1 length(strall{c})])),str(1:f-1));
         end
         if strcmp(handles.BackupTitle{axnum},str(1:f-1))
-            handles.(['Label',num2str(axnum)]) = handles.BackupLabel{axnum}{count};
-            handles.(['chan',num2str(axnum)]) = handles.BackupChan{axnum}{count};
+            handles.Labels{axnum} = handles.BackupLabel{axnum}{count};
+            handles.loadedChannelData{axnum} = handles.BackupChan{axnum}{count};
         else
-            [chan lab] = eval(['egf_' str(1:f-1) '(val,handles.fs,handles.FunctionParams' num2str(axnum) ')']);
-            handles.(['Label',num2str(axnum)]) = lab{count};
-            handles.(['chan',num2str(axnum)]) = chan{count};
+            [chan, lab] = eg_runPlugin(handles.plugins.filters, str(1:f-1), val, handles.fs, handles.FunctionParams{axnum});
+%            [chan lab] = eval(['egf_' str(1:f-1) '(val,handles.fs,handles.FunctionParams' num2str(axnum) ')']);
+            handles.Labels{axnum} = lab{count};
+            handles.loadedChannelData{axnum} = chan{count};
             handles.BackupChan{axnum} = chan;
             handles.BackupLabel{axnum} = lab;
             handles.BackupTitle{axnum} = str(1:f-1);
@@ -1123,17 +1254,17 @@ if get(handles.(['popup_Function',num2str(axnum)]),'value') > 1
     end
 end
 
-if length(handles.(['chan',num2str(axnum)])) < length(handles.sound)
-    indx = fix(linspace(1,length(handles.(['chan',num2str(axnum)])),length(handles.sound)));
-    chan = handles.(['chan',num2str(axnum)]);
-    handles.(['chan',num2str(axnum)]) = chan(indx);
+if length(handles.loadedChannelData{axnum}) < length(handles.sound)
+    indx = fix(linspace(1,length(handles.loadedChannelData{axnum}),length(handles.sound)));
+    chan = handles.loadedChannelData{axnum};
+    handles.loadedChannelData{axnum} = chan(indx);
 end
 
 handles = eg_PlotChannel(handles,axnum);
 
-subplot(handles.(['axes_Channel',num2str(axnum)]));
+subplot(handles.axes_Channel(axnum));
 if strcmp(get(handles.(['menu_AutoLimits' num2str(axnum)]),'checked'),'on')
-    yl = [min(handles.(['chan',num2str(axnum)])) max(handles.(['chan',num2str(axnum)]))];
+    yl = [min(handles.loadedChannelData{axnum}) max(handles.loadedChannelData{axnum})];
     if yl(1)==yl(2)
         yl = [yl(1)-1 yl(2)+1];
     end
@@ -1145,15 +1276,14 @@ end
 
 handles = eg_Overlay(handles);
 
-
 function handles = eg_PlotChannel(handles,axnum)
 
-subplot(handles.(['axes_Channel',num2str(axnum)]));
+subplot(handles.axes_Channel(axnum));
 if strcmp(get(gca,'visible'),'off')
     return
 end
 set(gca,'visible','on');
-set(handles.(['popup_Function',num2str(axnum)]),'enable','on');
+set(handles.popup_Functions(axnum),'enable','on');
 str = get(handles.(['popup_Channel',num2str(axnum)]),'string');
 str = str{get(handles.(['popup_Channel',num2str(axnum)]),'value')};
 if isempty(findstr(str,' - '))
@@ -1171,10 +1301,10 @@ hold on
 if strcmp(get(handles.(['menu_PeakDetect',num2str(axnum)]),'checked'),'on')
     g = find(f>=xl(1) & f<=xl(2));
     if ~isempty(g)
-        h = eg_peak_detect(gca,f(g),handles.(['chan',num2str(axnum)])(g));
+        h = eg_peak_detect(gca,f(g),handles.loadedChannelData{axnum}(g));
     end
 else
-    h = plot(f,handles.(['chan',num2str(axnum)]));
+    h = plot(f,handles.loadedChannelData{axnum});
 end
 hold off
 set(h,'color',handles.ChannelColor(axnum,:));
@@ -1183,45 +1313,53 @@ xlim(xl);
 
 set(gca,'xticklabel',[]);
 box off;
-ylabel(handles.(['Label',num2str(axnum)]));
+ylabel(handles.Labels{axnum});
 
 set(gca,'uicontextmenu',handles.(['context_Channel',num2str(axnum)]));
 set(gca,'buttondownfcn','electro_gui(''click_Channel'',gcbo,[],guidata(gcbo))');
 set(get(gca,'children'),'uicontextmenu',get(gca,'uicontextmenu'));
 set(get(gca,'children'),'buttondownfcn',get(gca,'buttondownfcn'));
 
-
 function handles = SetThreshold(handles)
-
+% Clear segments axes
 cla(handles.axes_Segments);
 
+% Find threshold line handle on amplitude axes
 thr = findobj('parent',handles.axes_Amplitude,'linestyle',':');
 if isempty(thr)
-    subplot(handles.axes_Amplitude);
-    hold on
-    xl = xlim;
+    % No threshold line has been created yet
+    ax = subplot(handles.axes_Amplitude);
+    hold(ax, 'on')
+    xl = xlim(ax);
+    % Create new threshold line
     plot([0 length(handles.sound)/handles.fs],[handles.CurrentThreshold handles.CurrentThreshold],':',...
         'color',handles.AmplitudeThresholdColor);
-    xlim(xl);
-    hold off;
-    
-    if size(handles.SegmentTimes{str2num(get(handles.edit_FileNumber,'string'))},2)==0
+    xlim(ax, xl);
+    hold(ax, 'off');
+
+    % Check if there are any segment times recorded
+    if size(handles.SegmentTimes{getCurrentFileNum(handles)},2)==0
+        % No segment times found
         if strcmp(get(handles.menu_AutoSegment,'checked'),'on')
+            % User has requested auto-segmentation. Auto segment!
             handles = SegmentSounds(handles);
         end
     else
+        % Segment times already exist, just plot them (probably preexisting
+        % from loaded dbase?)
         handles = PlotSegments(handles);
     end
 else
+    % Threshold line already exists, just update its Y position
     set(thr,'ydata',[handles.CurrentThreshold handles.CurrentThreshold]);
     if strcmp(get(handles.menu_AutoSegment,'checked'),'on')
+        % User has requested auto-segmentation. Auto-segment!
         handles = SegmentSounds(handles);
     end
 end
 
+% Link segment context menu to segment axes
 set(handles.axes_Segments,'uicontextmenu',handles.context_Segments,'buttondownfcn','electro_gui(''click_segmentaxes'',gcbo,[],guidata(gcbo))');
-
-
 
 function handles = SegmentSounds(handles)
 
@@ -1235,45 +1373,129 @@ for c = 1:length(handles.menu_Segmenter)
     end
 end
 
-filenum = str2num(get(handles.edit_FileNumber,'string'));
+filenum = getCurrentFileNum(handles);
 handles.SegmenterParams.IsSplit = 0;
-handles.SegmentTimes{filenum} = eval(['egg_' alg '(handles.amplitude,handles.fs,handles.CurrentThreshold,handles.SegmenterParams)']);
+handles.SegmentTimes{filenum} = eg_runPlugin(handles.plugins.segmenters, ...
+    alg, handles.amplitude, handles.fs, handles.CurrentThreshold, ...
+    handles.SegmenterParams);
+%handles.SegmentTimes{filenum} = eval(['egg_' alg '(handles.amplitude,handles.fs,handles.CurrentThreshold,handles.SegmenterParams)']);
 handles.SegmentTitles{filenum} = cell(1,size(handles.SegmentTimes{filenum},1));
 handles.SegmentSelection{filenum} = ones(1,size(handles.SegmentTimes{filenum},1));
 
 handles = PlotSegments(handles);
 
+function [markerHandles, labelHandles] = CreateMarkers(handles, times, titles, selects, selectColor, unselectColor, activeColor, inactiveColor, yExtent)
+% Create the markers for a set of timed segments (used for plotting both
+% "segments" and "markers")
 
-function handles = PlotSegments(handles)
+% Create a time vector that corresponds to the loaded audio samples
+xs = linspace(0,length(handles.sound)/handles.fs,length(handles.sound));
 
-subplot(handles.axes_Segments);
-cla
-hold on
-handles.SegmentHandles = [];
-handles.LabelHandles = [];
-filenum = str2num(get(handles.edit_FileNumber,'string'));
-for c = 1:size(handles.SegmentTimes{filenum},1)
-    xs = linspace(0,length(handles.sound)/handles.fs,length(handles.sound));
-    x1 = xs(handles.SegmentTimes{filenum}(c,1));
-    x2 = xs(handles.SegmentTimes{filenum}(c,2));
-    handles.SegmentHandles(c) = patch([x1 x2 x2 x1],[-1 -1 0 0],'r');
-    set(handles.SegmentHandles(c),'buttondownfcn','electro_gui(''click_segment'',gcbo,[],guidata(gcbo))');
-    handles.LabelHandles(c) = text((x1+x2)/2,0,handles.SegmentTitles{filenum}(c));
-    if c==1
-        set(handles.SegmentHandles(c),'edgecolor','y','linewidth',2);
+y0 = yExtent(1);
+y1 = yExtent(1) + (yExtent(2) - yExtent(1))*0.3;
+% y2 = yExtent(2);
+
+markerHandles = [];
+labelHandles = [];
+
+% Loop over stored segment start/end times pairs
+for c = 1:size(times,1)
+    % Extract the start (x1) and end (x2) times of this segment
+    x1 = xs(times(c,1));
+    x2 = xs(times(c,2));
+    if selects(c)
+        faceColor = selectColor;
+    else
+        faceColor = unselectColor;
     end
+    % Create a rectangle to represent the segment
+    markerHandles(c) = patch([x1 x2 x2 x1],[y0 y0 y1 y1],faceColor);
+    % Create a text graphics object right above the middle of the segment
+    % rectangle
+    labelHandles(c) = text((x1+x2)/2,y1,titles(c), 'VerticalAlignment', 'bottom');
+%     if c==1
+%         % Set the first segment to be the selected one
+%         set(markerHandles(c), 'edgecolor', activeColor, 'linewidth', 2);
+%     else
+        set(markerHandles(c), 'edgecolor', inactiveColor, 'linewidth', 1);
+%     end
 end
-set(handles.SegmentHandles(find(handles.SegmentSelection{filenum}==0)),'facecolor',[.5 .5 .5]);
-set(handles.LabelHandles,'horizontalalignment','center','verticalalignment','bottom');
+% Attach click handler "click_segment" to segment rectangle
+set(markerHandles,'buttondownfcn','electro_gui(''click_segment'',gcbo,[],guidata(gcbo))');
+
+function handles = PlotSegments(handles, activeSegmentNum, activeMarkerNum)
+if ~exist('activeSegmentNum', 'var')
+    activeSegmentNum = [];
+end
+if ~exist('activeMarkerNum', 'var')
+    activeMarkerNum = [];
+end
+
+if isempty(activeMarkerNum)
+    activeType = 'segment';
+    if isempty(activeSegmentNum)
+        % No active segment or marker? Set it to active segment #1
+        activeSegmentNum = 1;
+    end
+else
+    activeType = 'marker';
+end
+
+% Get segment axes
+ax = subplot(handles.axes_Segments);
+% Clear segment axes
+cla(ax);
+hold(ax, 'on');
+% Clear segment handles and segment label handles
+handles.SegmentHandles = [];
+handles.SegmentLabelHandles = [];
+% Clear marker handles and marker label handles
+handles.MarkerHandles = [];
+handles.MarkerLabelHandles = [];
+
+filenum = getCurrentFileNum(handles);
+
+[handles.SegmentHandles, handles.SegmentLabelHandles] = CreateMarkers(handles, ...
+    handles.SegmentTimes{filenum}, ...
+    handles.SegmentTitles{filenum}, ...
+    handles.SegmentSelection{filenum}, ...
+    handles.SegmentSelectColor, handles.SegmentUnSelectColor, ...
+    handles.SegmentActiveColor, handles.SegmentInactiveColor, [-1, 1]);
+
+[handles.MarkerHandles, handles.MarkerLabelHandles] = CreateMarkers(handles, ...
+    handles.MarkerTimes{filenum}, ...
+    handles.MarkerTitles{filenum}, ...
+    handles.MarkerSelection{filenum}, ...
+    handles.MarkerSelectColor, handles.MarkerUnSelectColor, ...
+    handles.MarkerActiveColor, handles.MarkerInactiveColor, [1, 3]);
+
+% Set any unselected segments to have a gray face color
+set(handles.SegmentHandles(find(handles.SegmentSelection{filenum}==0)),'facecolor',handles.SegmentUnSelectColor);
+% Center-justify segment label text
+set(handles.SegmentLabelHandles,'horizontalalignment','center','verticalalignment','bottom');
+% Get current time-zoom state of audio data
 xd = get(handles.xlimbox,'xdata');
-xlim(xd(1:2));
-ylim([-2 3]);
+% Set time-zoom state of segment axes to match audio axes
+xlim(ax, xd(1:2));
+% Set y-scale of axes
+ylim(ax, [-2 3.5]);
+% Get figure background color
 bg = get(gcf,'color');
-set(gca,'xcolor',bg,'ycolor',bg,'color',bg);
-set(gca,'uicontextmenu',handles.context_Segments,'buttondownfcn','electro_gui(''click_segmentaxes'',gcbo,[],guidata(gcbo))');
-set(get(gca,'children'),'uicontextmenu',get(gca,'uicontextmenu'));
+% Set segment axes background & axis colors to the figure background color, I guess to hide them
+set(ax,'xcolor',bg,'ycolor',bg,'color',bg);
+% Assign context menu and click listener to segment axes
+set(ax,'uicontextmenu',handles.context_Segments,'buttondownfcn','electro_gui(''click_segmentaxes'',gcbo,[],guidata(gcbo))');
+% Assign context menu to all children of segment axes (segments and labels)
+set(get(ax,'children'),'uicontextmenu',get(ax,'uicontextmenu'));
+% Assign key press function to figure (labelsegment) for labeling segments
 set(gcf,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
 
+switch activeType
+    case 'segment'
+        handles = SetActiveSegment(handles, activeSegmentNum);
+    case 'marker'
+        handles = SetActiveMarker(handles, activeMarkerNum);
+end
 
 function h = eg_peak_detect(ax,x,y)
 
@@ -1303,23 +1525,22 @@ else
 end
 xlim(xl);
 
-
 % --------------------------------------------------------------------
-function context_Sonogram_Callback(hObject, eventdata, handles)
+function context_Sonogram_Callback(hObject, ~, handles)
 % hObject    handle to context_Sonogram (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_AlgorithmList_Callback(hObject, eventdata, handles)
+function menu_AlgorithmList_Callback(hObject, ~, handles)
 % hObject    handle to menu_AlgorithmList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_AutoCalculate_Callback(hObject, eventdata, handles)
+function menu_AutoCalculate_Callback(hObject, ~, handles)
 % hObject    handle to menu_AutoCalculate (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -1334,7 +1555,7 @@ end
 guidata(hObject, handles);
 
 
-function AlgorithmMenuClick(hObject, eventdata, handles)
+function AlgorithmMenuClick(hObject, ~, handles)
 
 for c = 1:length(handles.menu_Algorithm)
     set(handles.menu_Algorithm,'checked','off');
@@ -1343,7 +1564,8 @@ set(hObject,'checked','on');
 
 if isempty(get(hObject,'userdata'))
     alg = get(hObject,'label');
-    handles.SonogramParams = eval(['egs_' alg '(''params'')']);
+    handles.SonogramParams = eg_runPlugin(handles.plugins.spectrums, alg, 'params');
+%    handles.SonogramParams = eval(['egs_' alg '(''params'')']);
     set(hObject,'userdata',handles.SonogramParams);
 else
     handles.SonogramParams = get(hObject,'userdata');
@@ -1356,7 +1578,7 @@ handles = eg_Overlay(handles);
 guidata(hObject, handles);
 
 
-function FilterMenuClick(hObject, eventdata, handles)
+function FilterMenuClick(hObject, ~, handles)
 
 for c = 1:length(handles.menu_Filter)
     set(handles.menu_Filter,'checked','off');
@@ -1365,7 +1587,8 @@ set(hObject,'checked','on');
 
 if isempty(get(hObject,'userdata'))
     alg = get(hObject,'label');
-    handles.FilterParams = eval(['egf_' alg '(''params'')']);
+    handles.FilterParams = eg_runPlugin(handles.plugins.functions, alg, 'params');
+%    handles.FilterParams = eval(['egf_' alg '(''params'')']);
     set(hObject,'userdata',handles.FilterParams);
 else
     handles.FilterParams = get(hObject,'userdata');
@@ -1377,7 +1600,9 @@ for c = 1:length(handles.menu_Filter)
     end
 end
 
-handles.filtered_sound = eval(['egf_' alg '(handles.sound,handles.fs,handles.FilterParams)']);
+handles.filtered_sound = eg_runPlugin(handles.plugins.filters, alg, ...
+    handles.sound, handles.fs, handles.FilterParams);
+%handles.filtered_sound = eval(['egf_' alg '(handles.sound,handles.fs,handles.FilterParams)']);
 
 subplot(handles.axes_Sound)
 xd = get(handles.xlimbox,'xdata');
@@ -1461,13 +1686,13 @@ set(handles.slider_Time,'value',xd(1));
 stp = min([1 (xd(2)-xd(1))/((length(handles.sound)/handles.fs-(xd(2)-xd(1)))+eps)]);
 set(handles.slider_Time,'sliderstep',[0.1*stp 0.5*stp]);
 
-for c = 1:length(handles.LabelHandles)
-    if ishandle(handles.LabelHandles(c))
-        pos = get(handles.LabelHandles(c),'extent');
+for c = 1:length(handles.SegmentLabelHandles)
+    if ishandle(handles.SegmentLabelHandles(c))
+        pos = get(handles.SegmentLabelHandles(c),'extent');
         if pos(1)<xd(1) | pos(1)+pos(3)>xd(2)
-            set(handles.LabelHandles(c),'visible','off');
+            set(handles.SegmentLabelHandles(c),'visible','off');
         else
-            set(handles.LabelHandles(c),'visible','on');
+            set(handles.SegmentLabelHandles(c),'visible','on');
         end
     end
 end
@@ -1501,7 +1726,10 @@ if strcmp(get(handles.menu_FrequencyZoom,'checked'),'on')
 else
     ylim([handles.FreqLim(1) handles.FreqLim(2)]);
 end
-handles.ispower = eval(['egs_' alg '(handles.axes_Sonogram,handles.sound(xlp(1):xlp(2)),handles.fs,handles.SonogramParams)']);
+handles.ispower = eg_runPlugin(handles.plugins.spectrums, alg, ...
+    handles.axes_Sonogram, handles.sound(xlp(1):xlp(2)), handles.fs, ...
+    handles.SonogramParams);
+%handles.ispower = eval(['egs_' alg '(handles.axes_Sonogram,handles.sound(xlp(1):xlp(2)),handles.fs,handles.SonogramParams)']);
 set(handles.axes_Sonogram,'units','normalized');
 set(gca,'ydir','normal');
 set(gca,'uicontextmenu',handles.context_Sonogram);
@@ -1526,29 +1754,49 @@ for c = 1:length(ch)
 end
 
 
-function click_sound(hObject, eventdata, handles)
+function click_sound(hObject, ~, handles)
+% Callback for a mouse click on the spectrogram
 
 if strcmp(get(gcf,'selectiontype'),'normal')
+    % Normal left mouse button click
+    %   Zoom in (either with a box if it's a
+    %   click/drag, or just shift the zoom box over to click location if
+    %   it's just a click.
+
+    % Temporarily switch axes units to pixels to make it easier to convert
+    % the user click coordinates?
     set(gca,'units','pixels');
     set(get(gca,'parent'),'units','pixels');
+    % Set up a "rubber band box" to display user mouse click/drag. This
+    %   blocks until user lets go of mouse, and returns the *figure*
+    %   coordinates of the click/drag rectangle
     rect = rbbox;
 
+    % Get axis upper left position to subtract off
     pos = get(gca,'position');
+
+    % Switch the axes back to normalized units
     set(get(gca,'parent'),'units','normalized');
     set(gca,'units','normalized');
     xl = xlim;
     yl = ylim;
 
+    % I think we're converting the x coordinate and width of rectangle to
+    % units of audio samples?
     rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
     rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
 
+    % Get x bounds of zoom box in top plot
     xd = get(handles.xlimbox,'xdata');
 
     if rect(3) == 0
+        % Click/drag box has zero width, so we're going to shift the zoom
+        % box so the left size aligns with the cllick location
         shift = rect(1)-xd(1);
         xd = xd+shift;
     else
         if strcmp(get(handles.menu_FrequencyZoom,'checked'),'on') & (hObject==handles.axes_Sonogram | get(hObject,'parent')==handles.axes_Sonogram)
+            % We're zooming along the y-axis (frequency) as well as x
             rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
             rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
             handles.CustomFreqLim = [rect(2) rect(2)+rect(4)];
@@ -1557,9 +1805,13 @@ if strcmp(get(gcf,'selectiontype'),'normal')
         xd([1 4:5]) = rect(1);
         xd(2:3) = rect(1)+rect(3);
     end
+    % Update zoom box in top plot
     set(handles.xlimbox,'xdata',xd);
+    % Update spectrogram scales
     handles = eg_EditTimescale(handles);
 elseif strcmp(get(gcf,'selectiontype'),'extend')
+    % Shift-click
+    %   Shift zoom box so the right side aligns with click location
     pos = get(gca,'CurrentPoint');
     xd = get(handles.xlimbox,'xdata');
     if pos(1,1) < xd(1)
@@ -1567,22 +1819,164 @@ elseif strcmp(get(gcf,'selectiontype'),'extend')
     end
     xd(2:3) = pos(1,1);
     set(handles.xlimbox,'xdata',xd);
+    % Update spectrogram scales
     handles = eg_EditTimescale(handles);
 elseif strcmp(get(gcf,'selectiontype'),'open')
+    % Double-click
+    %   Reset zoom
     xd = [0 length(handles.sound)/handles.fs length(handles.sound)/handles.fs 0 0];
+    % Update zoom box in top plot
     set(handles.xlimbox,'xdata',xd);
     if strcmp(get(handles.menu_FrequencyZoom,'checked'),'on')
+        % We're resetting y-axis (frequency) zoom too
         handles.CustomFreqLim = handles.FreqLim;
     end
+    % Update spectrogram scales
     handles = eg_EditTimescale(handles);
-end
+elseif strcmp(get(gcf, 'selectiontype'), 'alt')
+    % Switch the axes back to normalized units
+    set(get(gca,'parent'),'units','normalized');
+    set(gca,'units','normalized');
+    % Set up a "rubber band box" to display user mouse click/drag. This
+    %   blocks until user lets go of mouse, and returns the *figure*
+    %   coordinates of the click/drag rectangle
+    rect = rbbox;
 
+    % Get axis upper left position to subtract off
+    pos = get(gca,'position');
+
+    xl = xlim;
+%    yl = ylim;
+
+    % I think we're converting the x coordinate and width of rectangle to
+    % units of audio samples?
+    x = [];
+    x(1) = (xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1)));
+    x(2) = x(1) + (rect(3)/pos(3)*(xl(2)-xl(1)));
+    x = round(handles.fs * x);
+
+    handles = CreateNewMarker(handles, x);
+end
 
 guidata(gca, handles);
 
+function handles = CreateNewMarker(handles, x)
+% Create a new marker from time x(1) to time x(2)
+filenum = getCurrentFileNum(handles);
+handles.MarkerTimes{filenum}(end+1, :) = x;
+handles.MarkerSelection{filenum}(end+1) = 1;
+handles.MarkerTitles{filenum}{end+1} = '';
+% Replot all markers & segments
+handles = PlotSegments(handles);
+
+% Sort markers chronologically to keep things neat
+[handles, order] = SortMarkers(handles, filenum);
+[~, mostRecentMarkerNum] = max(order);
+% Set active marker again, so the same marker is still active
+handles = PlotSegments(handles);
+handles = SetActiveMarker(handles, mostRecentMarkerNum);
+
+function handles = DeleteMarker(handles, filenum, markerNum)
+% Delete the specified marker
+handles.MarkerTimes{filenum}(markerNum, :) = [];
+handles.MarkerSelection{filenum}(markerNum) = [];
+handles.MarkerTitles{filenum}(markerNum) = [];
+
+function handles = DeleteSegment(handles, filenum, segmentNum)
+% Delete the specified marker
+handles.SegmentTimes{filenum}(segmentNum, :) = [];
+handles.SegmentSelection{filenum}(segmentNum) = [];
+handles.SegmentTitles{filenum}(segmentNum) = [];
+
+function [handles, order] = SortMarkers(handles, filenum)
+% Sort the order of the markers. Note that this doesn't affect the marker
+% data at all, just keeps them stored in chronological order.
+
+% Get sort order based on marker start times
+[~, order] = sort(handles.MarkerTimes{filenum}(:, 1));
+handles.MarkerTimes{filenum} = handles.MarkerTimes{filenum}(order, :);
+handles.MarkerSelection{filenum} = handles.MarkerSelection{filenum}(order);
+handles.MarkerTitles{filenum} = handles.MarkerTitles{filenum}(order);
+handles.MarkerHandles = handles.MarkerHandles(order);
+
+function handles = SetActiveMarker(handles, markerNum)
+% Inactivate all markers
+set(handles.MarkerHandles, 'edgecolor', handles.MarkerInactiveColor, 'linewidth', 1);
+% Inactivate all segments
+set(handles.SegmentHandles, 'edgecolor', handles.SegmentInactiveColor, 'linewidth', 1);
+% Activate requested marker
+if ~isempty(handles.MarkerHandles)
+    markerNum = coerceToRange(markerNum, [1, length(handles.MarkerHandles)]);
+    set(handles.MarkerHandles(markerNum), 'edgecolor', handles.MarkerActiveColor, 'linewidth', 2);
+else
+    % No markers? Set active segment instead.
+    handles = SetActiveSegment(handles, 1);
+end
+
+function handles = SetActiveSegment(handles, segmentNum)
+% Inactivate all segments
+set(handles.SegmentHandles, 'edgecolor', handles.SegmentInactiveColor, 'linewidth', 1);
+% Inactivate all markers
+set(handles.MarkerHandles, 'edgecolor', handles.MarkerInactiveColor, 'linewidth', 1);
+% Activate requested segment
+if ~isempty(handles.SegmentHandles)
+    segmentNum = coerceToRange(segmentNum, [1, length(handles.SegmentHandles)]);
+    set(handles.SegmentHandles(segmentNum), 'edgecolor', handles.SegmentActiveColor, 'linewidth', 2);
+end
+
+function value = coerceToRange(value, valueRange)
+value = min(max(value, valueRange(1)), valueRange(2));
+
+function [handles, newSegmentNum] = ConvertMarkerToSegment(handles, filenum, markerNum)
+t0 = handles.MarkerTimes{filenum}(markerNum, 1);
+t1 = handles.MarkerTimes{filenum}(markerNum, 2);
+MS = handles.MarkerSelection{filenum}(markerNum);
+MN = handles.MarkerTitles{filenum}(markerNum);
+STs = handles.SegmentTimes{filenum};
+SSs = handles.SegmentSelection{filenum};
+SNs = handles.SegmentTitles{filenum};
+
+if isempty(STs)
+    ind = 1;
+else
+    ind = getSortedArrayInsertion(STs, t0);
+end
+handles.SegmentTimes{filenum} = [STs(1:ind-1, :); [t0, t1]; STs(ind:end, :)];
+handles.SegmentSelection{filenum} = [SSs(1:ind-1), MS, SSs(ind:end)];
+handles.SegmentTitles{filenum} = [SNs(1:ind-1), MN, SNs(ind:end)];
+
+newSegmentNum = ind;
+
+handles = DeleteMarker(handles, filenum, markerNum);
+
+function [handles, newMarkerNum] = ConvertSegmentToMarker(handles, filenum, segmentNum)
+t0 = handles.SegmentTimes{filenum}(segmentNum, 1);
+t1 = handles.SegmentTimes{filenum}(segmentNum, 2);
+SS = handles.SegmentSelection{filenum}(segmentNum);
+SN = handles.SegmentTitles{filenum}(segmentNum);
+MTs = handles.MarkerTimes{filenum};
+MSs = handles.MarkerSelection{filenum};
+MNs = handles.MarkerTitles{filenum};
+
+if isempty(MTs)
+    ind = 1;
+else
+    ind = getSortedArrayInsertion(MTs(:, 1), t0);
+end
+handles.MarkerTimes{filenum} = [MTs(1:ind-1, :); [t0, t1]; MTs(ind:end, :)];
+handles.MarkerSelection{filenum} = [MSs(1:ind-1), SS, MSs(ind:end)];
+handles.MarkerTitles{filenum} = [MNs(1:ind-1), SN, MNs(ind:end)];
+
+newMarkerNum = ind;
+
+handles = DeleteSegment(handles, filenum, segmentNum);
+
+function ind = getSortedArrayInsertion(sortedArr, value)
+[~, ind] = min(abs(sortedArr-value));
+ind = ind + (value > sortedArr(ind));
 
 % --- Executes on button press in push_Calculate.
-function push_Calculate_Callback(hObject, eventdata, handles)
+function push_Calculate_Callback(hObject, ~, handles)
 % hObject    handle to push_Calculate (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -1597,7 +1991,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_ColorScale_Callback(hObject, eventdata, handles)
+function menu_ColorScale_Callback(hObject, ~, handles)
 % hObject    handle to menu_ColorScale (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -1645,7 +2039,7 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_FreqLimits_Callback(hObject, eventdata, handles)
+function menu_FreqLimits_Callback(hObject, ~, handles)
 % hObject    handle to menu_FreqLimits (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -1663,7 +2057,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_New.
-function push_New_Callback(hObject, eventdata, handles)
+function push_New_Callback(hObject, ~, handles)
 % hObject    handle to push_New (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -1706,7 +2100,7 @@ set(handles.popup_EventList,'value',1);
 
 str = {};
 for c = 1:length(handles.sound_files)
-    str{c} = ['<HTML><FONT COLOR=000000>× ' handles.sound_files(c).name '</FONT></HTML>'];
+    str{c} = ['<HTML><FONT COLOR=000000>ï¿½ ' handles.sound_files(c).name '</FONT></HTML>'];
 end
 set(handles.list_Files,'string',str);
 
@@ -1744,7 +2138,8 @@ for c = 1:length(handles.menu_Segmenter)
     end
 end
 if isempty(get(h,'userdata'))
-    handles.SegmenterParams = eval(['egg_' alg '(''params'')']);
+    handles.SegmenterParams = eg_runPlugin(handles.plugins.segmenters, alg, 'params');
+%    handles.SegmenterParams = eval(['egg_' alg '(''params'')']);
     set(h,'userdata',handles.SegmenterParams);
 else
     handles.SegmenterParams = get(h,'userdata');
@@ -1758,7 +2153,8 @@ for c = 1:length(handles.menu_Algorithm)
     end
 end
 if isempty(get(h,'userdata'))
-    handles.SonogramParams = eval(['egs_' alg '(''params'')']);
+    handles.SonogramParams = eg_runPlugin(handles.plugins.spectrums, alg, 'params');
+%    handles.SonogramParams = eval(['egs_' alg '(''params'')']);
     set(h,'userdata',handles.SonogramParams);
 else
     handles.SonogramParams = get(h,'userdata');
@@ -1772,7 +2168,8 @@ for c = 1:length(handles.menu_Filter)
     end
 end
 if isempty(get(h,'userdata'))
-    handles.FilterParams = eval(['egf_' alg '(''params'')']);
+    handles.FilterParams = eg_runPlugin(handles.plugins.filters, alg, 'params');
+%    handles.FilterParams = eval(['egf_' alg '(''params'')']);
     set(h,'userdata',handles.FilterParams);
 else
     handles.FilterParams = get(h,'userdata');
@@ -1785,26 +2182,28 @@ for axnum = 1:2
     if isempty(ud{v}) & v>1
         str = get(handles.(['popup_EventDetector' num2str(axnum)]),'string');
         dtr = str{v};
-        [handles.(['EventParams' num2str(axnum)]) labels] = eval(['ege_' dtr '(''params'')']);
-        ud{v} = handles.(['EventParams' num2str(axnum)]);
+        [handles.EventParams{axnum}, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, 'params');
+%        [handles.EventParams{axnum} labels] = eval(['ege_' dtr '(''params'')']);
+        ud{v} = handles.EventParams{axnum};
         set(handles.(['popup_EventDetector' num2str(axnum)]),'userdata',ud);
     else
-        handles.(['EventParams' num2str(axnum)]) = ud{v};
+        handles.EventParams{axnum} = ud{v};
     end
 end
 
 % get function parameters
 for axnum = 1:2
-    v = get(handles.(['popup_Function' num2str(axnum)]),'value');
-    ud = get(handles.(['popup_Function' num2str(axnum)]),'userdata');
+    v = get(handles.popup_Functions(axnum),'value');
+    ud = get(handles.popup_Functions(axnum),'userdata');
     if isempty(ud{v}) & v>1
-        str = get(handles.(['popup_Function' num2str(axnum)]),'string');
+        str = get(handles.popup_Functions(axnum),'string');
         dtr = str{v};
-        [handles.(['FunctionParams' num2str(axnum)]) labels] = eval(['egf_' dtr '(''params'')']);
-        ud{v} = handles.(['FunctionParams' num2str(axnum)]);
-        set(handles.(['popup_Function' num2str(axnum)]),'userdata',ud);
+        [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
+%        [handles.FunctionParams{axnum} labels] = eval(['egf_' dtr '(''params'')']);
+        ud{v} = handles.FunctionParams{axnum};
+        set(handles.popup_Functions(axnum),'userdata',ud);
     else
-        handles.(['FunctionParams' num2str(axnum)]) = ud{v};
+        handles.FunctionParams{axnum} = ud{v};
     end
 end
 
@@ -1830,7 +2229,10 @@ handles.Properties.Names = cell(1,handles.TotalFileNumber);
 handles.Properties.Values = cell(1,handles.TotalFileNumber);
 handles.Properties.Types = cell(1,handles.TotalFileNumber);
 for c = 1:handles.TotalFileNumber
-    [~, ~, ~, ~, props] = eval(['egl_' handles.sound_loader '([''' handles.path_name '\' handles.sound_files(c).name '''],0)']);
+    [~, ~, ~, ~, props] = eg_runPlugin(handles.plugins.loaders, ...
+        handles.sound_loader, fullfile(handles.path_name, ...
+        handles.sound_files(c).name), 0);
+%    [~, ~, ~, ~, props] = eval(['egl_' handles.sound_loader '([''' handles.path_name '\' handles.sound_files(c).name '''],0)']);
     handles.Properties.Names{c} = [props.Names, defaultProps.Names];
     handles.Properties.Values{c} = [props.Values, defaultProps.Values];
     handles.Properties.Types{c} = [props.Types, defaultProps.Types];
@@ -1842,9 +2244,15 @@ function handles = InitializeVariables(handles)
 handles.SoundThresholds = repmat(inf,1,handles.TotalFileNumber);
 handles.CurrentTheshold = inf;
 handles.DatesAndTimes = zeros(1,handles.TotalFileNumber);
+
 handles.SegmentTimes = cell(1,handles.TotalFileNumber);
 handles.SegmentTitles = cell(1,handles.TotalFileNumber);
 handles.SegmentSelection = cell(1,handles.TotalFileNumber);
+handles.MarkerTimes = cell(1,handles.TotalFileNumber);
+handles.MarkerTitles = cell(1,handles.TotalFileNumber);
+handles.MarkerSelection = cell(1,handles.TotalFileNumber);
+
+
 
 handles.BackupChan = cell(1,2);
 handles.BackupLabel = cell(1,2);
@@ -1868,7 +2276,7 @@ handles.FileLength = zeros(1,handles.TotalFileNumber);
 
 
 % --- Executes on button press in push_Open.
-function push_Open_Callback(hObject, eventdata, handles)
+function push_Open_Callback(hObject, ~, handles)
 % hObject    handle to push_Open (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -1930,6 +2338,25 @@ end
 
 handles.TotalFileNumber = length(handles.sound_files);
 
+if isfield(dbase, 'MarkerTimes')
+    handles.MarkerTimes = dbase.MarkerTimes;
+else
+    % This must be an older type of dbase - add blank marker field
+    handles.MarkerTimes = cell(1,handles.TotalFileNumber);
+end
+if isfield(dbase, 'MarkerTitles')
+    handles.MarkerTitles = dbase.MarkerTitles;
+else
+    % This must be an older type of dbase - add blank marker field
+    handles.MarkerTitles = cell(1,handles.TotalFileNumber);
+end
+if isfield(dbase, 'MarkerIsSelected')
+    handles.MarkerSelection = dbase.MarkerIsSelected;
+else
+    % This must be an older type of dbase - add blank marker field
+    handles.MarkerSelection = cell(1,handles.TotalFileNumber);
+end
+
 handles.ShuffleOrder = randperm(handles.TotalFileNumber);
 
 set(handles.text_TotalFileNumber,'string',['of ' num2str(handles.TotalFileNumber)]);
@@ -1945,7 +2372,7 @@ for c = 1:length(handles.sound_files)
     if handles.FileLength(c) > 0
         str{c} = handles.sound_files(c).name;
     else
-        str{c} = ['× ' handles.sound_files(c).name];
+        str{c} = ['ï¿½ ' handles.sound_files(c).name];
     end
     str{c} = ['<HTML><FONT COLOR=000000>' str{c} '</FONT></HTML>'];
 end
@@ -1968,25 +2395,28 @@ else
         end
     end
     for c = 1:length(dbase.EventTimes)
-        [param labels] = eval(['ege_' dbase.EventDetectors{c} '(''params'')']);
+        [param, labels] = eg_runPlugin(handles.plugins.eventDetectors, ...
+            dbase.EventDetectors{c}, 'params');
+%        [param labels] = eval(['ege_' dbase.EventDetectors{c} '(''params'')']);
         for d = 1:length(labels)
             str{end+1} = [dbase.EventSources{c} ' - ' dbase.EventFunctions{c} ' - ' labels{d}];
         end
     end
     set(handles.popup_Channel1,'string',str);
     set(handles.popup_Channel2,'string',str);
-    
+
     str = {'(None)'};
     for c = 1:length(dbase.EventTimes)
-        [param labels] = eval(['ege_' dbase.EventDetectors{c} '(''params'')']);
+        [param, labels] = eg_runPlugin(handles.plugins.eventDetectors, 'params');
+%        [param labels] = eval(['ege_' dbase.EventDetectors{c} '(''params'')']);
         for d = 1:length(labels)
             str{end+1} = [dbase.EventSources{c} ' - ' dbase.EventFunctions{c} ' - ' labels{d}];
         end
     end
     set(handles.popup_EventList,'string',str);
-    
+
     handles.EventCurrentThresholds = inf*ones(1,length(str)-1);
-    
+
     handles.EventWhichPlot = zeros(1,length(str));
     handles.EventLims = repmat(handles.EventLims,length(str),1);
 end
@@ -1999,7 +2429,8 @@ for c = 1:length(handles.menu_Segmenter)
     end
 end
 if isempty(get(h,'userdata'))
-    handles.SegmenterParams = eval(['egg_' alg '(''params'')']);
+    handles.SegmenterParams = eg_runPlugin(handles.plugins.segmenters, alg, 'params');
+%    handles.SegmenterParams = eval(['egg_' alg '(''params'')']);
     set(h,'userdata',handles.SegmenterParams);
 else
     handles.SegmenterParams = get(h,'userdata');
@@ -2013,7 +2444,8 @@ for c = 1:length(handles.menu_Algorithm)
     end
 end
 if isempty(get(h,'userdata'))
-    handles.SonogramParams = eval(['egs_' alg '(''params'')']);
+    handles.SonogramParams = eg_runPlugin(handles.plugins.spectrums, alg, 'params');
+%    handles.SonogramParams = eval(['egs_' alg '(''params'')']);
     set(h,'userdata',handles.SonogramParams);
 else
     handles.SonogramParams = get(h,'userdata');
@@ -2026,26 +2458,28 @@ for axnum = 1:2
     if isempty(ud{v}) & v>1
         str = get(handles.(['popup_EventDetector' num2str(axnum)]),'string');
         dtr = str{v};
-        [handles.(['EventParams' num2str(axnum)]) labels] = eval(['ege_' dtr '(''params'')']);
-        ud{v} = handles.(['EventParams' num2str(axnum)]);
+        [handles.EventParams{axnum}, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, 'params');
+%        [handles.EventParams{axnum} labels] = eval(['ege_' dtr '(''params'')']);
+        ud{v} = handles.EventParams{axnum};
         set(handles.(['popup_EventDetector' num2str(axnum)]),'userdata',ud);
     else
-        handles.(['EventParams' num2str(axnum)]) = ud{v};
+        handles.EventParams{axnum} = ud{v};
     end
 end
 
 % get function parameters
 for axnum = 1:2
-    v = get(handles.(['popup_Function' num2str(axnum)]),'value');
-    ud = get(handles.(['popup_Function' num2str(axnum)]),'userdata');
+    v = get(handles.popup_Functions(axnum),'value');
+    ud = get(handles.popup_Functions(axnum),'userdata');
     if isempty(ud{v}) & v>1
-        str = get(handles.(['popup_Function' num2str(axnum)]),'string');
+        str = get(handles.popup_Functions(axnum),'string');
         dtr = str{v};
-        [handles.(['FunctionParams' num2str(axnum)]) labels] = eval(['egf_' dtr '(''params'')']);
-        ud{v} = handles.(['FunctionParams' num2str(axnum)]);
-        set(handles.(['popup_Function' num2str(axnum)]),'userdata',ud);
+        [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
+%        [handles.FunctionParams{axnum} labels] = eval(['egf_' dtr '(''params'')']);
+        ud{v} = handles.FunctionParams{axnum};
+        set(handles.popup_Functions(axnum),'userdata',ud);
     else
-        handles.(['FunctionParams' num2str(axnum)]) = ud{v};
+        handles.FunctionParams{axnum} = ud{v};
     end
 end
 
@@ -2057,7 +2491,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_Save.
-function push_Save_Callback(hObject, eventdata, handles)
+function push_Save_Callback(hObject, ~, handles)
 % hObject    handle to push_Save (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2078,7 +2512,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_Cancel.
-function push_Cancel_Callback(hObject, eventdata, handles)
+function push_Cancel_Callback(hObject, ~, handles)
 % hObject    handle to push_Cancel (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2087,14 +2521,14 @@ function push_Cancel_Callback(hObject, eventdata, handles)
 
 
 % --------------------------------------------------------------------
-function context_Amplitude_Callback(hObject, eventdata, handles)
+function context_Amplitude_Callback(hObject, ~, handles)
 % hObject    handle to context_Amplitude (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_AutoThreshold_Callback(hObject, eventdata, handles)
+function menu_AutoThreshold_Callback(hObject, ~, handles)
 % hObject    handle to menu_AutoThreshold (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2102,7 +2536,7 @@ function menu_AutoThreshold_Callback(hObject, eventdata, handles)
 if strcmp(get(handles.menu_AutoThreshold,'checked'),'off')
     set(handles.menu_AutoThreshold,'checked','on');
     handles.CurrentThreshold = eg_AutoThreshold(handles.amplitude);
-    handles.SoundThresholds(str2num(get(handles.edit_FileNumber,'string'))) = handles.CurrentThreshold;
+    handles.SoundThresholds(getCurrentFileNum(handles)) = handles.CurrentThreshold;
     handles = SetThreshold(handles);
 else
     set(handles.menu_AutoThreshold,'checked','off');
@@ -2210,7 +2644,7 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_AmplitudeAxisRange_Callback(hObject, eventdata, handles)
+function menu_AmplitudeAxisRange_Callback(hObject, ~, handles)
 % hObject    handle to menu_AmplitudeAxisRange (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2229,7 +2663,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SmoothingWindow_Callback(hObject, eventdata, handles)
+function menu_SmoothingWindow_Callback(hObject, ~, handles)
 % hObject    handle to menu_SmoothingWindow (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2250,7 +2684,7 @@ handles = SetThreshold(handles);
 guidata(hObject, handles);
 
 
-function click_Amplitude(hObject, eventdata, handles)
+function click_Amplitude(hObject, ~, handles)
 
 if strcmp(get(gcf,'selectiontype'),'open')
     xd = [0 length(handles.sound)/handles.fs length(handles.sound)/handles.fs 0 0];
@@ -2283,7 +2717,7 @@ elseif strcmp(get(gcf,'selectiontype'),'normal')
 elseif strcmp(get(gcf,'selectiontype'),'extend')
     pos = get(gca,'currentpoint');
     handles.CurrentThreshold = pos(1,2);
-    handles.SoundThresholds(str2num(get(handles.edit_FileNumber,'string'))) = handles.CurrentThreshold;
+    handles.SoundThresholds(getCurrentFileNum(handles)) = handles.CurrentThreshold;
     handles = SetThreshold(handles);
 end
 
@@ -2292,7 +2726,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SetThreshold_Callback(hObject, eventdata, handles)
+function menu_SetThreshold_Callback(hObject, ~, handles)
 % hObject    handle to menu_SetThreshold (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2302,14 +2736,14 @@ if isempty(answer)
     return
 end
 handles.CurrentThreshold = str2num(answer{1});
-handles.SoundThresholds(str2num(get(handles.edit_FileNumber,'string'))) = handles.CurrentThreshold;
+handles.SoundThresholds(getCurrentFileNum(handles)) = handles.CurrentThreshold;
 
 handles = SetThreshold(handles);
 
 guidata(hObject, handles);
 
 
-function click_loadfile(hObject, eventdata, handles)
+function click_loadfile(hObject, ~, handles)
 
 temp = handles.TooLong;
 handles.TooLong = inf;
@@ -2322,7 +2756,7 @@ guidata(gca, handles);
 
 
 % --------------------------------------------------------------------
-function menu_LongFiles_Callback(hObject, eventdata, handles)
+function menu_LongFiles_Callback(hObject, ~, handles)
 % hObject    handle to menu_LongFiles (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2337,20 +2771,20 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function context_Segments_Callback(hObject, eventdata, handles)
+function context_Segments_Callback(hObject, ~, handles)
 % hObject    handle to context_Segments (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_SegmenterList_Callback(hObject, eventdata, handles)
+function menu_SegmenterList_Callback(hObject, ~, handles)
 % hObject    handle to menu_SegmenterList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
-function SegmenterMenuClick(hObject, eventdata, handles)
+function SegmenterMenuClick(hObject, ~, handles)
 
 for c = 1:length(handles.menu_Segmenter)
     set(handles.menu_Segmenter,'checked','off');
@@ -2359,7 +2793,8 @@ set(hObject,'checked','on');
 
 if isempty(get(hObject,'userdata'))
     alg = get(hObject,'label');
-    handles.SegmenterParams = eval(['egg_' alg '(''params'')']);
+    handles.SegmenterParams = eg_runPlugin(handles.plugins.segmenters, alg, 'params');
+%    handles.SegmenterParams = eval(['egg_' alg '(''params'')']);
     set(hObject,'userdata',handles.SegmenterParams);
 else
     handles.SegmenterParams = get(hObject,'userdata');
@@ -2371,14 +2806,24 @@ guidata(hObject, handles);
 
 
 
-function click_segmentaxes(hObject, eventdata, handles)
+function click_segmentaxes(hObject, ~, handles)
 
-filenum = str2num(get(handles.edit_FileNumber,'string'));
+filenum = getCurrentFileNum(handles);
 
 if strcmp(get(gcf,'selectiontype'),'normal')
+    % This code takes a selection of segments and toggles their selection
+    %   status. Note that it used to set the selection status to unselected
+    %   if less than half of the selected segments were selected. Which
+    %   seems...convoluted and weird. So I changed it to just toggling all
+    %   the selection statuses.
     set(gca,'units','pixels');
     set(get(gca,'parent'),'units','pixels');
     rect = rbbox;
+
+    if rect(3) < 10
+    % This was probably not intended to be a click-and-drag - ignore it
+        return
+    end
 
     pos = get(gca,'position');
     set(get(gca,'parent'),'units','normalized');
@@ -2387,16 +2832,16 @@ if strcmp(get(gcf,'selectiontype'),'normal')
 
     rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
     rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
-
+   
     f = find(handles.SegmentTimes{filenum}(:,1)>rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*handles.fs);
     g = find(handles.SegmentTimes{filenum}(:,2)>rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*handles.fs);
     h = find(handles.SegmentTimes{filenum}(:,1)<rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*handles.fs);
     f = unique([f; g; h]);
 
-    handles.SegmentSelection{filenum}(f) = sum(handles.SegmentSelection{filenum}(f))<=length(f)/2;
+    handles.SegmentSelection{filenum}(f) = ~handles.SegmentSelection{filenum}(f); %sum(handles.SegmentSelection{filenum}(f))<=length(f)/2;
 
-    set(handles.SegmentHandles,'facecolor','r');
-    set(handles.SegmentHandles(find(handles.SegmentSelection{filenum}==0)),'facecolor',[.5 .5 .5]);
+    set(handles.SegmentHandles,'facecolor',handles.SegmentSelectColor);
+    set(handles.SegmentHandles(find(handles.SegmentSelection{filenum}==0)),'facecolor',handles.SegmentUnSelectColor);
 elseif strcmp(get(gcf,'selectiontype'),'open')
     xd = [0 length(handles.sound)/handles.fs length(handles.sound)/handles.fs 0 0];
     set(handles.xlimbox,'xdata',xd);
@@ -2404,10 +2849,10 @@ elseif strcmp(get(gcf,'selectiontype'),'open')
 elseif strcmp(get(gcf,'selectiontype'),'extend')
     if sum(handles.SegmentSelection{filenum})==length(handles.SegmentSelection{filenum})
         handles.SegmentSelection{filenum} = zeros(size(handles.SegmentSelection{filenum}));
-        set(handles.SegmentHandles,'facecolor',[.5 .5 .5]);
+        set(handles.SegmentHandles,'facecolor',handles.SegmentUnSelectColor);
     else
         handles.SegmentSelection{filenum} = ones(size(handles.SegmentSelection{filenum}));
-        set(handles.SegmentHandles,'facecolor','r');
+        set(handles.SegmentHandles,'facecolor',handles.SegmentSelectColor);
     end
 end
 
@@ -2416,7 +2861,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_Segment.
-function push_Segment_Callback(hObject, eventdata, handles)
+function push_Segment_Callback(hObject, ~, handles)
 % hObject    handle to push_Segment (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2427,7 +2872,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AutoSegment_Callback(hObject, eventdata, handles)
+function menu_AutoSegment_Callback(hObject, ~, handles)
 % hObject    handle to menu_AutoSegment (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2444,7 +2889,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SegmentParameters_Callback(hObject, eventdata, handles)
+function menu_SegmentParameters_Callback(hObject, ~, handles)
 % hObject    handle to menu_SegmentParameters (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2474,78 +2919,140 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_DeleteAll_Callback(hObject, eventdata, handles)
+function menu_DeleteAll_Callback(hObject, ~, handles)
 % hObject    handle to menu_DeleteAll (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-filenum = str2num(get(handles.edit_FileNumber,'string'));
+filenum = getCurrentFileNum(handles);
 handles.SegmentSelection{filenum} = zeros(size(handles.SegmentSelection{filenum}));
 
-set(handles.SegmentHandles,'facecolor',[.5 .5 .5]);
+set(handles.SegmentHandles,'facecolor',handles.SegmentUnSelectColor);
 
 guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_UndeleteAll_Callback(hObject, eventdata, handles)
+function menu_UndeleteAll_Callback(hObject, ~, handles)
 % hObject    handle to menu_UndeleteAll (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
-filenum = str2num(get(handles.edit_FileNumber,'string'));
+filenum = getCurrentFileNum(handles);
 handles.SegmentSelection{filenum} = ones(size(handles.SegmentSelection{filenum}));
 
-set(handles.SegmentHandles,'facecolor','r');
+set(handles.SegmentHandles,'facecolor',handles.SegmentSelectColor);
 
 guidata(hObject, handles);
 
 
-function click_segment(hObject, eventdata, handles)
+function click_segment(hObject, ~, handles)
+% Callback for clicking anything on the axes_Segments
 
-f = find(handles.SegmentHandles==hObject);
-filenum = str2num(get(handles.edit_FileNumber,'string'));
-if strcmp(get(gcf,'selectiontype'),'normal')
-    set(handles.SegmentHandles,'edgecolor','k','linewidth',1);
-    set(hObject,'edgecolor','y','linewidth',2);
-    set(gcf,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
+% Search for clicked item among segments
+activeSegNum = find(handles.SegmentHandles==hObject);
+if isempty(activeSegNum)
+    % No matching segment found. Must be a marker.
+    activeSegNum = find(handles.MarkerHandles==hObject);
+    elementType = 'marker';
+else
+    elementType = 'segment';
+end
 
-elseif strcmp(get(gcf,'selectiontype'),'extend')
-    if handles.SegmentSelection{filenum}(f)==0
-        handles.SegmentSelection{filenum}(f) = 1;
-        set(hObject,'facecolor','r');
-    else
-        handles.SegmentSelection{filenum}(f) = 0;
-        set(hObject,'facecolor',[.5 .5 .5]);
-    end
-
-elseif strcmp(get(gcf,'selectiontype'),'open')
-    if f < length(handles.SegmentHandles)
-        handles.SegmentTimes{filenum}(f,2) = handles.SegmentTimes{filenum}(f+1,2);
-        handles.SegmentTimes{filenum}(f+1,:) = [];
-        handles.SegmentTitles{filenum}(f+1) = [];
-        handles.SegmentSelection{filenum}(f+1) = [];
-        handles = PlotSegments(handles);
-        hObject = handles.SegmentHandles(f);
-        set(handles.SegmentHandles,'edgecolor','k','linewidth',1);
-        set(hObject,'edgecolor','y','linewidth',2);
+filenum = getCurrentFileNum(handles);
+switch get(gcf,'selectiontype')
+    case 'normal'
+        switch elementType
+            case 'segment'
+                handles = SetActiveSegment(handles, activeSegNum);
+            case 'marker'
+                handles = SetActiveMarker(handles, activeSegNum);
+        end
+%         set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
+%         set(hObject,'edgecolor',handles.SegmentActiveColor,'linewidth',2);
         set(gcf,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
-    end
+    case 'extend'
+        switch elementType
+            case 'segment'
+                handles.SegmentSelection{filenum}(activeSegNum) = ~handles.SegmentSelection{filenum}(activeSegNum);
+                set(hObject,'facecolor',handles.SegmentSelectColors{handles.SegmentSelection{filenum}(activeSegNum)+1});
+            case 'marker'
+                handles.MarkerSelection{filenum}(activeSegNum) = ~handles.MarkerSelection{filenum}(activeSegNum);
+                set(hObject,'facecolor',handles.MarkerSelectColors{handles.MarkerSelection{filenum}(activeSegNum)+1});
+        end
+    case 'open'
+        switch elementType
+            case 'segment'
+                if activeSegNum < length(handles.SegmentHandles)
+                    handles.SegmentTimes{filenum}(activeSegNum,2) = handles.SegmentTimes{filenum}(activeSegNum+1,2);
+                    handles.SegmentTimes{filenum}(activeSegNum+1,:) = [];
+                    handles.SegmentTitles{filenum}(activeSegNum+1) = [];
+                    handles.SegmentSelection{filenum}(activeSegNum+1) = [];
+                    handles = PlotSegments(handles);
+                    hObject = handles.SegmentHandles(activeSegNum);
+                    set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
+                    handles = SetActiveSegment(handles, activeSegNum);
+%                     set(hObject,'edgecolor',handles.SegmentActiveColor,'linewidth',2);
+                    set(gcf,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
+                end
+            case 'marker'
+                % Nah, doubt we need to implement concatenating adjacent
+                % markers.
+        end
 end
 
 guidata(hObject, handles);
 
-function labelsegment(hObject, eventdata, handles)
+function handles = ToggleSegmentSelect(handles, filenum, segmentNum)
+handles.SegmentSelection{filenum}(segmentNum) = ~handles.SegmentSelection{filenum}(segmentNum);
+set(handles.SegmentHandles(segmentNum),'facecolor',handles.SegmentSelectColors{handles.SegmentSelection{filenum}(segmentNum)+1});
 
+function handles = ToggleMarkerSelect(handles, filenum, markerNum)
+handles.MarkerSelection{filenum}(markerNum) = ~handles.MarkerSelection{filenum}(markerNum);
+set(handles.MarkerHandles(markerNum),'facecolor',handles.MarkerSelectColors{handles.MarkerSelection{filenum}(markerNum)+1});
 
-filenum = str2num(get(handles.edit_FileNumber,'string'));
+function markerNum = FindActiveMarker(handles)
+marker = findobj('parent',handles.axes_Segments,'edgecolor',handles.MarkerActiveColor);
+if isempty(marker)
+    markerNum = [];
+    return;
+end
+markerNum = find(handles.MarkerHandles == marker);
+function segmentNum = FindActiveSegment(handles)
+segment = findobj('parent',handles.axes_Segments,'edgecolor',handles.SegmentActiveColor);
+if isempty(segment)
+    segmentNum = [];
+    return;
+end
+segmentNum = find(handles.SegmentHandles == segment);
+
+function handles = JoinSegmentWithNext(handles, filenum, segmentNum)
+if segmentNum < length(handles.SegmentHandles)
+    % This is not the last segment in the file
+    handles.SegmentTimes{filenum}(segmentNum,2) = handles.SegmentTimes{filenum}(segmentNum+1,2);
+    handles.SegmentTimes{filenum}(segmentNum+1,:) = [];
+    handles.SegmentTitles{filenum}(segmentNum+1) = [];
+    handles.SegmentSelection{filenum}(segmentNum+1) = [];
+    handles = PlotSegments(handles);
+    handles = SetActiveSegment(handles, segmentNum);
+    set(gcf,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
+end
+
+function labelsegment(hObject, ~, handles)
+% Callback to handle a key press labeling the selected segment
+% Ok on closer examination this is a poorly named general keypress handler.
+
+% Get currently loaded file num
+filenum = getCurrentFileNum(handles);
+% Get the last key press captured by the figure
 ch = get(gcf,'currentcharacter');
+% I think this is an awkward way of converting the character to a numeric ASCII code?
 chn = sum(ch);
-obj = findobj('parent',handles.axes_Segments,'edgecolor','y');
 
+% Keypress is a "comma" - load previous file
 if chn==44
-    filenum = str2num(get(handles.edit_FileNumber,'string'));
+    filenum = getCurrentFileNum(handles);
     filenum = filenum-1;
     if filenum == 0
         filenum = handles.TotalFileNumber;
@@ -2556,8 +3063,9 @@ if chn==44
     guidata(hObject, handles);
     return
 end
+% Keypress is a "period" - load next file
 if chn==46
-    filenum = str2num(get(handles.edit_FileNumber,'string'));
+    filenum = getCurrentFileNum(handles);
     filenum = filenum+1;
     if filenum > handles.TotalFileNumber
         filenum = 1;
@@ -2569,62 +3077,182 @@ if chn==46
     return
 end
 
+% Find the handle for the currently active segment
+segmentNum = FindActiveSegment(handles);
+markerNum = FindActiveMarker(handles);
 
-if isempty(handles.SegmentHandles)
+if isempty(handles.SegmentHandles) && isempty(handles.MarkerHandles)
+    % No segments or markers defined, do nothing
     return
 end
-if isempty(obj)
+if isempty(segmentNum) && isempty(markerNum)
+    % No active segment or active marker, do nothing
     return
+elseif ~isempty(segmentNum) && ~isempty(markerNum)
+    error('Both a marker and a segment were active. This shouldn''t happen');
 else
-    segnum = find(handles.SegmentHandles==obj);
-end
-if chn>32 & chn<=128 & chn~=44 & chn~=46
-    handles.SegmentTitles{filenum}{segnum} = ch;
-    set(handles.LabelHandles(segnum),'string',ch);
-    newseg = segnum + 1;
-elseif chn==8
-    handles.SegmentTitles{filenum}{segnum} = '';
-    set(handles.LabelHandles(segnum),'string','');
-    newseg = segnum + 1;
-elseif chn==28
-    newseg = segnum - 1;
-elseif chn==29
-    newseg = segnum + 1;
-elseif chn==32
-    if handles.SegmentSelection{filenum}(segnum)==0
-        handles.SegmentSelection{filenum}(segnum) = 1;
-        set(handles.SegmentHandles(segnum),'facecolor','r');
-    else
-        handles.SegmentSelection{filenum}(segnum) = 0;
-        set(handles.SegmentHandles(segnum),'facecolor',[.5 .5 .5]);
+    if ~isempty(segmentNum)
+        activeType = 'segment';
+    elseif ~isempty(markerNum)
+        activeType = 'marker';
     end
-    newseg = segnum;
+end
+if chn>32 && chn<127 && chn~=44 && chn~=46 && chn~=96
+    % Key was in the range of normal printable keyboard characters, but
+    %   isn't a comma or period
+    switch activeType
+        case 'segment'
+            % Set the currently active segment title to the pressed key
+            handles.SegmentTitles{filenum}{segmentNum} = ch;
+            % Update the segment label to reflect the new segment title
+            set(handles.SegmentLabelHandles(segmentNum),'string',ch);
+            newSegmentNum = segmentNum + 1;
+        case 'marker'
+            % Set the currently active marker title to the pressed key
+            handles.MarkerTitles{filenum}{markerNum} = ch;
+            % Update the segment label to reflect the new segment title
+            set(handles.MarkerLabelHandles(markerNum),'string',ch);
+            newMarkerNum = markerNum + 1;
+    end
+elseif chn==8
+    switch activeType
+        case 'segment'
+            % User pressed "backspace" - clear segment title
+            handles.SegmentTitles{filenum}{segmentNum} = '';
+            % Clear segment label
+            set(handles.SegmentLabelHandles(segmentNum),'string','');
+            newSegmentNum = segmentNum + 1;
+        case 'marker'
+            % User pressed "backspace" - clear marker title
+            handles.MarkerTitles{filenum}{markerNum} = '';
+            % Clear segment label
+            set(handles.MarkerLabelHandles(markerNum),'string','');
+            newMarkerNum = markerNum + 1;
+    end
+elseif chn==28
+    % User pressed right arrow
+    switch activeType
+        case 'segment'
+            newSegmentNum = segmentNum - 1;
+        case 'marker'
+            newMarkerNum = markerNum - 1;
+    end
+elseif chn==29
+    % User pressed left arrow
+    switch activeType
+        case 'segment'
+            newSegmentNum = segmentNum + 1;
+        case 'marker'
+            newMarkerNum = markerNum + 1;
+    end
+elseif chn==31
+    % User pressed down arrow
+    switch activeType
+        case 'segment'
+            % This is the bottom row - do nothing
+            return
+        case 'marker'
+            if isempty(handles.SegmentHandles)
+                % No segments to switch to, do nothing
+                return
+            end
+            markerTime = mean(handles.MarkerTimes{filenum}(markerNum, :));
+            segmentTimes = mean(handles.SegmentTimes{filenum}, 2);
+            % Find segment closest in time to the active marker, and switch
+            % to that active segment.
+            [~, newSegmentNum] = min(abs(segmentTimes - markerTime));
+            activeType = 'segment';
+    end
+elseif chn==30
+    % User pressed up arrow
+    switch activeType
+        case 'segment'
+            if isempty(handles.MarkerHandles)
+                % No markers to switch to, do nothing
+                return
+            end
+            segmentTime = mean(handles.SegmentTimes{filenum}(segmentNum, :));
+            markerTimes = mean(handles.MarkerTimes{filenum}, 2);
+            % Find segment closest in time to the active marker, and switch
+            % to that active segment.
+            [~, newMarkerNum] = min(abs(markerTimes - segmentTime));
+            activeType = 'marker';
+        case 'marker'
+            % This is the bottom row - do nothing
+            return
+    end
+elseif chn==32
+    % User pressed "space" - join this segment with next segment
+    switch activeType
+        case 'segment'
+            handles = JoinSegmentWithNext(handles, filenum, segmentNum);
+            newSegmentNum = segmentNum;
+        case 'marker'
+            % Don't really need to do this with markers
+            return
+    end
+elseif chn==13
+    % User pressed "enter" key - toggle active segment "selection"
+    switch activeType
+        case 'segment'
+            handles = ToggleSegmentSelect(handles, filenum, segmentNum);
+            newSegmentNum = segmentNum;
+        case 'marker'
+            handles = ToggleMarkerSelect(handles, filenum, markerNum);
+            newMarkerNum = markerNum;
+    end
+elseif chn==127
+    % User pressed "delete" - delete selected marker
+    switch activeType
+        case 'segment'
+            handles = DeleteSegment(handles, filenum, segmentNum);
+            newSegmentNum = segmentNum;
+        case 'marker'
+            handles = DeleteMarker(handles, filenum, markerNum);
+            newMarkerNum = markerNum;
+    end
+    handles = PlotSegments(handles);
+elseif chn==96
+    % User pressed the "`" / "~" button - transform active marker into
+    %   segment or vice versa
+    switch activeType
+        case 'segment'
+            [handles, newMarkerNum] = ConvertSegmentToMarker(handles, filenum, segmentNum);
+            activeType = 'marker';
+        case 'marker'
+            [handles, newSegmentNum] = ConvertMarkerToSegment(handles, filenum, markerNum);
+            activeType = 'segment';
+    end
+    handles = PlotSegments(handles);
 else
     return
 end
 
-set(handles.SegmentHandles(segnum),'edgecolor','k','linewidth',1);
-
-if newseg < 1
-    newseg = 1;
-end
-if newseg > length(handles.SegmentHandles)
-    newseg = length(handles.SegmentHandles);
+switch activeType
+    case 'segment'
+        handles = SetActiveSegment(handles, newSegmentNum);
+    case 'marker'
+        handles = SetActiveMarker(handles, newMarkerNum);
 end
 
-set(handles.SegmentHandles(newseg),'edgecolor','y','linewidth',2);
+% % Update previously active segment to not active
+% set(handles.SegmentHandles(segnum),'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
+% % Mark new active segment as active
+% set(handles.SegmentHandles(newseg),'edgecolor',handles.SegmentActiveColor,'linewidth',2);
 
 guidata(hObject, handles);
 
 
 % --- Executes on selection change in popup_Function1.
-function popup_Function1_Callback(hObject, eventdata, handles)
+function popup_Function1_Callback(hObject, ~, handles)
 % hObject    handle to popup_Function1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hints: contents = get(hObject,'String') returns popup_Function1 contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from popup_Function1
+
+axnum = 1;
 
 v = get(handles.popup_Function1,'value');
 ud = get(handles.popup_Function1,'userdata');
@@ -2633,14 +3261,16 @@ if isempty(ud{v}) & v>1
     dtr = str{v};
     f = findstr(dtr,' - ');
     if isempty(f)
-        [handles.FunctionParams1 labels] = eval(['egf_' dtr '(''params'')']);
+        [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
+%        [handles.FunctionParams1 labels] = eval(['egf_' dtr '(''params'')']);
     else
-        [handles.FunctionParams1 labels] = eval(['egf_' dtr(1:f-1) '(''params'')']);
+        [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr(1:f-1), 'params');
+%        [handles.FunctionParams1 labels] = eval(['egf_' dtr(1:f-1) '(''params'')']);
     end
-    ud{v} = handles.FunctionParams1;
+    ud{v} = handles.FunctionParams{axnum};
     set(handles.popup_Function1,'userdata',ud);
 else
-    handles.FunctionParams1 = ud{v};
+    handles.FunctionParams{axnum} = ud{v};
 end
 
 if isempty(findobj('parent',handles.axes_Sonogram,'type','text'))
@@ -2670,7 +3300,7 @@ end
 guidata(hObject, handles);
 
 % --- Executes during object creation, after setting all properties.
-function popup_Function1_CreateFcn(hObject, eventdata, handles)
+function popup_Function1_CreateFcn(hObject, ~, handles)
 % hObject    handle to popup_Function1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -2683,13 +3313,15 @@ end
 
 
 % --- Executes on selection change in popup_Function2.
-function popup_Function2_Callback(hObject, eventdata, handles)
+function popup_Function2_Callback(hObject, ~, handles)
 % hObject    handle to popup_Function2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hints: contents = get(hObject,'String') returns popup_Function2 contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from popup_Function2
+
+axnum = 2;
 
 v = get(handles.popup_Function2,'value');
 ud = get(handles.popup_Function2,'userdata');
@@ -2698,14 +3330,16 @@ if isempty(ud{v}) & v>1
     dtr = str{v};
     f = findstr(dtr,' - ');
     if isempty(f)
-        [handles.FunctionParams2 labels] = eval(['egf_' dtr '(''params'')']);
+        [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
+%        [handles.FunctionParams1 labels] = eval(['egf_' dtr '(''params'')']);
     else
-        [handles.FunctionParams2 labels] = eval(['egf_' dtr(1:f-1) '(''params'')']);
+        [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr(1:f-1), 'params');
+%        [handles.FunctionParams1 labels] = eval(['egf_' dtr(1:f-1) '(''params'')']);
     end
-    ud{v} = handles.FunctionParams2;
+    ud{v} = handles.FunctionParams{axnum};
     set(handles.popup_Function2,'userdata',ud);
 else
-    handles.FunctionParams2 = ud{v};
+    handles.FunctionParams{axnum} = ud{v};
 end
 
 if isempty(findobj('parent',handles.axes_Sonogram,'type','text'))
@@ -2736,7 +3370,7 @@ guidata(hObject, handles);
 
 
 % --- Executes during object creation, after setting all properties.
-function popup_Function2_CreateFcn(hObject, eventdata, handles)
+function popup_Function2_CreateFcn(hObject, ~, handles)
 % hObject    handle to popup_Function2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -2749,7 +3383,7 @@ end
 
 
 % --- Executes on selection change in popup_Channel1.
-function popup_Channel1_Callback(hObject, eventdata, handles)
+function popup_Channel1_Callback(hObject, ~, handles)
 % hObject    handle to popup_Channel1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2787,7 +3421,7 @@ end
 guidata(hObject, handles);
 
 % --- Executes during object creation, after setting all properties.
-function popup_Channel1_CreateFcn(hObject, eventdata, handles)
+function popup_Channel1_CreateFcn(hObject, ~, handles)
 % hObject    handle to popup_Channel1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -2800,7 +3434,7 @@ end
 
 
 % --- Executes on selection change in popup_Channel2.
-function popup_Channel2_Callback(hObject, eventdata, handles)
+function popup_Channel2_Callback(hObject, ~, handles)
 % hObject    handle to popup_Channel2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2838,7 +3472,7 @@ end
 guidata(hObject, handles);
 
 % --- Executes during object creation, after setting all properties.
-function popup_Channel2_CreateFcn(hObject, eventdata, handles)
+function popup_Channel2_CreateFcn(hObject, ~, handles)
 % hObject    handle to popup_Channel2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -2853,14 +3487,14 @@ end
 
 
 % --------------------------------------------------------------------
-function context_Channel1_Callback(hObject, eventdata, handles)
+function context_Channel1_Callback(hObject, ~, handles)
 % hObject    handle to context_Channel1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_PeakDetect1_Callback(hObject, eventdata, handles)
+function menu_PeakDetect1_Callback(hObject, ~, handles)
 % hObject    handle to menu_PeakDetect1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2877,14 +3511,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function context_Channel2_Callback(hObject, eventdata, handles)
+function context_Channel2_Callback(hObject, ~, handles)
 % hObject    handle to context_Channel2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_PeakDetect2_Callback(hObject, eventdata, handles)
+function menu_PeakDetect2_Callback(hObject, ~, handles)
 % hObject    handle to menu_PeakDetect2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2901,7 +3535,7 @@ guidata(hObject, handles);
 
 
 
-function click_Channel(hObject, eventdata, handles)
+function click_Channel(hObject, ~, handles)
 
 obj = hObject;
 if ~strcmp(get(obj,'type'),'axes')
@@ -2921,7 +3555,7 @@ if strcmp(get(gcf,'selectiontype'),'open')
     for axn = 1:2
         if strcmp(get(handles.(['axes_Channel' num2str(axn)]),'visible'),'on')
             if strcmp(get(handles.(['menu_AutoLimits' num2str(axn)]),'checked'),'on')
-                yl = [min(handles.(['chan',num2str(axn)])) max(handles.(['chan',num2str(axn)]))];
+                yl = [min(handles.loadedChannelData{axn}) max(handles.loadedChannelData{axn})];
                 if yl(1)==yl(2)
                     yl = [yl(1)-1 yl(2)+1];
                 end
@@ -2991,7 +3625,7 @@ elseif strcmp(get(gcf,'selectiontype'),'extend')
         indx = handles.EventCurrentIndex(axnum);
         if indx > 0
             handles.EventCurrentThresholds(indx) = pos(1,2);
-            handles.EventThresholds(indx,str2num(get(handles.edit_FileNumber,'string'))) = pos(1,2);
+            handles.EventThresholds(indx,getCurrentFileNum(handles)) = pos(1,2);
             for axn = 1:2
                 if strcmp(get(handles.(['axes_Channel' num2str(axn)]),'visible'),'on') & handles.EventCurrentIndex(axn)==indx
                     handles = EventSetThreshold(handles,axn);
@@ -3058,9 +3692,9 @@ elseif strcmp(get(gcf,'selectiontype'),'extend')
         for c = 1:length(handles.EventHandles{axnum})
             for d = 1:length(handles.EventHandles{axnum}{c})
                 if sum(get(handles.EventHandles{axnum}{c}(d),'markerfacecolor')==[1 1 1])==3
-                    handles.EventSelected{indx}{c,str2num(get(handles.edit_FileNumber,'string'))}(d) = 0;
+                    handles.EventSelected{indx}{c,getCurrentFileNum(handles)}(d) = 0;
                 else
-                    handles.EventSelected{indx}{c,str2num(get(handles.edit_FileNumber,'string'))}(d) = 1;
+                    handles.EventSelected{indx}{c,getCurrentFileNum(handles)}(d) = 1;
                 end
             end
         end
@@ -3113,15 +3747,15 @@ end
 xl = xlim;
 yl = ylim;
 indx = handles.EventCurrentIndex(axnum);
-if handles.EventThresholds(indx,str2num(get(handles.edit_FileNumber,'string'))) < inf
-    handles.EventCurrentThresholds(indx) = handles.EventThresholds(indx,str2num(get(handles.edit_FileNumber,'string')));
+if handles.EventThresholds(indx,getCurrentFileNum(handles)) < inf
+    handles.EventCurrentThresholds(indx) = handles.EventThresholds(indx,getCurrentFileNum(handles));
     handles = DisplayEvents(handles,axnum);
     if strcmp(get(handles.menu_AutoDisplayEvents,'checked'),'on')
         handles = UpdateEventBrowser(handles);
     end
     subplot(handles.(['axes_Channel' num2str(axnum)]));
 else
-    handles.EventThresholds(indx,str2num(get(handles.edit_FileNumber,'string'))) = handles.EventCurrentThresholds(indx);
+    handles.EventThresholds(indx,getCurrentFileNum(handles)) = handles.EventCurrentThresholds(indx);
     if strcmp(get(handles.(['menu_EventAutoDetect' num2str(axnum)]),'checked'),'on') & strcmp(get(handles.(['push_Detect' num2str(axnum)]),'enable'),'on')
         handles = DetectEvents(handles,axnum);
         if strcmp(get(handles.menu_AutoDisplayEvents,'checked'),'on')
@@ -3143,16 +3777,19 @@ ylim(yl);
 
 
 % --------------------------------------------------------------------
-function menu_AllowYZoom1_Callback(hObject, eventdata, handles)
+function menu_AllowYZoom1_Callback(hObject, ~, handles)
 % hObject    handle to menu_AllowYZoom1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+axnum = 1;
 
 if strcmp(get(handles.menu_AllowYZoom1,'checked'),'on')
     set(handles.menu_AllowYZoom1,'checked','off');
     subplot(handles.axes_Channel1);
     if strcmp(get(handles.menu_AutoLimits1,'checked'),'on')
-        yl = [min(handles.chan1) max(handles.chan1)];
+        yl = [min(handles.loadedChannelData{axnum}), ...
+              max(handles.loadedChannelData{axnum})];
         if yl(1)==yl(2)
             yl = [yl(1)-1 yl(2)+1];
         end
@@ -3169,16 +3806,19 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AllowYZoom2_Callback(hObject, eventdata, handles)
+function menu_AllowYZoom2_Callback(hObject, ~, handles)
 % hObject    handle to menu_AllowYZoom2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+axnum = 2;
 
 if strcmp(get(handles.menu_AllowYZoom2,'checked'),'on')
     set(handles.menu_AllowYZoom2,'checked','off');
     subplot(handles.axes_Channel2);
     if strcmp(get(handles.menu_AutoLimits2,'checked'),'on')
-        yl = [min(handles.chan2) max(handles.chan2)];
+        yl = [min(handles.loadedChannelData{axnum}), ...
+              max(handles.loadedChannelData{axnum})];
         if yl(1)==yl(2)
             yl = [yl(1)-1 yl(2)+1];
         end
@@ -3195,10 +3835,12 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AutoLimits1_Callback(hObject, eventdata, handles)
+function menu_AutoLimits1_Callback(hObject, ~, handles)
 % hObject    handle to menu_AutoLimits1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+axnum = 1;
 
 if strcmp(get(handles.menu_AutoLimits1,'checked'),'on')
     set(handles.menu_AutoLimits1,'checked','off');
@@ -3207,7 +3849,8 @@ if strcmp(get(handles.menu_AutoLimits1,'checked'),'on')
 else
     set(handles.menu_AutoLimits1,'checked','on');
     subplot(handles.axes_Channel1);
-    yl = [min(handles.chan1) max(handles.chan1)];
+    yl = [min(handles.loadedChannelData{axnum}), ...
+          max(handles.loadedChannelData{axnum})];
     if yl(1)==yl(2)
         yl = [yl(1)-1 yl(2)+1];
     end
@@ -3218,10 +3861,12 @@ end
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_AutoLimits2_Callback(hObject, eventdata, handles)
+function menu_AutoLimits2_Callback(hObject, ~, handles)
 % hObject    handle to menu_AutoLimits2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+axnum = 2;
 
 if strcmp(get(handles.menu_AutoLimits2,'checked'),'on')
     set(handles.menu_AutoLimits2,'checked','off');
@@ -3230,7 +3875,8 @@ if strcmp(get(handles.menu_AutoLimits2,'checked'),'on')
 else
     set(handles.menu_AutoLimits2,'checked','on');
     subplot(handles.axes_Channel2);
-    yl = [min(handles.chan2) max(handles.chan2)];
+    yl = [min(handles.loadedChannelData{axnum}), ...
+          max(handles.loadedChannelData{axnum})];
     if yl(1)==yl(2)
         yl = [yl(1)-1 yl(2)+1];
     end
@@ -3242,7 +3888,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SetLimits1_Callback(hObject, eventdata, handles)
+function menu_SetLimits1_Callback(hObject, ~, handles)
 % hObject    handle to menu_SetLimits1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3252,7 +3898,7 @@ handles = eg_SetLimits(handles,1);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_SetLimits2_Callback(hObject, eventdata, handles)
+function menu_SetLimits2_Callback(hObject, ~, handles)
 % hObject    handle to menu_SetLimits2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3262,7 +3908,7 @@ handles = eg_SetLimits(handles,2);
 guidata(hObject, handles);
 
 
-function handles = eg_SetLimits(handles,axnum);
+function handles = eg_SetLimits(handles,axnum)
 
 def = get(handles.(['axes_Channel' num2str(axnum)]),'ylim');
 answer = inputdlg({'Minimum','Maximum'},'Axes limits',1,{num2str(def(1)),num2str(def(2))});
@@ -3280,7 +3926,7 @@ handles = eg_Overlay(handles);
 
 
 % --- Executes on selection change in popup_EventDetector1.
-function popup_EventDetector1_Callback(hObject, eventdata, handles)
+function popup_EventDetector1_Callback(hObject, ~, handles)
 % hObject    handle to popup_EventDetector1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3295,7 +3941,7 @@ end
 guidata(hObject, handles);
 
 % --- Executes during object creation, after setting all properties.
-function popup_EventDetector1_CreateFcn(hObject, eventdata, handles)
+function popup_EventDetector1_CreateFcn(hObject, ~, handles)
 % hObject    handle to popup_EventDetector1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -3308,7 +3954,7 @@ end
 
 
 % --- Executes on selection change in popup_EventDetector2.
-function popup_EventDetector2_Callback(hObject, eventdata, handles)
+function popup_EventDetector2_Callback(hObject, ~, handles)
 % hObject    handle to popup_EventDetector2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3323,7 +3969,7 @@ end
 guidata(hObject, handles);
 
 % --- Executes during object creation, after setting all properties.
-function popup_EventDetector2_CreateFcn(hObject, eventdata, handles)
+function popup_EventDetector2_CreateFcn(hObject, ~, handles)
 % hObject    handle to popup_EventDetector2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -3335,18 +3981,19 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 
-function handles = eg_clickEventDetector(handles,axnum);
+function handles = eg_clickEventDetector(handles,axnum)
 
 v = get(handles.(['popup_EventDetector' num2str(axnum)]),'value');
 ud = get(handles.(['popup_EventDetector' num2str(axnum)]),'userdata');
 if isempty(ud{v}) & v>1
     str = get(handles.(['popup_EventDetector' num2str(axnum)]),'string');
     dtr = str{v};
-    [handles.(['EventParams' num2str(axnum)]) labels] = eval(['ege_' dtr '(''params'')']);
-    ud{v} = handles.(['EventParams' num2str(axnum)]);
+    [handles.EventParams{axnum}, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, 'params');
+%    [handles.EventParams{axnum} labels] = eval(['ege_' dtr '(''params'')']);
+    ud{v} = handles.EventParams{axnum};
     set(handles.(['popup_EventDetector' num2str(axnum)]),'userdata',ud);
 else
-    handles.(['EventParams' num2str(axnum)]) = ud{v};
+    handles.EventParams{axnum} = ud{v};
 end
 
 if strcmp(get(handles.(['axes_Channel' num2str(axnum)]),'visible'),'off')
@@ -3362,8 +4009,8 @@ else
     set(handles.(['menu_Events' num2str(axnum)]),'enable','on');
     set(handles.(['push_Detect' num2str(axnum)]),'enable','on');
 
-    str = get(handles.(['popup_Function' num2str(axnum)]),'string');
-    fun = str{get(handles.(['popup_Function' num2str(axnum)]),'value')};
+    str = get(handles.popup_Functions(axnum),'string');
+    fun = str{get(handles.popup_Functions(axnum),'value')};
     str = get(handles.(['popup_EventDetector' num2str(axnum)]),'string');
     dtr = str{get(handles.(['popup_EventDetector' num2str(axnum)]),'value')};
     mtch = 0;
@@ -3393,7 +4040,8 @@ else
         handles.EventThresholds = [handles.EventThresholds; inf*ones(1,size(handles.EventThresholds,2))];
         handles.EventCurrentThresholds(end+1) = inf;
 
-        [events labels] = eval(['ege_' dtr '([],handles.fs,inf,handles.EventParams' num2str(axnum) ')']);
+        [events, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, [], handles.fs, inf, handles.EventParams{axnum});
+
         str = get(handles.popup_Channel1,'string');
         strv = get(handles.popup_EventList,'string');
         for c = 1:length(labels)
@@ -3439,14 +4087,14 @@ handles = EventSetThreshold(handles,axnum);
 
 
 % --------------------------------------------------------------------
-function menu_Events1_Callback(hObject, eventdata, handles)
+function menu_Events1_Callback(hObject, ~, handles)
 % hObject    handle to menu_Events1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_EventAutoDetect1_Callback(hObject, eventdata, handles)
+function menu_EventAutoDetect1_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventAutoDetect1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3480,14 +4128,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_EventAutoThreshold1_Callback(hObject, eventdata, handles)
+function menu_EventAutoThreshold1_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventAutoThreshold1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_EventSetThreshold1_Callback(hObject, eventdata, handles)
+function menu_EventSetThreshold1_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventSetThreshold1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3498,14 +4146,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_Events2_Callback(hObject, eventdata, handles)
+function menu_Events2_Callback(hObject, ~, handles)
 % hObject    handle to menu_Events2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_EventAutoDetect2_Callback(hObject, eventdata, handles)
+function menu_EventAutoDetect2_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventAutoDetect2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3541,14 +4189,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_EventAutoThreshold2_Callback(hObject, eventdata, handles)
+function menu_EventAutoThreshold2_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventAutoThreshold2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_EventSetThreshold2_Callback(hObject, eventdata, handles)
+function menu_EventSetThreshold2_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventSetThreshold2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3566,7 +4214,7 @@ if isempty(answer)
     return
 end
 handles.EventCurrentThresholds(indx) = str2num(answer{1});
-handles.EventThresholds(indx,str2num(get(handles.edit_FileNumber,'string'))) = str2num(answer{1});
+handles.EventThresholds(indx,getCurrentFileNum(handles)) = str2num(answer{1});
 for axn = 1:2
     if strcmp(get(handles.(['axes_Channel' num2str(axn)]),'visible'),'on') & handles.EventCurrentIndex(axn)==indx
         handles = EventSetThreshold(handles,axn);
@@ -3596,7 +4244,7 @@ end
 
 
 % --- Executes on button press in push_Detect1.
-function push_Detect1_Callback(hObject, eventdata, handles)
+function push_Detect1_Callback(hObject, ~, handles)
 % hObject    handle to push_Detect1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3626,7 +4274,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_Detect2.
-function push_Detect2_Callback(hObject, eventdata, handles)
+function push_Detect2_Callback(hObject, ~, handles)
 % hObject    handle to push_Detect2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3660,9 +4308,9 @@ function handles = DetectEvents(handles,axnum)
 handles.SelectedEvent = [];
 delete(findobj('linestyle','-.'));
 
-val = handles.(['chan' num2str(axnum)]);
+val = handles.loadedChannelData{axnum};
 indx = handles.EventCurrentIndex(axnum);
-thres = handles.EventThresholds(indx,str2num(get(handles.edit_FileNumber,'string')));
+thres = handles.EventThresholds(indx,getCurrentFileNum(handles));
 
 str = get(handles.(['popup_EventDetector' num2str(axnum)]),'string');
 dtr = str{get(handles.(['popup_EventDetector' num2str(axnum)]),'value')};
@@ -3670,11 +4318,11 @@ dtr = str{get(handles.(['popup_EventDetector' num2str(axnum)]),'value')};
 if strcmp(dtr,'(None)')
     return
 end
-[events labels] = eval(['ege_' dtr '(val,handles.fs,thres,handles.EventParams' num2str(axnum) ')']);
+[events, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, val, handles.fs, thres, handles.EventParams{axnum});
 
 for c = 1:length(events)
-    handles.EventTimes{indx}{c,str2num(get(handles.edit_FileNumber,'string'))} = events{c};
-    handles.EventSelected{indx}{c,str2num(get(handles.edit_FileNumber,'string'))} = ones(1,length(events{c}));
+    handles.EventTimes{indx}{c,getCurrentFileNum(handles)} = events{c};
+    handles.EventSelected{indx}{c,getCurrentFileNum(handles)} = ones(1,length(events{c}));
 end
 
 handles = DisplayEvents(handles,axnum);
@@ -3694,11 +4342,11 @@ ev = {};
 sel = {};
 handles.EventHandles{axnum} = {};
 for c = 1:size(handles.EventTimes{indx},1)
-    ev{c} = handles.EventTimes{indx}{c,str2num(get(handles.edit_FileNumber,'string'))};
-    sel{c} = handles.EventSelected{indx}{c,str2num(get(handles.edit_FileNumber,'string'))};
+    ev{c} = handles.EventTimes{indx}{c,getCurrentFileNum(handles)};
+    sel{c} = handles.EventSelected{indx}{c,getCurrentFileNum(handles)};
 end
 h = handles.menu_EventsDisplayList{axnum};
-chan = handles.(['chan' num2str(axnum)]);
+chan = handles.loadedChannelData{axnum};
 xs = linspace(0,length(handles.sound)/handles.fs,length(handles.sound));
 for c = 1:length(ev)
     if strcmp(get(h(c),'checked'),'on');
@@ -3724,7 +4372,7 @@ for c = 1:length(handles.EventHandles{axnum})
 end
 
 
-function ClickEventSymbol(hObject, eventdata, handles)
+function ClickEventSymbol(hObject, ~, handles)
 
 if get(hObject,'parent')==handles.axes_Channel1
     axnum = 1;
@@ -3747,9 +4395,9 @@ if strcmp(get(gcf,'selectiontype'),'extend')
     for c = 1:length(handles.EventHandles{axnum})
         for d = 1:length(handles.EventHandles{axnum}{c})
             if sum(get(handles.EventHandles{axnum}{c}(d),'markerfacecolor')==[1 1 1])==3
-                handles.EventSelected{indx}{c,str2num(get(handles.edit_FileNumber,'string'))}(d) = 0;
+                handles.EventSelected{indx}{c,getCurrentFileNum(handles)}(d) = 0;
             else
-                handles.EventSelected{indx}{c,str2num(get(handles.edit_FileNumber,'string'))}(d) = 1;
+                handles.EventSelected{indx}{c,getCurrentFileNum(handles)}(d) = 1;
             end
         end
     end
@@ -3794,7 +4442,7 @@ elseif strcmp(get(gcf,'selectiontype'),'normal') & sum(get(hObject,'markerfaceco
     else
         g = indx;
     end
-    filenum = str2num(get(handles.edit_FileNumber,'string'));
+    filenum = getCurrentFileNum(handles);
     tm = handles.EventTimes{f}{g,filenum};
     sel = handles.EventSelected{f}{g,filenum};
     xs = linspace(0,length(handles.sound)/handles.fs,length(handles.sound));
@@ -3809,7 +4457,7 @@ guidata(hObject, handles);
 
 
 
-function EventsDisplayClick(hObject, eventdata, handles)
+function EventsDisplayClick(hObject, ~, handles)
 
 if strcmp(get(hObject,'checked'),'on')
     set(hObject,'checked','off');
@@ -3827,14 +4475,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_ChannelColors1_Callback(hObject, eventdata, handles)
+function menu_ChannelColors1_Callback(hObject, ~, handles)
 % hObject    handle to menu_ChannelColors1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_PlotColor1_Callback(hObject, eventdata, handles)
+function menu_PlotColor1_Callback(hObject, ~, handles)
 % hObject    handle to menu_PlotColor1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3849,7 +4497,7 @@ handles = eg_Overlay(handles);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_ThresholdColor1_Callback(hObject, eventdata, handles)
+function menu_ThresholdColor1_Callback(hObject, ~, handles)
 % hObject    handle to menu_ThresholdColor1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3863,14 +4511,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_ChannelColors2_Callback(hObject, eventdata, handles)
+function menu_ChannelColors2_Callback(hObject, ~, handles)
 % hObject    handle to menu_ChannelColors2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_PlotColor2_Callback(hObject, eventdata, handles)
+function menu_PlotColor2_Callback(hObject, ~, handles)
 % hObject    handle to menu_PlotColor2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3885,7 +4533,7 @@ handles = eg_Overlay(handles);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_ThresholdColor2_Callback(hObject, eventdata, handles)
+function menu_ThresholdColor2_Callback(hObject, ~, handles)
 % hObject    handle to menu_ThresholdColor2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3901,7 +4549,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_BrightnessUp.
-function push_BrightnessUp_Callback(hObject, eventdata, handles)
+function push_BrightnessUp_Callback(hObject, ~, handles)
 % hObject    handle to push_BrightnessUp (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3923,7 +4571,7 @@ handles = SetColors(handles);
 guidata(hObject, handles);
 
 % --- Executes on button press in push_BrightnessDown.
-function push_BrightnessDown_Callback(hObject, eventdata, handles)
+function push_BrightnessDown_Callback(hObject, ~, handles)
 % hObject    handle to push_BrightnessDown (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3944,7 +4592,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_OffsetUp.
-function push_OffsetUp_Callback(hObject, eventdata, handles)
+function push_OffsetUp_Callback(hObject, ~, handles)
 % hObject    handle to push_OffsetUp (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3966,7 +4614,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_OffsetDown.
-function push_OffsetDown_Callback(hObject, eventdata, handles)
+function push_OffsetDown_Callback(hObject, ~, handles)
 % hObject    handle to push_OffsetDown (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3986,14 +4634,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AmplitudeColors_Callback(hObject, eventdata, handles)
+function menu_AmplitudeColors_Callback(hObject, ~, handles)
 % hObject    handle to menu_AmplitudeColors (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_AmplitudeColor_Callback(hObject, eventdata, handles)
+function menu_AmplitudeColor_Callback(hObject, ~, handles)
 % hObject    handle to menu_AmplitudeColor (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4007,7 +4655,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AmplitudeThresholdColor_Callback(hObject, eventdata, handles)
+function menu_AmplitudeThresholdColor_Callback(hObject, ~, handles)
 % hObject    handle to menu_AmplitudeThresholdColor (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4022,7 +4670,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_PlayMix.
-function push_PlayMix_Callback(hObject, eventdata, handles)
+function push_PlayMix_Callback(hObject, ~, handles)
 % hObject    handle to push_PlayMix (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4032,7 +4680,7 @@ progress_play(handles,snd);
 
 
 
-function edit_SoundWeight_Callback(hObject, eventdata, handles)
+function edit_SoundWeight_Callback(hObject, ~, handles)
 % hObject    handle to edit_SoundWeight (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4042,7 +4690,7 @@ function edit_SoundWeight_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function edit_SoundWeight_CreateFcn(hObject, eventdata, handles)
+function edit_SoundWeight_CreateFcn(hObject, ~, handles)
 % hObject    handle to edit_SoundWeight (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -4055,7 +4703,7 @@ end
 
 
 
-function edit_TopWeight_Callback(hObject, eventdata, handles)
+function edit_TopWeight_Callback(hObject, ~, handles)
 % hObject    handle to edit_TopWeight (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4065,7 +4713,7 @@ function edit_TopWeight_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function edit_TopWeight_CreateFcn(hObject, eventdata, handles)
+function edit_TopWeight_CreateFcn(hObject, ~, handles)
 % hObject    handle to edit_TopWeight (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -4078,7 +4726,7 @@ end
 
 
 
-function edit_BottomWeight_Callback(hObject, eventdata, handles)
+function edit_BottomWeight_Callback(hObject, ~, handles)
 % hObject    handle to edit_BottomWeight (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4088,7 +4736,7 @@ function edit_BottomWeight_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function edit_BottomWeight_CreateFcn(hObject, eventdata, handles)
+function edit_BottomWeight_CreateFcn(hObject, ~, handles)
 % hObject    handle to edit_BottomWeight (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -4101,7 +4749,7 @@ end
 
 
 
-function edit_SoundClipper_Callback(hObject, eventdata, handles)
+function edit_SoundClipper_Callback(hObject, ~, handles)
 % hObject    handle to edit_SoundClipper (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4111,7 +4759,7 @@ function edit_SoundClipper_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function edit_SoundClipper_CreateFcn(hObject, eventdata, handles)
+function edit_SoundClipper_CreateFcn(hObject, ~, handles)
 % hObject    handle to edit_SoundClipper (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -4124,7 +4772,7 @@ end
 
 
 
-function edit_TopClipper_Callback(hObject, eventdata, handles)
+function edit_TopClipper_Callback(hObject, ~, handles)
 % hObject    handle to edit_TopClipper (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4134,7 +4782,7 @@ function edit_TopClipper_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function edit_TopClipper_CreateFcn(hObject, eventdata, handles)
+function edit_TopClipper_CreateFcn(hObject, ~, handles)
 % hObject    handle to edit_TopClipper (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -4147,7 +4795,7 @@ end
 
 
 
-function edit_BottomClipper_Callback(hObject, eventdata, handles)
+function edit_BottomClipper_Callback(hObject, ~, handles)
 % hObject    handle to edit_BottomClipper (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4157,7 +4805,7 @@ function edit_BottomClipper_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function edit_BottomClipper_CreateFcn(hObject, eventdata, handles)
+function edit_BottomClipper_CreateFcn(hObject, ~, handles)
 % hObject    handle to edit_BottomClipper (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -4170,7 +4818,7 @@ end
 
 
 % --- Executes on button press in check_Sound.
-function check_Sound_Callback(hObject, eventdata, handles)
+function check_Sound_Callback(hObject, ~, handles)
 % hObject    handle to check_Sound (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4179,7 +4827,7 @@ function check_Sound_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on button press in check_TopPlot.
-function check_TopPlot_Callback(hObject, eventdata, handles)
+function check_TopPlot_Callback(hObject, ~, handles)
 % hObject    handle to check_TopPlot (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4188,7 +4836,7 @@ function check_TopPlot_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on button press in check_BottomPlot.
-function check_BottomPlot_Callback(hObject, eventdata, handles)
+function check_BottomPlot_Callback(hObject, ~, handles)
 % hObject    handle to check_BottomPlot (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4199,7 +4847,7 @@ function check_BottomPlot_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on button press in push_SoundOptions.
-function push_SoundOptions_Callback(hObject, eventdata, handles)
+function push_SoundOptions_Callback(hObject, ~, handles)
 % hObject    handle to push_SoundOptions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4220,14 +4868,14 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_EventsDisplay1_Callback(hObject, eventdata, handles)
+function menu_EventsDisplay1_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventsDisplay1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_EventsDisplay2_Callback(hObject, eventdata, handles)
+function menu_EventsDisplay2_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventsDisplay2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4236,7 +4884,7 @@ function menu_EventsDisplay2_Callback(hObject, eventdata, handles)
 
 
 % --------------------------------------------------------------------
-function menu_SelectionParameters1_Callback(hObject, eventdata, handles)
+function menu_SelectionParameters1_Callback(hObject, ~, handles)
 % hObject    handle to menu_SelectionParameters1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4246,7 +4894,7 @@ handles = SelectionParameters(handles,1);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_SelectionParameters2_Callback(hObject, eventdata, handles)
+function menu_SelectionParameters2_Callback(hObject, ~, handles)
 % hObject    handle to menu_SelectionParameters2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4268,7 +4916,7 @@ handles.SearchAfter(axnum) = str2num(answer{2})/1000;
 
 
 % --- Executes on selection change in popup_EventList.
-function popup_EventList_Callback(hObject, eventdata, handles)
+function popup_EventList_Callback(hObject, ~, handles)
 % hObject    handle to popup_EventList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4346,21 +4994,21 @@ end
 
 if strcmp(get(handles.menu_AnalyzeTop,'checked'),'on')
     if strcmp(get(handles.axes_Channel1,'visible'),'on')
-        chan = handles.chan1;
+        chan = handles.loadedChannelData{1};
         ystr = (get(get(handles.axes_Channel1,'ylabel'),'string'));
     else
         chan = [];
     end
 else
     if strcmp(get(handles.axes_Channel2,'visible'),'on')
-        chan = handles.chan2;
+        chan = handles.loadedChannelData{2};
         ystr = (get(get(handles.axes_Channel2,'ylabel'),'string'));
     else
         chan = [];
     end
 end
 
-filenum = str2num(get(handles.edit_FileNumber,'string'));
+filenum = getCurrentFileNum(handles);
 nums = [];
 for c = 1:length(handles.EventTimes);
     nums(c) = size(handles.EventTimes{c},1);
@@ -4405,10 +5053,16 @@ else
     if ~isempty(chan)
         f = findobj('parent',handles.menu_XAxis,'checked','on');
         str = get(f,'label');
-        [feature1 name1] = eval(['ega_' str '(chan,handles.fs,tmall,g,round(handles.EventLims(get(handles.popup_EventList,''value''),:)*handles.fs))']);
+        [feature1, name1] = eg_runPlugin(handles.plugins.eventFeatures, ...
+            str, chan, handles.fs, tmall, g, ...
+            round(handles.EventLims(get(handles.popup_EventList,'value'),:)*handles.fs));
+%        [feature1 name1] = eval(['ega_' str '(chan,handles.fs,tmall,g,round(handles.EventLims(get(handles.popup_EventList,''value''),:)*handles.fs))']);
         f = findobj('parent',handles.menu_YAxis,'checked','on');
         str = get(f,'label');
-        [feature2 name2] = eval(['ega_' str '(chan,handles.fs,tmall,g,round(handles.EventLims(get(handles.popup_EventList,''value''),:)*handles.fs))']);
+%        [feature2 name2] = eval(['ega_' str '(chan,handles.fs,tmall,g,round(handles.EventLims(get(handles.popup_EventList,''value''),:)*handles.fs))']);
+        [feature2, name2] = eg_runPlugin(handles.plugins.eventFeatures, ...
+            str, chan, handles.fs, tmall, g, ...
+            round(handles.EventLims(get(handles.popup_EventList,'value'),:)*handles.fs));
 
         for c = 1:length(feature1)
             if sel(c)==1
@@ -4451,7 +5105,7 @@ if strcmp(get(handles.menu_AutoApplyYLim,'checked'),'on')
 end
 
 
-function click_eventwave(hObject, eventdata, handles)
+function click_eventwave(hObject, ~, handles)
 
 i = find(handles.EventWaveHandles==hObject);
 if strcmp(get(gcf,'selectiontype'),'normal')
@@ -4499,7 +5153,7 @@ end
 
 set(handles.EventWaveHandles,'buttondownfcn','electro_gui(''click_eventwave'',gcbo,[],guidata(gcbo))');
 
-filenum = str2num(get(handles.edit_FileNumber,'string'));
+filenum = getCurrentFileNum(handles);
 nums = [];
 for c = 1:length(handles.EventTimes);
     nums(c) = size(handles.EventTimes{c},1);
@@ -4523,7 +5177,7 @@ plot([xs(tm(i)) xs(tm(i))],ylim,'-.','linewidth',2,'color','r');
 hold off;
 h = [];
 if strcmp(get(handles.axes_Channel1,'visible'),'on')
-    ys = handles.chan1;
+    ys = handles.loadedChannelData{1};
     subplot(handles.axes_Channel1);
     hold on
     yl = ylim;
@@ -4531,7 +5185,7 @@ if strcmp(get(handles.axes_Channel1,'visible'),'on')
     hold off;
 end
 if strcmp(get(handles.axes_Channel2,'visible'),'on')
-    ys = handles.chan2;
+    ys = handles.loadedChannelData{2};
     subplot(handles.axes_Channel2);
     hold on;
     yl = ylim;
@@ -4541,7 +5195,7 @@ end
 set(h,'buttondownfcn','electro_gui(''unselect_event'',gcbo,[],guidata(gcbo))');
 
 
-function unselect_event(hObject, eventdata, handles)
+function unselect_event(hObject, ~, handles)
 
 handles.SelectedEvent = [];
 guidata(hObject, handles);
@@ -4551,7 +5205,7 @@ delete(findobj('parent',handles.axes_Events,'linewidth',2));
 
 
 
-function click_eventaxes(hObject, eventdata, handles)
+function click_eventaxes(hObject, ~, handles)
 
 if strcmp(get(gcf,'selectiontype'),'normal')
     set(gca,'units','pixels');
@@ -4595,7 +5249,7 @@ elseif strcmp(get(gcf,'selectiontype'),'open')
             end
         end
     end
-    
+
 
 elseif strcmp(get(gcf,'selectiontype'),'extend')
     delete(findobj('parent',gca,'linewidth',2));
@@ -4644,7 +5298,7 @@ ylb = get(handles.axes_Events,'ylim');
 delete(handles.EventWaveHandles(todel));
 handles.EventWaveHandles(todel) = [];
 
-filenum = str2num(get(handles.edit_FileNumber,'string'));
+filenum = getCurrentFileNum(handles);
 nums = [];
 for c = 1:length(handles.EventTimes);
     nums(c) = size(handles.EventTimes{c},1);
@@ -4696,7 +5350,7 @@ set(handles.axes_Events,'xlim',xlb,'ylim',ylb);
 
 
 % --- Executes during object creation, after setting all properties.
-function popup_EventList_CreateFcn(hObject, eventdata, handles)
+function popup_EventList_CreateFcn(hObject, ~, handles)
 % hObject    handle to popup_EventList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -4711,21 +5365,21 @@ end
 
 
 % --------------------------------------------------------------------
-function context_EventViewer_Callback(hObject, eventdata, handles)
+function context_EventViewer_Callback(hObject, ~, handles)
 % hObject    handle to context_EventViewer (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_PlotToAnalyze_Callback(hObject, eventdata, handles)
+function menu_PlotToAnalyze_Callback(hObject, ~, handles)
 % hObject    handle to menu_PlotToAnalyze (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_AnalyzeTop_Callback(hObject, eventdata, handles)
+function menu_AnalyzeTop_Callback(hObject, ~, handles)
 % hObject    handle to menu_AnalyzeTop (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4741,14 +5395,14 @@ handles = UpdateEventBrowser(handles);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_ViewerDisplay_Callback(hObject, eventdata, handles)
+function menu_ViewerDisplay_Callback(hObject, ~, handles)
 % hObject    handle to menu_ViewerDisplay (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_AnalyzeBottom_Callback(hObject, eventdata, handles)
+function menu_AnalyzeBottom_Callback(hObject, ~, handles)
 % hObject    handle to menu_AnalyzeBottom (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4764,7 +5418,7 @@ handles = UpdateEventBrowser(handles);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_DisplayValues_Callback(hObject, eventdata, handles)
+function menu_DisplayValues_Callback(hObject, ~, handles)
 % hObject    handle to menu_DisplayValues (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4780,7 +5434,7 @@ handles = UpdateEventBrowser(handles);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_DisplayFeatures_Callback(hObject, eventdata, handles)
+function menu_DisplayFeatures_Callback(hObject, ~, handles)
 % hObject    handle to menu_DisplayFeatures (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4797,7 +5451,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_DisplayEvents.
-function push_DisplayEvents_Callback(hObject, eventdata, handles)
+function push_DisplayEvents_Callback(hObject, ~, handles)
 % hObject    handle to push_DisplayEvents (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4808,7 +5462,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AutoDisplayEvents_Callback(hObject, eventdata, handles)
+function menu_AutoDisplayEvents_Callback(hObject, ~, handles)
 % hObject    handle to menu_AutoDisplayEvents (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4824,7 +5478,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_EventsAxisLimits_Callback(hObject, eventdata, handles)
+function menu_EventsAxisLimits_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventsAxisLimits (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4843,7 +5497,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function context_SoundOptions_Callback(hObject, eventdata, handles)
+function context_SoundOptions_Callback(hObject, ~, handles)
 % hObject    handle to context_SoundOptions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4852,7 +5506,7 @@ function context_SoundOptions_Callback(hObject, eventdata, handles)
 
 
 % --------------------------------------------------------------------
-function menu_SoundWeights_Callback(hObject, eventdata, handles)
+function menu_SoundWeights_Callback(hObject, ~, handles)
 % hObject    handle to menu_SoundWeights (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4867,7 +5521,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SoundClippers_Callback(hObject, eventdata, handles)
+function menu_SoundClippers_Callback(hObject, ~, handles)
 % hObject    handle to menu_SoundClippers (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4882,7 +5536,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_PlaySpeed_Callback(hObject, eventdata, handles)
+function menu_PlaySpeed_Callback(hObject, ~, handles)
 % hObject    handle to menu_PlaySpeed (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4898,14 +5552,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_ProgressBar_Callback(hObject, eventdata, handles)
+function menu_ProgressBar_Callback(hObject, ~, handles)
 % hObject    handle to menu_ProgressBar (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_ProgressSoundWave_Callback(hObject, eventdata, handles)
+function menu_ProgressSoundWave_Callback(hObject, ~, handles)
 % hObject    handle to menu_ProgressSoundWave (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4915,7 +5569,7 @@ handles = ChangeProgress(handles,hObject);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_ProgressSonogram_Callback(hObject, eventdata, handles)
+function menu_ProgressSonogram_Callback(hObject, ~, handles)
 % hObject    handle to menu_ProgressSonogram (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4924,7 +5578,7 @@ handles = ChangeProgress(handles,hObject);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_ProgressSegments_Callback(hObject, eventdata, handles)
+function menu_ProgressSegments_Callback(hObject, ~, handles)
 % hObject    handle to menu_ProgressSegments (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4933,7 +5587,7 @@ handles = ChangeProgress(handles,hObject);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_ProgressAmplitude_Callback(hObject, eventdata, handles)
+function menu_ProgressAmplitude_Callback(hObject, ~, handles)
 % hObject    handle to menu_ProgressAmplitude (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4942,7 +5596,7 @@ handles = ChangeProgress(handles,hObject);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_ProgressTop_Callback(hObject, eventdata, handles)
+function menu_ProgressTop_Callback(hObject, ~, handles)
 % hObject    handle to menu_ProgressTop (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4951,7 +5605,7 @@ handles = ChangeProgress(handles,hObject);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_ProgressBottom_Callback(hObject, eventdata, handles)
+function menu_ProgressBottom_Callback(hObject, ~, handles)
 % hObject    handle to menu_ProgressBottom (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4969,14 +5623,14 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_XAxis_Callback(hObject, eventdata, handles)
+function menu_XAxis_Callback(hObject, ~, handles)
 % hObject    handle to menu_XAxis (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_Yaxis_Callback(hObject, eventdata, handles)
+function menu_Yaxis_Callback(hObject, ~, handles)
 % hObject    handle to menu_Yaxis (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4984,13 +5638,13 @@ function menu_Yaxis_Callback(hObject, eventdata, handles)
 
 
 % --------------------------------------------------------------------
-function menu_YAxis_Callback(hObject, eventdata, handles)
+function menu_YAxis_Callback(hObject, ~, handles)
 % hObject    handle to menu_YAxis (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
-function XAxisMenuClick(hObject, eventdata, handles)
+function XAxisMenuClick(hObject, ~, handles)
 
 set(handles.menu_XAxis_List,'checked','off');
 set(hObject,'checked','on');
@@ -5000,7 +5654,7 @@ handles = UpdateEventBrowser(handles);
 guidata(hObject, handles);
 
 
-function YAxisMenuClick(hObject, eventdata, handles)
+function YAxisMenuClick(hObject, ~, handles)
 
 set(handles.menu_YAxis_List,'checked','off');
 set(hObject,'checked','on');
@@ -5011,7 +5665,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on selection change in popup_Export.
-function popup_Export_Callback(hObject, eventdata, handles)
+function popup_Export_Callback(hObject, ~, handles)
 % hObject    handle to popup_Export (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -5055,7 +5709,7 @@ end
 
 
 % --- Executes during object creation, after setting all properties.
-function popup_Export_CreateFcn(hObject, eventdata, handles)
+function popup_Export_CreateFcn(hObject, ~, handles)
 % hObject    handle to popup_Export (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -5068,7 +5722,7 @@ end
 
 
 % --- Executes on button press in push_Export.
-function push_Export_Callback(hObject, eventdata, handles)
+function push_Export_Callback(hObject, ~, handles)
 % hObject    handle to push_Export (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -5091,7 +5745,7 @@ switch str
         end
         handles.DefaultDirectory = path;
 
-        filenum = str2num(get(handles.edit_FileNumber,'string'));
+        filenum = getCurrentFileNum(handles);
 
         if isfield(handles,'DefaultLabels')
             labs = handles.DefaultLabels;
@@ -5217,7 +5871,9 @@ switch str
                     alg = get(handles.menu_Algorithm(c),'label');
                 end
             end
-            pow = eval(['egs_' alg '(gca,handles.sound(xlp(1):xlp(2)),handles.fs,handles.SonogramParams)']);
+            pow = eg_runPlugin(handles.plugins.spectrums, alg, gca, ...
+                handles.sound(xlp(1):xlp(2)), handles.fs, handles.SonogramParams);
+%            pow = eval(['egs_' alg '(gca,handles.sound(xlp(1):xlp(2)),handles.fs,handles.SonogramParams)']);
             set(gca,'ydir','normal');
             handles.NewSlope = handles.DerivativeSlope;
             handles.DerivativeSlope = 0;
@@ -5238,7 +5894,7 @@ switch str
     case 'Sound mix'
         wav = GenerateSound(handles,'mix');
         fs = handles.fs * handles.SoundSpeed;
-        
+
     case 'Events'
         if get(handles.radio_Matlab,'value')==1
             fig = figure;
@@ -5305,7 +5961,7 @@ switch str
                 errordlg('Must be in the Display->Features mode!','Error');
             end
         end
-            
+
         delete(txtexp)
         return
 end
@@ -5448,11 +6104,11 @@ elseif get(handles.radio_PowerPoint,'value')==1
         oldslide = ppt.ActiveWindow.View.Slide;
         slide_count = int32(double(slide_count)+1);
 %         newslide = invoke(op.Slides,'Add',slide_count,'ppLayoutBlank');
-        newslide = invoke(op.Slides,'Add',slide_count,11); %mod by VG       
+        newslide = invoke(op.Slides,'Add',slide_count,11); %mod by VG
     else
         slide_count = int32(double(slide_count)+1);
 %         newslide = invoke(op.Slides,'Add',slide_count,'ppLayoutBlank');
-        newslide = invoke(op.Slides,'Add',slide_count,11); %mod by VG       
+        newslide = invoke(op.Slides,'Add',slide_count,11); %mod by VG
         oldslide = ppt.ActiveWindow.View.Slide;
     end
 
@@ -5646,7 +6302,7 @@ elseif get(handles.radio_PowerPoint,'value')==1
 
         case 'Figure'
             handles.template = get(handles.menu_EditFigureTemplate,'userdata');
-            
+
             ppt = actxserver('PowerPoint.Application');
             op = get(ppt,'ActivePresentation');
 
@@ -5660,7 +6316,7 @@ elseif get(handles.radio_PowerPoint,'value')==1
             offy = (get(op.PageSetup,'SlideHeight')-72*(sum(handles.template.Height)+sum(handles.template.Interval(1:end-1))))/2;
 
             sound_inserted = 0;
-            
+
             ch = get(handles.menu_ProgressBar,'children');
             progbar = [];
             axs = [handles.axes_Channel2 handles.axes_Channel1 handles.axes_Amplitude handles.axes_Segments handles.axes_Sonogram handles.axes_Sound];
@@ -5679,16 +6335,16 @@ elseif get(handles.radio_PowerPoint,'value')==1
                 set(fig,'position',ps);
 
                 cla
-                
+
                 include_progbar = 0;
 
                 switch handles.template.Plot{c}
-                                     
+
                     case 'Sonogram'
                         if ~isempty(find(progbar==5))
                             include_progbar = 1;
                         end
-                        
+
                         yl = get(handles.axes_Sonogram,'ylim');
 
                         hold on
@@ -5715,7 +6371,10 @@ elseif get(handles.radio_PowerPoint,'value')==1
                                     alg = get(handles.menu_Algorithm(j),'label');
                                 end
                             end
-                            pow = eval(['egs_' alg '(gca,handles.sound(xlp(1):xlp(2)),handles.fs,handles.SonogramParams)']);
+                            pow = eg_runPlugin(handles.plugins.spectrums, ...
+                                alg, gca, handles.sound(xlp(1):xlp(2)), ...
+                                handles.fs, handles.SonogramParams);
+%                            pow = eval(['egs_' alg '(gca,handles.sound(xlp(1):xlp(2)),handles.fs,handles.SonogramParams)']);
                             set(gca,'ydir','normal');
                             handles.NewSlope = handles.DerivativeSlope;
                             handles.DerivativeSlope = 0;
@@ -5727,16 +6386,16 @@ elseif get(handles.radio_PowerPoint,'value')==1
                         set(gcf,'colormap',col);
                         axis tight;
                         axis off;
-                        
-                        
+
+
 
                     case 'Segments'
                         if ~isempty(find(progbar==4))
                             include_progbar = 1;
                         end
-                        
-                        st = handles.SegmentTimes{str2num(get(handles.edit_FileNumber,'string'))};
-                        sel = handles.SegmentSelection{str2num(get(handles.edit_FileNumber,'string'))};
+
+                        st = handles.SegmentTimes{getCurrentFileNum(handles)};
+                        sel = handles.SegmentSelection{getCurrentFileNum(handles)};
                         f = find(st(:,1)>xl(1)*handles.fs & st(:,1)<xl(2)*handles.fs);
                         g = find(st(:,2)>xl(1)*handles.fs & st(:,2)<xl(2)*handles.fs);
                         h = find(st(:,1)<xl(1)*handles.fs & st(:,2)>xl(2)*handles.fs);
@@ -5746,7 +6405,7 @@ elseif get(handles.radio_PowerPoint,'value')==1
                         xs = linspace(0,length(handles.sound)/handles.fs,length(handles.sound));
                         for j = f'
                             if sel(j)==1
-                                patch(xs([st(j,1) st(j,2) st(j,2) st(j,1)]),[0 0 1 1],'r');
+                                patch(xs([st(j,1) st(j,2) st(j,2) st(j,1)]),[0 0 1 1],handles.SegmentSelectColor);
                             end
                         end
 
@@ -5755,9 +6414,9 @@ elseif get(handles.radio_PowerPoint,'value')==1
 
 
                     case 'Segment labels'
-                        st = handles.SegmentTimes{str2num(get(handles.edit_FileNumber,'string'))};
-                        sel = handles.SegmentSelection{str2num(get(handles.edit_FileNumber,'string'))};
-                        lab = handles.SegmentTitles{str2num(get(handles.edit_FileNumber,'string'))};
+                        st = handles.SegmentTimes{getCurrentFileNum(handles)};
+                        sel = handles.SegmentSelection{getCurrentFileNum(handles)};
+                        lab = handles.SegmentTitles{getCurrentFileNum(handles)};
                         f = find(st(:,1)>xl(1)*handles.fs & st(:,1)<xl(2)*handles.fs);
                         g = find(st(:,2)>xl(1)*handles.fs & st(:,2)<xl(2)*handles.fs);
                         h = find(st(:,1)<xl(1)*handles.fs & st(:,2)>xl(2)*handles.fs);
@@ -5788,7 +6447,7 @@ elseif get(handles.radio_PowerPoint,'value')==1
                         if ~isempty(find(progbar==3))
                             include_progbar = 1;
                         end
-                        
+
                         m = findobj('parent',handles.axes_Amplitude,'linestyle','-');
                         x = get(m,'xdata');
                         y = get(m,'ydata');
@@ -5799,7 +6458,7 @@ elseif get(handles.radio_PowerPoint,'value')==1
                             col = col-eps;
                         end
                         plot(x(f),y(f),'color',col);
-                        
+
                         ylim(get(handles.axes_Amplitude,'ylim'));
                         set(gca,'ydir','normal');
                         axis off
@@ -5811,7 +6470,7 @@ elseif get(handles.radio_PowerPoint,'value')==1
                         if ~isempty(find(progbar==2)) & strcmp(handles.template.Plot{c},'Top plot')
                             include_progbar = 1;
                         end
-                        
+
                         if strcmp(handles.template.Plot{c},'Top plot')
                             axnum = 1;
                         else
@@ -5862,8 +6521,8 @@ elseif get(handles.radio_PowerPoint,'value')==1
                 end
                 yl = ylim;
                 xlim(xl);
-                
-                
+
+
                 if ~strcmp(handles.template.Plot{c},'Segment labels')
                     print('-dmeta',['-f' num2str(fig)]);
                     pic = invoke(newslide.Shapes,'PasteSpecial',2);
@@ -5871,7 +6530,7 @@ elseif get(handles.radio_PowerPoint,'value')==1
                     set(ug,'Height',72*handles.template.Height(c));
                     set(ug,'Width',72*handles.ExportSonogramWidth*(xl(2)-xl(1)));
                     set(ug,'Left',offx,'Top',offy+72*(sum(handles.template.Interval(1:c-1))+sum(handles.template.Height(1:c-1))));
-                    
+
                     switch handles.template.YScaleType(c)
                         case 0
                             % no scale bar
@@ -5887,7 +6546,7 @@ elseif get(handles.radio_PowerPoint,'value')==1
                             [mx fnd] = min(abs(pres-val));
                             val = pres(fnd)*10^ord;
                             sb_height = 72*val/(yl(2)-yl(1))*handles.template.Height(c);
-                            
+
                             unit = '';
                             switch handles.template.Plot{c}
                                 case 'Sonogram'
@@ -5922,8 +6581,8 @@ elseif get(handles.radio_PowerPoint,'value')==1
                                     end
                                 case 'Sound wave'
                                     unit = 'ADU';
-                            end     
-                            
+                            end
+
                             sb_posy = get(ug,'Top')+0.5*get(ug,'Height')-0.5*sb_height;
 
                             if handles.VerticalScalebarPosition <= 0
@@ -5940,9 +6599,9 @@ elseif get(handles.radio_PowerPoint,'value')==1
                             set(txt.TextFrame.TextRange.Font,'Size',8);
                             set(txt,'Height',get(txt.TextFrame.TextRange,'BoundHeight'));
                             set(txt,'Width',get(txt.TextFrame.TextRange,'BoundWidth'));
-                            
+
                             set(txt,'Top',get(ug,'Top')+0.5*get(ug,'Height')-0.5*get(txt,'Height'));
-                            
+
                             if handles.VerticalScalebarPosition <= 0
                                 set(txt,'Left',sb_posx-get(txt,'Width')-72*0.05);
                                 set(txt.TextFrame.TextRange.ParagraphFormat,'Alignment','ppAlignRight');
@@ -5950,7 +6609,7 @@ elseif get(handles.radio_PowerPoint,'value')==1
                                 set(txt,'Left',sb_posx+72*0.05);
                                 set(txt.TextFrame.TextRange.ParagraphFormat,'Alignment','ppAlignLeft');
                             end
-                            
+
                         case 2 % axis
                             ax_line = invoke(newslide.Shapes,'AddLine',offx,get(ug,'Top'),offx,get(ug,'Top')+get(ug,'Height'));
                             fig_yscale = figure('visible','off','units','inches');
@@ -5961,7 +6620,7 @@ elseif get(handles.radio_PowerPoint,'value')==1
                             ylim([yl(1) yl(2)]);
                             ytick = get(gca,'ytick');
                             delete(fig_yscale);
-                            
+
                             switch handles.template.Plot{c}
                                 case 'Sonogram'
                                     str = get(get(handles.axes_Sonogram,'ylabel'),'string');
@@ -5974,12 +6633,12 @@ elseif get(handles.radio_PowerPoint,'value')==1
                                 case 'Sound wave'
                                     str = 'Sound amplitude (ADU)';
                             end
-                            
+
                             mn = inf;
                             for j = 1:length(ytick')
                                 tickpos = get(ug,'Top')+get(ug,'Height')-(ytick(j)-yl(1))/(yl(2)-yl(1))*get(ug,'Height');
                                 ax_line = invoke(newslide.Shapes,'AddLine',offx,tickpos,offx+72*0.02,tickpos);
-                                
+
                                 txt = invoke(newslide.Shapes,'AddTextBox',1,0,0,0,0);
                                 set(txt.TextFrame.TextRange,'Text',num2str(ytick(j)));
                                 set(txt.TextFrame,'VerticalAnchor','msoAnchorMiddle','WordWrap','msoFalse',...
@@ -5992,11 +6651,11 @@ elseif get(handles.radio_PowerPoint,'value')==1
                                 mn = min([mn get(txt,'Left')]);
                                 set(txt.TextFrame.TextRange.ParagraphFormat,'Alignment','ppAlignRight');
                             end
-                            
+
                             if strcmp(handles.template.Plot{c},'Sonogram')
                                 ytick = ytick/1000;
                             end
-                            
+
                             txt = invoke(newslide.Shapes,'AddTextBox',1,0,0,0,0);
                             set(txt.TextFrame.TextRange,'Text',str);
                             set(txt.TextFrame,'VerticalAnchor','msoAnchorBottom','HorizontalAnchor','msoAnchorCenter',...
@@ -6009,7 +6668,7 @@ elseif get(handles.radio_PowerPoint,'value')==1
                             set(txt,'Left',mn-0.5*get(txt,'Width')-72*0.15);
                             set(txt.TextFrame.TextRange.ParagraphFormat,'Alignment','ppAlignCenter');
                     end
-                    
+
                     if include_progbar == 1
                         ycoord = [ycoord; get(ug,'Left') get(ug,'Top') get(ug,'Width') get(ug,'Height')];
                         switch handles.template.Plot{c}
@@ -6055,12 +6714,12 @@ elseif get(handles.radio_PowerPoint,'value')==1
                         crd(:,1) = crd(:,1)*ycoord(end,3)/get(op.PageSetup,'SlideWidth');
                         crd(:,2) = -crd(:,2)*ycoord(end,4)/get(op.PageSetup,'SlideHeight');
                         crd = sortrows(crd);
-                        
+
                         if strcmp(get(handles.menu_PlayReverse,'checked'),'on')
                             crd(:,1) = flipud(crd(:,1))-crd(end,1);
                             crd(:,2) = flipud(crd(:,2));
                         end
-                        
+
                         vals = [];
                         if ~strcmp(handles.template.Plot{c},'Segments')
                             lst = linspace(crd(1,1),crd(end,1),round(get(ug,'Width'))*2);
@@ -6073,7 +6732,7 @@ elseif get(handles.radio_PowerPoint,'value')==1
                         end
                         coords{end+1} = crd;
                     end
-                    
+
                     if strcmp(handles.template.Plot{c},'Sonogram') & handles.ExportSonogramIncludeClip > 0
                         if handles.ExportSonogramIncludeClip == 1
                             wav = GenerateSound(handles,'snd');
@@ -6092,7 +6751,7 @@ elseif get(handles.radio_PowerPoint,'value')==1
                         delete(mt(1).name);
                         sound_inserted = 1;
                     end
-                    
+
                     ug = invoke(ug,'Ungroup');
                     if ~strcmp(handles.template.Plot{c},'Segments')
                         for j = 1:get(ug,'Count')
@@ -6225,8 +6884,8 @@ elseif get(handles.radio_PowerPoint,'value')==1
                 end
             end
 
-            
-            
+
+
             delete(fig);
 
             bestlength = handles.ScalebarWidth/handles.ExportSonogramWidth;
@@ -6254,7 +6913,7 @@ delete(txtexp);
 guidata(hObject, handles);
 
 % --- Executes on button press in push_ExportOptions.
-function push_ExportOptions_Callback(hObject, eventdata, handles)
+function push_ExportOptions_Callback(hObject, ~, handles)
 % hObject    handle to push_ExportOptions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6275,7 +6934,7 @@ end
 
 
 % --- Executes on button press in radio_Matlab.
-function radio_Matlab_Callback(hObject, eventdata, handles)
+function radio_Matlab_Callback(hObject, ~, handles)
 % hObject    handle to radio_Matlab (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6284,7 +6943,7 @@ function radio_Matlab_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on button press in radio_PowerPoint.
-function radio_PowerPoint_Callback(hObject, eventdata, handles)
+function radio_PowerPoint_Callback(hObject, ~, handles)
 % hObject    handle to radio_PowerPoint (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6293,7 +6952,7 @@ function radio_PowerPoint_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on button press in radio_Files.
-function radio_Files_Callback(hObject, eventdata, handles)
+function radio_Files_Callback(hObject, ~, handles)
 % hObject    handle to radio_Files (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6302,7 +6961,7 @@ function radio_Files_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on button press in radio_Clipboard.
-function radio_Clipboard_Callback(hObject, eventdata, handles)
+function radio_Clipboard_Callback(hObject, ~, handles)
 % hObject    handle to radio_Clipboard (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6313,7 +6972,7 @@ function radio_Clipboard_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on button press in push_UpdateFileList.
-function push_UpdateFileList_Callback(hObject, eventdata, handles)
+function push_UpdateFileList_Callback(hObject, ~, handles)
 % hObject    handle to push_UpdateFileList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6334,7 +6993,7 @@ end
 
 
 % --- Executes on button press in push_WorksheetAppend.
-function push_WorksheetAppend_Callback(hObject, eventdata, handles)
+function push_WorksheetAppend_Callback(hObject, ~, handles)
 % hObject    handle to push_WorksheetAppend (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6375,7 +7034,9 @@ else
             alg = get(handles.menu_Algorithm(c),'label');
         end
     end
-    pow = eval(['egs_' alg '(gca,handles.sound(xlp(1):xlp(2)),handles.fs,handles.SonogramParams)']);
+    pow = eg_runPlugin(handles.plugins.spectrums, alg, gca, ...
+        handles.sound(xlp(1):xlp(2)), handles.fs, handles.SonogramParams);
+%    pow = eval(['egs_' alg '(gca,handles.sound(xlp(1):xlp(2)),handles.fs,handles.SonogramParams)']);
     set(gca,'ydir','normal');
     handles.NewSlope = handles.DerivativeSlope;
     handles.DerivativeSlope = 0;
@@ -6511,7 +7172,7 @@ axis off;
 set(handles.panel_Worksheet,'title',['Worksheet: Page ' num2str(handles.WorksheetCurrentPage) '/' num2str(max([1 max(pagenum)]))]);
 
 
-function click_Worksheet(hObject, eventdata, handles)
+function click_Worksheet(hObject, ~, handles)
 
 ch = get(handles.axes_Worksheet,'children');
 for c = 1:length(ch)
@@ -6529,7 +7190,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_WorksheetOptions.
-function push_WorksheetOptions_Callback(hObject, eventdata, handles)
+function push_WorksheetOptions_Callback(hObject, ~, handles)
 % hObject    handle to push_WorksheetOptions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6550,7 +7211,7 @@ end
 
 
 % --- Executes on button press in push_PageLeft.
-function push_PageLeft_Callback(hObject, eventdata, handles)
+function push_PageLeft_Callback(hObject, ~, handles)
 % hObject    handle to push_PageLeft (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6570,7 +7231,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_PageRight.
-function push_PageRight_Callback(hObject, eventdata, handles)
+function push_PageRight_Callback(hObject, ~, handles)
 % hObject    handle to push_PageRight (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6590,7 +7251,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_FrequencyZoom_Callback(hObject, eventdata, handles)
+function menu_FrequencyZoom_Callback(hObject, ~, handles)
 % hObject    handle to menu_FrequencyZoom (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6603,14 +7264,14 @@ end
 
 
 % --------------------------------------------------------------------
-function context_Worksheet_Callback(hObject, eventdata, handles)
+function context_Worksheet_Callback(hObject, ~, handles)
 % hObject    handle to context_Worksheet (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_WorksheetDelete_Callback(hObject, eventdata, handles)
+function menu_WorksheetDelete_Callback(hObject, ~, handles)
 % hObject    handle to menu_WorksheetDelete (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6634,7 +7295,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SortChronologically_Callback(hObject, eventdata, handles)
+function menu_SortChronologically_Callback(hObject, ~, handles)
 % hObject    handle to menu_SortChronologically (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6653,14 +7314,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function context_WorksheetOptions_Callback(hObject, eventdata, handles)
+function context_WorksheetOptions_Callback(hObject, ~, handles)
 % hObject    handle to context_WorksheetOptions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_OnePerLine_Callback(hObject, eventdata, handles)
+function menu_OnePerLine_Callback(hObject, ~, handles)
 % hObject    handle to menu_OnePerLine (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6679,7 +7340,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_IncludeTitle_Callback(hObject, eventdata, handles)
+function menu_IncludeTitle_Callback(hObject, ~, handles)
 % hObject    handle to menu_IncludeTitle (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6698,7 +7359,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_EditTitle_Callback(hObject, eventdata, handles)
+function menu_EditTitle_Callback(hObject, ~, handles)
 % hObject    handle to menu_EditTitle (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6713,7 +7374,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_WorksheetDimensions_Callback(hObject, eventdata, handles)
+function menu_WorksheetDimensions_Callback(hObject, ~, handles)
 % hObject    handle to menu_WorksheetDimensions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6735,7 +7396,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_ClearWorksheet_Callback(hObject, eventdata, handles)
+function menu_ClearWorksheet_Callback(hObject, ~, handles)
 % hObject    handle to menu_ClearWorksheet (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6762,14 +7423,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function context_ExportOptions_Callback(hObject, eventdata, handles)
+function context_ExportOptions_Callback(hObject, ~, handles)
 % hObject    handle to context_ExportOptions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_SonogramDimensions_Callback(hObject, eventdata, handles)
+function menu_SonogramDimensions_Callback(hObject, ~, handles)
 % hObject    handle to menu_SonogramDimensions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6785,7 +7446,7 @@ handles = UpdateWorksheet(handles);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_ScreenResolution_Callback(hObject, eventdata, handles)
+function menu_ScreenResolution_Callback(hObject, ~, handles)
 % hObject    handle to menu_ScreenResolution (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6797,14 +7458,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SonogramExport_Callback(hObject, eventdata, handles)
+function menu_SonogramExport_Callback(hObject, ~, handles)
 % hObject    handle to menu_SonogramExport (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_CustomResolution_Callback(hObject, eventdata, handles)
+function menu_CustomResolution_Callback(hObject, ~, handles)
 % hObject    handle to menu_CustomResolution (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6816,7 +7477,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_WorksheetView_Callback(hObject, eventdata, handles)
+function menu_WorksheetView_Callback(hObject, ~, handles)
 % hObject    handle to menu_WorksheetView (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6847,7 +7508,7 @@ set(fig,'visible','on');
 
 
 % --- Executes on button press in push_Macros.
-function push_Macros_Callback(hObject, eventdata, handles)
+function push_Macros_Callback(hObject, ~, handles)
 % hObject    handle to push_Macros (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6870,27 +7531,28 @@ end
 
 
 % --------------------------------------------------------------------
-function context_Macros_Callback(hObject, eventdata, handles)
+function context_Macros_Callback(hObject, ~, handles)
 % hObject    handle to context_Macros (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 
-function MacrosMenuclick(hObject, eventdata, handles)
+function MacrosMenuclick(hObject, ~, handles)
 
 handles.dbase = GetDBase(handles);
 
 f = find(handles.menu_Macros==hObject);
 
 mcr = get(handles.menu_Macros(f),'label');
-handles = eval(['egm_' mcr '(handles)']);
+handles = eg_runPlugin(handles.plugins.macros, mcr, handles);
+%handles = eval(['egm_' mcr '(handles)']);
 
 guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_IncludeTimestamp_Callback(hObject, eventdata, handles)
+function menu_IncludeTimestamp_Callback(hObject, ~, handles)
 % hObject    handle to menu_IncludeTimestamp (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6907,7 +7569,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_Portrait_Callback(hObject, eventdata, handles)
+function menu_Portrait_Callback(hObject, ~, handles)
 % hObject    handle to menu_Portrait (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6925,14 +7587,14 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_Orientation_Callback(hObject, eventdata, handles)
+function menu_Orientation_Callback(hObject, ~, handles)
 % hObject    handle to menu_Orientation (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_Landscape_Callback(hObject, eventdata, handles)
+function menu_Landscape_Callback(hObject, ~, handles)
 % hObject    handle to menu_Landscape (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6951,7 +7613,7 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_ImageResolution_Callback(hObject, eventdata, handles)
+function menu_ImageResolution_Callback(hObject, ~, handles)
 % hObject    handle to menu_ImageResolution (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6965,7 +7627,7 @@ handles.ExportSonogramResolution = str2num(answer{1});
 
 
 % --------------------------------------------------------------------
-function menu_ImageTimescale_Callback(hObject, eventdata, handles)
+function menu_ImageTimescale_Callback(hObject, ~, handles)
 % hObject    handle to menu_ImageTimescale (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -6983,7 +7645,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_ScalebarDimensions_Callback(hObject, eventdata, handles)
+function menu_ScalebarDimensions_Callback(hObject, ~, handles)
 % hObject    handle to menu_ScalebarDimensions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7000,7 +7662,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_EditFigureTemplate_Callback(hObject, eventdata, handles)
+function menu_EditFigureTemplate_Callback(hObject, ~, handles)
 % hObject    handle to menu_EditFigureTemplate (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7009,7 +7671,7 @@ eg_Template_Editor(hObject);
 
 
 % --------------------------------------------------------------------
-function menu_LineWidth1_Callback(hObject, eventdata, handles)
+function menu_LineWidth1_Callback(hObject, ~, handles)
 % hObject    handle to menu_LineWidth1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7027,7 +7689,7 @@ handles = eg_Overlay(handles);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_LineWidth2_Callback(hObject, eventdata, handles)
+function menu_LineWidth2_Callback(hObject, ~, handles)
 % hObject    handle to menu_LineWidth2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7046,7 +7708,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_BackgroundColor_Callback(hObject, eventdata, handles)
+function menu_BackgroundColor_Callback(hObject, ~, handles)
 % hObject    handle to menu_BackgroundColor (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7070,20 +7732,21 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_Colormap_Callback(hObject, eventdata, handles)
+function menu_Colormap_Callback(hObject, ~, handles)
 % hObject    handle to menu_Colormap (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
-function ColormapClick(hObject, eventdata, handles)
+function ColormapClick(hObject, ~, handles)
 
 if strcmp(get(hObject,'Label'),'(Default)')
     colormap('default');
     cmap = colormap;
     cmap(1,:) = [0 0 0];
 else
-    cmap = eval(['egc_' get(hObject,'Label')]);
+    cmap = eg_runPlugin(handles.plugins.colormaps, get(hObject, 'Label'));
+%    cmap = eval(['egc_' get(hObject,'Label')]);
 end
 
 handles.Colormap = cmap;
@@ -7095,7 +7758,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_OverlayTop_Callback(hObject, eventdata, handles)
+function menu_OverlayTop_Callback(hObject, ~, handles)
 % hObject    handle to menu_OverlayTop (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7112,14 +7775,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_Overlay_Callback(hObject, eventdata, handles)
+function menu_Overlay_Callback(hObject, ~, handles)
 % hObject    handle to menu_Overlay (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_OverlayBottom_Callback(hObject, eventdata, handles)
+function menu_OverlayBottom_Callback(hObject, ~, handles)
 % hObject    handle to menu_OverlayBottom (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7175,7 +7838,7 @@ ylim(yl);
 
 
 % --------------------------------------------------------------------
-function menu_SonogramParameters_Callback(hObject, eventdata, handles)
+function menu_SonogramParameters_Callback(hObject, ~, handles)
 % hObject    handle to menu_SonogramParameters (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7207,30 +7870,30 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_EventParams1_Callback(hObject, eventdata, handles)
+function menu_EventParams1_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventParams1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-handles = EventParams(handles,1);
+handles = menu_EventParams(handles,1);
 
 guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_EventParams2_Callback(hObject, eventdata, handles)
+function menu_EventParams2_Callback(hObject, ~, handles)
 % hObject    handle to menu_EventParams2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-handles = EventParams(handles,2);
+handles = menu_EventParams(handles,2);
 
 guidata(hObject, handles);
 
 
-function handles = EventParams(handles,axnum)
+function handles = menu_EventParams(handles,axnum)
 
-pr = handles.(['EventParams' num2str(axnum)]);
+pr = handles.EventParams{axnum};
 
 if ~isfield(pr,'Names') | isempty(pr.Names)
     errordlg('Current event detector does not require parameters.','Event detector error');
@@ -7243,41 +7906,41 @@ if isempty(answer)
 end
 pr.Values = answer;
 
-handles.(['EventParams' num2str(axnum)]) = pr;
+handles.EventParams{axnum} = pr;
 
 v = get(handles.(['popup_EventDetector' num2str(axnum)]),'value');
 ud = get(handles.(['popup_EventDetector' num2str(axnum)]),'userdata');
-ud{v} = handles.(['EventParams' num2str(axnum)]);
+ud{v} = handles.EventParams{axnum};
 set(handles.(['popup_EventDetector' num2str(axnum)]),'userdata',ud);
 
 handles = DetectEvents(handles,axnum);
 
 
 % --------------------------------------------------------------------
-function menu_FunctionParams1_Callback(hObject, eventdata, handles)
+function menu_FunctionParams1_Callback(hObject, ~, handles)
 % hObject    handle to menu_FunctionParams1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-handles = FunctionParams(handles,1);
+handles = menu_FunctionParams(handles,1);
 
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_FunctionParams2_Callback(hObject, eventdata, handles)
+function menu_FunctionParams2_Callback(hObject, ~, handles)
 % hObject    handle to menu_FunctionParams2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-handles = FunctionParams(handles,2);
+handles = menu_FunctionParams(handles,2);
 
 guidata(hObject, handles);
 
 
 
-function handles = FunctionParams(handles,axnum)
+function handles = menu_FunctionParams(handles,axnum)
 
-pr = handles.(['FunctionParams' num2str(axnum)]);
+pr = handles.FunctionParams{axnum};
 
 if ~isfield(pr,'Names') | isempty(pr.Names)
     errordlg('Current function does not require parameters.','Function error');
@@ -7290,12 +7953,12 @@ if isempty(answer)
 end
 pr.Values = answer;
 
-handles.(['FunctionParams' num2str(axnum)]) = pr;
+handles.FunctionParams{axnum} = pr;
 
-v = get(handles.(['popup_Function' num2str(axnum)]),'value');
-ud = get(handles.(['popup_Function' num2str(axnum)]),'userdata');
-ud{v} = handles.(['FunctionParams' num2str(axnum)]);
-set(handles.(['popup_Function' num2str(axnum)]),'userdata',ud);
+v = get(handles.popup_Functions(axnum),'value');
+ud = get(handles.popup_Functions(axnum),'userdata');
+ud{v} = handles.FunctionParams{axnum};
+set(handles.popup_Functions(axnum),'userdata',ud);
 
 if isempty(findobj('parent',handles.axes_Sonogram,'type','text'))
     handles = eg_LoadChannel(handles,axnum);
@@ -7304,7 +7967,7 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_Split_Callback(hObject, eventdata, handles)
+function menu_Split_Callback(hObject, ~, handles)
 % hObject    handle to menu_Split (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7333,7 +7996,7 @@ for c = 1:length(handles.menu_Segmenter)
     end
 end
 
-filenum = str2num(get(handles.edit_FileNumber,'string'));
+filenum = getCurrentFileNum(handles);
 
 
 f = find(handles.SegmentTimes{filenum}(:,1)>rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*handles.fs);
@@ -7345,7 +8008,9 @@ if isempty(dl)
 end
 
 handles.SegmenterParams.IsSplit = 1;
-sg = eval(['egg_' alg '(handles.amplitude,handles.fs,' num2str(rect(2)) ',handles.SegmenterParams)']);
+sg = eg_runPlugin(handles.plugins.segmenters, alg, handles.amplitude, ...
+    handles.fs, rect(2), handles.SegmenterParams);
+%sg = eval(['egg_' alg '(handles.amplitude,handles.fs,' num2str(rect(2)) ',handles.SegmenterParams)']);
 
 f = find(sg(:,1)>rect(1)*handles.fs & sg(:,1)<(rect(1)+rect(3))*handles.fs);
 g = find(sg(:,2)>rect(1)*handles.fs & sg(:,2)<(rect(1)+rect(3))*handles.fs);
@@ -7367,7 +8032,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SourceSoundAmplitude_Callback(hObject, eventdata, handles)
+function menu_SourceSoundAmplitude_Callback(hObject, ~, handles)
 % hObject    handle to menu_SourceSoundAmplitude (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7389,7 +8054,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SourceTopPlot_Callback(hObject, eventdata, handles)
+function menu_SourceTopPlot_Callback(hObject, ~, handles)
 % hObject    handle to menu_SourceTopPlot (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7411,7 +8076,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SourceBottomPlot_Callback(hObject, eventdata, handles)
+function menu_SourceBottomPlot_Callback(hObject, ~, handles)
 % hObject    handle to menu_SourceBottomPlot (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7447,7 +8112,7 @@ else
         labs = 'Loudness (dB)';
     elseif strcmp(get(handles.menu_SourceTopPlot,'checked'),'on')
         if strcmp(get(handles.axes_Channel1,'visible'),'on');
-            amp = smooth(handles.chan1,wind);
+            amp = smooth(handles.loadedChannelData{1},wind);
             labs = get(get(handles.axes_Channel1,'ylabel'),'string');
         else
             amp = zeros(size(handles.sound));
@@ -7455,7 +8120,7 @@ else
         end
     elseif strcmp(get(handles.menu_SourceBottomPlot,'checked'),'on')
         if strcmp(get(handles.axes_Channel2,'visible'),'on');
-            amp = smooth(handles.chan2,wind);
+            amp = smooth(handles.loadedChannelData{2},wind);
             labs = get(get(handles.axes_Channel2,'ylabel'),'string');
         else
             amp = zeros(size(handles.sound));
@@ -7467,12 +8132,12 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_Concatenate_Callback(hObject, eventdata, handles)
+function menu_Concatenate_Callback(hObject, ~, handles)
 % hObject    handle to menu_Concatenate (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-filenum = str2num(get(handles.edit_FileNumber,'string'));
+filenum = getCurrentFileNum(handles);
 
 set(gca,'units','pixels');
 set(get(gca,'parent'),'units','pixels');
@@ -7502,15 +8167,16 @@ handles.SegmentTitles{filenum}(min(f)+1:max(f)) = [];
 handles.SegmentSelection{filenum}(min(f)+1:max(f)) = [];
 handles = PlotSegments(handles);
 
-set(handles.SegmentHandles,'edgecolor','k','linewidth',1);
-set(handles.SegmentHandles(min(f)),'edgecolor','y','linewidth',2);
+handles = SetActiveSegment(handles, min(f));
+% set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
+% set(handles.SegmentHandles(min(f)),'edgecolor',handles.SegmentActiveColor,'linewidth',2);
 set(gcf,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
 
 guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_DontPlot_Callback(hObject, eventdata, handles)
+function menu_DontPlot_Callback(hObject, ~, handles)
 % hObject    handle to menu_DontPlot (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7527,7 +8193,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_IncludeSoundNone_Callback(hObject, eventdata, handles)
+function menu_IncludeSoundNone_Callback(hObject, ~, handles)
 % hObject    handle to menu_IncludeSoundNone (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7538,7 +8204,7 @@ set(hObject,'checked','on');
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_IncludeSoundOnly_Callback(hObject, eventdata, handles)
+function menu_IncludeSoundOnly_Callback(hObject, ~, handles)
 % hObject    handle to menu_IncludeSoundOnly (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7549,7 +8215,7 @@ set(hObject,'checked','on');
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_IncludeSoundMix_Callback(hObject, eventdata, handles)
+function menu_IncludeSoundMix_Callback(hObject, ~, handles)
 % hObject    handle to menu_IncludeSoundMix (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7576,7 +8242,7 @@ end
 
 if strcmp(sound_type,'mix')
     if strcmp(get(handles.axes_Channel1,'visible'),'on') & get(handles.check_TopPlot,'value')==1
-        addval = handles.chan1;
+        addval = handles.loadedChannelData{1};
         addval(find(abs(addval) < handles.SoundClippers(1))) = 0;
         addval = addval * handles.SoundWeights(2);
         if size(addval,2)>size(addval,1)
@@ -7585,7 +8251,7 @@ if strcmp(sound_type,'mix')
         snd = snd + addval;
     end
     if strcmp(get(handles.axes_Channel2,'visible'),'on') & get(handles.check_BottomPlot,'value')==1
-        addval = handles.chan2;
+        addval = handles.loadedChannelData{2};
         addval(find(abs(addval) < handles.SoundClippers(2))) = 0;
         addval = addval * handles.SoundWeights(3);
         if size(addval,2)>size(addval,1)
@@ -7615,7 +8281,7 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_PlayReverse_Callback(hObject, eventdata, handles)
+function menu_PlayReverse_Callback(hObject, ~, handles)
 % hObject    handle to menu_PlayReverse (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7631,14 +8297,14 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_FilterList_Callback(hObject, eventdata, handles)
+function menu_FilterList_Callback(hObject, ~, handles)
 % hObject    handle to menu_FilterList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_FilterParameters_Callback(hObject, eventdata, handles)
+function menu_FilterParameters_Callback(hObject, ~, handles)
 % hObject    handle to menu_FilterParameters (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7663,7 +8329,8 @@ for c = 1:length(handles.menu_Filter)
     end
 end
 
-handles.filtered_sound = eval(['egf_' alg '(handles.sound,handles.fs,handles.FilterParams)']);
+handles.filtered_sound = eg_runPlugin(handles.plugins.filters, alg, handles.sound, handles.fs, handles.FilterParams);
+%handles.filtered_sound = eval(['egf_' alg '(handles.sound,handles.fs,handles.FilterParams)']);
 
 subplot(handles.axes_Sound)
 xd = get(handles.xlimbox,'xdata');
@@ -7699,7 +8366,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in check_Shuffle.
-function check_Shuffle_Callback(hObject, eventdata, handles)
+function check_Shuffle_Callback(hObject, ~, handles)
 % hObject    handle to check_Shuffle (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7721,7 +8388,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AmplitudeAutoRange_Callback(hObject, eventdata, handles)
+function menu_AmplitudeAutoRange_Callback(hObject, ~, handles)
 % hObject    handle to menu_AmplitudeAutoRange (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7745,7 +8412,7 @@ if isfield(handles,'DefaultPropertyValues')
         lst_menus{c} = get(handles.PropertyObjectHandles(c),'string')';
         lst_menus{c} = lst_menus{c}(1:end-1);
     end
-            
+
 else
     bck_def = {};
     bck_nm = {};
@@ -7780,7 +8447,7 @@ lns = lns(2:2:end);
 for c = 1:length(handles.PropertyNames)
     wd = min([0.95*(1/7) 0.95*(1/length(handles.PropertyNames))]);
     x = lns(c)-wd/2;
-    
+
     switch handles.PropertyTypes(c)
         case 1 % string
             handles.PropertyObjectHandles(c) = uicontrol(handles.panel_Properties,'Style','edit',...
@@ -7800,13 +8467,13 @@ for c = 1:length(handles.PropertyNames)
                     str = [str lst_menus{d}];
                 end
             end
-            
+
             for d = 1:length(bck_nm)
                 if strcmp(bck_nm{d},handles.PropertyNames{c})
                     str{end+1} = bck_def{d};
                 end
             end
-            
+
             str = unique(str);
             str{end+1} = 'New value...';
             handles.PropertyObjectHandles(c) = uicontrol(handles.panel_Properties,'Style','popupmenu',...
@@ -7814,7 +8481,7 @@ for c = 1:length(handles.PropertyNames)
                 'FontSize',10,'horizontalalignment','center','backgroundcolor',[1 1 1]);
             handles.DefaultPropertyValues{c} = str{1};
     end
-    
+
     handles.PropertyTextHandles(c) = uicontrol(handles.panel_Properties,'Style','text',...
         'units','normalized','string',handles.PropertyNames{c},'position',[x 0.65 wd 0.3],...
         'FontSize',8,'horizontalalignment','center');
@@ -7832,9 +8499,9 @@ set(handles.PropertyObjectHandles,'callback','electro_gui(''ChangeProperty'',gcb
 set(handles.PropertyTextHandles,'buttondownfcn','electro_gui(''ClickPropertyText'',gcbo,[],guidata(gcbo))');
 
 
-function ChangeProperty(hObject, eventdata, handles)
+function ChangeProperty(hObject, ~, handles)
 
-filenum = str2num(get(handles.edit_FileNumber,'string'));
+filenum = getCurrentFileNum(handles);
 f = find(handles.PropertyObjectHandles==hObject);
 
 for d = 1:length(handles.Properties.Names{filenum})
@@ -7856,7 +8523,7 @@ switch handles.PropertyTypes(f)
             if ~isempty(answer)
                 handles.Properties.Values{filenum}{indx} = answer{1};
             end
-                
+
             str = get(handles.PropertyObjectHandles(f),'string');
             str = str(1:end-1);
             str{end+1} = handles.Properties.Values{filenum}{indx};
@@ -7876,17 +8543,17 @@ end
 guidata(hObject, handles);
 
 
-function ClickPropertyText(hObject, eventdata, handles)
+function ClickPropertyText(hObject, ~, handles)
 
 if strcmp(get(hObject,'enable'),'off')
-    filenum = str2num(get(handles.edit_FileNumber,'string'));
+    filenum = getCurrentFileNum(handles);
 
     handles.Properties.Names{filenum}{end+1} = get(hObject,'string');
-    
+
     f = find(handles.PropertyTextHandles==hObject);
     handles.Properties.Values{filenum}{end+1} = handles.DefaultPropertyValues{f};
     handles.Properties.Types{filenum}(end+1) = handles.PropertyTypes(f);
-    
+
     handles = eg_LoadProperties(handles);
 end
 
@@ -7895,7 +8562,7 @@ guidata(hObject, handles);
 
 function handles = eg_LoadProperties(handles)
 
-filenum = str2num(get(handles.edit_FileNumber,'string'));
+filenum = getCurrentFileNum(handles);
 
 for c = 1:length(handles.PropertyNames)
     indx = [];
@@ -7928,7 +8595,7 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_FilterSound_Callback(hObject, eventdata, handles)
+function menu_FilterSound_Callback(hObject, ~, handles)
 % hObject    handle to menu_FilterSound (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7944,21 +8611,21 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AddProperty_Callback(hObject, eventdata, handles)
+function menu_AddProperty_Callback(hObject, ~, handles)
 % hObject    handle to menu_AddProperty (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function context_Properties_Callback(hObject, eventdata, handles)
+function context_Properties_Callback(hObject, ~, handles)
 % hObject    handle to context_Properties (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_AddPropertyString_Callback(hObject, eventdata, handles)
+function menu_AddPropertyString_Callback(hObject, ~, handles)
 % hObject    handle to menu_AddPropertyString (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7969,7 +8636,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AddPropertyBoolean_Callback(hObject, eventdata, handles)
+function menu_AddPropertyBoolean_Callback(hObject, ~, handles)
 % hObject    handle to menu_AddPropertyBoolean (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7980,7 +8647,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AddPropertyList_Callback(hObject, eventdata, handles)
+function menu_AddPropertyList_Callback(hObject, ~, handles)
 % hObject    handle to menu_AddPropertyList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -7992,7 +8659,7 @@ guidata(hObject, handles);
 
 function handles = eg_AddProperty(handles,type)
 
-filenum = str2num(get(handles.edit_FileNumber,'string'));
+filenum = getCurrentFileNum(handles);
 
 typestr = {'string','boolean','list'};
 button = questdlg(['Add a new ' typestr{type} ' property to'],'Add property','Current file','Some files...','All files','All files');
@@ -8024,7 +8691,7 @@ switch type
         if isempty(answer)
             return
         end
-        name = answer{1};        
+        name = answer{1};
         val = answer{2};
     case 2
         answer = inputdlg({'Property name'},'Add property',1,{''});
@@ -8052,13 +8719,13 @@ switch type
         for c = 1:size(lst,1)
             str{c} = strtrim(lst(c,:));
         end
-        
+
         [val,ok] = listdlg('ListString',str,'Name','Add property','PromptString',['Value for ' selstr],'SelectionMode','single');
         if ok == 0
             return
         end
         val = str{val};
-        
+
         str{end+1} = 'Dummy';
         handles.PropertyNames{end+1} = name;
         handles.PropertyObjectHandles(end+1) = uicontrol(handles.panel_Properties,'Style','popupmenu',...
@@ -8087,12 +8754,12 @@ handles = eg_LoadProperties(handles);
 
 
 % --------------------------------------------------------------------
-function menu_RemoveProperty_Callback(hObject, eventdata, handles)
+function menu_RemoveProperty_Callback(hObject, ~, handles)
 % hObject    handle to menu_RemoveProperty (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-filenum = str2num(get(handles.edit_FileNumber,'string'));
+filenum = getCurrentFileNum(handles);
 
 if ~isfield(handles,'PropertyNames') | isempty(handles.PropertyNames)
     errordlg('No properties to remove!','Error');
@@ -8147,7 +8814,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_Search_Callback(hObject, eventdata, handles)
+function menu_Search_Callback(hObject, ~, handles)
 % hObject    handle to menu_Search (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8259,7 +8926,7 @@ handles = eg_LoadFile(handles);
 
 
 % --------------------------------------------------------------------
-function menu_SearchNew_Callback(hObject, eventdata, handles)
+function menu_SearchNew_Callback(hObject, ~, handles)
 % hObject    handle to menu_SearchNew (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8269,7 +8936,7 @@ handles = SearchProperties(handles,1);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_SearchAnd_Callback(hObject, eventdata, handles)
+function menu_SearchAnd_Callback(hObject, ~, handles)
 % hObject    handle to menu_SearchAnd (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8279,7 +8946,7 @@ handles = SearchProperties(handles,2);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_SearchOr_Callback(hObject, eventdata, handles)
+function menu_SearchOr_Callback(hObject, ~, handles)
 % hObject    handle to menu_SearchOr (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8289,7 +8956,7 @@ handles = SearchProperties(handles,3);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_SearchNot_Callback(hObject, eventdata, handles)
+function menu_SearchNot_Callback(hObject, ~, handles)
 % hObject    handle to menu_SearchNot (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8318,7 +8985,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_RenameProperty_Callback(hObject, eventdata, handles)
+function menu_RenameProperty_Callback(hObject, ~, handles)
 % hObject    handle to menu_RenameProperty (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8356,7 +9023,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_FillProperty_Callback(hObject, eventdata, handles)
+function menu_FillProperty_Callback(hObject, ~, handles)
 % hObject    handle to menu_FillProperty (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8366,7 +9033,7 @@ if ~isfield(handles,'PropertyNames') | isempty(handles.PropertyNames)
     return
 end
 
-filenum = str2num(get(handles.edit_FileNumber,'string'));
+filenum = getCurrentFileNum(handles);
 
 [indx,ok] = listdlg('ListString',handles.PropertyNames,'InitialValue',[],'Name','Select property','SelectionMode','single','PromptString','Select property to fill');
 if ok == 0
@@ -8472,7 +9139,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_DefaultPropertyValue_Callback(hObject, eventdata, handles)
+function menu_DefaultPropertyValue_Callback(hObject, ~, handles)
 % hObject    handle to menu_DefaultPropertyValue (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8545,7 +9212,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_CleanUpList_Callback(hObject, eventdata, handles)
+function menu_CleanUpList_Callback(hObject, ~, handles)
 % hObject    handle to menu_CleanUpList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8584,7 +9251,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_ProgressBarColor_Callback(hObject, eventdata, handles)
+function menu_ProgressBarColor_Callback(hObject, ~, handles)
 % hObject    handle to menu_ProgressBarColor (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8597,7 +9264,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AnimationNone_Callback(hObject, eventdata, handles)
+function menu_AnimationNone_Callback(hObject, ~, handles)
 % hObject    handle to menu_AnimationNone (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8607,7 +9274,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_AnimationProgressBar_Callback(hObject, eventdata, handles)
+function menu_AnimationProgressBar_Callback(hObject, ~, handles)
 % hObject    handle to menu_AnimationProgressBar (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8616,7 +9283,7 @@ handles = ClickAnimation(handles, hObject);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_AnimationArrowAbove_Callback(hObject, eventdata, handles)
+function menu_AnimationArrowAbove_Callback(hObject, ~, handles)
 % hObject    handle to menu_AnimationArrowAbove (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8625,7 +9292,7 @@ handles = ClickAnimation(handles, hObject);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_AnimationArrowBelow_Callback(hObject, eventdata, handles)
+function menu_AnimationArrowBelow_Callback(hObject, ~, handles)
 % hObject    handle to menu_AnimationArrowBelow (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8644,7 +9311,7 @@ set(hObject,'checked','on');
 
 
 % --------------------------------------------------------------------
-function menu_Animation_Callback(hObject, eventdata, handles)
+function menu_Animation_Callback(hObject, ~, handles)
 % hObject    handle to menu_Animation (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8653,7 +9320,7 @@ function menu_Animation_Callback(hObject, eventdata, handles)
 
 
 % --------------------------------------------------------------------
-function menu_ValueFollower_Callback(hObject, eventdata, handles)
+function menu_ValueFollower_Callback(hObject, ~, handles)
 % hObject    handle to menu_ValueFollower (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8664,7 +9331,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SonogramFollower_Callback(hObject, eventdata, handles)
+function menu_SonogramFollower_Callback(hObject, ~, handles)
 % hObject    handle to menu_SonogramFollower (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8679,21 +9346,21 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_ScalebarHeight_Callback(hObject, eventdata, handles)
+function menu_ScalebarHeight_Callback(hObject, ~, handles)
 % hObject    handle to menu_ScalebarHeight (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function context_UpdateList_Callback(hObject, eventdata, handles)
+function context_UpdateList_Callback(hObject, ~, handles) %#ok<*INUSD>
 % hObject    handle to context_UpdateList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_ChangeFiles_Callback(hObject, eventdata, handles)
+function menu_ChangeFiles_Callback(hObject, ~, handles)
 % hObject    handle to menu_ChangeFiles (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8714,7 +9381,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_DeleteFiles_Callback(hObject, eventdata, handles)
+function menu_DeleteFiles_Callback(hObject, ~, handles)
 % hObject    handle to menu_DeleteFiles (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8759,7 +9426,7 @@ set(handles.list_Files,'value',1);
 bck = get(handles.list_Files,'string');
 str = {};
 for c = 1:length(handles.sound_files)
-    str{c} = ['<HTML><FONT COLOR=000000>× ' handles.sound_files(c).name '</FONT></HTML>'];
+    str{c} = ['<HTML><FONT COLOR=000000>ï¿½ ' handles.sound_files(c).name '</FONT></HTML>'];
 end
 
 % Generate translation lists
@@ -8789,7 +9456,7 @@ end
 
 % Initialize variables for new files
 bck = handles.SoundThresholds(oldnum);
-handles.SoundThresholds = repmat(inf,1,handles.TotalFileNumber);
+handles.SoundThresholds = inf(1,handles.TotalFileNumber);
 handles.SoundThresholds(newnum) = bck;
 
 bck = handles.DatesAndTimes(oldnum);
@@ -8811,6 +9478,19 @@ handles.SegmentSelection(newnum) = bck;
 bck = handles.EventThresholds(:,oldnum);
 handles.EventThresholds = inf*ones(size(bck,1),handles.TotalFileNumber);
 handles.EventThresholds(:,newnum) = bck;
+
+bck = handles.MarkerTimes(oldnum);
+handles.MarkerTimes = cell(1,handles.TotalFileNumber);
+handles.MarkerTimes(newnum) = bck;
+
+bck = handles.MarkerTitles(oldnum);
+handles.MarkerTitles = cell(1,handles.TotalFileNumber);
+handles.MarkerTitles(newnum) = bck;
+
+bck = handles.MarkerSelection(oldnum);
+handles.MarkerSelection = cell(1,handles.TotalFileNumber);
+handles.MarkerSelection(newnum) = bck;
+
 
 bck = handles.EventTimes;
 for c = 1:length(bck)
@@ -8838,7 +9518,7 @@ handles.FileLength(newnum) = bck;
 
 
 % --------------------------------------------------------------------
-function menu_AutoApplyYLim_Callback(hObject, eventdata, handles)
+function menu_AutoApplyYLim_Callback(hObject, ~, handles)
 % hObject    handle to menu_AutoApplyYLim (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -8861,7 +9541,7 @@ end
 guidata(hObject, handles);
 
 
-function dbase = GetDBase(handles);
+function dbase = GetDBase(handles)
 
 dbase.PathName = handles.path_name;
 dbase.Times = handles.DatesAndTimes;
@@ -8877,6 +9557,10 @@ dbase.SegmentTimes = handles.SegmentTimes;
 dbase.SegmentTitles = handles.SegmentTitles;
 dbase.SegmentIsSelected = handles.SegmentSelection;
 
+dbase.MarkerTimes = handles.MarkerTimes;
+dbase.MarkerTitles = handles.MarkerTitles;
+dbase.MarkerIsSelected = handles.MarkerSelection;
+
 dbase.EventSources = handles.EventSources;
 dbase.EventFunctions = handles.EventFunctions;
 dbase.EventDetectors = handles.EventDetectors;
@@ -8888,6 +9572,250 @@ dbase.Properties = handles.Properties;
 
 dbase.AnalysisState.SourceList = get(handles.popup_Channel1,'string');
 dbase.AnalysisState.EventList = get(handles.popup_EventList,'string');
-dbase.AnalysisState.CurrentFile = str2num(get(handles.edit_FileNumber,'string'));
+dbase.AnalysisState.CurrentFile = getCurrentFileNum(handles);
 dbase.AnalysisState.EventWhichPlot = handles.EventWhichPlot;
 dbase.AnalysisState.EventLims = handles.EventLims;
+
+function suppressStupidCallbackWarnings()
+edit_FileNumber_Callback;
+edit_FileNumber_CreateFcn;
+push_PreviousFile_Callback;
+push_NextFile_Callback;
+list_Files_Callback;
+list_Files_CreateFcn;
+push_Properties_Callback;
+slider_Time_Callback;
+slider_Time_CreateFcn;
+menu_Experiment_Callback;
+push_Play_Callback;
+push_TimescaleRight_Callback;
+push_TimescaleLeft_Callback;
+edit_Timescale_Callback;
+edit_Timescale_CreateFcn;
+context_Sonogram_Callback;
+menu_AlgorithmList_Callback;
+menu_AutoCalculate_Callback;
+AlgorithmMenuClick;
+FilterMenuClick;
+push_Calculate_Callback;
+menu_ColorScale_Callback;
+menu_FreqLimits_Callback;
+context_Amplitude_Callback;
+menu_AutoThreshold_Callback;
+menu_AmplitudeAxisRange_Callback;
+menu_SmoothingWindow_Callback;
+click_Amplitude;
+menu_SetThreshold_Callback;
+click_loadfile;
+menu_LongFiles_Callback;
+context_Segments_Callback;
+menu_SegmenterList_Callback;
+SegmenterMenuClick;
+click_segmentaxes;
+push_Segment_Callback;
+menu_AutoSegment_Callback;
+menu_SegmentParameters_Callback;
+menu_DeleteAll_Callback;
+menu_UndeleteAll_Callback;
+popup_Function1_Callback;
+popup_Function1_CreateFcn;
+popup_Function2_Callback;
+popup_Function2_CreateFcn;
+popup_Channel1_Callback;
+popup_Channel1_CreateFcn;
+popup_Channel2_Callback;
+popup_Channel2_CreateFcn;
+context_Channel1_Callback;
+menu_PeakDetect1_Callback;
+context_Channel2_Callback;
+menu_PeakDetect2_Callback;
+menu_AllowYZoom1_Callback;
+menu_AllowYZoom2_Callback;
+menu_AutoLimits1_Callback;
+menu_AutoLimits2_Callback;
+menu_SetLimits1_Callback;
+menu_SetLimits2_Callback;
+popup_EventDetector1_Callback;
+popup_EventDetector1_CreateFcn;
+popup_EventDetector2_Callback;
+popup_EventDetector2_CreateFcn;
+menu_Events1_Callback;
+menu_EventAutoDetect1_Callback;
+menu_EventAutoThreshold1_Callback;
+menu_EventSetThreshold1_Callback;
+menu_Events2_Callback;
+menu_EventAutoDetect2_Callback;
+menu_EventAutoThreshold2_Callback;
+menu_EventSetThreshold2_Callback;
+push_Detect1_Callback;
+push_Detect2_Callback;
+ClickEventSymbol;
+EventsDisplayClick;
+menu_ChannelColors1_Callback;
+menu_PlotColor1_Callback;
+menu_ThresholdColor1_Callback;
+menu_ChannelColors2_Callback;
+menu_PlotColor2_Callback;
+menu_ThresholdColor2_Callback;
+push_BrightnessUp_Callback;
+push_BrightnessDown_Callback;
+push_OffsetUp_Callback;
+push_OffsetDown_Callback;
+menu_AmplitudeColors_Callback;
+menu_AmplitudeColor_Callback;
+menu_AmplitudeThresholdColor_Callback;
+push_PlayMix_Callback;
+edit_SoundWeight_Callback;
+edit_SoundWeight_CreateFcn;
+edit_TopWeight_Callback;
+edit_TopWeight_CreateFcn;
+edit_BottomWeight_Callback;
+edit_BottomWeight_CreateFcn;
+edit_SoundClipper_Callback;
+edit_SoundClipper_CreateFcn;
+edit_TopClipper_Callback;
+edit_TopClipper_CreateFcn;
+edit_BottomClipper_Callback;
+edit_BottomClipper_CreateFcn;
+check_Sound_Callback;
+check_TopPlot_Callback;
+check_BottomPlot_Callback;
+push_SoundOptions_Callback;
+menu_EventsDisplay1_Callback;
+menu_EventsDisplay2_Callback;
+menu_SelectionParameters1_Callback;
+menu_SelectionParameters2_Callback;
+popup_EventList_CreateFcn;
+context_EventViewer_Callback;
+menu_PlotToAnalyze_Callback;
+menu_AnalyzeTop_Callback;
+menu_ViewerDisplay_Callback;
+menu_AnalyzeBottom_Callback;
+menu_DisplayValues_Callback;
+menu_DisplayFeatures_Callback;
+push_DisplayEvents_Callback;
+menu_AutoDisplayEvents_Callback;
+menu_EventsAxisLimits_Callback;
+context_SoundOptions_Callback;
+menu_SoundWeights_Callback;
+menu_SoundClippers_Callback;
+menu_PlaySpeed_Callback;
+menu_ProgressBar_Callback;
+menu_ProgressSoundWave_Callback;
+menu_ProgressSonogram_Callback;
+menu_ProgressSegments_Callback;
+menu_ProgressAmplitude_Callback;
+menu_ProgressTop_Callback;
+menu_ProgressBottom_Callback;
+ChangeProgress;
+menu_XAxis_Callback;
+menu_Yaxis_Callback;
+menu_YAxis_Callback;
+XAxisMenuClick;
+YAxisMenuClick;
+popup_Export_Callback;
+popup_Export_CreateFcn;
+push_Export_Callback;
+push_ExportOptions_Callback;
+radio_Matlab_Callback;
+radio_PowerPoint_Callback;
+radio_Files_Callback;
+radio_Clipboard_Callback;
+push_UpdateFileList_Callback;
+push_WorksheetAppend_Callback;
+UpdateWorksheet;
+click_Worksheet;
+push_WorksheetOptions_Callback;
+push_PageLeft_Callback;
+push_PageRight_Callback;
+menu_FrequencyZoom_Callback;
+context_Worksheet_Callback;
+menu_WorksheetDelete_Callback;
+menu_SortChronologically_Callback;
+context_WorksheetOptions_Callback;
+menu_OnePerLine_Callback;
+menu_IncludeTitle_Callback;
+menu_EditTitle_Callback;
+menu_WorksheetDimensions_Callback;
+menu_ClearWorksheet_Callback;
+context_ExportOptions_Callback;
+menu_SonogramDimensions_Callback;
+menu_ScreenResolution_Callback;
+menu_SonogramExport_Callback;
+menu_CustomResolution_Callback;
+menu_WorksheetView_Callback;
+ViewWorksheet;
+push_Macros_Callback;
+context_Macros_Callback;
+MacrosMenuclick;
+menu_IncludeTimestamp_Callback;
+menu_Portrait_Callback;
+menu_Orientation_Callback;
+menu_Landscape_Callback;
+menu_ImageResolution_Callback;
+menu_ImageTimescale_Callback;
+menu_ScalebarDimensions_Callback;
+menu_EditFigureTemplate_Callback;
+menu_LineWidth1_Callback;
+menu_LineWidth2_Callback;
+setLineWidth;
+menu_BackgroundColor_Callback;
+menu_Colormap_Callback;
+ColormapClick;
+menu_OverlayTop_Callback;
+menu_Overlay_Callback;
+menu_OverlayBottom_Callback;
+menu_SonogramParameters_Callback;
+menu_EventParams1_Callback;
+menu_EventParams2_Callback;
+menu_FunctionParams1_Callback;
+menu_FunctionParams2_Callback;
+menu_Split_Callback;
+menu_SourceSoundAmplitude_Callback;
+menu_SourceTopPlot_Callback;
+menu_SourceBottomPlot_Callback;
+menu_Concatenate_Callback;
+menu_DontPlot_Callback;
+menu_IncludeSoundNone_Callback;
+menu_IncludeSoundOnly_Callback;
+menu_IncludeSoundMix_Callback;
+menu_PlayReverse_Callback;
+menu_FilterList_Callback;
+menu_FilterParameters_Callback;
+menu_FilterSound_Callback;
+menu_AddProperty_Callback;
+context_Properties_Callback;
+menu_AddPropertyString_Callback;
+menu_AddPropertyBoolean_Callback;
+menu_AddPropertyList_Callback;
+menu_RemoveProperty_Callback;
+menu_Search_Callback;
+menu_SearchNew_Callback;
+menu_SearchAnd_Callback;
+menu_SearchOr_Callback;
+menu_SearchNot_Callback;
+menu_RenameProperty_Callback;
+menu_FillProperty_Callback;
+menu_DefaultPropertyValue_Callback;
+menu_CleanUpList_Callback;
+menu_ProgressBarColor_Callback;
+menu_AnimationNone_Callback;
+menu_AnimationProgressBar_Callback;
+menu_AnimationArrowAbove_Callback;
+menu_AnimationArrowBelow_Callback;
+menu_Animation_Callback;
+menu_ValueFollower_Callback;
+menu_SonogramFollower_Callback;
+menu_ScalebarHeight_Callback;
+context_UpdateList_Callback;
+menu_ChangeFiles_Callback;
+menu_DeleteFiles_Callback;
+menu_AutoApplyYLim_Callback;
+
+
+% --- Executes on button press in ShowHelpButton.
+function ShowHelpButton_Callback(hObject, eventdata, handles)
+% hObject    handle to ShowHelpButton (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+msgbox(eg_HelpText(handles), 'electro_gui info and help:');

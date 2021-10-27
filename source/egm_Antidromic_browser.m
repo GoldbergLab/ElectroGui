@@ -148,7 +148,7 @@ else
     lms = round(handles.EventLims*handles.fs);
     for c = 1:handles.egh.TotalFileNumber
         if ~isempty(evtimes{c})
-            [data fs dt label props] = eval(['egl_' loader '([''' handles.egh.path_name '\' filelist(c).name '''],1)']);
+            [data, fs, dt, label, props] = eg_runPlugin(handles.egh.plugins.loaders, loader, fullfile(handles.egh.path_name, filelist(c).name), true);
             if size(data,1) > size(data,2)
                 data = data';
             end

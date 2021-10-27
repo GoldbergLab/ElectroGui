@@ -22,7 +22,7 @@ function varargout = egm_Sorted_rasters(varargin)
 
 % Edit the above text to modify the response to help egm_Sorted_rasters
 
-% Last Modified by GUIDE v2.5 06-Jun-2008 14:30:09
+% Last Modified by GUIDE v2.5 05-Oct-2021 16:00:04
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -250,7 +250,7 @@ function popup_TriggerSource_Callback(hObject, eventdata, handles)
 
 set(handles.popup_TriggerType,'value',1);
 if get(handles.popup_TriggerSource,'value') == 1
-    set(handles.popup_TriggerType,'string',{'Syllables','Motifs','Bouts'});
+    set(handles.popup_TriggerType,'string',{'Syllables', 'Markers', 'Motifs', 'Bouts'});
 else
     set(handles.popup_TriggerType,'string',{'Events','Bursts','Burst events','Single events','Pauses'});
 end
@@ -321,7 +321,7 @@ function popup_EventSource_Callback(hObject, eventdata, handles)
 set(handles.popup_EventType,'value',1);
 set(handles.popup_PSTHUnits,'value',1);
 if get(handles.popup_EventSource,'value') == 1
-    set(handles.popup_EventType,'string',{'Syllables','Motifs','Bouts'});
+    set(handles.popup_EventType,'string',{'Syllables','Markers','Motifs','Bouts'});
     set(handles.popup_EventType,'enable','on');
     set(handles.popup_PSTHUnits,'string',{'Rate (Hz)','Count per trial','Total count'});
     set(handles.popup_HistUnits,'string',{'Rate (Hz)','Count per trial','Total count','Fraction of time','Time per trial (sec)','Total time (sec)'});
@@ -597,6 +597,8 @@ val = get(obj,'value');
 switch str{val}
     case 'Syllables'
         indx = 1:2;
+    case 'Markers'
+        indx = 1:2;
     case 'Motifs'
         indx = 3:4;
     case 'Bouts'
@@ -612,10 +614,19 @@ switch str{val}
         indx = 11:12;
 end
 
-query = {'List of included syllables ('''' for unlabeled). Leave empty to include all.','List of excluded syllables',...
-    'Sequences of syllable labels to consider motifs','Maximum syllable separation (sec)','Maximum bout interval (sec)',...
-    'Minimum bout duration (sec)','Minimum number of syllables in a bout','Minimum burst frequency (Hz)',...
-    'Minimum number of events in a burst','Minimum pause duration (sec)','Smooth window (# points)','Subsample (sec)'};
+query = { ...
+    'List of included syllables/markers ('''' for unlabeled). Leave empty to include all.', ...
+    'List of excluded syllables/markers',...
+    'Sequences of syllable labels to consider motifs', ...
+    'Maximum syllable separation (sec)', ...
+    'Maximum bout interval (sec)',...
+    'Minimum bout duration (sec)', ...
+    'Minimum number of syllables in a bout', ...
+    'Minimum burst frequency (Hz)',...
+    'Minimum number of events in a burst', ...
+    'Minimum pause duration (sec)', ...
+    'Smooth window (# points)', ...
+    'Subsample (sec)'};
 motseq = '{';
 for c = 1:length(opt.motifSequences)
     if c > 1
@@ -624,9 +635,19 @@ for c = 1:length(opt.motifSequences)
     motseq = [motseq '''' opt.motifSequences{c} ''''];
 end
 motseq = [motseq '}'];
-def = {opt.includeSyllList,opt.ignoreSyllList,motseq,num2str(opt.motifInterval),num2str(opt.boutInterval),num2str(opt.boutMinDuration),...
-    num2str(opt.boutMinSyllables),num2str(opt.burstFrequency),num2str(opt.burstMinSpikes),num2str(opt.pauseMinDuration), ...
-    num2str(opt.contSmooth),num2str(opt.contSubsample)};
+def = { ...
+    opt.includeSyllList, ...
+    opt.ignoreSyllList, ...
+    motseq, ...
+    num2str(opt.motifInterval), ...
+    num2str(opt.boutInterval), ...
+    num2str(opt.boutMinDuration), ...
+    num2str(opt.boutMinSyllables), ...
+    num2str(opt.burstFrequency), ...
+    num2str(opt.burstMinSpikes), ...
+    num2str(opt.pauseMinDuration), ...
+    num2str(opt.contSmooth), ...
+    num2str(opt.contSubsample)};
 
 answer = inputdlg(query(indx),label,1,def(indx));
 if isempty(answer)
@@ -635,6 +656,9 @@ end
 
 switch str{val}
     case 'Syllables'
+        opt.includeSyllList = answer{1};
+        opt.ignoreSyllList = answer{2};
+    case 'Markers'
         opt.includeSyllList = answer{1};
         opt.ignoreSyllList = answer{2};
     case 'Motifs'
@@ -806,15 +830,15 @@ if get(handles.check_HoldOn,'value')==0 | handles.SkippingSort == 1
     handles.Order = 1:size(warpTimes,1);
     if get(handles.radio_YTrial,'value')==1
         str = get(handles.popup_SecondarySort,'string');
-        [triggerInfo ord] = SortTriggers(triggerInfo,str{get(handles.popup_SecondarySort,'value')},get(handles.check_SecondaryDescending,'value'),handles.P.event.includeSyllList,0);
+        [triggerInfo, ord] = SortTriggers(triggerInfo,str{get(handles.popup_SecondarySort,'value')},get(handles.check_SecondaryDescending,'value'),handles.P.event.includeSyllList,0);
         warpTimes = warpTimes(ord,:);
         handles.Order = handles.Order(ord);
         str = get(handles.popup_PrimarySort,'string');
-        [triggerInfo ord] = SortTriggers(triggerInfo,str{get(handles.popup_PrimarySort,'value')},get(handles.check_PrimaryDescending,'value'),handles.P.event.includeSyllList,get(handles.check_GroupLabels,'value'));
+        [triggerInfo, ord] = SortTriggers(triggerInfo,str{get(handles.popup_PrimarySort,'value')},get(handles.check_PrimaryDescending,'value'),handles.P.event.includeSyllList,get(handles.check_GroupLabels,'value'));
         warpTimes = warpTimes(ord,:);
         handles.Order = handles.Order(ord);
     else
-        [triggerInfo ord] = SortTriggers(triggerInfo,'Absolute time',0,handles.P.event.includeSyllList,0);
+        [triggerInfo, ord] = SortTriggers(triggerInfo,'Absolute time',0,handles.P.event.includeSyllList,0);
         warpTimes = warpTimes(ord,:);
         handles.Order = handles.Order(ord);
     end
@@ -1079,7 +1103,7 @@ str = get(handles.popup_EventType,'string');
 ev_str = str{get(handles.popup_EventType,'value')};
 str = get(handles.popup_EventSource,'string');
 ev_str = ['[' ev_str '] ' str{get(handles.popup_EventSource,'value')}];
-if ~isempty(findstr(ev_str,'Syllables'))
+if ~isempty(findstr(ev_str,'Syllables')) || ~isempty(findstr(ev_str,'Markers')) 
     if ~isempty(handles.P.event.includeSyllList)
         ev_str = [ev_str ' - Include ' handles.P.event.includeSyllList];
     end
@@ -2412,15 +2436,25 @@ for c = 1:length(lst)
             ons{c} = eoff(f);
             offs{c} = eon(f);
             inform.label{c} = zeros(length(f),1);            
-        case 'Syllables'
-            if ~isempty(handles.egh.SegmentTimes{lst(c)})
-                f = find(handles.egh.SegmentSelection{lst(c)}==1);
-                ons{c} = handles.egh.SegmentTimes{lst(c)}(f,1);
-                offs{c} = handles.egh.SegmentTimes{lst(c)}(f,2);
+        case {'Syllables', 'Markers'}
+            switch str
+                case 'Syllables'
+                    times = handles.egh.SegmentTimes{lst(c)};
+                    selection = handles.egh.SegmentSelection{lst(c)};
+                    titles = handles.egh.SegmentTitles{lst(c)};
+                case 'Markers'
+                    times = handles.egh.MarkerTimes{lst(c)};
+                    selection = handles.egh.MarkerSelection{lst(c)};
+                    titles = handles.egh.MarkerTitles{lst(c)};
+            end
+            if ~isempty(times)
+                f = find(selection==1);
+                ons{c} = times(f,1);
+                offs{c} = times(f,2);
                 lab = zeros(size(ons{c}));
                 for d = 1:length(lab)
-                    if ~isempty(handles.egh.SegmentTitles{lst(c)}{f(d)})
-                        lab(d) = double(handles.egh.SegmentTitles{lst(c)}{f(d)});
+                    if ~isempty(titles{f(d)})
+                        lab(d) = double(titles{f(d)});
                     end
                 end
                 inform.label{c} = lab;
@@ -2459,8 +2493,7 @@ for c = 1:length(lst)
                     offs{c}(f) = [];
                     inform.label{c}(f) = [];
                 end
-                
-            end            
+            end
         case 'Motifs'
             if ~isempty(handles.egh.SegmentTimes{lst(c)})
                 f = find(handles.egh.SegmentSelection{lst(c)}==1);
@@ -3601,6 +3634,25 @@ handles.egh.EventSelected = dbase.EventIsSelected;
 handles.egh.Properties = dbase.Properties;
 handles.egh.TotalFileNumber = length(handles.egh.sound_files);
 
+if isfield(dbase, 'MarkerTimes')
+    handles.egh.MarkerTimes = dbase.MarkerTimes;
+else
+    % This must be an older type of dbase - add blank marker field
+    handles.egh.MarkerTimes = cell(1,handles.egh.TotalFileNumber);
+end
+if isfield(dbase, 'MarkerTitles')
+    handles.egh.MarkerTitles = dbase.MarkerTitles;
+else
+    % This must be an older type of dbase - add blank marker field
+    handles.egh.MarkerTitles = cell(1,handles.egh.TotalFileNumber);
+end
+if isfield(dbase, 'MarkerIsSelected')
+    handles.egh.MarkerSelection = dbase.MarkerIsSelected;
+else
+    % This must be an older type of dbase - add blank marker field
+    handles.egh.MarkerSelection = cell(1,handles.egh.TotalFileNumber);
+end
+
 handles.egh.overlaptolerance = 0.0001;
 handles.egh = Fix_Overlap(handles.egh);
 
@@ -3632,13 +3684,13 @@ end
 set(handles.popup_EventSource,'string',str);
 
 if get(handles.popup_TriggerSource,'value') == 1
-    set(handles.popup_TriggerType,'string',{'Syllables','Motifs','Bouts'});
+    set(handles.popup_TriggerType,'string',{'Syllables','Markers','Motifs','Bouts'});
 else
     set(handles.popup_TriggerType,'string',{'Events','Bursts','Burst events','Single events','Pauses'});
 end
 
 if get(handles.popup_EventSource,'value') == 1
-    set(handles.popup_EventType,'string',{'Syllables','Motifs','Bouts'});
+    set(handles.popup_EventType,'string',{'Syllables','Markers','Motifs','Bouts'});
 else
     set(handles.popup_EventType,'string',{'Events','Bursts','Burst events','Single events','Pauses'});
 end
@@ -4357,8 +4409,8 @@ end
 function [funct lab indx] = getContinuousFunction(handles,filenum,axnum,doSubsample)
 
 
-val = get(handles.egh.(['popup_Channel',num2str(axnum)]),'value');
-str = get(handles.egh.(['popup_Channel',num2str(axnum)]),'string');
+val = get(handles.egh.popup_Channels(axnum),'value');
+str = get(handles.egh.popup_Channels(axnum),'string');
 nums = [];
 for c = 1:length(handles.egh.EventTimes);
     nums(c) = size(handles.egh.EventTimes{c},1);
@@ -4375,9 +4427,9 @@ if val <= length(str)-sum(nums)
         for ovr = 1:length(fm);
             chan = str2num(str{val}(9:end));
             if length(str{val})>4 & strcmp(str{val}(1:5),'Sound')
-                [funct1 fs dt lab props] = eval(['egl_' handles.egh.sound_loader '([''' handles.egh.path_name '\' handles.egh.sound_files(fm(ovr)).name '''],1)']);
+                [funct1, fs, dt, lab, props] = eg_runPlugin(handles.egh.plugins.loaders, handles.egh.sound_loader, fullfile(handles.egh.path_name, handles.egh.sound_files(fm(ovr)).name), true);
             else
-                [funct1 fs dt lab props] = eval(['egl_' handles.egh.chan_loader{chan} '([''' handles.egh.path_name '\' handles.egh.chan_files{chan}(fm(ovr)).name '''],1)']);
+                [funct1, fs, dt, lab, props] = eg_runPlugin(handles.egh.plugins.loaders, handles.egh.chan_loader{chan}, fullfile(handles.egh.path_name, handles.egh.chan_files{chan}(fm(ovr)).name), true);
             end
             funct(pos(ovr)+1:pos(ovr)+length(funct1)) = funct1;
         end
@@ -4398,21 +4450,21 @@ else
     funct = ev;
 end
 
-if get(handles.egh.(['popup_Function',num2str(axnum)]),'value') > 1
-    str = get(handles.egh.(['popup_Function',num2str(axnum)]),'string');
-    str = str{get(handles.egh.(['popup_Function',num2str(axnum)]),'value')};
+if get(handles.egh.popup_Functions(axnum),'value') > 1
+    str = get(handles.egh.popup_Functions(axnum),'string');
+    str = str{get(handles.egh.popup_Functions(axnum),'value')};
     f = findstr(str,' - ');
     if isempty(f)
-        [funct lab] = eval(['egf_' str '(funct,handles.egh.fs,handles.egh.FunctionParams' num2str(axnum) ')']);
+        [funct, lab] = eg_runPlugin(handles.egh.plugins.filters, str, funct,handles.egh.fs,handles.egh.FunctionParams{axnum});
     else
-        strall = get(handles.(['popup_Function',num2str(axnum)]),'string');
+        strall = get(handles.popup_Functions(axnum),'string');
         count = 0;
-        for c = 1:get(handles.(['popup_Function',num2str(axnum)]),'value')
+        for c = 1:get(handles.popup_Functions(axnum),'value')
             count = count + strcmp(strall{c}(1:min([f-1 length(strall{c})])),str(1:f-1));
         end
-        [funct lab] = eval(['egf_' str(1:f-1) '(funct,handles.egh.fs,handles.egh.FunctionParams' num2str(axnum) ')']);
+        [funct, lab] = eg_runPlugin(handles.egh.plugins.filters, str(1:f-1), funct,handles.egh.fs,handles.egh.FunctionParams{axnum});
         funct = funct{count};
-        lab = lab{count}
+        lab = lab{count};
     end
 end
 
@@ -5296,8 +5348,9 @@ function push_AutoColor_Callback(hObject, eventdata, handles)
 
 str = get(handles.popup_TriggerType,'string');
 is_syllable = strcmp(str{get(handles.popup_TriggerType,'value')},'Syllables');
+is_marker = strcmp(str{get(handles.popup_TriggerType,'value')},'Markers');
 
-if ~isempty(handles.P.trig.includeSyllList) & is_syllable == 1
+if ~isempty(handles.P.trig.includeSyllList) && (is_syllable || is_marker)
     inc = handles.P.trig.includeSyllList;
     inc = double(inc);
     f = findstr(inc,'''''');
@@ -5309,7 +5362,7 @@ else
     inc = unique(handles.triggerInfo.label);
 end
 
-if ~isempty(handles.P.trig.ignoreSyllList) & is_syllable == 1
+if ~isempty(handles.P.trig.ignoreSyllList) && (is_syllable || is_marker)
     exc = handles.P.trig.ignoreSyllList;
     exc = double(exc);
     f = findstr(exc,'''''');
@@ -5445,7 +5498,7 @@ for c = 1:length(inc)
     end
     if inc(c) == 0
         lb = ' Unlabeled ';
-    elseif is_syllable == 1
+    elseif is_syllable || is_marker
         lb = [' ' char(inc(c)) ' '];
     else
         lb = [' ' num2str(inc(c)-1000) ' '];
@@ -5618,6 +5671,9 @@ function check_SkipSorting_Callback(hObject, eventdata, handles)
 
 
 function handles = Fix_Overlap(handles)
+% Note that this is normally called like so:
+% handles.egh = Fix_Overlap(handles.egh)
+% So the 'handles' struct is really the electro_gui handles struct.
 
 handles.Overlaps = 1:length(handles.DatesAndTimes);
 
@@ -5641,6 +5697,14 @@ for c = length(handles.DatesAndTimes)-1:-1:1
         handles.SegmentTitles{c+1} = {};
         handles.SegmentSelection{c} = [handles.SegmentSelection{c} handles.SegmentSelection{c+1}];
         handles.SegmentSelection{c+1} = [];
+
+        handles.MarkerTimes{c} = [handles.MarkerTimes{c}; handles.MarkerTimes{c+1}+round((handles.DatesAndTimes(c+1)-handles.DatesAndTimes(c))*(24*60*60)*handles.fs)];
+        handles.MarkerTimes{c+1} = zeros(0,2);
+        handles.MarkerTitles{c} = [handles.MarkerTitles{c} handles.MarkerTitles{c+1}];
+        handles.MarkerTitles{c+1} = {};
+        handles.MarkerSelection{c} = [handles.MarkerSelection{c} handles.MarkerSelection{c+1}];
+        handles.MarkerSelection{c+1} = [];
+        
         for d = 1:length(handles.EventTimes)
             for e = 1:size(handles.EventTimes{d},1)
                 handles.EventTimes{d}{e,c} = [handles.EventTimes{d}{e,c}; handles.EventTimes{d}{e,c+1}+round((handles.DatesAndTimes(c+1)-handles.DatesAndTimes(c))*(24*60*60)*handles.fs)];
@@ -5657,13 +5721,18 @@ for c = length(handles.DatesAndTimes)-1:-1:1
 end
 
 for c = 1:length(handles.DatesAndTimes)
-    [dummy ord] = sortrows(handles.SegmentTimes{c});
+    [~, ord] = sortrows(handles.SegmentTimes{c});
     handles.SegmentTimes{c} = handles.SegmentTimes{c}(ord,:);
     handles.SegmentTitles{c} = handles.SegmentTitles{c}(ord);
     handles.SegmentSelection{c} = handles.SegmentSelection{c}(ord);
-    
+
+    [~, ord] = sortrows(handles.MarkerTimes{c});
+    handles.MarkerTimes{c} = handles.MarkerTimes{c}(ord,:);
+    handles.MarkerTitles{c} = handles.MarkerTitles{c}(ord);
+    handles.MarkerSelection{c} = handles.MarkerSelection{c}(ord);
+
     for d = 1:length(handles.EventTimes)
-        [dummy ord] = sort(handles.EventTimes{d}{1,c});
+        [~, ord] = sort(handles.EventTimes{d}{1,c});
         for e = 1:size(handles.EventTimes{d},1)
             handles.EventTimes{d}{e,c} = handles.EventTimes{d}{e,c}(ord);
             handles.EventSelected{d}{e,c} = handles.EventSelected{d}{e,c}(ord);
@@ -5679,6 +5748,18 @@ for c = 1:length(handles.DatesAndTimes)
             handles.SegmentTimes{c}(d+1:max(f),:) = [];
             handles.SegmentTitles{c}(d+1:max(f)) = [];
             handles.SegmentSelection{c}(d+1:max(f)) = [];
+        end
+    end
+    
+    % Marker overlaps
+    for d = size(handles.MarkerTimes{c},1)-1:-1:1
+        f = find((1:size(handles.MarkerTimes{c},1))' > d & handles.MarkerTimes{c}(d,2) > handles.MarkerTimes{c}(:,1));
+        if ~isempty(f)
+            handles.MarkerTimes{c}(d,1) = min(handles.MarkerTimes{c}(d:max(f),1));
+            handles.MarkerTimes{c}(d,2) = max(handles.MarkerTimes{c}(d:max(f),2));
+            handles.MarkerTimes{c}(d+1:max(f),:) = [];
+            handles.MarkerTitles{c}(d+1:max(f)) = [];
+            handles.MarkerSelection{c}(d+1:max(f)) = [];
         end
     end
     

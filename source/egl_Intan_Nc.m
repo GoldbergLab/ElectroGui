@@ -4,7 +4,7 @@ function [data, fs, dateandtime, label, props] = egl_Intan_Nc(filename, loaddata
 % Reads Intan data files saved as binary nc files (netCDF format)
 % Extracts date and time information from the file
 
-if loaddata == 1
+if loaddata
     loadedData = readIntanNcFile(filename);
     fs = 1/loadedData.dt;
     data = double(loadedData.data);

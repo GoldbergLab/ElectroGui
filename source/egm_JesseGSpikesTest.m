@@ -499,9 +499,9 @@ val = get(handles.(['popup_Channel',num2str(axnum)]),'value');
 str = get(handles.(['popup_Channel',num2str(axnum)]),'string');
 chan = str2num(str{val}(9:end));
 if length(str{val})>4 & strcmp(str{val}(1:5),'Sound')
-    [funct fs dt lab props] = eval(['egl_' handles.sound_loader '([''' handles.path_name '\' handles.sound_files(filenum).name '''],1)']);
+    [funct, fs, dt, lab, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.path_name, handles.sound_files(filenum).name), true);
 else
-    [funct fs dt lab props] = eval(['egl_' handles.chan_loader{chan} '([''' handles.path_name '\' handles.chan_files{chan}(filenum).name '''],1)']);
+    [funct, fs, dt, lab, props] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{chan}, fullfile(handles.path_name, handles.chan_files{chan}(filenum).name), true);
 end
 
 % Run currently displayed function on the data
@@ -510,14 +510,14 @@ if get(handles.(['popup_Function',num2str(axnum)]),'value') > 1
     str = str{get(handles.(['popup_Function',num2str(axnum)]),'value')};
     f = findstr(str,' - ');
     if isempty(f) % regular function
-        [funct lab] = eval(['egf_' str '(funct,handles.fs,handles.FunctionParams' num2str(axnum) ')']);
+        [funct, ~] = eg_runPlugin(handles.plugins.filters, str, funct, handles.fs, handles.FunctionParams{axnum});
     else % multi-channel function
         strall = get(handles.(['popup_Function',num2str(axnum)]),'string');
         count = 0;
         for c = 1:get(handles.(['popup_Function',num2str(axnum)]),'value')
             count = count + strcmp(strall{c}(1:min([f-1 length(strall{c})])),str(1:f-1));
         end
-        [funct lab] = eval(['egf_' str(1:f-1) '(funct,handles.fs,handles.FunctionParams' num2str(axnum) ')']);
+        [funct, ~] = eg_runPlugin(handles.plugins.filters, str(1:f-1), funct, handles.fs, handles.FunctionParams{axnum});
         funct = funct{count};
     end
 end
