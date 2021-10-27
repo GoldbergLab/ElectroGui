@@ -2811,9 +2811,19 @@ function click_segmentaxes(hObject, ~, handles)
 filenum = getCurrentFileNum(handles);
 
 if strcmp(get(gcf,'selectiontype'),'normal')
+    % This code takes a selection of segments and toggles their selection
+    %   status. Note that it used to set the selection status to unselected
+    %   if less than half of the selected segments were selected. Which
+    %   seems...convoluted and weird. So I changed it to just toggling all
+    %   the selection statuses.
     set(gca,'units','pixels');
     set(get(gca,'parent'),'units','pixels');
     rect = rbbox;
+
+    if rect(3) < 10
+    % This was probably not intended to be a click-and-drag - ignore it
+        return
+    end
 
     pos = get(gca,'position');
     set(get(gca,'parent'),'units','normalized');
@@ -2822,13 +2832,13 @@ if strcmp(get(gcf,'selectiontype'),'normal')
 
     rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
     rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
-
+   
     f = find(handles.SegmentTimes{filenum}(:,1)>rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*handles.fs);
     g = find(handles.SegmentTimes{filenum}(:,2)>rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*handles.fs);
     h = find(handles.SegmentTimes{filenum}(:,1)<rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*handles.fs);
     f = unique([f; g; h]);
 
-    handles.SegmentSelection{filenum}(f) = sum(handles.SegmentSelection{filenum}(f))<=length(f)/2;
+    handles.SegmentSelection{filenum}(f) = ~handles.SegmentSelection{filenum}(f); %sum(handles.SegmentSelection{filenum}(f))<=length(f)/2;
 
     set(handles.SegmentHandles,'facecolor',handles.SegmentSelectColor);
     set(handles.SegmentHandles(find(handles.SegmentSelection{filenum}==0)),'facecolor',handles.SegmentUnSelectColor);
