@@ -1144,8 +1144,10 @@ if ~strcmp(getEventFunction(handles, fileNum, channelNum), newEventFunction)
 end
 
 function handles = eg_LoadChannel(handles,axnum)
+% Load a new channel of data
 
 if get(handles.(['popup_Channel',num2str(axnum)]),'value')==1
+    % This is "(None)" channel selection, so disable everything
     cla(handles.axes_Channel(axnum));
     set(handles.axes_Channel(axnum),'visible','off');
     set(handles.popup_Functions(axnum),'enable','off');
@@ -1155,6 +1157,8 @@ if get(handles.(['popup_Channel',num2str(axnum)]),'value')==1
     handles = UpdateEventBrowser(handles);
     return
 else
+    % This is an actual channel selection, enable the axes and function
+    % menu.
     set(handles.axes_Channel(axnum),'visible','on');
     set(handles.popup_Functions(axnum),'enable','on');
 end
@@ -1169,6 +1173,7 @@ for c = 1:length(handles.EventTimes);
     nums(c) = size(handles.EventTimes{c},1);
 end
 if val <= length(str)-sum(nums)
+    % No idea what this signifies
     if isSound
         [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.path_name, handles.sound_files(filenum).name), true);
     else
@@ -1194,9 +1199,22 @@ else
     handles.Labels{axnum} = str(f+3:end);
 end
 
+% If available, use the default channel filter (from defaults file)
+if isfield(handles, 'DefaultChannelFunction')
+    % handles.DefaultChannelFilter is defined
+    allFunctionNames = get(handles.popup_Functions(axnum),'string');
+    defaultChannelFunctionIdx = find(strcmp(allFunctionNames, handles.DefaultChannelFunction));
+    if ~isempty(defaultChannelFunctionIdx)
+        set(handles.popup_Functions(axnum), 'value', defaultChannelFunctionIdx);
+    else
+        warning('Found a default channel function in the defaults file, but it was not a recognized function: %s', handles.DefaultChannelFunction);
+    end
+end
+
 if get(handles.popup_Functions(axnum),'value') > 1
-    str = get(handles.popup_Functions(axnum),'string');
-    str = str{get(handles.popup_Functions(axnum),'value')};
+    % This is not the "(Raw)" function - apply the selected function
+    allFunctionNames = get(handles.popup_Functions(axnum),'string');
+    str = allFunctionNames{get(handles.popup_Functions(axnum),'value')};
     val = handles.loadedChannelData{axnum};
     f = findstr(str,' - ');
     if isempty(f)
