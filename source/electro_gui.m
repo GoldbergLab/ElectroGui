@@ -78,6 +78,11 @@ user = lic(1).user;
 f = regexpi(user,'[A-Z1-9]');
 user = user(f);
 
+% Unread file marker:
+handles.UnreadFileMarker = '> ';
+handles.FileEntryOpenTag = '<HTML><FONT COLOR=000000>';
+handles.FileEntryCloseTag = '</FONT></HTML>';
+
 % Segment/Marker colors
 handles.SegmentSelectColor = 'r';
 handles.SegmentUnSelectColor = [0.7, 0.5, 0.5];
@@ -904,8 +909,10 @@ function handles = eg_LoadFile(handles)
 fileNum = getCurrentFileNum(handles);
 set(handles.list_Files,'value',fileNum);
 str = get(handles.list_Files,'string');
-if strcmp(str{fileNum}(26:27),'� ')
-    str{fileNum} = str{fileNum}([1:25 28:end]);
+
+% Remove unread file marker from filename
+if isFileUnread(handles, str{fileNum})
+    str{fileNum} = removeUnreadFileMarker(handles, str{fileNum});
     set(handles.list_Files,'string',str);
 end
 
@@ -2101,7 +2108,7 @@ set(handles.popup_EventList,'value',1);
 
 str = {};
 for c = 1:length(handles.sound_files)
-    str{c} = ['<HTML><FONT COLOR=000000>� ' handles.sound_files(c).name '</FONT></HTML>'];
+    str{c} = makeFileEntry(handles, handles.sound_files(c).name, true);
 end
 set(handles.list_Files,'string',str);
 
@@ -2364,12 +2371,7 @@ set(handles.edit_FileNumber,'string','1');
 set(handles.list_Files,'value',1);
 str = {};
 for c = 1:length(handles.sound_files)
-    if handles.FileLength(c) > 0
-        str{c} = handles.sound_files(c).name;
-    else
-        str{c} = ['� ' handles.sound_files(c).name];
-    end
-    str{c} = ['<HTML><FONT COLOR=000000>' str{c} '</FONT></HTML>'];
+    str{c} = makeFileEntry(handles, handles.sound_files(c).name, handles.FileLength(c) <= 0);
 end
 set(handles.list_Files,'string',str);
 
@@ -8611,7 +8613,7 @@ switch button
     case 'Some files...'
         str = get(handles.list_Files,'string');
         for c = 1:length(str)
-            str{c} = [num2str(c) '. ' str{c}(26:end-14)];
+            str{c} = [num2str(c), '. ', extractFileNameFromEntry(handles, str{c}, true)];
         end
         [indx,ok] = listdlg('ListString',str,'InitialValue',filenum,'ListSize',[300 450],'Name','Select files','PromptString','Files to add new property to');
         if ok == 0
@@ -8715,7 +8717,7 @@ switch button
     case 'Some files...'
         str = get(handles.list_Files,'string');
         for c = 1:length(str)
-            str{c} = [num2str(c) '. ' str{c}(26:end-14)];
+            str{c} = [num2str(c) '. ' extractFileNameFromEntry(handles, str{c}, true)];
         end
         [indx,ok] = listdlg('ListString',str,'InitialValue',filenum,'ListSize',[300 450],'Name','Select files','PromptString','Files to remove property from');
         if ok == 0
@@ -8981,7 +8983,7 @@ end
 
 str = get(handles.list_Files,'string');
 for c = 1:length(str)
-    str{c} = [num2str(c) '. ' str{c}(26:end-14)];
+    str{c} = [num2str(c) '. ' extractFileNameFromEntry(handles, str{c}, true)];
 end
 [files,ok] = listdlg('ListString',str,'InitialValue',filenum,'ListSize',[300 450],'Name','Select files','PromptString',['Files in which to fill property "' handles.PropertyNames{indx} '"']);
 if isempty(files)
@@ -9348,6 +9350,44 @@ handles = eg_LoadFile(handles);
 guidata(hObject, handles);
 
 
+function fileEntry = makeFileEntry(handles, fileName, unread)
+% Construct a file entry
+% filename = name of file
+% unread = boolean - has it been read or not?
+if strcmp(fileName(1:length(handles.UnreadFileMarker)), handles.UnreadFileMarker)
+    warning('Loaded a file that starts with the same character in use as the unread file marker character. This will probably cause some problems.');
+end
+fileEntry = [handles.FileEntryOpenTag, repmat(handles.UnreadFileMarker, [1, unread]), fileName, handles.FileEntryCloseTag];
+
+function fileName = extractFileNameFromEntry(handles, fileEntry, includeUnreadMarker)
+% Get the filename from the file entry (which may include the unread file
+% marker)
+% fileEntry = a file entry string from the file listbox
+% includeUnreadFileMarker = a boolean - should we include the unread file marker in the returned name?
+unreadFileMarkerStart = length(handles.FileEntryOpenTag)+1;
+unreadFileMarkerEnd = length(handles.FileEntryOpenTag)+length(handles.UnreadFileMarker)-1;
+if ~includeUnreadMarker && strcmp(fileEntry(unreadFileMarkerStart:unreadFileMarkerEnd), handles.UnreadFileMarker)
+    fileName = fileEntry(unreadFileMarkerEnd+1:(end-length(handles.FileEntryCloseTag)));
+else
+    fileName = fileEntry(length(handles.FileEntryOpenTag)+1:(end-length(handles.FileEntryCloseTag)));    
+end
+
+function newFileEntry = removeUnreadFileMarker(handles, fileEntry)
+% Remove the unread file marker from a file entry
+% fileEntry = a file entry string from the file listbox
+% newFileEntry = the same file entry string with the unread file marker removed.
+unreadFileMarkerStart = length(handles.FileEntryOpenTag)+1;
+unreadFileMarkerEnd = unreadFileMarkerStart+length(handles.UnreadFileMarker)-1;
+newFileEntry = [fileEntry(1:unreadFileMarkerStart-1), fileEntry(unreadFileMarkerEnd+1:end)];
+
+function isUnread = isFileUnread(handles, fileEntry)
+% Check if file in this file entry is unread
+% fileEntry = a file entry string from the file listbox
+unreadFileMarkerStart = length(handles.FileEntryOpenTag)+1;
+unreadFileMarkerEnd = unreadFileMarkerStart+length(handles.UnreadFileMarker)-1;
+isUnread = strcmp(fileEntry(unreadFileMarkerStart:unreadFileMarkerEnd), handles.UnreadFileMarker);
+
+
 function handles = UpdateFiles(handles, old_sound_files)
 
 handles.TotalFileNumber = length(handles.sound_files);
@@ -9365,7 +9405,7 @@ set(handles.list_Files,'value',1);
 bck = get(handles.list_Files,'string');
 str = {};
 for c = 1:length(handles.sound_files)
-    str{c} = ['<HTML><FONT COLOR=000000>� ' handles.sound_files(c).name '</FONT></HTML>'];
+    str{c} = makeFileEntry(handles, handles.sound_files(c).name, true);
 end
 
 % Generate translation lists
@@ -9377,7 +9417,7 @@ for c = 1:length(old_sound_files)
         if strcmp(old_sound_files(c).name,handles.sound_files(d).name)
             oldnum(end+1) = c;
             newnum(end+1) = d;
-            str{d} = str{d}([1:25 28:end]);
+            str{d} = removeUnreadFileMarker(handles, str{d});
             if c==oldfilenum
                 newfilenum = d;
             end
