@@ -1945,9 +1945,11 @@ SSs = handles.SegmentSelection{filenum};
 SNs = handles.SegmentTitles{filenum};
 
 if isempty(STs)
+    % No existing segments
     ind = 1;
 else
-    ind = getSortedArrayInsertion(STs, t0);
+    % Insert marker into appropriate place in segment arrays
+    ind = getSortedArrayInsertion(STs(:, 1), t0);
 end
 handles.SegmentTimes{filenum} = [STs(1:ind-1, :); [t0, t1]; STs(ind:end, :)];
 handles.SegmentSelection{filenum} = [SSs(1:ind-1), MS, SSs(ind:end)];
@@ -1967,8 +1969,10 @@ MSs = handles.MarkerSelection{filenum};
 MNs = handles.MarkerTitles{filenum};
 
 if isempty(MTs)
+    % No existing markers
     ind = 1;
 else
+    % Insert segment into appropriate place in marker arrays
     ind = getSortedArrayInsertion(MTs(:, 1), t0);
 end
 handles.MarkerTimes{filenum} = [MTs(1:ind-1, :); [t0, t1]; MTs(ind:end, :)];
