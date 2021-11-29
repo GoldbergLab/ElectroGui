@@ -52,7 +52,7 @@ try
 
     for c = 1:num_chan+1
         fstr = sprintf(handles.FileString, c-1);
-        if strcmp(fstr, handles.FileString) && strfind(handles.FileString, '##')
+        if strcmp(fstr, handles.FileString) && ~isempty(strfind(handles.FileString, '#'))
             % fstr is the same as handles.FileString, so it must not contain a
             % formatting pattern, and it does contain ##, which indicates this
             % is the legacy format.
