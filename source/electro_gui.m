@@ -1201,7 +1201,6 @@ if get(handles.popup_Functions(axnum),'value') > 1
     f = findstr(str,' - ');
     if isempty(f)
         [chan, lab] = eg_runPlugin(handles.plugins.filters, str, val, handles.fs, handles.FunctionParams{axnum});
-%        [chan lab] = eval(['egf_' str '(val,handles.fs,handles.FunctionParams' num2str(axnum) ')']);
         if iscell(lab)
             handles.Labels{axnum} = lab{1};
             handles.loadedChannelData{axnum} = chan{1};
@@ -1244,7 +1243,6 @@ if get(handles.popup_Functions(axnum),'value') > 1
             handles.loadedChannelData{axnum} = handles.BackupChan{axnum}{count};
         else
             [chan, lab] = eg_runPlugin(handles.plugins.filters, str(1:f-1), val, handles.fs, handles.FunctionParams{axnum});
-%            [chan lab] = eval(['egf_' str(1:f-1) '(val,handles.fs,handles.FunctionParams' num2str(axnum) ')']);
             handles.Labels{axnum} = lab{count};
             handles.loadedChannelData{axnum} = chan{count};
             handles.BackupChan{axnum} = chan;
@@ -1378,7 +1376,6 @@ handles.SegmenterParams.IsSplit = 0;
 handles.SegmentTimes{filenum} = eg_runPlugin(handles.plugins.segmenters, ...
     alg, handles.amplitude, handles.fs, handles.CurrentThreshold, ...
     handles.SegmenterParams);
-%handles.SegmentTimes{filenum} = eval(['egg_' alg '(handles.amplitude,handles.fs,handles.CurrentThreshold,handles.SegmenterParams)']);
 handles.SegmentTitles{filenum} = cell(1,size(handles.SegmentTimes{filenum},1));
 handles.SegmentSelection{filenum} = ones(1,size(handles.SegmentTimes{filenum},1));
 
@@ -1565,7 +1562,6 @@ set(hObject,'checked','on');
 if isempty(get(hObject,'userdata'))
     alg = get(hObject,'label');
     handles.SonogramParams = eg_runPlugin(handles.plugins.spectrums, alg, 'params');
-%    handles.SonogramParams = eval(['egs_' alg '(''params'')']);
     set(hObject,'userdata',handles.SonogramParams);
 else
     handles.SonogramParams = get(hObject,'userdata');
@@ -1588,7 +1584,6 @@ set(hObject,'checked','on');
 if isempty(get(hObject,'userdata'))
     alg = get(hObject,'label');
     handles.FilterParams = eg_runPlugin(handles.plugins.functions, alg, 'params');
-%    handles.FilterParams = eval(['egf_' alg '(''params'')']);
     set(hObject,'userdata',handles.FilterParams);
 else
     handles.FilterParams = get(hObject,'userdata');
@@ -1602,7 +1597,6 @@ end
 
 handles.filtered_sound = eg_runPlugin(handles.plugins.filters, alg, ...
     handles.sound, handles.fs, handles.FilterParams);
-%handles.filtered_sound = eval(['egf_' alg '(handles.sound,handles.fs,handles.FilterParams)']);
 
 subplot(handles.axes_Sound)
 xd = get(handles.xlimbox,'xdata');
@@ -1729,7 +1723,6 @@ end
 handles.ispower = eg_runPlugin(handles.plugins.spectrums, alg, ...
     handles.axes_Sonogram, handles.sound(xlp(1):xlp(2)), handles.fs, ...
     handles.SonogramParams);
-%handles.ispower = eval(['egs_' alg '(handles.axes_Sonogram,handles.sound(xlp(1):xlp(2)),handles.fs,handles.SonogramParams)']);
 set(handles.axes_Sonogram,'units','normalized');
 set(gca,'ydir','normal');
 set(gca,'uicontextmenu',handles.context_Sonogram);
@@ -2139,7 +2132,6 @@ for c = 1:length(handles.menu_Segmenter)
 end
 if isempty(get(h,'userdata'))
     handles.SegmenterParams = eg_runPlugin(handles.plugins.segmenters, alg, 'params');
-%    handles.SegmenterParams = eval(['egg_' alg '(''params'')']);
     set(h,'userdata',handles.SegmenterParams);
 else
     handles.SegmenterParams = get(h,'userdata');
@@ -2154,7 +2146,6 @@ for c = 1:length(handles.menu_Algorithm)
 end
 if isempty(get(h,'userdata'))
     handles.SonogramParams = eg_runPlugin(handles.plugins.spectrums, alg, 'params');
-%    handles.SonogramParams = eval(['egs_' alg '(''params'')']);
     set(h,'userdata',handles.SonogramParams);
 else
     handles.SonogramParams = get(h,'userdata');
@@ -2169,7 +2160,6 @@ for c = 1:length(handles.menu_Filter)
 end
 if isempty(get(h,'userdata'))
     handles.FilterParams = eg_runPlugin(handles.plugins.filters, alg, 'params');
-%    handles.FilterParams = eval(['egf_' alg '(''params'')']);
     set(h,'userdata',handles.FilterParams);
 else
     handles.FilterParams = get(h,'userdata');
@@ -2183,7 +2173,6 @@ for axnum = 1:2
         str = get(handles.(['popup_EventDetector' num2str(axnum)]),'string');
         dtr = str{v};
         [handles.EventParams{axnum}, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, 'params');
-%        [handles.EventParams{axnum} labels] = eval(['ege_' dtr '(''params'')']);
         ud{v} = handles.EventParams{axnum};
         set(handles.(['popup_EventDetector' num2str(axnum)]),'userdata',ud);
     else
@@ -2199,7 +2188,6 @@ for axnum = 1:2
         str = get(handles.popup_Functions(axnum),'string');
         dtr = str{v};
         [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
-%        [handles.FunctionParams{axnum} labels] = eval(['egf_' dtr '(''params'')']);
         ud{v} = handles.FunctionParams{axnum};
         set(handles.popup_Functions(axnum),'userdata',ud);
     else
@@ -2232,7 +2220,6 @@ for c = 1:handles.TotalFileNumber
     [~, ~, ~, ~, props] = eg_runPlugin(handles.plugins.loaders, ...
         handles.sound_loader, fullfile(handles.path_name, ...
         handles.sound_files(c).name), 0);
-%    [~, ~, ~, ~, props] = eval(['egl_' handles.sound_loader '([''' handles.path_name '\' handles.sound_files(c).name '''],0)']);
     handles.Properties.Names{c} = [props.Names, defaultProps.Names];
     handles.Properties.Values{c} = [props.Values, defaultProps.Values];
     handles.Properties.Types{c} = [props.Types, defaultProps.Types];
@@ -2397,7 +2384,6 @@ else
     for c = 1:length(dbase.EventTimes)
         [param, labels] = eg_runPlugin(handles.plugins.eventDetectors, ...
             dbase.EventDetectors{c}, 'params');
-%        [param labels] = eval(['ege_' dbase.EventDetectors{c} '(''params'')']);
         for d = 1:length(labels)
             str{end+1} = [dbase.EventSources{c} ' - ' dbase.EventFunctions{c} ' - ' labels{d}];
         end
@@ -2408,7 +2394,6 @@ else
     str = {'(None)'};
     for c = 1:length(dbase.EventTimes)
         [param, labels] = eg_runPlugin(handles.plugins.eventDetectors, 'params');
-%        [param labels] = eval(['ege_' dbase.EventDetectors{c} '(''params'')']);
         for d = 1:length(labels)
             str{end+1} = [dbase.EventSources{c} ' - ' dbase.EventFunctions{c} ' - ' labels{d}];
         end
@@ -2430,7 +2415,6 @@ for c = 1:length(handles.menu_Segmenter)
 end
 if isempty(get(h,'userdata'))
     handles.SegmenterParams = eg_runPlugin(handles.plugins.segmenters, alg, 'params');
-%    handles.SegmenterParams = eval(['egg_' alg '(''params'')']);
     set(h,'userdata',handles.SegmenterParams);
 else
     handles.SegmenterParams = get(h,'userdata');
@@ -2445,7 +2429,6 @@ for c = 1:length(handles.menu_Algorithm)
 end
 if isempty(get(h,'userdata'))
     handles.SonogramParams = eg_runPlugin(handles.plugins.spectrums, alg, 'params');
-%    handles.SonogramParams = eval(['egs_' alg '(''params'')']);
     set(h,'userdata',handles.SonogramParams);
 else
     handles.SonogramParams = get(h,'userdata');
@@ -2459,7 +2442,6 @@ for axnum = 1:2
         str = get(handles.(['popup_EventDetector' num2str(axnum)]),'string');
         dtr = str{v};
         [handles.EventParams{axnum}, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, 'params');
-%        [handles.EventParams{axnum} labels] = eval(['ege_' dtr '(''params'')']);
         ud{v} = handles.EventParams{axnum};
         set(handles.(['popup_EventDetector' num2str(axnum)]),'userdata',ud);
     else
@@ -2475,7 +2457,6 @@ for axnum = 1:2
         str = get(handles.popup_Functions(axnum),'string');
         dtr = str{v};
         [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
-%        [handles.FunctionParams{axnum} labels] = eval(['egf_' dtr '(''params'')']);
         ud{v} = handles.FunctionParams{axnum};
         set(handles.popup_Functions(axnum),'userdata',ud);
     else
@@ -2794,7 +2775,6 @@ set(hObject,'checked','on');
 if isempty(get(hObject,'userdata'))
     alg = get(hObject,'label');
     handles.SegmenterParams = eg_runPlugin(handles.plugins.segmenters, alg, 'params');
-%    handles.SegmenterParams = eval(['egg_' alg '(''params'')']);
     set(hObject,'userdata',handles.SegmenterParams);
 else
     handles.SegmenterParams = get(hObject,'userdata');
@@ -3262,10 +3242,8 @@ if isempty(ud{v}) & v>1
     f = findstr(dtr,' - ');
     if isempty(f)
         [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
-%        [handles.FunctionParams1 labels] = eval(['egf_' dtr '(''params'')']);
     else
         [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr(1:f-1), 'params');
-%        [handles.FunctionParams1 labels] = eval(['egf_' dtr(1:f-1) '(''params'')']);
     end
     ud{v} = handles.FunctionParams{axnum};
     set(handles.popup_Function1,'userdata',ud);
@@ -3331,10 +3309,8 @@ if isempty(ud{v}) & v>1
     f = findstr(dtr,' - ');
     if isempty(f)
         [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
-%        [handles.FunctionParams1 labels] = eval(['egf_' dtr '(''params'')']);
     else
         [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr(1:f-1), 'params');
-%        [handles.FunctionParams1 labels] = eval(['egf_' dtr(1:f-1) '(''params'')']);
     end
     ud{v} = handles.FunctionParams{axnum};
     set(handles.popup_Function2,'userdata',ud);
@@ -3989,7 +3965,6 @@ if isempty(ud{v}) & v>1
     str = get(handles.(['popup_EventDetector' num2str(axnum)]),'string');
     dtr = str{v};
     [handles.EventParams{axnum}, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, 'params');
-%    [handles.EventParams{axnum} labels] = eval(['ege_' dtr '(''params'')']);
     ud{v} = handles.EventParams{axnum};
     set(handles.(['popup_EventDetector' num2str(axnum)]),'userdata',ud);
 else
@@ -5056,10 +5031,8 @@ else
         [feature1, name1] = eg_runPlugin(handles.plugins.eventFeatures, ...
             str, chan, handles.fs, tmall, g, ...
             round(handles.EventLims(get(handles.popup_EventList,'value'),:)*handles.fs));
-%        [feature1 name1] = eval(['ega_' str '(chan,handles.fs,tmall,g,round(handles.EventLims(get(handles.popup_EventList,''value''),:)*handles.fs))']);
         f = findobj('parent',handles.menu_YAxis,'checked','on');
         str = get(f,'label');
-%        [feature2 name2] = eval(['ega_' str '(chan,handles.fs,tmall,g,round(handles.EventLims(get(handles.popup_EventList,''value''),:)*handles.fs))']);
         [feature2, name2] = eg_runPlugin(handles.plugins.eventFeatures, ...
             str, chan, handles.fs, tmall, g, ...
             round(handles.EventLims(get(handles.popup_EventList,'value'),:)*handles.fs));
@@ -5873,7 +5846,6 @@ switch str
             end
             pow = eg_runPlugin(handles.plugins.spectrums, alg, gca, ...
                 handles.sound(xlp(1):xlp(2)), handles.fs, handles.SonogramParams);
-%            pow = eval(['egs_' alg '(gca,handles.sound(xlp(1):xlp(2)),handles.fs,handles.SonogramParams)']);
             set(gca,'ydir','normal');
             handles.NewSlope = handles.DerivativeSlope;
             handles.DerivativeSlope = 0;
@@ -6374,7 +6346,6 @@ elseif get(handles.radio_PowerPoint,'value')==1
                             pow = eg_runPlugin(handles.plugins.spectrums, ...
                                 alg, gca, handles.sound(xlp(1):xlp(2)), ...
                                 handles.fs, handles.SonogramParams);
-%                            pow = eval(['egs_' alg '(gca,handles.sound(xlp(1):xlp(2)),handles.fs,handles.SonogramParams)']);
                             set(gca,'ydir','normal');
                             handles.NewSlope = handles.DerivativeSlope;
                             handles.DerivativeSlope = 0;
@@ -7036,7 +7007,6 @@ else
     end
     pow = eg_runPlugin(handles.plugins.spectrums, alg, gca, ...
         handles.sound(xlp(1):xlp(2)), handles.fs, handles.SonogramParams);
-%    pow = eval(['egs_' alg '(gca,handles.sound(xlp(1):xlp(2)),handles.fs,handles.SonogramParams)']);
     set(gca,'ydir','normal');
     handles.NewSlope = handles.DerivativeSlope;
     handles.DerivativeSlope = 0;
@@ -7546,7 +7516,6 @@ f = find(handles.menu_Macros==hObject);
 
 mcr = get(handles.menu_Macros(f),'label');
 handles = eg_runPlugin(handles.plugins.macros, mcr, handles);
-%handles = eval(['egm_' mcr '(handles)']);
 
 guidata(hObject, handles);
 
@@ -7746,7 +7715,6 @@ if strcmp(get(hObject,'Label'),'(Default)')
     cmap(1,:) = [0 0 0];
 else
     cmap = eg_runPlugin(handles.plugins.colormaps, get(hObject, 'Label'));
-%    cmap = eval(['egc_' get(hObject,'Label')]);
 end
 
 handles.Colormap = cmap;
@@ -8010,7 +7978,6 @@ end
 handles.SegmenterParams.IsSplit = 1;
 sg = eg_runPlugin(handles.plugins.segmenters, alg, handles.amplitude, ...
     handles.fs, rect(2), handles.SegmenterParams);
-%sg = eval(['egg_' alg '(handles.amplitude,handles.fs,' num2str(rect(2)) ',handles.SegmenterParams)']);
 
 f = find(sg(:,1)>rect(1)*handles.fs & sg(:,1)<(rect(1)+rect(3))*handles.fs);
 g = find(sg(:,2)>rect(1)*handles.fs & sg(:,2)<(rect(1)+rect(3))*handles.fs);
@@ -8330,7 +8297,6 @@ for c = 1:length(handles.menu_Filter)
 end
 
 handles.filtered_sound = eg_runPlugin(handles.plugins.filters, alg, handles.sound, handles.fs, handles.FilterParams);
-%handles.filtered_sound = eval(['egf_' alg '(handles.sound,handles.fs,handles.FilterParams)']);
 
 subplot(handles.axes_Sound)
 xd = get(handles.xlimbox,'xdata');
