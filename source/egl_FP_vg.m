@@ -10,7 +10,9 @@ if loaddata == 1
     headerlinesIn = 4;
     A = importdata(filename,delimiterIn,headerlinesIn);
     data = A.data(:,1);
-    dateandtime = datenum(A.textdata{headerlinesIn+1,1});
+%     dateandtime = datenum(A.textdata{headerlinesIn+1,1});
+    dateandtime = datenum(A.textdata{1}(4:end));
+
     label = 'Voltage';
 else
     data = [];
