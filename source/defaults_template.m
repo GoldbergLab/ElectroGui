@@ -47,6 +47,7 @@ handles.ChanLimits = [-1 1; -1 1]; % Initial y-limits for the channel plots, if 
 handles.ChannelColor = [0 0 1; 0 0 1]; % Colors of the channel plots
 handles.ChannelThresholdColor = [1 0 0; 1 0 0]; % Colors of the threshold lines on the channel plots
 handles.ChannelLineWidth = [1 1]; % Line widths of the channel plots
+handles.DefaultChannelFunction = 'FIRBandPass';
 
 % EVENT SETTINGS
 % Settings with two numbers or rows refer to the top and bottom plot respectively

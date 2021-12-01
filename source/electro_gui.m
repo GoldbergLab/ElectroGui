@@ -78,6 +78,11 @@ user = lic(1).user;
 f = regexpi(user,'[A-Z1-9]');
 user = user(f);
 
+% Unread file marker:
+handles.UnreadFileMarker = '> ';
+handles.FileEntryOpenTag = '<HTML><FONT COLOR=000000>';
+handles.FileEntryCloseTag = '</FONT></HTML>';
+
 % Segment/Marker colors
 handles.SegmentSelectColor = 'r';
 handles.SegmentUnSelectColor = [0.7, 0.5, 0.5];
@@ -154,6 +159,8 @@ handles.popup_Functions = [handles.popup_Function1, handles.popup_Function2];
 handles.popup_EventDetectors = [handles.popup_EventDetector1, handles.popup_EventDetector2];
 % handles.axes_Channel are the channel data display axes
 handles.axes_Channel = [handles.axes_Channel1, handles.axes_Channel2];
+% menu source top/bottom plot
+handles.menu_SourcePlots = [handles.menu_SourceTopPlot, handles.menu_SourceBottomPlot];
 
 handles.menu_AutoLimits = [handles.menu_AutoLimits1, handles.menu_AutoLimits2];
 handles.menu_PeakDetect = [handles.menu_PeakDetect1, handles.menu_PeakDetect2];
@@ -902,8 +909,10 @@ function handles = eg_LoadFile(handles)
 fileNum = getCurrentFileNum(handles);
 set(handles.list_Files,'value',fileNum);
 str = get(handles.list_Files,'string');
-if strcmp(str{fileNum}(26:27),'� ')
-    str{fileNum} = str{fileNum}([1:25 28:end]);
+
+% Remove unread file marker from filename
+if isFileUnread(handles, str{fileNum})
+    str{fileNum} = removeUnreadFileMarker(handles, str{fileNum});
     set(handles.list_Files,'string',str);
 end
 
@@ -1144,8 +1153,10 @@ if ~strcmp(getEventFunction(handles, fileNum, channelNum), newEventFunction)
 end
 
 function handles = eg_LoadChannel(handles,axnum)
+% Load a new channel of data
 
 if get(handles.(['popup_Channel',num2str(axnum)]),'value')==1
+    % This is "(None)" channel selection, so disable everything
     cla(handles.axes_Channel(axnum));
     set(handles.axes_Channel(axnum),'visible','off');
     set(handles.popup_Functions(axnum),'enable','off');
@@ -1155,6 +1166,8 @@ if get(handles.(['popup_Channel',num2str(axnum)]),'value')==1
     handles = UpdateEventBrowser(handles);
     return
 else
+    % This is an actual channel selection, enable the axes and function
+    % menu.
     set(handles.axes_Channel(axnum),'visible','on');
     set(handles.popup_Functions(axnum),'enable','on');
 end
@@ -1169,6 +1182,7 @@ for c = 1:length(handles.EventTimes);
     nums(c) = size(handles.EventTimes{c},1);
 end
 if val <= length(str)-sum(nums)
+    % No idea what this signifies
     if isSound
         [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.path_name, handles.sound_files(filenum).name), true);
     else
@@ -1195,8 +1209,9 @@ else
 end
 
 if get(handles.popup_Functions(axnum),'value') > 1
-    str = get(handles.popup_Functions(axnum),'string');
-    str = str{get(handles.popup_Functions(axnum),'value')};
+    % This is not the "(Raw)" function - apply the selected function
+    allFunctionNames = get(handles.popup_Functions(axnum),'string');
+    str = allFunctionNames{get(handles.popup_Functions(axnum),'value')};
     val = handles.loadedChannelData{axnum};
     f = findstr(str,' - ');
     if isempty(f)
@@ -1930,9 +1945,11 @@ SSs = handles.SegmentSelection{filenum};
 SNs = handles.SegmentTitles{filenum};
 
 if isempty(STs)
+    % No existing segments
     ind = 1;
 else
-    ind = getSortedArrayInsertion(STs, t0);
+    % Insert marker into appropriate place in segment arrays
+    ind = getSortedArrayInsertion(STs(:, 1), t0);
 end
 handles.SegmentTimes{filenum} = [STs(1:ind-1, :); [t0, t1]; STs(ind:end, :)];
 handles.SegmentSelection{filenum} = [SSs(1:ind-1), MS, SSs(ind:end)];
@@ -1952,8 +1969,10 @@ MSs = handles.MarkerSelection{filenum};
 MNs = handles.MarkerTitles{filenum};
 
 if isempty(MTs)
+    % No existing markers
     ind = 1;
 else
+    % Insert segment into appropriate place in marker arrays
     ind = getSortedArrayInsertion(MTs(:, 1), t0);
 end
 handles.MarkerTimes{filenum} = [MTs(1:ind-1, :); [t0, t1]; MTs(ind:end, :)];
@@ -2093,7 +2112,7 @@ set(handles.popup_EventList,'value',1);
 
 str = {};
 for c = 1:length(handles.sound_files)
-    str{c} = ['<HTML><FONT COLOR=000000>� ' handles.sound_files(c).name '</FONT></HTML>'];
+    str{c} = makeFileEntry(handles, handles.sound_files(c).name, true);
 end
 set(handles.list_Files,'string',str);
 
@@ -2356,12 +2375,7 @@ set(handles.edit_FileNumber,'string','1');
 set(handles.list_Files,'value',1);
 str = {};
 for c = 1:length(handles.sound_files)
-    if handles.FileLength(c) > 0
-        str{c} = handles.sound_files(c).name;
-    else
-        str{c} = ['� ' handles.sound_files(c).name];
-    end
-    str{c} = ['<HTML><FONT COLOR=000000>' str{c} '</FONT></HTML>'];
+    str{c} = makeFileEntry(handles, handles.sound_files(c).name, handles.FileLength(c) <= 0);
 end
 set(handles.list_Files,'string',str);
 
@@ -3222,22 +3236,11 @@ end
 
 guidata(hObject, handles);
 
-
-% --- Executes on selection change in popup_Function1.
-function popup_Function1_Callback(hObject, ~, handles)
-% hObject    handle to popup_Function1 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: contents = get(hObject,'String') returns popup_Function1 contents as cell array
-%        contents{get(hObject,'Value')} returns selected item from popup_Function1
-
-axnum = 1;
-
-v = get(handles.popup_Function1,'value');
-ud = get(handles.popup_Function1,'userdata');
+function handles = popup_Functions_Callback(handles, axnum)
+v = get(handles.popup_Functions(axnum),'value');
+ud = get(handles.popup_Functions(axnum),'userdata');
 if isempty(ud{v}) & v>1
-    str = get(handles.popup_Function1,'string');
+    str = get(handles.popup_Functions(axnum),'string');
     dtr = str{v};
     f = findstr(dtr,' - ');
     if isempty(f)
@@ -3246,25 +3249,25 @@ if isempty(ud{v}) & v>1
         [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr(1:f-1), 'params');
     end
     ud{v} = handles.FunctionParams{axnum};
-    set(handles.popup_Function1,'userdata',ud);
+    set(handles.popup_Functions(axnum),'userdata',ud);
 else
     handles.FunctionParams{axnum} = ud{v};
 end
 
 if isempty(findobj('parent',handles.axes_Sonogram,'type','text'))
-    set(handles.popup_EventDetector1,'value',1);
-    handles = eg_LoadChannel(handles,1);
-    handles = eg_clickEventDetector(handles,1);
+    set(handles.popup_EventDetectors(axnum),'value', 1);
+    handles = eg_LoadChannel(handles, axnum);
+    handles = eg_clickEventDetector(handles, axnum);
 end
-str = get(handles.popup_Channel1,'string');
-str = str{get(handles.popup_Channel1,'value')};
+str = get(handles.popup_Channels(axnum),'string');
+str = str{get(handles.popup_Channels(axnum),'value')};
 if ~isempty(findstr(str,' - ')) | strcmp(str,'(None)')
-    set(handles.popup_EventDetector1,'enable','off');
+    set(handles.popup_EventDetectors(axnum),'enable','off');
 else
-    set(handles.popup_EventDetector1,'enable','on');
+    set(handles.popup_EventDetectors(axnum),'enable','on');
 end
 
-if strcmp(get(handles.menu_SourceTopPlot,'checked'),'on');
+if strcmp(get(handles.menu_SourcePlots(axnum),'checked'),'on');
     [handles.amplitude labs] = eg_CalculateAmplitude(handles);
 
     plt = findobj('parent',handles.axes_Amplitude,'linestyle','-');
@@ -3274,6 +3277,18 @@ if strcmp(get(handles.menu_SourceTopPlot,'checked'),'on');
 
     handles = SetThreshold(handles);
 end
+
+% --- Executes on selection change in popup_Function1.
+function popup_Function1_Callback(hObject, ~, handles)
+% hObject    handle to popup_Function1 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = get(hObject,'String') returns popup_Function1 contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from popup_Function1
+axnum = 1;
+
+handles = popup_Functions_Callback(handles, axnum);
 
 guidata(hObject, handles);
 
@@ -3289,7 +3304,6 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
     set(hObject,'BackgroundColor','white');
 end
 
-
 % --- Executes on selection change in popup_Function2.
 function popup_Function2_Callback(hObject, ~, handles)
 % hObject    handle to popup_Function2 (see GCBO)
@@ -3301,46 +3315,7 @@ function popup_Function2_Callback(hObject, ~, handles)
 
 axnum = 2;
 
-v = get(handles.popup_Function2,'value');
-ud = get(handles.popup_Function2,'userdata');
-if isempty(ud{v}) & v>1
-    str = get(handles.popup_Function2,'string');
-    dtr = str{v};
-    f = findstr(dtr,' - ');
-    if isempty(f)
-        [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
-    else
-        [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr(1:f-1), 'params');
-    end
-    ud{v} = handles.FunctionParams{axnum};
-    set(handles.popup_Function2,'userdata',ud);
-else
-    handles.FunctionParams{axnum} = ud{v};
-end
-
-if isempty(findobj('parent',handles.axes_Sonogram,'type','text'))
-    set(handles.popup_EventDetector2,'value',1);
-    handles = eg_LoadChannel(handles,2);
-    handles = eg_clickEventDetector(handles,2);
-end
-str = get(handles.popup_Channel2,'string');
-str = str{get(handles.popup_Channel2,'value')};
-if ~isempty(findstr(str,' - ')) | strcmp(str,'(None)')
-    set(handles.popup_EventDetector2,'enable','off');
-else
-    set(handles.popup_EventDetector2,'enable','on');
-end
-
-if strcmp(get(handles.menu_SourceBottomPlot,'checked'),'on');
-    [handles.amplitude labs] = eg_CalculateAmplitude(handles);
-
-    plt = findobj('parent',handles.axes_Amplitude,'linestyle','-');
-    set(plt,'ydata',handles.amplitude);
-    subplot(handles.axes_Amplitude)
-    ylabel(labs);
-
-    handles = SetThreshold(handles);
-end
+handles = popup_Functions_Callback(handles, axnum);
 
 guidata(hObject, handles);
 
@@ -3357,6 +3332,56 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
     set(hObject,'BackgroundColor','white');
 end
 
+function handles = popup_Channels_Callback(handles, axnum)
+% Handle change in value of either channel source menu
+
+if isempty(findobj('parent',handles.axes_Sonogram,'type','text'))
+    set(handles.popup_Functions(axnum),'value',1);
+    set(handles.popup_EventDetectors(axnum),'value',1);
+    handles = eg_LoadChannel(handles, axnum);
+    handles = eg_clickEventDetector(handles, axnum);
+end
+str = get(handles.popup_Channels(axnum),'string');
+str = str{get(handles.popup_Channels(axnum),'value')};
+if ~isempty(findstr(str,' - ')) | strcmp(str,'(None)')
+    set(handles.popup_EventDetectors(axnum),'enable','off');
+else
+    set(handles.popup_EventDetectors(axnum),'enable','on');
+end
+
+handles.BackupTitle = cell(1,2);
+
+if strcmp(get(handles.menu_SourcePlots(axnum),'checked'),'on');
+    [handles.amplitude labs] = eg_CalculateAmplitude(handles);
+
+    plt = findobj('parent',handles.axes_Amplitude,'linestyle','-');
+    set(plt,'ydata',handles.amplitude);
+    subplot(handles.axes_Amplitude)
+    ylabel(labs);
+
+    handles = SetThreshold(handles);
+end
+
+%If available, use the default channel filter (from defaults file)
+if isfield(handles, 'DefaultChannelFunction')
+    % handles.DefaultChannelFilter is defined
+    allFunctionNames = get(handles.popup_Functions(axnum),'string');
+    defaultChannelFunctionIdx = find(strcmp(allFunctionNames, handles.DefaultChannelFunction));
+    if ~isempty(defaultChannelFunctionIdx)
+        disp('hi2')
+        % Default channel function is valid
+        currentChannelFunctionIdx = get(handles.popup_Functions(axnum),'value');
+        if currentChannelFunctionIdx ~= defaultChannelFunctionIdx
+            % Default channel function does not match currently selected function. Switch it!
+            set(handles.popup_Functions(axnum), 'value', defaultChannelFunctionIdx);
+            % Trigger callback for changed channel function
+            handles = popup_Functions_Callback(handles, axnum);
+        end
+    else
+        warning('Found a default channel function in the defaults file, but it was not a recognized function: %s', handles.DefaultChannelFunction);
+    end
+end
+
 
 % --- Executes on selection change in popup_Channel1.
 function popup_Channel1_Callback(hObject, ~, handles)
@@ -3367,32 +3392,9 @@ function popup_Channel1_Callback(hObject, ~, handles)
 % Hints: contents = get(hObject,'String') returns popup_Channel1 contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from popup_Channel1
 
-if isempty(findobj('parent',handles.axes_Sonogram,'type','text'))
-    set(handles.popup_Function1,'value',1);
-    set(handles.popup_EventDetector1,'value',1);
-    handles = eg_LoadChannel(handles,1);
-    handles = eg_clickEventDetector(handles,1);
-end
-str = get(handles.popup_Channel1,'string');
-str = str{get(handles.popup_Channel1,'value')};
-if ~isempty(findstr(str,' - ')) | strcmp(str,'(None)')
-    set(handles.popup_EventDetector1,'enable','off');
-else
-    set(handles.popup_EventDetector1,'enable','on');
-end
+axnum = 1;
 
-handles.BackupTitle = cell(1,2);
-
-if strcmp(get(handles.menu_SourceTopPlot,'checked'),'on');
-    [handles.amplitude labs] = eg_CalculateAmplitude(handles);
-
-    plt = findobj('parent',handles.axes_Amplitude,'linestyle','-');
-    set(plt,'ydata',handles.amplitude);
-    subplot(handles.axes_Amplitude)
-    ylabel(labs);
-
-    handles = SetThreshold(handles);
-end
+handles = popup_Channels_Callback(handles, axnum);
 
 guidata(hObject, handles);
 
@@ -3418,32 +3420,9 @@ function popup_Channel2_Callback(hObject, ~, handles)
 % Hints: contents = get(hObject,'String') returns popup_Channel2 contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from popup_Channel2
 
-if isempty(findobj('parent',handles.axes_Sonogram,'type','text'))
-    set(handles.popup_Function2,'value',1);
-    set(handles.popup_EventDetector2,'value',1);
-    handles = eg_LoadChannel(handles,2);
-    handles = eg_clickEventDetector(handles,2);
-end
-str = get(handles.popup_Channel2,'string');
-str = str{get(handles.popup_Channel2,'value')};
-if ~isempty(findstr(str,' - ')) | strcmp(str,'(None)')
-    set(handles.popup_EventDetector2,'enable','off');
-else
-    set(handles.popup_EventDetector2,'enable','on');
-end
+axnum = 2;
 
-handles.BackupTitle = cell(1,2);
-
-if strcmp(get(handles.menu_SourceBottomPlot,'checked'),'on');
-    [handles.amplitude labs] = eg_CalculateAmplitude(handles);
-
-    plt = findobj('parent',handles.axes_Amplitude,'linestyle','-');
-    set(plt,'ydata',handles.amplitude);
-    subplot(handles.axes_Amplitude)
-    ylabel(labs);
-
-    handles = SetThreshold(handles);
-end
+handles = popup_Channels_Callback(handles, axnum);
 
 guidata(hObject, handles);
 
@@ -8638,7 +8617,7 @@ switch button
     case 'Some files...'
         str = get(handles.list_Files,'string');
         for c = 1:length(str)
-            str{c} = [num2str(c) '. ' str{c}(26:end-14)];
+            str{c} = [num2str(c), '. ', extractFileNameFromEntry(handles, str{c}, true)];
         end
         [indx,ok] = listdlg('ListString',str,'InitialValue',filenum,'ListSize',[300 450],'Name','Select files','PromptString','Files to add new property to');
         if ok == 0
@@ -8742,7 +8721,7 @@ switch button
     case 'Some files...'
         str = get(handles.list_Files,'string');
         for c = 1:length(str)
-            str{c} = [num2str(c) '. ' str{c}(26:end-14)];
+            str{c} = [num2str(c) '. ' extractFileNameFromEntry(handles, str{c}, true)];
         end
         [indx,ok] = listdlg('ListString',str,'InitialValue',filenum,'ListSize',[300 450],'Name','Select files','PromptString','Files to remove property from');
         if ok == 0
@@ -9008,7 +8987,7 @@ end
 
 str = get(handles.list_Files,'string');
 for c = 1:length(str)
-    str{c} = [num2str(c) '. ' str{c}(26:end-14)];
+    str{c} = [num2str(c) '. ' extractFileNameFromEntry(handles, str{c}, true)];
 end
 [files,ok] = listdlg('ListString',str,'InitialValue',filenum,'ListSize',[300 450],'Name','Select files','PromptString',['Files in which to fill property "' handles.PropertyNames{indx} '"']);
 if isempty(files)
@@ -9375,6 +9354,44 @@ handles = eg_LoadFile(handles);
 guidata(hObject, handles);
 
 
+function fileEntry = makeFileEntry(handles, fileName, unread)
+% Construct a file entry
+% filename = name of file
+% unread = boolean - has it been read or not?
+if strcmp(fileName(1:length(handles.UnreadFileMarker)), handles.UnreadFileMarker)
+    warning('Loaded a file that starts with the same character in use as the unread file marker character. This will probably cause some problems.');
+end
+fileEntry = [handles.FileEntryOpenTag, repmat(handles.UnreadFileMarker, [1, unread]), fileName, handles.FileEntryCloseTag];
+
+function fileName = extractFileNameFromEntry(handles, fileEntry, includeUnreadMarker)
+% Get the filename from the file entry (which may include the unread file
+% marker)
+% fileEntry = a file entry string from the file listbox
+% includeUnreadFileMarker = a boolean - should we include the unread file marker in the returned name?
+unreadFileMarkerStart = length(handles.FileEntryOpenTag)+1;
+unreadFileMarkerEnd = length(handles.FileEntryOpenTag)+length(handles.UnreadFileMarker)-1;
+if ~includeUnreadMarker && strcmp(fileEntry(unreadFileMarkerStart:unreadFileMarkerEnd), handles.UnreadFileMarker)
+    fileName = fileEntry(unreadFileMarkerEnd+1:(end-length(handles.FileEntryCloseTag)));
+else
+    fileName = fileEntry(length(handles.FileEntryOpenTag)+1:(end-length(handles.FileEntryCloseTag)));    
+end
+
+function newFileEntry = removeUnreadFileMarker(handles, fileEntry)
+% Remove the unread file marker from a file entry
+% fileEntry = a file entry string from the file listbox
+% newFileEntry = the same file entry string with the unread file marker removed.
+unreadFileMarkerStart = length(handles.FileEntryOpenTag)+1;
+unreadFileMarkerEnd = unreadFileMarkerStart+length(handles.UnreadFileMarker)-1;
+newFileEntry = [fileEntry(1:unreadFileMarkerStart-1), fileEntry(unreadFileMarkerEnd+1:end)];
+
+function isUnread = isFileUnread(handles, fileEntry)
+% Check if file in this file entry is unread
+% fileEntry = a file entry string from the file listbox
+unreadFileMarkerStart = length(handles.FileEntryOpenTag)+1;
+unreadFileMarkerEnd = unreadFileMarkerStart+length(handles.UnreadFileMarker)-1;
+isUnread = strcmp(fileEntry(unreadFileMarkerStart:unreadFileMarkerEnd), handles.UnreadFileMarker);
+
+
 function handles = UpdateFiles(handles, old_sound_files)
 
 handles.TotalFileNumber = length(handles.sound_files);
@@ -9392,7 +9409,7 @@ set(handles.list_Files,'value',1);
 bck = get(handles.list_Files,'string');
 str = {};
 for c = 1:length(handles.sound_files)
-    str{c} = ['<HTML><FONT COLOR=000000>� ' handles.sound_files(c).name '</FONT></HTML>'];
+    str{c} = makeFileEntry(handles, handles.sound_files(c).name, true);
 end
 
 % Generate translation lists
@@ -9404,7 +9421,7 @@ for c = 1:length(old_sound_files)
         if strcmp(old_sound_files(c).name,handles.sound_files(d).name)
             oldnum(end+1) = c;
             newnum(end+1) = d;
-            str{d} = str{d}([1:25 28:end]);
+            str{d} = removeUnreadFileMarker(handles, str{d});
             if c==oldfilenum
                 newfilenum = d;
             end
