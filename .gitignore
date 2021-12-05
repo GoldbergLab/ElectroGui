@@ -5,4 +5,4 @@ defaults_*.m
 # ...except don't ignore the template defaults file.
 !defaults_template.m
 # Ignore sorted raster preset files
-egsr_presets_*.m
+egsr_presets_*.mat
