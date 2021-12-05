@@ -22,7 +22,7 @@ function varargout = egm_Sorted_rasters(varargin)
 
 % Edit the above text to modify the response to help egm_Sorted_rasters
 
-% Last Modified by GUIDE v2.5 05-Oct-2021 16:00:04
+% Last Modified by GUIDE v2.5 05-Dec-2021 12:23:37
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -58,6 +58,10 @@ set(handles.popup_HistUnits,'position',get(handles.popup_PSTHUnits,'position'));
 set(handles.popup_HistCount,'position',get(handles.popup_PSTHCount,'position'));
     
 handles.BackupHandles = [];
+
+handles.preset_prefix = 'egsr_preset_';
+handles.no_presets_found = '<No presets found>';
+handles = loadPresets(handles);
 
 if length(varargin)==1
     % Copy ElectroGui handles
@@ -443,7 +447,6 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
     set(hObject,'BackgroundColor','white');
 end
 
-
 % --- Executes on button press in push_WindowLimits.
 function push_WindowLimits_Callback(hObject, eventdata, handles)
 % hObject    handle to push_WindowLimits (see GCBO)
@@ -578,8 +581,6 @@ if get(handles.check_CopyTrigger,'value') == 1
 end
 
 guidata(hObject, handles);
-
-
 
 function opt = edit_Options(opt,obj);
 % Edit trigger or event options
@@ -2761,19 +2762,7 @@ else
     set(handles.push_PlotWidth,'String','Width');
 end
 
-str = get(handles.list_Plot,'string');
-for c = 1:length(str)
-    if handles.PlotInclude(c)==1
-        str{c}(19:24) = 'FF0000';
-    else
-        if c==val
-            str{val}(19:24) = 'FFFFFF';
-        else
-            str{c}(19:24) = '000000';
-        end
-    end
-end
-set(handles.list_Plot,'string',str);
+handles = updatePlotIncludeColors(handles);
 
 set(handles.check_PlotInclude,'value',handles.PlotInclude(val));
 if handles.PlotContinuous(val) == -1
@@ -2813,26 +2802,25 @@ function check_PlotInclude_Callback(hObject, eventdata, handles)
 
 % Hint: get(hObject,'Value') returns toggle state of check_PlotInclude
 
+plotNum = get(handles.list_Plot,'value');
+include = get(handles.check_PlotInclude,'value');
 
-val = get(handles.list_Plot,'value');
-handles.PlotInclude(val) = get(handles.check_PlotInclude,'value');
-
-str = get(handles.list_Plot,'string');
-for c = 1:length(str)
-    if handles.PlotInclude(c)==1
-        str{c}(19:24) = 'FF0000';
-    else
-        if c==val
-            str{val}(19:24) = 'FFFFFF';
-        else
-            str{c}(19:24) = '000000';
-        end
-    end
-end
-set(handles.list_Plot,'string',str);
+handles = setPlotInclude(handles, plotNum, include);
 
 guidata(hObject, handles);
 
+function handles = setPlotInclude(handles, plotNum, include)
+% Set one plot include value
+handles.PlotInclude(plotNum) = include;
+handles = updatePlotIncludeColors(handles);
+
+function handles = setPlotIncludes(handles, includes)
+% Set all plot include values
+if length(includes) ~= length(get(handles.list_Plot, 'String'))
+    error('Cannot set plot include values because provided array size does not match the number of plots.');
+end
+handles.PlotInclude = includes;
+handles = updatePlotIncludeColors(handles);
 
 % --- Executes on button press in check_PlotContinuous.
 function check_PlotContinuous_Callback(hObject, eventdata, handles)
@@ -2842,25 +2830,46 @@ function check_PlotContinuous_Callback(hObject, eventdata, handles)
 
 % Hint: get(hObject,'Value') returns toggle state of check_PlotContinuous
 
+plotNum = get(handles.list_Plot,'value');
+plotContinuousVal = get(handles.check_PlotContinuous,'value');
 
-val = get(handles.list_Plot,'value');
-handles.PlotContinuous(val) = get(handles.check_PlotContinuous,'value');
+handles = setPlotContinuous(handles, plotNum, plotContinuousVal);
 
-str = get(handles.list_Plot,'string');
-for c = 1:length(str)
+guidata(hObject, handles);
+
+function handles = setPlotContinuous(handles, plotNum, plotContinuous)
+% Set the plotContinuous property for one plot
+handles.PlotContinuous(plotNum) = plotContinuous;
+handles = updatePlotIncludeColors(handles);
+
+function handles = setAllPlotContinuous(handles, plotContinuous)
+% Set all values for plotContinuous
+if length(plotContinuous) ~= length(get(handles.list_Plot, 'String'));
+    error('Cannot set plotContinuous property, because provided array size does not match the number of plots.');
+end
+handles.PlotContinuous = plotContinuous;
+handles = updatePlotIncludeColors(handles);
+
+function plotContinuous = getPlotContinuous(handles)
+plotContinuous = handles.PlotContinuous;
+
+function handles = updatePlotIncludeColors(handles)
+% Update the plot list box text color to be red, black, or white depending on whether
+% it's included or not, and whether it's currently highlighted or not.
+selectedPlotNum = get(handles.list_Plot,'value');
+plotNames = get(handles.list_Plot,'string');
+for c = 1:length(plotNames)
     if handles.PlotInclude(c)==1
-        str{c}(19:24) = 'FF0000';
+        plotNames{c}(19:24) = 'FF0000';
     else
-        if c==val
-            str{val}(19:24) = 'FFFFFF';
+        if c==selectedPlotNum
+            plotNames{selectedPlotNum}(19:24) = 'FFFFFF';
         else
-            str{c}(19:24) = '000000';
+            plotNames{c}(19:24) = '000000';
         end
     end
 end
-set(handles.list_Plot,'string',str);
-
-guidata(hObject, handles);
+set(handles.list_Plot,'string',plotNames);
 
 
 % --- Executes on button press in push_PlotColor.
@@ -2877,17 +2886,33 @@ if length(c)<3
     return
 end
 
-handles.PlotColor(val,:) = c;
+handles = setPlotColor(handles, val, c);
 
-if isempty(handles.PlotHandles{val})
-    guidata(hObject, handles);
-    return
+guidata(hObject, handles);
+
+function plotColors = getPlotColors(handles)
+plotColors = handles.PlotColor;
+
+function handles = setPlotColors(handles, plotColors)
+[numPlots, ~] = size(plotColors);
+if numPlots ~= length(get(handles.list_Plot, 'String'))
+    error('Cannot set plot colors, because plot color array does not match the number of plots.');
+end
+for plotNumber = 1:numPlots
+    handles = setPlotColor(handles, plotNumber, plotColors(plotNumber, :));
 end
 
+function handles = setPlotColor(handles, plotNumber, plotColor)
+handles.PlotColor(plotNumber, :) = plotColor;
+if ~isempty(handles.PlotHandles{plotNumber})
+    handles = updatePlotColors(handles, plotNumber);
+end
+
+function handles = updatePlotColors(handles, plotToUpdate)
 event_indx = get(handles.popup_EventList,'value');
 
 if isfield(handles,'TriggerSelection')
-    if val == 10 | val == 11 | val ==12
+    if plotToUpdate == 10 | plotToUpdate == 11 | plotToUpdate ==12
         indx2 = cumsum(cellfun('length',handles.AllEventOnsets{event_indx}));
         indx1 = [1 indx2(1:end-1)+1];
         indx = [];
@@ -2901,8 +2926,8 @@ else
     indx = [];
 end
 
-for c = intersect([1 2 4 5 7 8 19 22 23 25 26],val)
-    if handles.PlotContinuous(val)==1
+for c = intersect([1 2 4 5 7 8 19 22 23 25 26],plotToUpdate)
+    if handles.PlotContinuous(plotToUpdate)==1
         if sum(handles.TriggerSelection)<length(handles.triggerInfo.absTime)
             warndlg('Could not selectively change color for a subset of triggers because object''s ''continuous'' option is on.','Warning');
         end
@@ -2911,18 +2936,18 @@ for c = intersect([1 2 4 5 7 8 19 22 23 25 26],val)
         set(handles.PlotHandles{c}(:,indx),'color',handles.PlotColor(c,:));
     end
 end
-for c = intersect([13 15 16 20 28 29],val)
+for c = intersect([13 15 16 20 28 29],plotToUpdate)
     set(handles.PlotHandles{c},'color',handles.PlotColor(c,:));
 end
-for c = intersect([10 11],val)
+for c = intersect([10 11],plotToUpdate)
     if ~isempty(handles.PlotHandles{c}{event_indx})
         set(handles.PlotHandles{c}{event_indx}(indx),'color',handles.PlotColor(c,:));
     end
 end
-for c = intersect([14 30],val)
+for c = intersect([14 30],plotToUpdate)
     set(handles.PlotHandles{c},'facecolor',handles.PlotColor(c,:),'edgecolor',handles.PlotColor(c,:));
 end
-for c = intersect([3 6 9 12 17 18 21 24 27],val)
+for c = intersect([3 6 9 12 17 18 21 24 27],plotToUpdate)
     if iscell(handles.PlotHandles{c})
         h = handles.PlotHandles{c}{event_indx};
     else
@@ -2939,9 +2964,6 @@ for c = intersect([3 6 9 12 17 18 21 24 27],val)
         end
     end
 end
-
-
-guidata(hObject, handles);
 
 
 % --- Executes on button press in push_PlotWidth.
@@ -3055,13 +3077,26 @@ function push_TimeLimits_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
+handles = setTimeLimits(handles);
+guidata(hObject, handles);
 
-answer = inputdlg({'Min (sec)','Max (sec)'},'Time limits',1,{num2str(handles.PlotXLim(1)),num2str(handles.PlotXLim(2))});
-if isempty(answer)
-    return
+function [timeLimitMin, timeLimitMax] = getTimeLimits(handles)
+timeLimitMin = handles.PlotXLim(1);
+timeLimitMax = handles.PlotXLim(2);
+
+function handles = setTimeLimits(handles, timeLimitMin, timeLimitMax)
+if ~exist('timeLimitMin', 'var') || ~exist('timeLimitMax', 'var')
+    [oldMin, oldMax] = getTimeLimits(handles);
+    % Min/max not provided as arguments. Get them from user.
+    answer = inputdlg({'Min (sec)','Max (sec)'},'Time limits',1,num2str(oldMin),num2str(oldMax));
+    if isempty(answer)
+        return
+    end
+    timeLimitMin = str2double(answer{1});
+    timeLimitMax = str2double(answer{2});
 end
-handles.PlotXLim(1) = str2num(answer{1});
-handles.PlotXLim(2) = str2num(answer{2});
+handles.PlotXLim(1) = timeLimitMin;
+handles.PlotXLim(2) = timeLimitMax;
 
 set(handles.axes_Raster,'xlim',handles.PlotXLim);
 set(handles.axes_PSTH,'xlim',handles.PlotXLim);
@@ -3069,8 +3104,6 @@ set(handles.axes_PSTH,'xlim',handles.PlotXLim);
 set(handles.check_CopyWindow,'value',0);
 
 handles.BackupXLim = handles.PlotXLim;
-
-guidata(hObject, handles);
 
 
 % --- Executes on button press in push_TickHeight.
@@ -3291,6 +3324,11 @@ function push_Dimensions_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
+handles = setDimensions(handles);
+
+guidata(hObject, handles);
+
+function [ExportPSTHHeight, ExportHistHeight, ExportInterval, ExportResolution, ExportWidth, ExportHeight] = getDimensons(handles)
 ch = get(handles.panel_ExportWidth,'children');
 iw = findobj('parent',handles.panel_ExportWidth,'value',1);
 iw = 3-find(ch==iw);
@@ -3299,43 +3337,68 @@ ch = get(handles.panel_ExportHeight,'children');
 ih = findobj('parent',handles.panel_ExportHeight,'value',1);
 ih = 4-find(ch==ih);
 
-query{1} = 'PSTH height (in)';
-query{2} = 'Vertical histogram width (in)';
-query{3} = 'Interval between subplots (in)';
-query{4} = 'Raster resolution (dpi)';
-str = {'Raster width (in)','Raster width (in/sec)'};
-query{5} = str{iw};
+ExportPSTHHeight = handles.ExportPSTHHeight;
+ExportHistHeight = handles.ExportHistHeight;
+ExportInterval = handles.ExportInterval;
+ExportResolution = handles.ExportResolution;
+ExportWidth = handles.ExportWidth(iw);
 if strcmp(get(ch(1),'enable'),'on')
-    str = {'Raster height (in)','Raster height (in/trial)','Raster height (in/sec)'};
-    query{6} = str{ih};
+    ExportHeight = handles.ExportHeight(ih);
+else
+    ExportHeight = NaN;
 end
 
-def{1} = num2str(handles.ExportPSTHHeight);
-def{2} = num2str(handles.ExportHistHeight);
-def{3} = num2str(handles.ExportInterval);
-def{4} = num2str(handles.ExportResolution);
-def{5} = num2str(handles.ExportWidth(iw));
+function handles = setDimensions(handles, ExportPSTHHeight, ExportHistHeight, ExportInterval, ExportResolution, ExportWidth, ExportHeight)
+ch = get(handles.panel_ExportWidth,'children');
+iw = findobj('parent',handles.panel_ExportWidth,'value',1);
+iw = 3-find(ch==iw);
+
+ch = get(handles.panel_ExportHeight,'children');
+ih = findobj('parent',handles.panel_ExportHeight,'value',1);
+ih = 4-find(ch==ih);
+
+if nargin == 1
+    % No values supplied. Query user for values.
+    query{1} = 'PSTH height (in)';
+    query{2} = 'Vertical histogram width (in)';
+    query{3} = 'Interval between subplots (in)';
+    query{4} = 'Raster resolution (dpi)';
+    str = {'Raster width (in)','Raster width (in/sec)'};
+    query{5} = str{iw};
+    if strcmp(get(ch(1),'enable'),'on')
+        str = {'Raster height (in)','Raster height (in/trial)','Raster height (in/sec)'};
+        query{6} = str{ih};
+    end
+
+    def{1} = num2str(handles.ExportPSTHHeight);
+    def{2} = num2str(handles.ExportHistHeight);
+    def{3} = num2str(handles.ExportInterval);
+    def{4} = num2str(handles.ExportResolution);
+    def{5} = num2str(handles.ExportWidth(iw));
+    if strcmp(get(ch(1),'enable'),'on')
+        def{6} = num2str(handles.ExportHeight(ih));
+    end
+
+    answer = inputdlg(query,'Image dimensions',1,def);
+    if isempty(answer)
+        return
+    end
+    ExportPSTHHeight = answer{1};
+    ExportHistHeight = answer{2};
+    ExportInterval = answer{3};
+    ExportResolution = answer{4};
+    ExportWidth = answer{5};
+    ExportHeight = answer{6};
+end
+
+handles.ExportPSTHHeight = ExportPSTHHeight;
+handles.ExportHistHeight = ExportHistHeight;
+handles.ExportInterval = ExportInterval;
+handles.ExportResolution = ExportResolution;
+handles.ExportWidth(iw) = ExportWidth;
 if strcmp(get(ch(1),'enable'),'on')
-    def{6} = num2str(handles.ExportHeight(ih));
+    handles.ExportHeight(ih) = ExportHeight;
 end
-
-answer = inputdlg(query,'Image dimensions',1,def);
-if isempty(answer)
-    return
-end
-
-handles.ExportPSTHHeight = str2num(answer{1});
-handles.ExportHistHeight = str2num(answer{2});
-handles.ExportInterval = str2num(answer{3});
-handles.ExportResolution = str2num(answer{4});
-handles.ExportWidth(iw) = str2num(answer{5});
-if strcmp(get(ch(1),'enable'),'on')
-    handles.ExportHeight(ih) = str2num(answer{6});
-end
-
-guidata(hObject, handles);
-
-
 
 function [newslide pic_top pic_left] = PowerPointExport(handles,imheight,imwidth)
 
@@ -4042,16 +4105,64 @@ function push_WarpOptions_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-answer = inputdlg({'Maximum allowed correlation shift (sec)','Number of warp intervals prior to trigger','Number of warp intervals after trigger'},'Warp options',1,{num2str(handles.corrMax),num2str(handles.WarpNumBefore),num2str(handles.WarpNumAfter)});
-if isempty(answer)
-    return
-end
-handles.corrMax = str2num(answer{1});
-handles.WarpNumBefore = str2num(answer{2});
-handles.WarpNumAfter = str2num(answer{3});
-
+handles = setWarpOptions(handles);
 guidata(hObject, handles);
 
+function [corrMax, WarpNumBefore, WarpNumAfter] = getWarpOptions(handles)
+corrMax = handles.corrMax;
+WarpNumBefore = handles.WarpNumBefore;
+WarpNumAfter = handles.WarpNumAfter;
+
+function handles = setWarpOptions(handles, corrMax, WarpNumBefore, WarpNumAfter)
+if ~exist('corrMax', 'var') || ~exist('WarpNumBefore', 'var') || ~exist('WarpNumAfter', 'var')
+    % No values provided, query user for values.
+    queries = {'Maximum allowed correlation shift (sec)','Number of warp intervals prior to trigger','Number of warp intervals after trigger'};
+    [oldCorrMax, oldWarpNumBefore, oldWarpNumAfter] = getWarpOptions(handles);
+    defaults = {num2str(oldCorrMax),num2str(oldWarpNumBefore),num2str(oldWarpNumAfter)};
+    answer = inputdlg(queries,'Warp options',1,defaults);
+    if isempty(answer)
+        return
+    end
+    corrMax = str2double(answer{1});
+    WarpNumBefore = str2double(answer{2});
+    WarpNumAfter = str2double(answer{3});
+end
+handles.corrMax = corrMax;
+handles.WarpNumBefore = WarpNumBefore;
+handles.WarpNumAfter = WarpNumAfter;
+
+function [intervalDurations, intervalTypes, warpIntervalLim, warpNumBefore, warpNumAfter] = getWarpIntervalInfo(handles)
+intervalDurations = handles.WarpIntervalDuration;
+intervalTypes = handles.WarpIntervalType;
+warpIntervalLim = handles.WarpIntervalLim;
+warpNumBefore = handles.WarpNumBefore;
+warpNumAfter = handles.WarpNumAfter;
+
+function handles = setWarpIntervalInfo(handles, intervalDurations, intervalTypes, warpIntervalLim, warpNumBefore, warpNumAfter)
+handles.WarpIntervalDuration = intervalDurations;
+handles.WarpIntervalType = intervalTypes;
+handles.WarpIntervalLim = warpIntervalLim;
+handles.WarpNumBefore = warpNumBefore;
+handles.WarpNumAfter = warpNumAfter;
+
+intervalName = get(handles.text_Interval,'string');
+intervalNum = str2double(intervalName);
+intervalIndex = warpIntervalNumToIndex(handles, intervalNum);
+
+warpTypeRadioButtons = findobj('parent',handles.panel_WarpedDurations,'style','radiobutton');
+set(warpTypeRadioButtons(handles.WarpIntervalType(intervalIndex)),'value',1);
+
+function intervalIndex = warpIntervalNumToIndex(handles, intervalNum)
+intervalIndex = intervalNum - handles.WarpIntervalLim(1) + 1;
+if intervalNum > 0
+    intervalIndex = intervalIndex - 1;
+end
+
+function intervalNum = warpIntervalIndexToNum(handles, intervalIndex)
+intervalNum = intervalIndex + handles.WarpIntervalLim(1) - 1;
+if intervalNum >= 0
+    intervalNum = intervalNum + 1;
+end
 
 % --- Executes on button press in push_IntervalDuration.
 function push_IntervalDuration_Callback(hObject, eventdata, handles)
@@ -4059,18 +4170,16 @@ function push_IntervalDuration_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-num = str2num(get(handles.text_Interval,'string'));
-indx = num - handles.WarpIntervalLim(1) + 1;
-if num > 0
-    indx = indx - 1;
-end
+intervalName = get(handles.text_Interval,'string');
+intervalNum = str2double(intervalName);
+intervalIndex = warpIntervalNumToIndex(handles, intervalNum);
 
-answer = inputdlg({['Custom duration for interval ' get(handles.text_Interval,'string')]},'Duration',1,{num2str(handles.WarpIntervalDuration(indx))});
+answer = inputdlg({['Custom duration for interval ' intervalName]},'Duration',1,{num2str(handles.WarpIntervalDuration(intervalIndex))});
 if isempty(answer)
     return
 end
-handles.WarpIntervalDuration(indx) = str2num(answer{1});
-handles.WarpIntervalType(indx) = 4;
+handles.WarpIntervalDuration(intervalIndex) = str2num(answer{1});
+handles.WarpIntervalType(intervalIndex) = 4;
 set(handles.radio_WarpCustom,'value',1);
 
 guidata(hObject, handles);
@@ -4107,7 +4216,7 @@ handles = UpdateInterval(handles,num);
 guidata(hObject, handles);
 
 
-function handles = UpdateInterval(handles,num);
+function handles = UpdateInterval(handles,num)
 
 str = num2str(num);
 if num > 0
@@ -4407,8 +4516,6 @@ end
 
 
 function [funct lab indx] = getContinuousFunction(handles,filenum,axnum,doSubsample)
-
-
 val = get(handles.egh.popup_Channels(axnum),'value');
 str = get(handles.egh.popup_Channels(axnum),'string');
 nums = [];
@@ -4528,15 +4635,20 @@ set(handles.axes_Raster,'color',handles.BackgroundColor);
 guidata(hObject, handles);
 
 
+function [handles, clim] = getCLim(handles)
+if ~isfield(handles,'CLim')
+    % CLim hasn't been defined yet. Define it first.
+    handles.CLim = get(handles.axes_Raster,'clim');
+end
+clim = handles.CLim;
+
 % --------------------------------------------------------------------
 function menu_CLimits_Callback(hObject, eventdata, handles)
 % hObject    handle to menu_CLimits (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-if ~isfield(handles,'CLim')
-    handles.CLim = get(handles.axes_Raster,'clim');
-end
+handles = getCLim(handles);
 answer = inputdlg({'Min','Max'},'C-limits',1,{num2str(handles.CLim(1)),num2str(handles.CLim(2))});
 if isempty(answer)
     return
@@ -5649,15 +5761,8 @@ if strcmp(str,'Offset')
     handles.PlotInclude(5) = 1;
 end
 
-for c = [1 2 4 5 7 8]
-    if handles.PlotInclude(c)==1
-        str_obj{c}(19:24) = 'FF0000';
-    else
-        str_obj{c}(19:24) = '000000';
-    end
-end
+handles = updatePlotIncludeColors(handles);
 
-set(handles.list_Plot,'string',str_obj);
 set(handles.check_PlotInclude,'value',handles.PlotInclude(get(handles.list_Plot,'value')));
 
 
@@ -5795,13 +5900,13 @@ triggerInfo.eventOnsets = handles.AllEventOnsets;
 triggerInfo.eventOffsets = handles.AllEventOffsets;
 triggerInfo.eventLabels = handles.AllEventLabels;
 triggerInfo.eventNames = get(handles.popup_EventList,'string')';
-for c = 1:length(triggerInfo.eventNames)
-    f = findstr(triggerInfo.eventNames{c},'Syllables');
+for warpInterval = 1:length(triggerInfo.eventNames)
+    f = findstr(triggerInfo.eventNames{warpInterval},'Syllables');
     if ~isempty(f)
-        triggerInfo.eventNames{c} = '[Syllables] Sound';
+        triggerInfo.eventNames{warpInterval} = '[Syllables] Sound';
     else
-        f = findstr(triggerInfo.eventNames{c},'-');
-        triggerInfo.eventNames{c} = triggerInfo.eventNames{c}(1:f(end)-2);
+        f = findstr(triggerInfo.eventNames{warpInterval},'-');
+        triggerInfo.eventNames{warpInterval} = triggerInfo.eventNames{warpInterval}(1:f(end)-2);
     end
 end
 
@@ -5826,7 +5931,7 @@ W = {};
 str = get(handles.popup_WarpingAlgorithm,'string');
 W.algorithm = str{get(handles.popup_WarpingAlgorithm,'value')};
 W.maxCorrShift = handles.corrMax;
-pos = [handles.WarpIntervalLim(1):-1 1:handles.WarpIntervalLim(2)];
+warpIntervals = [handles.WarpIntervalLim(1):-1 1:handles.WarpIntervalLim(2)];
 str = {'Mean','Median','Maximum','Custom'};
 W.intervals.numBefore = handles.WarpNumBefore;
 W.intervals.numAfter = handles.WarpNumAfter;
@@ -5834,30 +5939,30 @@ W.intervals.types = str(handles.WarpIntervalType);
 W.intervals.customDurations = handles.WarpIntervalDuration;
 W.intervals.customDurations(find(handles.WarpIntervalType<4)) = NaN;
 
-f = find(pos<-handles.WarpNumBefore | pos>handles.WarpNumAfter);
+f = find(warpIntervals<-handles.WarpNumBefore | warpIntervals>handles.WarpNumAfter);
 W.intervals.types(f) = [];
 W.intervals.customDurations(f) = [];
-pos(f) = [];
+warpIntervals(f) = [];
 
-for c = -1:-1:-handles.WarpNumBefore
-    if isempty(find(pos==c))
+for warpInterval = -1:-1:-handles.WarpNumBefore
+    if isempty(find(warpIntervals==warpInterval))
         W.intervals.types = ['Mean' W.intervals.types];
         W.intervals.customDurations = [NaN W.intervals.customDurations];
     end
 end
-for c = 1:handles.WarpNumAfter
-    if isempty(find(pos==c))
+for warpInterval = 1:handles.WarpNumAfter
+    if isempty(find(warpIntervals==warpInterval))
         W.intervals.types = [W.intervals.types 'Mean'];
         W.intervals.customDurations = [W.intervals.customDurations NaN];
     end
 end
 
 W.points = {};
-for c = 1:length(handles.WarpPoints);
+for warpIdx = 1:length(handles.WarpPoints);
     str = get(handles.popup_TriggerSource,'string');
-    W.points{c}.name = ['[' handles.WarpPoints{c}.type '] ' str{handles.WarpPoints{c}.source+1}];
-    W.points{c}.alignment = handles.WarpPoints{c}.alignment;
-    W.points{c}.options = handles.WarpPoints{c}.P;
+    W.points{warpIdx}.name = ['[' handles.WarpPoints{warpIdx}.type '] ' str{handles.WarpPoints{warpInwarpIdxterval}.source+1}];
+    W.points{warpIdx}.alignment = handles.WarpPoints{warpIdx}.alignment;
+    W.points{warpIdx}.options = handles.WarpPoints{warpIdx}.P;
 end
 triggerInfo.warpOptions = W;
 
@@ -5932,3 +6037,348 @@ if handles.HistShow(2) == 1
     set(ax,'buttondownfcn','');
     set(get(ax,'children'),'buttondownfcn','');
 end
+
+
+% --- Executes on selection change in popup_Presets.
+function popup_Presets_Callback(hObject, eventdata, handles)
+% hObject    handle to popup_Presets (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns popup_Presets contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from popup_Presets
+
+
+% --- Executes during object creation, after setting all properties.
+function popup_Presets_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to popup_Presets (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+function handles = loadPresets(handles)
+presets = findPresets(handles.preset_prefix);
+if isempty(presets)
+    set(handles.popup_Presets, 'Value', 1); % If you reduce the # of elements in the popup such that it is greater than the current selection index ('Value') the popup just...disappears.
+    set(handles.popup_Presets, 'String', handles.no_presets_found);
+    set(handles.popup_Presets, 'enable', 'off');
+    set(handles.push_LoadPreset, 'enable', 'off');
+    set(handles.push_DeletePreset, 'enable', 'off');
+else
+    if get(handles.popup_Presets, 'Value') > length(presets)
+        % If you reduce the # of elements in the popup such that it is 
+        %   greater than the current selection index ('Value') the popup 
+        %   just...disappears. It's a MATLAB bug. 
+        set(handles.popup_Presets, 'Value', length(presets));
+    end
+    set(handles.popup_Presets, 'String', presets);
+    set(handles.popup_Presets, 'enable', 'on');
+    set(handles.push_LoadPreset, 'enable', 'on');
+    set(handles.push_DeletePreset, 'enable', 'on');
+end
+
+
+function [ok, badChars, allowedChars] = isNameOk(name)
+% Check that name does not contain any disallowed characters
+allowedChars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_';
+okChars = ismember(name, allowedChars);
+if any(~okChars)
+    % Name contains disallowed characters
+    badChars = sort(unique(name(~okChars)));
+    ok = false;
+else
+    badChars = '';
+    ok = true;
+end
+
+function names = findPresets(prefix)
+% Create a struct array containing the name and path to all raster preset files'
+f = dir([prefix, '*.mat']);
+names = {};
+for k = 1:length(f)
+    [~, fileName, ~] = fileparts(f(k).name);
+    name = regexp(fileName, [prefix, '(.*)'], 'tokens', 'once');
+    name = name{1};
+    [ok, disallowedChars, allowedChars] = isNameOk(name);
+    if ~ok
+        warning('Name of plugin ''%s'' contains disallowed characters: ''%s''\nPlease change plugin name so it only includes the characters: \n%s', name, disallowedChars, allowedChars);
+        continue;
+    end
+    names{k} = name;
+end
+% disp('Presets found:')
+% disp(names)
+
+% --- Executes on button press in push_LoadPreset.
+function push_LoadPreset_Callback(hObject, eventdata, handles)
+% hObject    handle to push_LoadPreset (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+presetNames = get(handles.popup_Presets, 'String');
+selectedPresetIdx = get(handles.popup_Presets, 'Value');
+selectedPresetName = presetNames{selectedPresetIdx};
+if strcmp(selectedPresetName, handles.no_presets_found)
+    % No presets exist, this shouldn't even be able to run.
+    return;
+end
+presetFileName = [handles.preset_prefix, selectedPresetName];
+s = load(presetFileName);
+preset = s.preset;
+
+fprintf('Loading preset %s...\n', presetFileName);
+
+% Trigger options
+set(handles.popup_Files, 'Value', preset.popup_Files);
+set(handles.popup_TriggerSource, 'Value', preset.popup_TriggerSource);
+set(handles.popup_TriggerType, 'Value', preset.popup_TriggerType);
+set(handles.check_CopyEvents, 'Value', preset.check_CopyEvents);
+set(handles.popup_TriggerAlignment, 'Value', preset.popup_TriggerAlignment);
+
+% Trigger/Event options
+set(handles.popup_EventSource, 'Value', preset.popup_EventSource);
+set(handles.popup_EventType, 'Value', preset.popup_EventType);
+handles.P = preset.P;
+
+set(handles.check_WarpingOn, 'Value', preset.check_WarpingOn);
+
+% Time warping options
+set(handles.popup_Correlation, 'Value', preset.popup_Correlation);
+set(handles.list_WarpPoints, 'Value', preset.list_WarpPoints);
+set(handles.popup_WarpingAlgorithm, 'Value', preset.popup_WarpingAlgorithm);
+handles = setWarpOptions(handles, preset.corrMax, preset.WarpNumBefore, preset.WarpNumAfter);
+handles = setWarpIntervalInfo(handles, preset.warpIntervalDurations, preset.warpIntervalTypes, preset.warpIntervalLim, preset.warpNumBefore, preset.warpNumAfter);
+
+% Filtering options
+set(handles.list_Filter, 'Value', preset.list_Filter);
+set(handles.edit_FilterFrom, 'String', preset.edit_FilterFrom);
+set(handles.edit_FilterTo, 'String', preset.edit_FilterTo);
+
+% Window options
+set(handles.check_LockLimits, 'Value', preset.check_LockLimits);
+set(handles.check_ExcludeIncomplete, 'Value', preset.check_ExcludeIncomplete);
+set(handles.check_ExcludePartialEvents, 'Value', preset.check_ExcludePartialEvents);
+set(handles.popup_StartReference, 'Value', preset.popup_StartReference);
+set(handles.popup_StopReference, 'Value', preset.popup_StopReference);
+
+% Raster color options
+handles.BackgroundColor = preset.BackgroundColor;
+handles.CLim = preset.CLim;
+colormap(preset.colormap);
+set(handles.menu_LogScale, 'Checked', preset.logScale);
+
+% Event selection options
+set(handles.popup_EventList, 'Value', preset.popup_EventList);
+set(handles.check_HoldOn, 'Value', preset.check_HoldOn);
+set(handles.check_SkipSorting, 'Value', preset.check_SkipSorting);
+
+% Exporting options
+set(handles.radio_HeightAbsolute, 'Value', preset.radio_HeightAbsolute);
+set(handles.radio_HeightPerTrial, 'Value', preset.radio_HeightPerTrial);
+set(handles.radio_HeightPerTime, 'Value', preset.radio_HeightPerTime);
+set(handles.radio_WidthAbsolute, 'Value', preset.radio_WidthAbsolute);
+set(handles.radio_WidthPerTime, 'Value', preset.radio_WidthPerTime);
+set(handles.check_IncludePSTH, 'Value', preset.check_IncludePSTH);
+handles = setDimensions(handles, preset.ExportPSTHHeight, preset.ExportHistHeight, preset.ExportInterval, preset.ExportResolution, preset.ExportWidth, preset.ExportHeight);
+
+% Historgram options
+set(handles.check_HistShow, 'Value', preset.check_HistShow);
+
+% Raster options
+set(handles.list_Plot, 'Value', preset.list_Plot);
+set(handles.check_AutoInclude, 'Value', preset.check_AutoInclude);
+set(handles.check_PlotInclude, 'Value', preset.check_PlotInclude);
+set(handles.check_PlotContinuous, 'Value', preset.check_PlotContinuous);
+handles = setPlotColors(handles, preset.plotColor);
+handles.PlotInclude = preset.plotInclude;
+
+handles.PlotLineWidth = preset.PlotLineWidth;
+handles.PlotAlpha = preset.PlotAlpha;
+set(handles.radio_TickTrials, 'Value', preset.radio_TickTrials);
+set(handles.radio_TickSeconds, 'Value', preset.radio_TickSeconds);
+set(handles.radio_TickInches, 'Value', preset.radio_TickInches);
+set(handles.radio_TickPercent, 'Value', preset.radio_TickPercent);
+handles.PlotTickSize = preset.PlotTickSize;
+handles.PlotInPerSec = preset.PlotInPerSec;
+handles.PlotOverlap = preset.PlotOverlap;
+set(handles.check_CopyWindow, 'Value', preset.check_CopyWindow);
+set(handles.radio_YTrial, 'Value', preset.radio_YTrial);
+set(handles.radio_YTime, 'Value', preset.radio_YTime);
+handles = setTimeLimits(handles, preset.push_TimeLimits_min, preset.push_TimeLimits_max);
+
+% Sorting options
+set(handles.popup_PrimarySort, 'Value', preset.popup_PrimarySort);
+set(handles.check_PrimaryDescending, 'Value', preset.check_PrimaryDescending);
+set(handles.check_GroupLabels, 'Value', preset.check_GroupLabels);
+set(handles.popup_SecondarySort, 'Value', preset.popup_SecondarySort);
+set(handles.check_SecondaryDescending, 'Value', preset.check_SecondaryDescending);
+
+guidata(hObject, handles);
+fprintf('...done loading preset\n');
+
+% --- Executes on button press in push_SavePreset.
+function push_SavePreset_Callback(hObject, eventdata, handles)
+% hObject    handle to push_SavePreset (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Gather all relevant settings and save them as a preset structure in a mat
+% file.
+allowedChars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_';
+answer = inputdlg({['Please enter a name for this new preset, using only the characters ', allowedChars]}, 'Save new preset', 1, {'NewPreset'});
+if isempty(answer)
+    disp('Save preset cancelled');
+    return;
+end
+newPresetName = answer{1};
+newPresetFilename = [handles.preset_prefix, newPresetName, '.mat'];
+if exist(newPresetFilename, 'file')
+    overwrite = questdlg(sprintf('A preset by the name %s already exists. Overwrite?', newPresetName));
+    if ~strcmp(overwrite, 'Yes')
+        disp('Save preset cancelled');
+        return
+    end
+end
+
+% Trigger options
+preset.popup_Files = get(handles.popup_Files, 'Value');
+preset.popup_TriggerSource = get(handles.popup_TriggerSource, 'Value');
+preset.popup_TriggerType = get(handles.popup_TriggerType, 'Value');
+preset.check_CopyEvents = get(handles.check_CopyEvents, 'Value');
+preset.popup_TriggerAlignment = get(handles.popup_TriggerAlignment, 'Value');
+
+% Trigger/Event options
+preset.popup_EventSource = get(handles.popup_EventSource, 'Value');
+preset.popup_EventType = get(handles.popup_EventType, 'Value');
+preset.P = handles.P;
+
+preset.check_WarpingOn = get(handles.check_WarpingOn, 'Value');
+
+% Time warping options
+preset.popup_Correlation = get(handles.popup_Correlation, 'Value');
+preset.list_WarpPoints = get(handles.list_WarpPoints, 'Value');
+preset.popup_WarpingAlgorithm = get(handles.popup_WarpingAlgorithm, 'Value');
+[preset.corrMax, preset.WarpNumBefore, preset.WarpNumAfter] = getWarpOptions(handles);
+
+[preset.warpIntervalDurations, preset.warpIntervalTypes, preset.warpIntervalLim, preset.warpNumBefore, preset.warpNumAfter] = getWarpIntervalInfo(handles);
+
+% Filtering options
+preset.list_Filter = get(handles.list_Filter, 'Value');
+preset.edit_FilterFrom = get(handles.edit_FilterFrom, 'String');
+preset.edit_FilterTo = get(handles.edit_FilterTo, 'String');
+
+% Window options
+preset.check_LockLimits = get(handles.check_LockLimits, 'Value');
+preset.check_ExcludeIncomplete = get(handles.check_ExcludeIncomplete, 'Value');
+preset.check_ExcludePartialEvents = get(handles.check_ExcludePartialEvents, 'Value');
+preset.popup_StartReference = get(handles.popup_StartReference, 'Value');
+preset.popup_StopReference = get(handles.popup_StopReference, 'Value');
+
+% Raster color options
+preset.BackgroundColor = handles.BackgroundColor;
+[handles, preset.CLim] = getCLim(handles);
+preset.colormap = colormap;
+preset.logScale = get(handles.menu_LogScale, 'Checked');
+
+% Event selection options
+preset.popup_EventList = get(handles.popup_EventList, 'Value');
+preset.check_HoldOn = get(handles.check_HoldOn, 'Value');
+preset.check_SkipSorting = get(handles.check_SkipSorting, 'Value');
+
+% Exporting options
+preset.radio_HeightAbsolute = get(handles.radio_HeightAbsolute, 'Value');
+preset.radio_HeightPerTrial = get(handles.radio_HeightPerTrial, 'Value');
+preset.radio_HeightPerTime = get(handles.radio_HeightPerTime, 'Value');
+preset.radio_WidthAbsolute = get(handles.radio_WidthAbsolute, 'Value');
+preset.radio_WidthPerTime = get(handles.radio_WidthPerTime, 'Value');
+preset.check_IncludePSTH = get(handles.check_IncludePSTH, 'Value');
+[preset.ExportPSTHHeight, preset.ExportHistHeight, preset.ExportInterval, preset.ExportResolution, preset.ExportWidth, preset.ExportHeight] = getDimensons(handles);
+
+% Historgram options
+preset.check_HistShow = get(handles.check_HistShow, 'Value');
+
+% Raster options
+preset.list_Plot = get(handles.list_Plot, 'Value');
+preset.check_AutoInclude = get(handles.check_AutoInclude, 'Value');
+preset.check_PlotInclude = get(handles.check_PlotInclude, 'Value');
+preset.check_PlotContinuous = get(handles.check_PlotContinuous, 'Value');
+
+preset.plotColor = getPlotColors(handles);
+preset.plotInclude = handles.PlotInclude;
+
+preset.PlotLineWidth = handles.PlotLineWidth;
+preset.PlotAlpha = handles.PlotAlpha;
+preset.radio_TickTrials = get(handles.radio_TickTrials, 'Value');
+preset.radio_TickSeconds = get(handles.radio_TickSeconds, 'Value');
+preset.radio_TickInches = get(handles.radio_TickInches, 'Value');
+preset.radio_TickPercent = get(handles.radio_TickPercent, 'Value');
+preset.PlotTickSize = handles.PlotTickSize;
+preset.PlotInPerSec = handles.PlotInPerSec;
+preset.PlotOverlap = handles.PlotOverlap;
+preset.check_CopyWindow = get(handles.check_CopyWindow, 'Value');
+preset.radio_YTrial = get(handles.radio_YTrial, 'Value');
+preset.radio_YTime = get(handles.radio_YTime, 'Value');
+[preset.push_TimeLimits_min, preset.push_TimeLimits_max] = getTimeLimits(handles);
+
+% Sorting options
+preset.popup_PrimarySort = get(handles.popup_PrimarySort, 'Value');
+preset.check_PrimaryDescending = get(handles.check_PrimaryDescending, 'Value');
+preset.check_GroupLabels = get(handles.check_GroupLabels, 'Value');
+preset.popup_SecondarySort = get(handles.popup_SecondarySort, 'Value');
+preset.check_SecondaryDescending = get(handles.check_SecondaryDescending, 'Value');
+
+save(newPresetFilename, 'preset');
+fprintf('Saved new preset: %s\n', newPresetFilename);
+handles = loadPresets(handles);
+guidata(hObject, handles);
+
+% --- Executes on button press in push_ReloadPreset.
+function push_ReloadPreset_Callback(hObject, eventdata, handles)
+% hObject    handle to push_ReloadPreset (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+handles = loadPresets(handles);
+guidata(hObject, handles);
+
+
+% --- Executes on button press in push_DeletePreset.
+function push_DeletePreset_Callback(hObject, eventdata, handles)
+% hObject    handle to push_DeletePreset (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+presetNames = get(handles.popup_Presets, 'String');
+selectedPresetIdx = get(handles.popup_Presets, 'Value');
+selectedPresetName = presetNames{selectedPresetIdx};
+if strcmp(selectedPresetName, handles.no_presets_found)
+    % No presets exist, this shouldn't even be able to run.
+    return;
+end
+
+fprintf('Deleting preset %s...\n', selectedPresetName);
+
+% Check if user really wants to delete the preset
+reallyDelete = questdlg(sprintf('Are you sure you want to delete the preset called %s?', selectedPresetName));
+
+if ~strcmp(reallyDelete, 'Yes')
+    % User did not in fact want to delete the preset
+    disp('Delete preset cancelled');
+    return
+end
+
+% User confirmed preset delete
+selectedPresetFilename = [handles.preset_prefix, selectedPresetName, '.mat'];
+
+% Delete preset
+delete(selectedPresetFilename);
+
+disp('Deleted preset.');
+
+handles = loadPresets(handles);
+guidata(hObject, handles);
