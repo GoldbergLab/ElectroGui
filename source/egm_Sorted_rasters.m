@@ -3088,7 +3088,7 @@ function handles = setTimeLimits(handles, timeLimitMin, timeLimitMax)
 if ~exist('timeLimitMin', 'var') || ~exist('timeLimitMax', 'var')
     [oldMin, oldMax] = getTimeLimits(handles);
     % Min/max not provided as arguments. Get them from user.
-    answer = inputdlg({'Min (sec)','Max (sec)'},'Time limits',1,num2str(oldMin),num2str(oldMax));
+    answer = inputdlg({'Min (sec)','Max (sec)'},'Time limits',1,{num2str(oldMin),num2str(oldMax)});
     if isempty(answer)
         return
     end
