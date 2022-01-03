@@ -61,12 +61,12 @@ function amp = eg_CalculateAmplitude(handles)
 for c = 1:length(handles.menu_Filter)
     if strcmp(get(handles.menu_Filter(c),'checked'),'on')
         h = handles.menu_Filter(c);
-        set(h,'userdata',handles.SoundFilterParams);
+        set(h,'userdata',handles.FilterParams);
         alg = get(handles.menu_Filter(c),'label');
     end
 end
 
-handles.filtered_sound = eg_runPlugin(handles.plugins.filters, alg, handles.sound, handles.fs, handles.SoundFilterParams);
+handles.filtered_sound = eg_runPlugin(handles.plugins.filters, alg, handles.sound, handles.fs, handles.FilterParams);
 
 wind = round(handles.SmoothWindow*handles.fs);
 amp = smooth(10*log10(handles.filtered_sound.^2+eps),wind);
