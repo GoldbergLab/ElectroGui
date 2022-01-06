@@ -1,4 +1,4 @@
-function fig = rc_plot_target_raster_histogram(dbase, varargin)
+function [fig, undistortedspikes, distortedspikes, histo_undist, histo_dist, histo_edges, fdbkdur, dataStart, dataStop] = cj_rc_plot_target_raster_histogram(dbase, varargin)
 
 if isempty(varargin);
 bDisplay=1;
@@ -11,7 +11,7 @@ Ncon = 4;
 Ncoff = 8;
 winsz = 0.03;
 stepsz = 0.002;
-xlimit = [-.5,.5];
+xlimit = [-.3,.3];
 fsz = 20;
 lw = 2;
 
@@ -24,6 +24,7 @@ loaddata = 1;
 ord = 80;
 
 count = count+1;
+
 
 eventOnsetsHit = dbase.trigInfohitbin10.events;
 eventOnsetsEscape = dbase.trigInfocatchbin10.events;
@@ -317,6 +318,9 @@ for i=1:length(eventOnsetsHit)
 %                                             [i-1 i-1 i i], 'r', 'EdgeColor', 'none');
 %                                         set(hr, 'FaceAlpha', 0.5)
 end
+
+distortedspikes = eventOnsetsHit;
+
 hr = patch([0 fdbkdur fdbkdur 0],...
      [0 0 length(eventOnsetsHit) length(eventOnsetsHit)], [1 1 0], 'EdgeColor', 'none');
      set(hr, 'FaceAlpha', 0.5)
@@ -324,6 +328,7 @@ hr = patch([0 fdbkdur fdbkdur 0],...
 
 yline = length(eventOnsetsHit);
 line([dataStart dataStop], [yline, yline], 'color', 'k', 'LineWidth', 2)
+
 for i=1:length(eventOnsetsEscape)
     spks=eventOnsetsEscape{1,i};
     if ~isempty(spks);
@@ -334,12 +339,14 @@ for i=1:length(eventOnsetsEscape)
 end
 line([0 0],[length(eventOnsetsHit) length(eventOnsetsAll)], 'Color', 'b', 'LineWidth', 2)
 
+undistortedspikes = eventOnsetsEscape;
+
 xlim(xlimit)
 set(gca, 'YTick', length(eventOnsetsAll))
 set(gca, 'XTickLabel', [])
 ylim([0 length(eventOnsetsAll)])
-set(gca, 'FontSize', fsz)
-ylabel('Hits Escapes', 'FontSize', fsz)
+set(gca, 'FontSize', 24)
+ylabel('Motif Renditions', 'FontSize', 32)
 set(gca,'TickLength',[ 0 0 ])
 
 % subplot for histogram
@@ -350,8 +357,17 @@ hp1 = stairs(edges, rdhitsmooth, 'r', 'LineWidth', 2);
 hp2 = stairs(edges, rdescapesmooth, 'b', 'LineWidth', 2);
 line([0 0],[0 200], 'Color', 'k', 'LineWidth', 2)
 xlim(xlimit)
-set(gca,'TickLength',[ 0 0 ])
-ylim([0,80]);
+xlabel('Time rel. to target syllable (s)','FontSize',28);
+set(gca,'FontSize',24,'TickLength',[0 3])
+set(gca, 'XTick', [-.2 0 .2])
+set(gca, 'XTickLabel',[-.2 0 .2])
+ylim([0,150]);
+ylabel('Rate(Hz)','FontSize', 28)
+ax.FontSize = 0;
+
+histo_dist = rdhitsmooth;
+histo_undist = rdescapesmooth;
+histo_edges = edges;
 % 
 % subplot('Position', [0.13 0.1 0.7750 0.09])
 % hold on
