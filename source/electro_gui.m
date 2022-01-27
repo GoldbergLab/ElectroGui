@@ -146,6 +146,11 @@ else
     handles = eval(['defaults_' lst{val} '(handles)']);
 end
 
+if isfield(handles, 'QuoteFile')
+    quote = getQuote(handles.QuoteFile);
+    fprintf('Welcome to electro_gui.\n\nRandom quote of the moment:\n\n%s\n\nTo stop getting quotes, remove the ''handles.QuoteFile'' parameter from your defaults file.\n\n', quote);
+end
+
 dr = dir([mfilename('fullpath') '*m']);
 set(handles.figure_Main,'name',['ElectroGui v. ' datestr(datenum(dr.date),'yy.mm.dd.HH.MM')]);
 
@@ -3368,7 +3373,6 @@ if isfield(handles, 'DefaultChannelFunction')
     allFunctionNames = get(handles.popup_Functions(axnum),'string');
     defaultChannelFunctionIdx = find(strcmp(allFunctionNames, handles.DefaultChannelFunction));
     if ~isempty(defaultChannelFunctionIdx)
-        disp('hi2')
         % Default channel function is valid
         currentChannelFunctionIdx = get(handles.popup_Functions(axnum),'value');
         if currentChannelFunctionIdx ~= defaultChannelFunctionIdx
