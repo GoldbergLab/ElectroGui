@@ -93,6 +93,7 @@ for fileIdx = 1:length(labellingFileNums)
         patterns(nextPatternNum).fileNum = fileNum;
         patterns(nextPatternNum).start = patternStarts(newPatternNum);
         patterns(nextPatternNum).end = patternEnds(newPatternNum);
+        patterns(nextPatternNum).samplingRate = fs;
         if length(patterns(nextPatternNum).pattern) > maxPatternLength
             maxPatternLength = length(patterns(nextPatternNum).pattern);
         end

@@ -22,7 +22,7 @@ function varargout = PatternID(varargin)
 
 % Edit the above text to modify the response to help PatternID
 
-% Last Modified by GUIDE v2.5 21-Feb-2022 20:01:37
+% Last Modified by GUIDE v2.5 22-Feb-2022 22:50:19
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -145,7 +145,9 @@ for k = 1:length(handles.patterns)
     else
         color = handles.unselectedColor;
     end
-    handles.patterns(k).line = plot(handles.axes1, 0.5*handles.patterns(k).paddedPattern + k, 'Color', color);
+    t = (1:length(handles.patterns(k).paddedPattern))/handles.patterns(k).samplingRate;
+    plot(handles.axes1, t, handles.patterns(k).paddedPattern*0+k, ':', 'Color', 'black')
+    handles.patterns(k).line = plot(handles.axes1, t, 0.5*handles.patterns(k).paddedPattern + k, 'Color', color);
     text(50, k+0.25, num2str(handles.patterns(k).ID), 'Color', color);
     set(handles.patterns(k).line, 'ButtonDownFcn', @lineClickCallback);
 end
