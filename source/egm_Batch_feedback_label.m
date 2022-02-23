@@ -194,6 +194,10 @@ end
 fprintf('# of feedback events unlabeled: %d\n', numUnlabeled);
 fprintf('# of pre-existing syllables deleted to clear the way for feedback syllables: %d\n', deletedSyllables);
 
+set(txt,'string','Done labelling feedback!');
+delete(txt);
+drawnow;
+
 msgbox('Autolabelling complete!', 'Autolabelling complete!');
 %msgbox(['Segmented ' num2str(count) ' files.'],'Segmentation complete')
 
