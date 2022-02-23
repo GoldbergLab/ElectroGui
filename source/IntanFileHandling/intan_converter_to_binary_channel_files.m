@@ -66,11 +66,6 @@ function intan_converter_to_binary_channel_files(acc_array, acc_present, path_in
 % first rhd file and the incremental time step of the t_amplifier array.
 
 % Modified for multiple headstages with accelerometers.
-
-%%IMPORTANT!! On the command window make an array named acc_array=[x x x x]
-%%where x = 0 or 1 according to whether each of the four headstages recorded from in the Intan files
-%%have an accelerometer or not. Do this BEFORE running the script.
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 if ~exist('start_index', 'var')
@@ -180,7 +175,7 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
             second=second_first;
             
 
-            if abs(data.board_adc_data(n,k)) > 0.5 %|| abs((data.amplifier_data(1,k)*unit)) > 0.003  %checks for stims if it is NOT a song file************* Changed to 0.5 CBJ 6/17/21
+            if abs(data.board_adc_data(headstage_num,k)) > 0.3 %|| abs((data.amplifier_data(1,k)*unit)) > 0.003  %checks for stims if it is NOT a song file************* 
 
                 motif_number=motif_number+1;
                 motif_number_array(headstage_num)=motif_number;
@@ -210,10 +205,10 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
                 effCopyChannel = 17;
                 
                 time_string= sprintf('%s%s%s',num2str(hour_filename), num2str(minute_filename),num2str(second_filename,'% 10.0f')); %this is only for labelling txt files and does not get updated for the same rhd file
-                songfile_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(headstage_num),date_string, time_string, songChannel);
+                songfile_name = sprintf('d0000%04u_%sT%s_chan%d.nc',motif_number_array(headstage_num),date_string, time_string, songChannel);
                 full_songfile_name = fullfile(path_output,songfile_name);
                 
-                effcopyfile_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(headstage_num),date_string, time_string, effCopyChannel);
+                effcopyfile_name = sprintf('d0000%04u_%sT%s_chan%d.nc',motif_number_array(headstage_num),date_string, time_string, effCopyChannel); %Changed to pad w/ 4 zeros (line 208 as well)
                 full_effcopyfile_name = fullfile(path_output,effcopyfile_name);
                 
                 songData.timeVector = abs([year, month, day, hour, minute, second]);

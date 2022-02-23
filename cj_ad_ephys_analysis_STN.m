@@ -661,7 +661,7 @@
     dbase.peakFRsilent = (1/prctile(dbase.ISI.nonsong,5));
     
     % set directory for analysed dbase & SAVE IT!
-    save_pathname = 'Z:\FieldL_16ch_ephys\Analyzeddbase';
+    save_pathname = 'Z:\CBJ\Samplewav';
     save_filename = name_dbase;
     save_fullfilename = fullfile(save_pathname,save_filename);
     save(save_fullfilename,'dbase');
