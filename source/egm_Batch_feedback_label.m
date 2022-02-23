@@ -46,7 +46,6 @@ for fileIdx = 1:length(labellingFileNums)
     end
 
     % Get all segment titles and times
-    syllableTimes = handles.SegmentTimes{fileNum};
     syllableTitles = handles.SegmentTitles{fileNum};
     numSegments = size(syllableTitles, 2);
 
@@ -168,17 +167,17 @@ for k = 1:length(patterns)
         stop = patterns(k).end;
         ID = patterns(k).ID;
         % Find nearby segments
-        idx = getNearbySegments(handles.SegmentTimes{fileNum}, start, stop, length(ID));
+        idx = getNearbySegments(handles.SegmentTimes{fileNum}, start, stop, (stop-start)/2, length(ID));
         % Label nearby segments
         for j = 1:length(ID)
             % Loop over individual characters in ID string
             character = ID(j);
             if j > length(idx)
-                % Assign each character in the ID string to an individaul
-                % segment
-                handles.SegmentTitles{fileNum}(idx(j)) = character;
                 break;
             end
+            % Assign each character in the ID string to an individaul
+            % segment
+            handles.SegmentTitles{fileNum}{idx(j)} = character;
         end
             
     else
@@ -202,7 +201,7 @@ drawnow;
 msgbox('Autolabelling complete!', 'Autolabelling complete!');
 %msgbox(['Segmented ' num2str(count) ' files.'],'Segmentation complete')
 
-function idx = getNearbySegments(segmentTimes, t0, t1, nSegments)
+function idx = getNearbySegments(segmentTimes, t0, t1, maxExcursion, nSegments)
 % Find a specified number of syllables within the time limits that are
 %   closest to the center of the time interval. Max excursion is how far
 %   outside the time range it is permissible to look.
@@ -213,7 +212,7 @@ if length(idx) <= nSegments
     return;
 end
 % Get array of center times for nearby segments
-centerTimes = mean(segmentTimes(idx), 1);
+centerTimes = mean(segmentTimes(idx, :), 2);
 % Get sort indices for nearby segments by distance from center time to
 % middle of interval
 [~, closestIdx] = sort(abs(centerTimes - mean([t0, t1])));

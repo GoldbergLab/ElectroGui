@@ -145,10 +145,13 @@ for k = 1:length(handles.patterns)
     else
         color = handles.unselectedColor;
     end
+    textX = 50/handles.patterns(k).samplingRate;
     t = (1:length(handles.patterns(k).paddedPattern))/handles.patterns(k).samplingRate;
     plot(handles.axes1, t, handles.patterns(k).paddedPattern*0+k, ':', 'Color', 'black')
     handles.patterns(k).line = plot(handles.axes1, t, 0.5*handles.patterns(k).paddedPattern + k, 'Color', color);
-    text(50, k+0.25, num2str(handles.patterns(k).ID), 'Color', color, 'Parent', handles.axes1);
+    if ~isempty(handles.patterns(k).ID)
+        text(textX, k+0.25, handles.patterns(k).ID, 'Color', color, 'Parent', handles.axes1);
+    end
     set(handles.patterns(k).line, 'ButtonDownFcn', @lineClickCallback);
 end
 ylim(handles.axes1, [0.5, k+1.5]);
