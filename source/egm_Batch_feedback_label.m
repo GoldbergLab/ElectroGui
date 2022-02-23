@@ -1,8 +1,6 @@
 function handles = egm_Batch_label(handles)
 % ElectroGui macro
-% Batch label syllables for faster analysis
-% Use labels in current file to estimate syllable parameters, then
-%   applies those parameters to attempt to label syllables in other files.
+% Batch label feedback patterns found in a particular channel
 
 fileRangeString = ['1:' num2str(handles.TotalFileNumber)];
 
@@ -28,14 +26,15 @@ numGroups = str2double(answer{4});
 ax = handles.axes_Sonogram;
 xlim(ax)
 ylim(ax)
-txt = text(ax, mean(xlim(ax)), mean(ylim(ax)),'Extracting patterns... Click to quit.','horizontalalignment','center','fontsize',14,'color','r','backgroundcolor','w');
+txt = text(mean(xlim(ax)), mean(ylim(ax)),'Extracting patterns... Click to quit.','horizontalalignment','center','fontsize',14,'color','r','backgroundcolor','w', 'Parent', ax);
 set(txt,'ButtonDownFcn','set(gco,''color'',''g''); drawnow;');
 
 patterns = [];
 
 maxPatternLength = 0;
 
-% Loop over files and automatically label unlablled syllables
+% Loop over files and find feedback patterns in the specified feedback
+% channel
 for fileIdx = 1:length(labellingFileNums)
     count = fileIdx;
     fileNum = labellingFileNums(fileIdx);
@@ -168,18 +167,20 @@ for k = 1:length(patterns)
         start = patterns(k).start;
         stop = patterns(k).end;
         ID = patterns(k).ID;
-        % Delete any overlapping segments
-        idx = getOverlappingSegments(handles.SegmentTimes{fileNum}, start, stop);
-        deletedSyllables = deletedSyllables + length(idx);
-        handles.SegmentTimes{fileNum}(idx, :) = [];
-        handles.SegmentSelection{fileNum}(idx) = [];
-        handles.SegmentTitles{fileNum}(idx) = [];
-        % Add new segment
-        ind = getSortedArrayInsertion(handles.SegmentTimes{fileNum}(:, 1), start);
-        handles.SegmentTimes{fileNum} = [handles.SegmentTimes{fileNum}(1:ind-1, :); [start, stop]; handles.SegmentTimes{fileNum}(ind:end, :)];
-        handles.SegmentSelection{fileNum} = [handles.SegmentSelection{fileNum}(1:ind-1), 1, handles.SegmentSelection{fileNum}(ind:end)];
-        handles.SegmentTitles{fileNum} = [handles.SegmentTitles{fileNum}(1:ind-1), ID, handles.SegmentTitles{fileNum}(ind:end)];
-        labels{end+1} = ID;
+        % Find nearby segments
+        idx = getNearbySegments(handles.SegmentTimes{fileNum}, start, stop, length(ID));
+        % Label nearby segments
+        for j = 1:length(ID)
+            % Loop over individual characters in ID string
+            character = ID(j);
+            if j > length(idx)
+                % Assign each character in the ID string to an individaul
+                % segment
+                handles.SegmentTitles{fileNum}(idx(j)) = character;
+                break;
+            end
+        end
+            
     else
         numUnlabeled = numUnlabeled + 1;
     end
@@ -201,6 +202,26 @@ drawnow;
 msgbox('Autolabelling complete!', 'Autolabelling complete!');
 %msgbox(['Segmented ' num2str(count) ' files.'],'Segmentation complete')
 
+function idx = getNearbySegments(segmentTimes, t0, t1, nSegments)
+% Find a specified number of syllables within the time limits that are
+%   closest to the center of the time interval. Max excursion is how far
+%   outside the time range it is permissible to look.
+idx = getOverlappingSegments(segmentTimes, t0-maxExcursion, t1+maxExcursion);
+if length(idx) <= nSegments
+    % There are just enough segments, or not enough - no need to winnow
+    % them down.
+    return;
+end
+% Get array of center times for nearby segments
+centerTimes = mean(segmentTimes(idx), 1);
+% Get sort indices for nearby segments by distance from center time to
+% middle of interval
+[~, closestIdx] = sort(abs(centerTimes - mean([t0, t1])));
+% Arrange segment indices accoring to distance from middle of interval
+idx = idx(closestIdx);
+% Find the closest N
+idx = sort(idx(1:nSegments));
+
 function idx = getOverlappingSegments(segmentTimes, t0, t1)
 % Return list of indices of segments that overlap given time (in samples)
 if isempty(segmentTimes)
@@ -210,7 +231,3 @@ end
 idx = find((segmentTimes(:, 1) <= t0) & (segmentTimes(:, 2) >= t0) | ...
            (segmentTimes(:, 1) <= t1) & (segmentTimes(:, 2) >= t1) | ...
            (segmentTimes(:, 1) >= t0) & (segmentTimes(:, 2) <= t1));
-
-function ind = getSortedArrayInsertion(sortedArr, value)
-[~, ind] = min(abs(sortedArr-value));
-ind = ind + (value > sortedArr(ind));
