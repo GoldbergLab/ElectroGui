@@ -1,4 +1,4 @@
-function handles = egm_Batch_label(handles)
+function handles = egm_Batch_feedback_label(handles)
 % ElectroGui macro
 % Batch label feedback patterns found in a particular channel
 
@@ -49,11 +49,16 @@ for fileIdx = 1:length(labellingFileNums)
     syllableTitles = handles.SegmentTitles{fileNum};
     numSegments = size(syllableTitles, 2);
 
-    % Load audio
+    % Load channel data
     [data, fs, ~, ~, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{feedbackChannelNumber}, fullfile(handles.path_name, handles.chan_files{feedbackChannelNumber}(fileNum).name), true);
     data = logical(data);
     if size(data, 1) > size(data, 2)
         data = data';
+    end
+    % Load audio
+    [snd, ~, ~, ~, ~] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.path_name, handles.sound_files(fileNum).name), true);
+    if size(snd, 1) > size(snd, 2)
+        snd = snd';
     end
     
     % Convert silence threshold from seconds to samples
@@ -92,6 +97,13 @@ for fileIdx = 1:length(labellingFileNums)
         patterns(nextPatternNum).start = patternStarts(newPatternNum);
         patterns(nextPatternNum).end = patternEnds(newPatternNum);
         patterns(nextPatternNum).samplingRate = fs;
+        patterns(nextPatternNum).audio = snd(patternStarts(newPatternNum):patternEnds(newPatternNum));
+        idx = getOverlappingSegments(handles.SegmentTimes{fileNum}, patternStarts(newPatternNum), patternEnds(newPatternNum));
+        if ~isempty(handles.SegmentTimes{fileNum})
+            patterns(nextPatternNum).segments = handles.SegmentTimes{fileNum}(idx, :);
+        else
+            patterns(nextPatternNum).segments = [];
+        end
         if length(patterns(nextPatternNum).pattern) > maxPatternLength
             maxPatternLength = length(patterns(nextPatternNum).pattern);
         end
