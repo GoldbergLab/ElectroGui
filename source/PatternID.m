@@ -150,16 +150,11 @@ cla(handles.axesSegments);
 patternNum = getSelectedPatternNum(handles);
 samplingRate = handles.patterns(patternNum).samplingRate;
 xlim(handles.axesSegments, [0, length(handles.patterns(patternNum).pattern)/samplingRate]);
-disp('xlim:')
-disp([0, length(handles.patterns(patternNum).pattern)/samplingRate])
 for k = 1:size(handles.patterns(patternNum).segments, 1)
     x0 = (handles.patterns(patternNum).segments(k, 1) - handles.patterns(patternNum).start)/samplingRate;
     x1 = (handles.patterns(patternNum).segments(k, 2) - handles.patterns(patternNum).start)/samplingRate;
     y0 = 0.25;
     y1 = 0.75;
-    disp('coords')
-    disp([x0, x1, x1, x0])
-    disp([y0, y0, y1, y1])
     patch([x0, x1, x1, x0], [y0, y0, y1, y1], 'red', 'Parent', handles.axesSegments');
 end
 
