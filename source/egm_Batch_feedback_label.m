@@ -171,7 +171,6 @@ patterns = [patternGroups{:}];
 
 labels = {};
 numUnlabeled = 0;
-deletedSyllables = 0;
 for k = 1:length(patterns)
     if ~isempty(patterns(k).ID)
         fileNum = patterns(k).fileNum;
@@ -204,7 +203,6 @@ for k = 1:length(uniqueLabels)
     fprintf('\t%s: %d\n', uniqueLabels{k}, sum(strcmp(uniqueLabels{k}, labels)));
 end
 fprintf('# of feedback events unlabeled: %d\n', numUnlabeled);
-fprintf('# of pre-existing syllables deleted to clear the way for feedback syllables: %d\n', deletedSyllables);
 
 set(txt,'string','Done labelling feedback!');
 delete(txt);
