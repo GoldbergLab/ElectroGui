@@ -313,15 +313,7 @@ end
 guidata(hObject, handles);
 
 
-% --- Executes on selection change in popup_EventSource.
-function popup_EventSource_Callback(hObject, eventdata, handles)
-% hObject    handle to popup_EventSource (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: contents = get(hObject,'String') returns popup_EventSource contents as cell array
-%        contents{get(hObject,'Value')} returns selected item from popup_EventSource
-
+function handles = respondToEventSourceChange(handles)
 set(handles.popup_EventType,'value',1);
 set(handles.popup_PSTHUnits,'value',1);
 if get(handles.popup_EventSource,'value') == 1
@@ -347,6 +339,16 @@ else
     set(handles.popup_HistCount,'string',{'All time points'});
 end
 
+% --- Executes on selection change in popup_EventSource.
+function popup_EventSource_Callback(hObject, eventdata, handles)
+% hObject    handle to popup_EventSource (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = get(hObject,'String') returns popup_EventSource contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from popup_EventSource
+
+handles = respondToEventSourceChange(handles);
 guidata(hObject, handles);
 
 
@@ -3825,60 +3827,61 @@ function push_PSTHBinSize_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-if strcmp(get(handles.push_HistHoriz,'fontweight'),'bold')
-    str = get(handles.popup_PSTHUnits,'string');
-    val = get(handles.popup_PSTHUnits,'value');
-    str = str{val};
-    str(1) = lower(str(1));
+switch getHistogramDirection(handles)
+    case 'horizontal'
+        str = get(handles.popup_PSTHUnits,'string');
+        val = get(handles.popup_PSTHUnits,'value');
+        str = str{val};
+        str(1) = lower(str(1));
 
-    if strcmp(get(handles.popup_EventType,'enable'),'off')
-        val = val + 3;
-    end
-    
-    answer = inputdlg({'PSTH bin size (sec)','Smoothing window (# of bins)',['Min ' str],['Max ' str]},'Options',1,{num2str(handles.PSTHBinSize),num2str(handles.PSTHSmoothingWindow),num2str(handles.PSTHYLim(val,1)),num2str(handles.PSTHYLim(val,2))});
-    if isempty(answer)
-        return
-    end
+        if strcmp(get(handles.popup_EventType,'enable'),'off')
+            val = val + 3;
+        end
 
-    handles.PSTHBinSize = str2num(answer{1});
-    handles.PSTHSmoothingWindow = str2num(answer{2});
-    handles.PSTHYLim(val,1) = str2num(answer{3});
-    handles.PSTHYLim(val,2) = str2num(answer{4});
+        answer = inputdlg({'PSTH bin size (sec)','Smoothing window (# of bins)',['Min ' str],['Max ' str]},'Options',1,{num2str(handles.PSTHBinSize),num2str(handles.PSTHSmoothingWindow),num2str(handles.PSTHYLim(val,1)),num2str(handles.PSTHYLim(val,2))});
+        if isempty(answer)
+            return
+        end
 
-    if get(handles.radio_PSTHManual,'value')==1
-        set(handles.axes_PSTH,'ylim',handles.PSTHYLim(val,:));
-    end
-else
-    str = get(handles.popup_HistUnits,'string');
-    valm = get(handles.popup_HistUnits,'value');
-    strm = str{valm};
-    strm(1) = lower(strm(1));
+        handles.PSTHBinSize = str2num(answer{1});
+        handles.PSTHSmoothingWindow = str2num(answer{2});
+        handles.PSTHYLim(val,1) = str2num(answer{3});
+        handles.PSTHYLim(val,2) = str2num(answer{4});
 
-    if strcmp(get(handles.popup_EventType,'enable'),'off')
-        valm = valm + 3;
-    end
-    
-    if get(handles.radio_YTrial,'value')==1
-        val = 1;
-    else
-        val = 2;
-    end
-    str = {'trials','sec'};
-    answer = inputdlg({['Histogram bin size (' str{val} ')'],'Smoothing window (# of bins)','ROI start (sec)','ROI stop (sec)',['Min ' strm],['Max ' strm]},'Options',1,{num2str(handles.HistBinSize(val)),num2str(handles.HistSmoothingWindow),num2str(handles.ROILim(1)),num2str(handles.ROILim(2)),num2str(handles.HistYLim(val,1)),num2str(handles.HistYLim(val,2))});
-    if isempty(answer)
-        return
-    end
-    
-    handles.HistBinSize(val) = str2num(answer{1});
-    handles.HistSmoothingWindow = str2num(answer{2});
-    handles.ROILim(1) = str2num(answer{3});
-    handles.ROILim(2) = str2num(answer{4});
-    handles.HistYLim(val,1) = str2num(answer{5});
-    handles.HistYLim(val,2) = str2num(answer{6});
+        if get(handles.radio_PSTHManual,'value')==1
+            set(handles.axes_PSTH,'ylim',handles.PSTHYLim(val,:));
+        end
+    case 'vertical'
+        str = get(handles.popup_HistUnits,'string');
+        valm = get(handles.popup_HistUnits,'value');
+        strm = str{valm};
+        strm(1) = lower(strm(1));
 
-    if get(handles.radio_PSTHManual,'value')==1
-        set(handles.axes_Hist,'xlim',handles.HistYLim(val,:));
-    end
+        if strcmp(get(handles.popup_EventType,'enable'),'off')
+            valm = valm + 3;
+        end
+
+        if get(handles.radio_YTrial,'value')==1
+            val = 1;
+        else
+            val = 2;
+        end
+        str = {'trials','sec'};
+        answer = inputdlg({['Histogram bin size (' str{val} ')'],'Smoothing window (# of bins)','ROI start (sec)','ROI stop (sec)',['Min ' strm],['Max ' strm]},'Options',1,{num2str(handles.HistBinSize(val)),num2str(handles.HistSmoothingWindow),num2str(handles.ROILim(1)),num2str(handles.ROILim(2)),num2str(handles.HistYLim(val,1)),num2str(handles.HistYLim(val,2))});
+        if isempty(answer)
+            return
+        end
+
+        handles.HistBinSize(val) = str2num(answer{1});
+        handles.HistSmoothingWindow = str2num(answer{2});
+        handles.ROILim(1) = str2num(answer{3});
+        handles.ROILim(2) = str2num(answer{4});
+        handles.HistYLim(val,1) = str2num(answer{5});
+        handles.HistYLim(val,2) = str2num(answer{6});
+
+        if get(handles.radio_PSTHManual,'value')==1
+            set(handles.axes_Hist,'xlim',handles.HistYLim(val,:));
+        end
 end
 
 guidata(hObject, handles);
@@ -5204,22 +5207,46 @@ set(handles.text_NumTriggers,'string',[num2str(sum(handles.TriggerSelection)) ' 
 
 guidata(hObject, handles);
 
+function direction = getHistogramDirection(handles)
+if strcmp(get(handles.push_HistHoriz, 'fontweight'), 'bold')
+    direction = 'horizontal';
+elseif strcmp(get(handles.push_HistVert,'fontweight'), 'bold')
+    direction = 'vertical';
+else
+    direction = 'error';
+end
+
+function handles = setHistogramDirection(handles, direction)
+switch direction
+    case 'horizontal'
+        set(handles.push_HistHoriz,'fontweight','bold');
+        set(handles.push_HistVert,'fontweight','normal');
+        set(handles.check_HistShow,'value',handles.HistShow(1));
+
+        set(handles.popup_PSTHUnits,'visible','on');
+        set(handles.popup_PSTHCount,'visible','on');
+        set(handles.popup_HistUnits,'visible','off');
+        set(handles.popup_HistCount,'visible','off');
+    case 'vertical'
+        set(handles.push_HistHoriz,'fontweight','normal');
+        set(handles.push_HistVert,'fontweight','bold');
+        set(handles.check_HistShow,'value',handles.HistShow(2));
+
+        set(handles.popup_PSTHUnits,'visible','off');
+        set(handles.popup_PSTHCount,'visible','off');
+        set(handles.popup_HistUnits,'visible','on');
+        set(handles.popup_HistCount,'visible','on');
+end
+
 
 % --- Executes on button press in push_HistHoriz.
 function push_HistHoriz_Callback(hObject, eventdata, handles)
 % hObject    handle to push_HistHoriz (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-
-set(handles.push_HistHoriz,'fontweight','bold');
-set(handles.push_HistVert,'fontweight','normal');
-set(handles.check_HistShow,'value',handles.HistShow(1));
-
-set(handles.popup_PSTHUnits,'visible','on');
-set(handles.popup_PSTHCount,'visible','on');
-set(handles.popup_HistUnits,'visible','off');
-set(handles.popup_HistCount,'visible','off');
-
+handles = guidata(hObject);
+handles = setHistogramDirection(handles, 'horizontal');
+guidata(hObject, handles);
 
 % --- Executes on button press in push_HistVert.
 function push_HistVert_Callback(hObject, eventdata, handles)
@@ -5227,14 +5254,9 @@ function push_HistVert_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-set(handles.push_HistHoriz,'fontweight','normal');
-set(handles.push_HistVert,'fontweight','bold');
-set(handles.check_HistShow,'value',handles.HistShow(2));
-
-set(handles.popup_PSTHUnits,'visible','off');
-set(handles.popup_PSTHCount,'visible','off');
-set(handles.popup_HistUnits,'visible','on');
-set(handles.popup_HistCount,'visible','on');
+handles = guidata(hObject);
+handles = setHistogramDirection(handles, 'vertical');
+guidata(hObject, handles);
 
 % --- Executes on button press in check_HistShow.
 function check_HistShow_Callback(hObject, eventdata, handles)
@@ -5244,10 +5266,11 @@ function check_HistShow_Callback(hObject, eventdata, handles)
 
 % Hint: get(hObject,'Value') returns toggle state of check_HistShow
 
-if strcmp(get(handles.push_HistHoriz,'fontweight'),'bold')
-    handles.HistShow(1) = get(handles.check_HistShow,'value');
-else
-    handles.HistShow(2) = get(handles.check_HistShow,'value');
+switch getHistogramDirection(handles)
+    case 'horizontal'
+        handles.HistShow(1) = get(handles.check_HistShow,'value');
+    case 'vertical'
+        handles.HistShow(2) = get(handles.check_HistShow,'value');
 end
 
 st = {'off','on'};
@@ -6144,6 +6167,7 @@ set(handles.popup_TriggerAlignment, 'Value', preset.popup_TriggerAlignment);
 set(handles.popup_EventSource, 'Value', preset.popup_EventSource);
 set(handles.popup_EventType, 'Value', preset.popup_EventType);
 handles.P = preset.P;
+handles = respondToEventSourceChange(handles);
 
 set(handles.check_WarpingOn, 'Value', preset.check_WarpingOn);
 
@@ -6186,8 +6210,41 @@ set(handles.radio_WidthPerTime, 'Value', preset.radio_WidthPerTime);
 set(handles.check_IncludePSTH, 'Value', preset.check_IncludePSTH);
 handles = setDimensions(handles, preset.ExportPSTHHeight, preset.ExportHistHeight, preset.ExportInterval, preset.ExportResolution, preset.ExportWidth, preset.ExportHeight);
 
-% Historgram options
+% Histogram options
 set(handles.check_HistShow, 'Value', preset.check_HistShow);
+set(handles.radio_PSTHAuto, 'Value', preset.radio_PSTHAuto);
+set(handles.radio_PSTHManual, 'Value', preset.radio_PSTHManual);
+handles = setHistogramDirection(handles, preset.histogram_direction);
+set(handles.popup_HistUnits, 'Value', preset.popup_HistUnits);
+set(handles.popup_PSTHUnits, 'Value', preset.popup_PSTHUnits);
+set(handles.popup_HistCount, 'Value', preset.popup_HistCount);
+set(handles.popup_PSTHCount, 'Value', preset.popup_PSTHCount);
+handles.PSTHBinSize = preset.PSTHBinSize;
+handles.PSTHSmoothingWindow = preset.PSTHSmoothingWindow;
+handles.PSTHYLim = preset.PSTHYLim;
+handles.PSTHYLim = preset.PSTHYLim;
+handles.HistBinSize = preset.HistBinSize;
+handles.HistSmoothingWindow = preset.HistSmoothingWindow;
+handles.ROILim = preset.ROILim;
+handles.ROILim = preset.ROILim;
+handles.HistYLim = preset.HistYLim;
+handles.HistYLim = preset.HistYLim;
+
+val = preset.popup_PSTHUnits;
+if strcmp(get(handles.popup_EventType,'enable'),'off')
+    val = val + 3;
+end
+if preset.radio_PSTHManual == 1
+    set(handles.axes_PSTH,'ylim',handles.PSTHYLim(val,:));
+end
+if preset.radio_YTrial == 1
+    val = 1;
+else
+    val = 2;
+end
+if preset.radio_PSTHManual==1
+    set(handles.axes_Hist,'xlim',handles.HistYLim(val,:));
+end
 
 % Raster options
 set(handles.list_Plot, 'Value', preset.list_Plot);
@@ -6299,8 +6356,25 @@ preset.radio_WidthPerTime = get(handles.radio_WidthPerTime, 'Value');
 preset.check_IncludePSTH = get(handles.check_IncludePSTH, 'Value');
 [preset.ExportPSTHHeight, preset.ExportHistHeight, preset.ExportInterval, preset.ExportResolution, preset.ExportWidth, preset.ExportHeight] = getDimensons(handles);
 
-% Historgram options
+% Histogram options
 preset.check_HistShow = get(handles.check_HistShow, 'Value');
+preset.radio_PSTHAuto = get(handles.radio_PSTHAuto, 'Value');
+preset.radio_PSTHManual = get(handles.radio_PSTHManual, 'Value');
+preset.histogram_direction = getHistogramDirection(handles);
+preset.popup_HistUnits = get(handles.popup_HistUnits, 'Value');
+preset.popup_PSTHUnits = get(handles.popup_PSTHUnits, 'Value');
+preset.popup_HistCount = get(handles.popup_HistCount, 'Value');
+preset.popup_PSTHCount = get(handles.popup_PSTHCount, 'Value');
+preset.PSTHBinSize = handles.PSTHBinSize;
+preset.PSTHSmoothingWindow = handles.PSTHSmoothingWindow;
+preset.PSTHYLim = handles.PSTHYLim;
+preset.PSTHYLim = handles.PSTHYLim;
+preset.HistBinSize = handles.HistBinSize;
+preset.HistSmoothingWindow = handles.HistSmoothingWindow;
+preset.ROILim = handles.ROILim;
+preset.ROILim = handles.ROILim;
+preset.HistYLim = handles.HistYLim;
+preset.HistYLim = handles.HistYLim;
 
 % Raster options
 preset.list_Plot = get(handles.list_Plot, 'Value');
