@@ -169,6 +169,8 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
             n_acc=n_acc+1;
         end
         
+        % Check if current sound sample is over threshold (to trigger
+        % recording)
         while k < numel(data.board_adc_data(headstage_num,:))   %going through the analog channel for song
             hour=hour_first;
             minute=minute_first;
@@ -358,9 +360,11 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
                 
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 
+                % Increment current sample to end of recorded segment
                 k_step =(buffer_end*fs)+20;   % to avoid over-writing....
                 k=k+k_step;
             else
+                % Increment sample by a tiny chunk to check next chunk
                 k_step=(0.05*fs)+1;     %%%step jump when it doesn't find song signal (keeping this large enough to save time and small enough to avoid missing anything)
                 k=k+k_step;
             end
