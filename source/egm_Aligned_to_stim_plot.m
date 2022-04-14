@@ -70,7 +70,7 @@ offs = 0;
 figure
 for c = 1:handles.TotalFileNumber
     if ~isempty(evtimes{c})
-        [data, fs, dt, lab, props] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{chan}, fullfile(handles.path_name, handles.chan_files{chan}(c).name), true);
+        [data, fs, dt, lab, props] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{chan}, fullfile(handles.DefaultRootPath, handles.chan_files{chan}(c).name), true);
         for d = 1:1:length(evtimes{c})
             if evtimes{c}(d)+t1>0 & evtimes{c}(d)+t2<=length(data)
                 dt = data(evtimes{c}(d)+t1:evtimes{c}(d)+t2);

@@ -19,7 +19,7 @@ function handles = egm_Save_in_AA_format(handles)
 % All other fields fully match Aaron's format.
 
 
-[filename, pathname, filterindex] = uigetfile([handles.path_name '\exper.mat'], 'Choose the AA daq ''exper'' file');
+[filename, pathname, filterindex] = uigetfile([handles.DefaultRootPath '\exper.mat'], 'Choose the AA daq ''exper'' file');
 if ~isstr(filename)
     return
 end
@@ -52,12 +52,12 @@ if length(spikesfile)>1
     indx = eval(['menu(''Choose events to save as spikes''' mn ')']);
     str = str{indx};
     if strcmp(str(1:5),'Sound')
-        chan = get_channel([handles.path_name '\' handles.sound_files(1).name]);
+        chan = get_channel([handles.DefaultRootPath '\' handles.sound_files(1).name]);
     else
         f = findstr(str,'-');
         f = f(1);
         num = str2num(str(9:f-2));
-        chan = get_channel([handles.path_name '\' handles.chan_files{num}(1).name]);
+        chan = get_channel([handles.DefaultRootPath '\' handles.chan_files{num}(1).name]);
     end
     cell.channel = chan;
     

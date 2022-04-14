@@ -27,7 +27,7 @@ for j = 1:length(fls)
         break
     end
     
-    [snd, fs, dt, label, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.path_name, handles.sound_files(c).name), true);
+    [snd, fs, dt, label, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.DefaultRootPath, handles.sound_files(c).name), true);
     if size(snd,2)>size(snd,1)
         snd = snd';
     end
