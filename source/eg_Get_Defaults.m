@@ -6,6 +6,7 @@ handles.TooLong = 400000; % Number of points for a file to be considered too lon
 handles.FileString = '*chan#.dat'; % File search string; use # to indicate channel number
 handles.DefaultFileLoader = 'AA_daq'; % Default file loader. Choose from egl_* files.
 handles.DefaultChannelNumber = 7; % Default number of channels
+handles.DefaultRootPath = pwd();
 
 % DEFAULT PROPERTIES
 handles.DefaultProperties.Names = {};   % Default property names to add to every loaded file
