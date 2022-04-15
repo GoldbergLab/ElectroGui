@@ -4427,9 +4427,9 @@ if val <= length(str)-sum(nums)
         for ovr = 1:length(fm);
             chan = str2num(str{val}(9:end));
             if length(str{val})>4 & strcmp(str{val}(1:5),'Sound')
-                [funct1, fs, dt, lab, props] = eg_runPlugin(handles.egh.plugins.loaders, handles.egh.sound_loader, fullfile(handles.egh.path_name, handles.egh.sound_files(fm(ovr)).name), true);
+                [funct1, fs, dt, lab, props] = eg_runPlugin(handles.egh.plugins.loaders, handles.egh.sound_loader, fullfile(handles.egh.DefaultRootPath, handles.egh.sound_files(fm(ovr)).name), true);
             else
-                [funct1, fs, dt, lab, props] = eg_runPlugin(handles.egh.plugins.loaders, handles.egh.chan_loader{chan}, fullfile(handles.egh.path_name, handles.egh.chan_files{chan}(fm(ovr)).name), true);
+                [funct1, fs, dt, lab, props] = eg_runPlugin(handles.egh.plugins.loaders, handles.egh.chan_loader{chan}, fullfile(handles.egh.DefaultRootPath, handles.egh.chan_files{chan}(fm(ovr)).name), true);
             end
             funct(pos(ovr)+1:pos(ovr)+length(funct1)) = funct1;
         end

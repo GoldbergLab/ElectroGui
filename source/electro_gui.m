@@ -922,7 +922,7 @@ if isFileUnread(handles, str{fileNum})
 end
 
 curr = pwd;
-cd(handles.path_name);
+cd(handles.DefaultRootPath);
 
 
 % Label
@@ -933,7 +933,7 @@ handles.BackupTitle = {'',''};
 
 % Plot sound
 subplot(handles.axes_Sound)
-[handles.sound, handles.fs, dt, label, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.path_name, handles.sound_files(fileNum).name), true);
+[handles.sound, handles.fs, dt, label, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.DefaultRootPath, handles.sound_files(fileNum).name), true);
 handles.DatesAndTimes(fileNum) = dt;
 handles.FileLength(fileNum) = length(handles.sound);
 set(handles.text_DateAndTime,'string',datestr(dt,0));
@@ -1189,9 +1189,9 @@ end
 if val <= length(str)-sum(nums)
     % No idea what this signifies
     if isSound
-        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.path_name, handles.sound_files(filenum).name), true);
+        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name), true);
     else
-        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{selectedChannelNum}, fullfile(handles.path_name, handles.chan_files{selectedChannelNum}(filenum).name), true);
+        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{selectedChannelNum}, fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum}(filenum).name), true);
     end
 else
     ev = zeros(1,length(handles.sound));
@@ -2086,12 +2086,11 @@ if ischanged == 0
     return
 end
 
-handles.DefaultDirectory = handles.path_name;
 handles.DefaultFile = 'analysis.mat';
 
 if strcmp(handles.WorksheetTitle,'Untitled')
-    f = findstr(handles.path_name,'\');
-    handles.WorksheetTitle = handles.path_name(f(end)+1:end);
+    f = findstr(handles.DefaultRootPath,'\');
+    handles.WorksheetTitle = handles.DefaultRootPath(f(end)+1:end);
 end
 
 handles.TotalFileNumber = length(handles.sound_files);
@@ -2242,7 +2241,7 @@ handles.Properties.Values = cell(1,handles.TotalFileNumber);
 handles.Properties.Types = cell(1,handles.TotalFileNumber);
 for c = 1:handles.TotalFileNumber
     [~, ~, ~, ~, props] = eg_runPlugin(handles.plugins.loaders, ...
-        handles.sound_loader, fullfile(handles.path_name, ...
+        handles.sound_loader, fullfile(handles.DefaultRootPath, ...
         handles.sound_files(c).name), 0);
     handles.Properties.Names{c} = [props.Names, defaultProps.Names];
     handles.Properties.Values{c} = [props.Values, defaultProps.Values];
@@ -2292,7 +2291,7 @@ function push_Open_Callback(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-[file, path] = uigetfile('*.mat','Load analysis');
+[file, path] = uigetfile(fullfile(handles.DefaultRootPath, '*.mat'),'Load analysis');
 if ~isstr(file)
     return
 end
@@ -2303,18 +2302,17 @@ handles.BackupChan = cell(1,2);
 handles.BackupLabel = cell(1,2);
 handles.BackupTitle = cell(1,2);
 
-handles.path_name = dbase.PathName;
-if ~isdir(handles.path_name)
-    path2 = uigetdir(pwd,['Directory ''' handles.path_name ''' not found. Find the new location.']);
+handles.DefaultRootPath = dbase.PathName;
+if ~isdir(handles.DefaultRootPath)
+    path2 = uigetdir(pwd,['Directory ''' handles.DefaultRootPath ''' not found. Find the new location.']);
     if ~isstr(path2)
         return
     end
-    handles.path_name = path2;
+    handles.DefaultRootPath = path2;
 end
 
 handles.DefaultFile = [path file];
 
-handles.DefaultDirectory = handles.path_name;
 handles.DatesAndTimes = dbase.Times;
 handles.FileLength = dbase.FileLength;
 handles.sound_files = dbase.SoundFiles;
@@ -2343,8 +2341,8 @@ set(handles.popup_EventList,'value',1);
 set(handles.axes_Events,'visible','off');
 
 if strcmp(handles.WorksheetTitle,'Untitled')
-    f = findstr(handles.path_name,'\');
-    handles.WorksheetTitle = handles.path_name(f(end)+1:end);
+    f = findstr(handles.DefaultRootPath,'\');
+    handles.WorksheetTitle = handles.DefaultRootPath(f(end)+1:end);
 end
 
 handles.TotalFileNumber = length(handles.sound_files);
@@ -2496,6 +2494,10 @@ function push_Save_Callback(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
+if ~isfield(handles, 'DefaultFile')
+    msgbox('Please create a new experiment or open an existing one before saving.');
+    return;
+end
 
 [file, path] = uiputfile(handles.DefaultFile,'Save analysis');
 if ~isstr(file)
@@ -5694,12 +5696,12 @@ val = get(handles.popup_Export,'value');
 str = str{val};
 switch str
     case 'Segments'
-        path = uigetdir(handles.DefaultDirectory,'Directory for segments');
+        path = uigetdir(handles.DefaultRootPath,'Directory for segments');
         if ~isstr(path)
             delete(txtexp)
             return
         end
-        handles.DefaultDirectory = path;
+        handles.DefaultRootPath = path;
 
         filenum = getCurrentFileNum(handles);
 
@@ -5787,12 +5789,12 @@ switch str
     case 'Sonogram'
         if get(handles.radio_Files,'value')==1
             [pathstr,name,ext,versn] = fileparts(get(handles.text_FileName,'string'));
-            [file, path] = uiputfile([handles.DefaultDirectory '\' name '.jpg'],'Save image');
+            [file, path] = uiputfile([handles.DefaultRootPath '\' name '.jpg'],'Save image');
             if ~isstr(file)
                 delete(txtexp)
                 return
             end
-            handles.DefaultDirectory = path;
+            handles.DefaultRootPath = path;
         end
         xl = get(handles.axes_Sonogram,'xlim');
         yl = get(handles.axes_Sonogram,'ylim');
@@ -6039,12 +6041,12 @@ elseif get(handles.radio_Files,'value')==1
 
         case {'Current sound', 'Sound mix'}
             [pathstr,name,ext,versn] = fileparts(get(handles.text_FileName,'string'));
-            [file, path] = uiputfile([handles.DefaultDirectory '\' name '.wav'],'Save sound');
+            [file, path] = uiputfile([handles.DefaultRootPath '\' name '.wav'],'Save sound');
             if ~isstr(file)
                 delete(txtexp)
                 return
             end
-            handles.DefaultDirectory = path;
+            handles.DefaultRootPath = path;
             warning off
             wavwrite(wav,fs,16,[path file]);
             warning on
@@ -9530,7 +9532,7 @@ guidata(hObject, handles);
 
 function dbase = GetDBase(handles)
 
-dbase.PathName = handles.path_name;
+dbase.PathName = handles.DefaultRootPath;
 dbase.Times = handles.DatesAndTimes;
 dbase.FileLength = handles.FileLength;
 dbase.SoundFiles = handles.sound_files;
