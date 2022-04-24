@@ -1058,7 +1058,7 @@ cd(curr);
 
 function currentFileNum = getCurrentFileNum(handles)
 currentFileNum = str2double(get(handles.edit_FileNumber, 'string'));
-function [selectedChannelNum, selectedChannelName, isSound] = getSelectedChannel(handles, axnum)
+function [selectedChannelNum, selectedChannelName, isSound, isVideo] = getSelectedChannel(handles, axnum)
 % Return the name and number of the selected channel from the specified
 %   axis. If the name is not a valid channel, selectedChannelNum will be
 %   NaN.
@@ -1066,6 +1066,20 @@ channelOptionList = get(handles.popup_Channels(axnum),'string');
 selectedChannelName = channelOptionList{get(handles.popup_Channels(axnum),'value')};
 selectedChannelNum = channelNameToNum(selectedChannelName);
 isSound = (selectedChannelNum == 0);
+if ~isnan(selectedChannelNum)
+    data = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{selectedChannelNum}, [], false);
+    if isempty(data)
+        isVideo = false;
+    elseif isstruct(data)
+        if isfield(data, 'isVideo')
+            isVideo = data.isVideo;
+        else
+            isVideo = false;
+        end
+    end
+else
+    isVideo = false;
+end
 function selectedEventDetector = getSelectedEventDetector(handles, axnum)
 % Return the name of the selected event detector from the specified axis.
 eventDetectorOptionList = get(handles.popup_EventDetectors(axnum),'string');
@@ -1156,6 +1170,9 @@ end
 function handles = eg_LoadChannel(handles,axnum)
 % Load a new channel of data
 
+filenum = getCurrentFileNum(handles);
+[selectedChannelNum, ~, isSound, isVideo] = getSelectedChannel(handles, axnum);
+
 if get(handles.(['popup_Channel',num2str(axnum)]),'value')==1
     % This is "(None)" channel selection, so disable everything
     cla(handles.axes_Channel(axnum));
@@ -1170,43 +1187,49 @@ else
     % This is an actual channel selection, enable the axes and function
     % menu.
     set(handles.axes_Channel(axnum),'visible','on');
-    set(handles.popup_Functions(axnum),'enable','on');
+    if isVideo
+        % If this is a video channel, turn off the "functions" dropdown
+        set(handles.popup_Functions(axnum),'enable','off');
+    else
+        % This is a regular data channel - turn on the "functions" dropdown
+        set(handles.popup_Functions(axnum),'enable','on');
+    end
 end
 
-filenum = getCurrentFileNum(handles);
-[selectedChannelNum, ~, isSound] = getSelectedChannel(handles, axnum);
-
-val = get(handles.(['popup_Channel',num2str(axnum)]),'value');
-str = get(handles.(['popup_Channel',num2str(axnum)]),'string');
-nums = [];
+channelIdx = get(handles.(['popup_Channel',num2str(axnum)]),'value');
+channelNameList = get(handles.(['popup_Channel',num2str(axnum)]),'string');
+numEventTypes = [];
 for c = 1:length(handles.EventTimes);
-    nums(c) = size(handles.EventTimes{c},1);
+    numEventTypes(c) = size(handles.EventTimes{c},1);
 end
-if val <= length(str)-sum(nums)
-    % No idea what this signifies
+totalNumEventTypes = sum(numEventTypes);
+if channelIdx <= length(channelNameList) - totalNumEventTypes
+    % These are regular channels, not preset event-detected channels
     if isSound
         [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name), true);
     else
         [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{selectedChannelNum}, fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum}(filenum).name), true);
     end
 else
+    % Selected channel is a preset event-detected channel
     ev = zeros(1,length(handles.sound));
-    indx = val-(length(str)-sum(nums));
-    cs = cumsum(nums);
-    f = length(find(cs<indx))+1;
+    % Find the index of this channel within the sublist of preset channels
+    presetChannelIdx = channelIdx-(length(channelNameList) - totalNumEventTypes);
+    cs = cumsum(numEventTypes);
+    f = length(find(cs<presetChannelIdx))+1;
     if f>1
-        g = indx-cs(f-1);
+        g = presetChannelIdx-cs(f-1);
     else
-        g = indx;
+        g = presetChannelIdx;
     end
     tm = handles.EventTimes{f}{g,filenum};
     issel = handles.EventSelected{f}{g,filenum};
     ev(tm(find(issel==1))) = 1;
     handles.loadedChannelData{axnum} = ev;
-    str = str{val};
-    f = findstr(str,' - ');
+    channelName = channelNameList{channelIdx};
+    f = findstr(channelName,' - ');
     f = f(end);
-    handles.Labels{axnum} = str(f+3:end);
+    handles.Labels{axnum} = channelName(f+3:end);
 end
 
 if get(handles.popup_Functions(axnum),'value') > 1
@@ -1268,7 +1291,7 @@ if get(handles.popup_Functions(axnum),'value') > 1
     end
 end
 
-if length(handles.loadedChannelData{axnum}) < length(handles.sound)
+if ~isVideo && length(handles.loadedChannelData{axnum}) < length(handles.sound)
     indx = fix(linspace(1,length(handles.loadedChannelData{axnum}),length(handles.sound)));
     chan = handles.loadedChannelData{axnum};
     handles.loadedChannelData{axnum} = chan(indx);
@@ -1277,20 +1300,24 @@ end
 handles = eg_PlotChannel(handles,axnum);
 
 subplot(handles.axes_Channel(axnum));
-if strcmp(get(handles.(['menu_AutoLimits' num2str(axnum)]),'checked'),'on')
-    yl = [min(handles.loadedChannelData{axnum}) max(handles.loadedChannelData{axnum})];
-    if yl(1)==yl(2)
-        yl = [yl(1)-1 yl(2)+1];
+if ~isVideo
+    if strcmp(get(handles.(['menu_AutoLimits' num2str(axnum)]),'checked'),'on')
+        yl = [min(handles.loadedChannelData{axnum}) max(handles.loadedChannelData{axnum})];
+        if yl(1)==yl(2)
+            yl = [yl(1)-1 yl(2)+1];
+        end
+        ylim([mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
+        handles.ChanLimits(axnum, :) = ylim;
+    else
+        ylim(handles.ChanLimits(axnum, :));
     end
-    ylim([mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
-    handles.ChanLimits(axnum, :) = ylim;
-else
-    ylim(handles.ChanLimits(axnum, :));
 end
 
 handles = eg_Overlay(handles);
 
 function handles = eg_PlotChannel(handles,axnum)
+
+[~, ~, ~, isVideo] = getSelectedChannel(handles, axnum);
 
 subplot(handles.axes_Channel(axnum));
 if strcmp(get(gca,'visible'),'off')
@@ -1298,32 +1325,38 @@ if strcmp(get(gca,'visible'),'off')
 end
 set(gca,'visible','on');
 set(handles.popup_Functions(axnum),'enable','on');
-str = get(handles.(['popup_Channel',num2str(axnum)]),'string');
-str = str{get(handles.(['popup_Channel',num2str(axnum)]),'value')};
-if isempty(findstr(str,' - '))
+channelNameList = get(handles.(['popup_Channel',num2str(axnum)]),'string');
+channelName = channelNameList{get(handles.(['popup_Channel',num2str(axnum)]),'value')};
+if isempty(findstr(channelName,' - ')) && ~isVideo
+    % This is a regular channel, not a preset event-detected channel
     set(handles.(['popup_EventDetector',num2str(axnum)]),'enable','on');
     set(handles.(['push_Detect',num2str(axnum)]),'enable','on');
 else
+    % This is a preset event-detected channel
     set(handles.(['popup_EventDetector',num2str(axnum)]),'enable','off');
     set(handles.(['push_Detect',num2str(axnum)]),'enable','off');
 end
 
-f = linspace(0,length(handles.sound)/handles.fs,length(handles.sound));
-xl = get(gca,'xlim');
-delete(findobj('parent',gca,'linestyle','-'));
-hold on
-if strcmp(get(handles.(['menu_PeakDetect',num2str(axnum)]),'checked'),'on')
-    g = find(f>=xl(1) & f<=xl(2));
-    if ~isempty(g)
-        h = eg_peak_detect(gca,f(g),handles.loadedChannelData{axnum}(g));
-    end
+if isVideo
+    handles = eg_PlotVideoChannel(handles, axnum);
 else
-    h = plot(f,handles.loadedChannelData{axnum});
+    f = linspace(0,length(handles.sound)/handles.fs,length(handles.sound));
+    xl = get(gca,'xlim');
+    delete(findobj('parent',gca,'linestyle','-'));
+    hold on
+    if strcmp(get(handles.(['menu_PeakDetect',num2str(axnum)]),'checked'),'on')
+        g = find(f>=xl(1) & f<=xl(2));
+        if ~isempty(g)
+            h = eg_peak_detect(gca,f(g),handles.loadedChannelData{axnum}(g));
+        end
+    else
+        h = plot(f,handles.loadedChannelData{axnum});
+    end
+    hold off
+    set(h,'color',handles.ChannelColor(axnum,:));
+    set(h,'linewidth',handles.ChannelLineWidth(axnum));
+    xlim(xl);
 end
-hold off
-set(h,'color',handles.ChannelColor(axnum,:));
-set(h,'linewidth',handles.ChannelLineWidth(axnum));
-xlim(xl);
 
 set(gca,'xticklabel',[]);
 box off;
@@ -1333,6 +1366,49 @@ set(gca,'uicontextmenu',handles.(['context_Channel',num2str(axnum)]));
 set(gca,'buttondownfcn','electro_gui(''click_Channel'',gcbo,[],guidata(gcbo))');
 set(get(gca,'children'),'uicontextmenu',get(gca,'uicontextmenu'));
 set(get(gca,'children'),'buttondownfcn',get(gca,'buttondownfcn'));
+
+function handles = eg_PlotVideoChannel(handles, axnum)
+% Get axes info for thumbnail sizing
+pos = getpixelposition(handles.axes_Channel(axnum));
+axesWidth = pos(3);
+axesHeight = pos(4);
+
+% Display "loading" notification
+cla(handles.axes_Channel(axnum));
+text(axesWidth/2, axesHeight/2, 'Loading video...', 'Parent', handles.axes_Channel(axnum));
+
+% Load video
+videoData = handles.loadedChannelData{axnum};
+videoSize = size(videoData);
+videoWidth = videoSize(2);
+videoHeight = videoSize(1);
+videoChannels = videoSize(3);
+numFrames = videoSize(4);
+thumbnailScaleFactor = axesHeight / videoHeight;
+thumbnailWidth = videoWidth * thumbnailScaleFactor;
+thumbnailHeight = videoHeight * thumbnailScaleFactor;
+numThumbnails = axesWidth / thumbnailWidth;
+
+% Load video frame rate
+filenum = getCurrentFileNum(handles);
+selectedChannelNum = getSelectedChannel(handles, axnum);
+[~, videoFrameRate] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{selectedChannelNum}, fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum}(filenum).name), false, true);
+
+% Create thumbnails
+totalT = length(handles.sound)/handles.fs;
+thumbnailT = totalT / numThumbnails;
+thumbnailFrames = thumbnailT * videoFrameRate;
+thumbnailIdx = round(((1:ceil(numThumbnails))-1) * thumbnailFrames) + 1;
+thumbnails = flip(imresize(videoData(:, :, :, thumbnailIdx), thumbnailScaleFactor), 1);
+
+% Display row of thumbnails
+cla(handles.axes_Channel(axnum));
+ylim(handles.axes_Channel(axnum), [1, thumbnailHeight]);
+hold(handles.axes_Channel(axnum), 'on');
+for k = 1:ceil(numThumbnails)
+    image(thumbnails(:, :, :, k), 'Parent', handles.axes_Channel(axnum), 'XData', [0, thumbnailT] + thumbnailT*(k-1));
+end
+
 
 function handles = SetThreshold(handles)
 % Clear segments axes
