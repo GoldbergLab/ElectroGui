@@ -181,10 +181,6 @@ handles.menu_EventsDisplay = [handles.menu_EventsDisplay1, handles.menu_EventsDi
 handles.menu_Events = [handles.menu_Events1, handles.menu_Events2];
 handles.push_Detects = [handles.push_Detect1, handles.push_Detect2];
 
-
-handles.ChanLimits1 = handles.ChanLimits(1,:);
-handles.ChanLimits2 = handles.ChanLimits(2,:);
-
 if handles.EventsDisplayMode == 1
     set(handles.menu_DisplayValues,'checked','on');
 else
@@ -1287,9 +1283,9 @@ if strcmp(get(handles.(['menu_AutoLimits' num2str(axnum)]),'checked'),'on')
         yl = [yl(1)-1 yl(2)+1];
     end
     ylim([mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
-    handles.(['ChanLimits' num2str(axnum)]) = ylim;
+    handles.ChanLimits(axnum, :) = ylim;
 else
-    ylim(handles.(['ChanLimits' num2str(axnum)]));
+    ylim(handles.ChanLimits(axnum, :));
 end
 
 handles = eg_Overlay(handles);
@@ -3522,7 +3518,7 @@ if strcmp(get(gcf,'selectiontype'),'open')
                 end
                 set(handles.(['axes_Channel' num2str(axn)]),'ylim',[mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
             else
-                set(handles.(['axes_Channel' num2str(axn)]),'ylim',handles.(['ChanLimits' num2str(axn)]))
+                set(handles.(['axes_Channel' num2str(axn)]),'ylim',handles.ChanLimits(axn, :));
             end
         end
     end
@@ -3756,7 +3752,7 @@ if strcmp(get(handles.menu_AllowYZoom1,'checked'),'on')
         end
         ylim([mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
     else
-        ylim(handles.ChanLimits1);
+        ylim(handles.ChanLimits(1,:));
     end
     handles = eg_Overlay(handles);
 else
@@ -3785,7 +3781,7 @@ if strcmp(get(handles.menu_AllowYZoom2,'checked'),'on')
         end
         ylim([mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
     else
-        ylim(handles.ChanLimits2);
+        ylim(handles.ChanLimits(2,:));
     end
     handles = eg_Overlay(handles);
 else
@@ -3806,7 +3802,7 @@ axnum = 1;
 if strcmp(get(handles.menu_AutoLimits1,'checked'),'on')
     set(handles.menu_AutoLimits1,'checked','off');
     subplot(handles.axes_Channel1);
-    handles.ChanLimits1 = ylim;
+    handles.ChanLimits(1,:) = ylim;
 else
     set(handles.menu_AutoLimits1,'checked','on');
     subplot(handles.axes_Channel1);
@@ -3832,7 +3828,7 @@ axnum = 2;
 if strcmp(get(handles.menu_AutoLimits2,'checked'),'on')
     set(handles.menu_AutoLimits2,'checked','off');
     subplot(handles.axes_Channel2);
-    handles.ChanLimits2 = ylim;
+    handles.ChanLimits(2,:) = ylim;
 else
     set(handles.menu_AutoLimits2,'checked','on');
     subplot(handles.axes_Channel2);
@@ -3877,7 +3873,7 @@ if isempty(answer)
     return
 end
 if strcmp(get(handles.(['menu_AutoLimits' num2str(axnum)]),'checked'),'off')
-    handles.(['ChanLimits' num2str(axnum)]) = [str2num(answer{1}) str2num(answer{2})];
+    handles.ChanLimits(axnum, :) = [str2num(answer{1}) str2num(answer{2})];
 end
 
 subplot(handles.(['axes_Channel' num2str(axnum)]));
