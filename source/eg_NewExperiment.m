@@ -2,12 +2,12 @@ function [handles ischanged] = eg_NewExperiment(handles)
 
 if handles.IsUpdating == 0
     if isfield(handles,'DefaultRootPath')
-        dr = handles.DefaultRootPath;
+        dataDir = handles.DefaultRootPath;
     else
-        dr = pwd;
+        dataDir = pwd();
     end
-    path_name = uigetdir(dr,'Experiment Directory');
-    if ~isstr(path_name)
+    path_name = uigetdir(dataDir,'Experiment Directory');
+    if ~ischar(path_name)
         ischanged = 0;
         return
     end
@@ -16,49 +16,47 @@ if handles.IsUpdating == 0
     handles.DefaultRootPath = path_name;
 
     num_chan = handles.DefaultChannelNumber;
-    str = 'New experiment';
+    title = 'New experiment';
 else
     num_chan = length(handles.chan_files);
-    str = 'Update file list';
+    title = 'Update file list';
 end
 
 % Create dialog figure
-screen_size = get(0,'screensize');
 screen_size = get(0,'screensize');
 fig_h = screen_size(4)*(0.035*(num_chan+2));
 fig_w = screen_size(3)*.3;
 
 try
-    fig = figure;
+    fig = figure();
     set(fig,'visible','on');
-    set(fig,'Name',str,'NumberTitle','off','MenuBar','none','doublebuffer','on','units','pixels','resize','off');
+    set(fig,'Name',title,'NumberTitle','off','MenuBar','none','doublebuffer','on','units','pixels','resize','off');
     set(fig,'position',[(screen_size(3)-fig_w)/2 (screen_size(4)-fig_h)/2 fig_w fig_h]);
     set(fig,'closerequestfcn',@CloseFig);
     set(fig, 'KeyPressFcn', @DialogKeyPress);
 
     % Find all loader files
-    load_files = dir('egl_*.m');
-    drop_str = {};
-    pop_str = {};
-    pop_val = 1;
-    for c = 1:length(load_files)
-        pop_str{c} = load_files(c).name(5:end-2);
-        if strcmp(pop_str{c},handles.DefaultFileLoader)
-            pop_val = c;
+    loaderIndex = 1;
+    for loaderNum = 1:length(handles.plugins.loaders)
+        if strcmp(handles.plugins.loaders(loaderNum).name, handles.DefaultFileLoader)
+            loaderIndex = loaderNum;
         end
     end
 
     % Put objects into figure
 
+    alreadyWarned = false;
+    
     for c = 1:num_chan+1
         fstr = sprintf(handles.FileString, c-1);
-        if strcmp(fstr, handles.FileString) && ~isempty(strfind(handles.FileString, '#'))
+        if ~alreadyWarned && strcmp(fstr, handles.FileString) && ~isempty(strfind(handles.FileString, '#'))
             % fstr is the same as handles.FileString, so it must not contain a
             % formatting pattern, and it does contain ##, which indicates this
             % is the legacy format.
             msgbox('Legacy FileString specification detected. Please edit your defaults_*.m file to update the ''handles.FileString'' to the new format. handles.FileString should be a string containing a standard string formatting pattern such as %02d or %d', 'Legacy FileString detected!');
             fstr = regexprep(handles.FileString, '\#\#', '%02d');
             fstr = sprintf(fstr, c-1);
+            alreadyWarned = true;
         end
 
     %     f = findstr(fstr,'##');
@@ -66,20 +64,22 @@ try
     %     fstr = handles.FileString;
     %     f = findstr(fstr,'##');
     %     fstr(f:f+1) = num2str(c-1,'%02u');     %makes it a double digit number when more than 10 channels are being called (RC/AD)
-        textlabel(c) = uicontrol('Style','text','units','normalized','string','',...
+
+        % 
+        textlabel(c) = uicontrol(fig, 'Style','text','units','normalized','string','',...
             'position',[0.05 (num_chan-c+2+0.5)/(num_chan+2) 0.5 0.3/(num_chan+2)],'FontSize',10,...
             'horizontalalignment','left','backgroundcolor',[.8 .8 .8]);
-        textbox(c) = uicontrol('Style','edit','units','normalized','string',fstr,...
+        textbox(c) = uicontrol(fig, 'Style','edit','units','normalized','string',fstr,...
             'position',[0.05 (num_chan-c+2)/(num_chan+2) 0.5 0.4/(num_chan+2)],'FontSize',10,...
             'horizontalalignment','left','backgroundcolor',[1 1 1],'callback',@ChangeText);
-        popup(c) = uicontrol('Style','popupmenu','units','normalized','string',pop_str,...
+        loader_popup(c) = uicontrol(fig, 'Style','popupmenu','units','normalized','string',{handles.plugins.loaders.name},...
             'position',[0.6 (num_chan-c+2)/(num_chan+2) 0.35 0.4/(num_chan+2)],'FontSize',10,...
-            'backgroundcolor',[1 1 1],'value',pop_val);
+            'backgroundcolor',[1 1 1],'value',loaderIndex);
     end
 
-    uicontrol('Style','pushbutton','units','normalized','string','OK',...
+    uicontrol(fig, 'Style','pushbutton','units','normalized','string','OK',...
         'position',[.25 .13/(num_chan+3) 0.2 0.7/(num_chan+3)],'callback',@PushOK);
-    uicontrol('Style','pushbutton','units','normalized','string','Cancel',...
+    uicontrol(fig, 'Style','pushbutton','units','normalized','string','Cancel',...
         'position',[.55 .13/(num_chan+3) 0.2 0.7/(num_chan+3)],'callback',@CloseFig);
 
     ChangeText([], []);
@@ -88,15 +88,15 @@ try
     drawnow;
     uiwait(fig);
 
-    curr = pwd;
+    curr = pwd();
     cd(handles.DefaultRootPath);
     handles.sound_files = dir(get(textbox(1),'string'));
-    handles.sound_loader = pop_str{get(popup(1),'value')};
+    handles.sound_loader = handles.plugins.loaders(get(loader_popup(1),'value')).name;
     handles.chan_files = {};
     handles.chan_loader = {};
     for c = 2:num_chan+1
         handles.chan_files{c-1} = dir(get(textbox(c),'string'));
-        handles.chan_loader{c-1} = pop_str{get(popup(c),'value')};
+        handles.chan_loader{c-1} = handles.plugins.loaders(get(loader_popup(c),'value')).name;
     end
     cd(curr);
     delete(fig)
@@ -123,7 +123,7 @@ end
     end
 
     function ChangeText(hObject, eventdata)
-        curr = pwd;
+        curr = pwd();
         cd(handles.DefaultRootPath);
         for c = 1:num_chan+1
             if c == 1
