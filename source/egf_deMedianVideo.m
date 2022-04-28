@@ -30,9 +30,17 @@ medianImage = fraction *median(double(videoD), 4);
 for k = 1:size(video, 4)
     videoD(:, :, :, k) = abs(videoD(:, :, :, k) - medianImage);
 end
-% Re-stretch image pixel values across visible range to increase contrast
+
+%videoD = double(video) .* videoD;
+
+% Fit videoD pixel values between 0 and 1
 maxVal = max(videoD(:));
 minVal = min(videoD(:));
+videoD = (videoD - minVal)/(maxVal-minVal);
+
+% Increase contrast
+videoD = reshape(imadjust(videoD(:)), size(videoD));
+
 if minVal < maxVal
-    video = uint8(256*(videoD - minVal)/(maxVal-minVal));
+    video = uint8(256*(1-videoD));
 end

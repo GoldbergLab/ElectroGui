@@ -19,7 +19,13 @@ end
 
 videoD = double(mean(video, 3));
 
-motion = padarray(videoD(:, :, :, 2:end) - videoD(:, :, :, 1:end-1), [0, 0, 0, 1], 'post');
+smoothSize = 1;
+if smoothSize > 1
+    videoD = convn(videoD, ones(smoothSize, smoothSize)/(smoothSize*smoothSize), 'same');
+end
+motion = abs(padarray(videoD(:, :, :, 2:end) - videoD(:, :, :, 1:end-1), [0, 0, 0, 1], 'post'));
+meanMotion = mean(motion(:));
+motion(motion < meanMotion) = 0;
 
 % meanMotion = mean(motion(:));
 % stdevMotion = std(motion(:));
@@ -31,5 +37,6 @@ maxMotion = max(motion(:));
 minMotion = min(motion(:));
 motion = (motion - minMotion) / (maxMotion - minMotion);
 % motion = motion .* motion;
+motion = reshape(imadjust(motion(:)), size(motion));
 motion = cat(3, motion, motion, motion);
 video = uint8(256 * motion); %videoD .* motion);
