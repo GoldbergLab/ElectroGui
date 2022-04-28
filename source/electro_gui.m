@@ -181,6 +181,22 @@ handles.menu_EventsDisplay = [handles.menu_EventsDisplay1, handles.menu_EventsDi
 handles.menu_Events = [handles.menu_Events1, handles.menu_Events2];
 handles.push_Detects = [handles.push_Detect1, handles.push_Detect2];
 
+% Set up mouse motion handler
+handles.MouseButtonDown = false;
+handles.MouseButtonShift = false;
+set(gcf, 'WindowButtonMotionFcn', @MouseMoveHandler);
+set(gcf, 'WindowButtonDownFcn', @MouseButtonDownHandler);
+set(gcf, 'WindowButtonUpFcn', @MouseButtonUpHandler);
+
+% Set up the thumbnail handles that will move with the mouse cursor on each channel axes when video is loaded.
+handles.CursorThumbnailHandles = {[], []};
+% Prepare to store thumbnail time widths once video is loaded
+handles.thumbnailTs = {[], []};
+handles.thumbnailScaleFactor = {[], []};
+handles.videoThumbnails = {[], []};
+handles.videoFrameRate = {[], []};
+handles.loadedVideoPath = {[], []};
+
 if handles.EventsDisplayMode == 1
     set(handles.menu_DisplayValues,'checked','on');
 else
@@ -760,17 +776,18 @@ function progress_play(handles,wav)
 
 subplot(handles.axes_Sonogram);
 
-xd = get(handles.axes_Sonogram,'xlim');
-xd = round(xd*handles.fs);
-xd(1) = xd(1)+1;
-xd(2) = xd(2)-1;
-if xd(1)<1
-    xd(1) = 1;
+% Calculate width of viewing window in samples
+viewTLim = get(handles.axes_Sonogram,'xlim');
+viewXLim = round(viewTLim*handles.fs);
+viewXLim(1) = viewXLim(1)+1;
+viewXLim(2) = viewXLim(2)-1;
+if viewXLim(1)<1
+    viewXLim(1) = 1;
 end
-if xd(2)>length(handles.sound)
-    xd(2) = length(handles.sound);
+if viewXLim(2)>length(handles.sound)
+    viewXLim(2) = length(handles.sound);
 end
-if xd(2)<=xd(1)
+if viewXLim(2)<=viewXLim(1)
     return
 end
 
@@ -797,9 +814,9 @@ else
         subplot(axs(c));
         hold on
         if strcmp(get(handles.menu_PlayReverse,'checked'),'off')
-            h(c) = plot([xd(1) xd(1)]/handles.fs,ylim,'color',handles.ProgressBarColor,'linewidth',2);
+            h(c) = plot([viewXLim(1) viewXLim(1)]/handles.fs,ylim,'color',handles.ProgressBarColor,'linewidth',2);
         else
-            h(c) = plot([xd(2) xd(2)]/handles.fs,ylim,'color',handles.ProgressBarColor,'linewidth',2);
+            h(c) = plot([viewXLim(2) viewXLim(2)]/handles.fs,ylim,'color',handles.ProgressBarColor,'linewidth',2);
         end
     end
     y = audioplayer(wav,fs);
@@ -808,9 +825,9 @@ else
         pos = get(y,'currentsample');
         for c = 1:length(h)
             if strcmp(get(handles.menu_PlayReverse,'checked'),'off')
-                set(h(c),'xdata',([pos pos]+xd(1)-1)/handles.fs);
+                set(h(c),'xdata',([pos pos]+viewXLim(1)-1)/handles.fs);
             else
-                set(h(c),'xdata',(xd(2)-[pos pos]+1)/handles.fs);
+                set(h(c),'xdata',(viewXLim(2)-[pos pos]+1)/handles.fs);
             end
         end
         drawnow;
@@ -1187,13 +1204,7 @@ else
     % This is an actual channel selection, enable the axes and function
     % menu.
     set(handles.axes_Channel(axnum),'visible','on');
-    if isVideo
-        % If this is a video channel, turn off the "functions" dropdown
-        set(handles.popup_Functions(axnum),'enable','off');
-    else
-        % This is a regular data channel - turn on the "functions" dropdown
-        set(handles.popup_Functions(axnum),'enable','on');
-    end
+    set(handles.popup_Functions(axnum),'enable','on');
 end
 
 channelIdx = get(handles.(['popup_Channel',num2str(axnum)]),'value');
@@ -1203,12 +1214,32 @@ for c = 1:length(handles.EventTimes);
     numEventTypes(c) = size(handles.EventTimes{c},1);
 end
 totalNumEventTypes = sum(numEventTypes);
+
+channelFilePath = fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum}(filenum).name);
+
 if channelIdx <= length(channelNameList) - totalNumEventTypes
     % These are regular channels, not preset event-detected channels
     if isSound
         [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name), true);
     else
-        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{selectedChannelNum}, fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum}(filenum).name), true);
+        if ~isVideo || ~strcmp(channelFilePath, handles.loadedVideoPath{axnum})
+            % Load channel if either this is not a video channel, or it is
+            % a video channel and it isn't the one that's already loaded
+            % (to save time on reloading the same video again).
+            [handles.loadedChannelData{axnum}, fs, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{selectedChannelNum}, channelFilePath, true);
+            if isVideo
+                % Record current video path so we can avoid reloading it
+                % unneceessarily
+                handles.loadedVideoPath{axnum} = channelFilePath;
+                % Record frame rate, since it's different from the audio/data 
+                % sample rate.
+                handles.videoFrameRate{axnum} = fs;            
+            end
+        end
+        if isVideo
+            % Update thumbnails
+            handles = updateVideoThumbnails(handles, axnum);
+        end
     end
 else
     % Selected channel is a preset event-detected channel
@@ -1236,7 +1267,13 @@ if get(handles.popup_Functions(axnum),'value') > 1
     % This is not the "(Raw)" function - apply the selected function
     allFunctionNames = get(handles.popup_Functions(axnum),'string');
     str = allFunctionNames{get(handles.popup_Functions(axnum),'value')};
-    val = handles.loadedChannelData{axnum};
+    if isVideo
+        % For videos, filter operates on thumbnails rather than full
+        % video.
+        val = handles.videoThumbnails{axnum};
+    else
+        val = handles.loadedChannelData{axnum};
+    end
     f = findstr(str,' - ');
     if isempty(f)
         [chan, lab] = eg_runPlugin(handles.plugins.filters, str, val, handles.fs, handles.FunctionParams{axnum});
@@ -1267,6 +1304,10 @@ if get(handles.popup_Functions(axnum),'value') > 1
             end
             set(handles.popup_Function1,'string',str2,'userdata',udn1);
             set(handles.popup_Function2,'string',str2,'userdata',udn2);
+        elseif isVideo
+            handles.Labels{axnum} = lab;
+            % Set thumbnails to filtered value
+            handles.videoThumbnails{axnum} = chan;
         else
             handles.Labels{axnum} = lab;
             handles.loadedChannelData{axnum} = chan;
@@ -1290,6 +1331,7 @@ if get(handles.popup_Functions(axnum),'value') > 1
         end
     end
 end
+
 
 if ~isVideo && length(handles.loadedChannelData{axnum}) < length(handles.sound)
     indx = fix(linspace(1,length(handles.loadedChannelData{axnum}),length(handles.sound)));
@@ -1368,47 +1410,139 @@ set(get(gca,'children'),'uicontextmenu',get(gca,'uicontextmenu'));
 set(get(gca,'children'),'buttondownfcn',get(gca,'buttondownfcn'));
 
 function handles = eg_PlotVideoChannel(handles, axnum)
+ax = handles.axes_Channel(axnum);
+
+xd = get(handles.xlimbox,'xdata');
+tLimits = xd(1:2);
+xlim(ax, tLimits);
+yLimits = ylim(ax);
+
 % Get axes info for thumbnail sizing
-pos = getpixelposition(handles.axes_Channel(axnum));
+pos = getpixelposition(ax);
 axesWidth = pos(3);
 axesHeight = pos(4);
 
 % Display "loading" notification
-cla(handles.axes_Channel(axnum));
-text(axesWidth/2, axesHeight/2, 'Loading video...', 'Parent', handles.axes_Channel(axnum));
+cla(ax);
+text(mean(tLimits), mean(yLimits), 'Loading video...', 'Parent', ax);
+refresh(handles.figure_Main);
 
 % Load video
 videoData = handles.loadedChannelData{axnum};
 videoSize = size(videoData);
 videoWidth = videoSize(2);
 videoHeight = videoSize(1);
-videoChannels = videoSize(3);
-numFrames = videoSize(4);
-thumbnailScaleFactor = axesHeight / videoHeight;
-thumbnailWidth = videoWidth * thumbnailScaleFactor;
-thumbnailHeight = videoHeight * thumbnailScaleFactor;
+handles.thumbnailScaleFactor{axnum} = axesHeight / videoHeight;
+thumbnailWidth = videoWidth * handles.thumbnailScaleFactor{axnum};
+thumbnailHeight = videoHeight * handles.thumbnailScaleFactor{axnum};
 numThumbnails = axesWidth / thumbnailWidth;
 
-% Load video frame rate
-filenum = getCurrentFileNum(handles);
-selectedChannelNum = getSelectedChannel(handles, axnum);
-[~, videoFrameRate] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{selectedChannelNum}, fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum}(filenum).name), false, true);
-
 % Create thumbnails
-totalT = length(handles.sound)/handles.fs;
-thumbnailT = totalT / numThumbnails;
-thumbnailFrames = thumbnailT * videoFrameRate;
+totalT = diff(tLimits); %length(handles.sound)/handles.fs;
+handles.thumbnailTs{axnum} = totalT / numThumbnails;
+thumbnailFrames = handles.thumbnailTs{axnum} * handles.videoFrameRate{axnum}; % # of video frames per thumbnail
 thumbnailIdx = round(((1:ceil(numThumbnails))-1) * thumbnailFrames) + 1;
-thumbnails = flip(imresize(videoData(:, :, :, thumbnailIdx), thumbnailScaleFactor), 1);
 
-% Display row of thumbnails
+% Display row of selected thumbnails
 cla(handles.axes_Channel(axnum));
 ylim(handles.axes_Channel(axnum), [1, thumbnailHeight]);
 hold(handles.axes_Channel(axnum), 'on');
-for k = 1:ceil(numThumbnails)
-    image(thumbnails(:, :, :, k), 'Parent', handles.axes_Channel(axnum), 'XData', [0, thumbnailT] + thumbnailT*(k-1));
+for k = 1:length(thumbnailIdx)
+    idx = thumbnailIdx(k);
+    handles = displayBackgroundThumbnail(handles, idx, handles.thumbnailTs{axnum}*(k-1), axnum);
+end
+disp('Done loading video.');
+
+function handles = updateVideoThumbnails(handles, axnum)
+
+% Get axes info for thumbnail sizing
+ax = handles.axes_Channel(axnum);
+pos = getpixelposition(ax);
+axesHeight = pos(4);
+% Determine thumbnail sizing
+videoData = handles.loadedChannelData{axnum};
+videoSize = size(videoData);
+videoHeight = videoSize(1);
+newThumbnailScaleFactor = axesHeight / videoHeight;
+
+% if isempty(handles.videoThumbnails{axnum}) || isempty(handles.thumbnailScaleFactor{axnum}) || handles.thumbnailScaleFactor{axnum} ~= newThumbnailScaleFactor
+    % Either there are no preexisting thumbnails, or the preexisting 
+    %   thumbnail scale factor is unknown for some reason, or the new
+    %   thumbnail scale factor doesn't match the preexisting one.
+
+    % Resize video to get thumbnails
+    handles.videoThumbnails{axnum} = flip(imresize(videoData(:, :, :, :), newThumbnailScaleFactor), 1);
+    handles.thumbnailScaleFactor{axnum} = newThumbnailScaleFactor;
+        
+%     handles.videoThumbnails{axnum} = extractMotion(handles.videoThumbnails{axnum});
+% end
+
+function handles = displayBackgroundThumbnail(handles, idx, t, axnum)
+% idx = thumbnail index (frame number)
+% t = time (x-axis value) to position the left edge of the thumbnail at.
+% ax = axes to display on
+ax = handles.axes_Channel(axnum);
+thumbnailT = handles.thumbnailTs{axnum};
+image(handles.videoThumbnails{axnum}(:, :, :, idx), 'Parent', ax, 'XData', [0, thumbnailT] + t);
+
+function handles = displayCursorThumbnail(handles, t, chan)
+% idx = thumbnail index (frame number)
+% t = time (x-axis value) to position the left edge of the thumbnail at.
+% ax = axes to display on
+ax = handles.axes_Channel(chan);
+thumbnailT = handles.thumbnailTs{chan};
+idx = floor(t * handles.videoFrameRate{chan} + 1);
+
+% idx = floor(size(handles.videoThumbnails{chan}, 4) * t / totalT)+1;
+if isempty(handles.CursorThumbnailHandles{chan})
+    handles.CursorThumbnailHandles{chan} = image(handles.videoThumbnails{chan}(:, :, :, idx), 'Parent', ax, 'XData', [0, thumbnailT] + t);
+else
+    set(handles.CursorThumbnailHandles{chan}, 'CData', handles.videoThumbnails{chan}(:, :, :, idx), 'XData', [0, thumbnailT] + t);
 end
 
+function MouseButtonDownHandler(hObject, ~)
+handles = guidata(hObject);
+handles.MouseButtonDown = true;
+handles.MouseButtonShift = strcmp(get(handles.figure_Main, 'SelectionType'), 'extend');
+guidata(hObject, handles);
+
+function MouseButtonUpHandler(hObject, ~)
+handles = guidata(hObject);
+handles.MouseButtonDown = false;
+for chan = 1:length(handles.axes_Channel)
+    delete(handles.CursorThumbnailHandles{chan});
+    handles.CursorThumbnailHandles{chan} = [];
+end
+guidata(hObject, handles);
+
+function MouseMoveHandler(hObject, ~)
+handles = guidata(hObject);
+if handles.MouseButtonDown && handles.MouseButtonShift
+    % Mouse moved, and button is down, and shift is down
+    % Now check if mouse is inside one of the channel axes
+    isInChannelAxes = false;
+    for chan = 1:length(handles.axes_Channel)
+        ax = handles.axes_Channel(chan);
+        position = get(ax, 'CurrentPoint');
+        xlimits = xlim(ax);
+        ylimits = ylim(ax);
+        x = position(1, 1);
+        y = position(1, 2);
+        if xlimits(1) <= x && xlimits(2) >= x && ylimits(1) < y && ylimits(2) >= y
+            isInChannelAxes = true;
+            break;
+        end
+    end
+    if isInChannelAxes
+        % Yes, mouse is inside channel axes
+        % Now check if the channel axes are showing video rn
+        [~, ~, ~, isVideo] = getSelectedChannel(handles, chan);
+        if isVideo
+            handles = displayCursorThumbnail(handles, x, chan);
+        end
+    end
+    guidata(hObject, handles);
+end
 
 function handles = SetThreshold(handles)
 % Clear segments axes
@@ -1896,6 +2030,12 @@ if strcmp(get(gcf,'selectiontype'),'normal')
     handles = eg_EditTimescale(handles);
 elseif strcmp(get(gcf,'selectiontype'),'extend')
     % Shift-click
+    %   Display and move cursor
+    handles = MakeCursorVisible(handles);
+%     handles = MoveCursorToMouse(handles, ax);
+    
+elseif strcmp(get(gcf,'selectiontype'),'this_used_to_be_extend')
+    % Shift-click
     %   Shift zoom box so the right side aligns with click location
     pos = get(gca,'CurrentPoint');
     xd = get(handles.xlimbox,'xdata');
@@ -1944,6 +2084,16 @@ elseif strcmp(get(gcf, 'selectiontype'), 'alt')
 end
 
 guidata(gca, handles);
+
+function handles = MakeCursorVisible(handles)
+
+function handles = MoveCursorToMouse(handles, ax)
+mousePosition = get(ax, 'CurrentPoint');
+handles = UpdateCursor(handles, mousePosition(1));
+
+function handles = UpdateCursor(handles, x)
+disp('Moving mouse to:')
+disp(x)
 
 function handles = CreateNewMarker(handles, x)
 % Create a new marker from time x(1) to time x(2)
@@ -3578,6 +3728,14 @@ if obj==handles.axes_Channel1
     axnum = 1;
 else
     axnum = 2;
+end
+
+[~, ~, ~, isVideo] = getSelectedChannel(handles, axnum);
+if isVideo
+    % We're trying to make the UI interaction a little more modern here,
+    % starting with video axes. Mouse motion and dragging will be handled
+    % by MouseMoveHandler instead.
+    return;
 end
 
 
