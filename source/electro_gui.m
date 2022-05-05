@@ -1271,12 +1271,14 @@ if get(handles.popup_Functions(axnum),'value') > 1
         % For videos, filter operates on thumbnails rather than full
         % video.
         val = handles.videoThumbnails{axnum};
+        channelFrequency = handles.videoFrameRate{axnum};
     else
         val = handles.loadedChannelData{axnum};
+        channelFrequency = handles.fs;
     end
     f = findstr(str,' - ');
     if isempty(f)
-        [chan, lab] = eg_runPlugin(handles.plugins.filters, str, val, handles.fs, handles.FunctionParams{axnum});
+        [chan, lab] = eg_runPlugin(handles.plugins.filters, str, val, channelFrequency, handles.FunctionParams{axnum});
         if iscell(lab)
             handles.Labels{axnum} = lab{1};
             handles.loadedChannelData{axnum} = chan{1};
@@ -1441,7 +1443,8 @@ numThumbnails = axesWidth / thumbnailWidth;
 totalT = diff(tLimits); %length(handles.sound)/handles.fs;
 handles.thumbnailTs{axnum} = totalT / numThumbnails;
 thumbnailFrames = handles.thumbnailTs{axnum} * handles.videoFrameRate{axnum}; % # of video frames per thumbnail
-thumbnailIdx = round(((1:ceil(numThumbnails))-1) * thumbnailFrames) + 1;
+firstBackgroundThumbnailIdx = round(tLimits(1) * handles.videoFrameRate{axnum})+1;
+thumbnailIdx = round(((1:ceil(numThumbnails))-1) * thumbnailFrames) + firstBackgroundThumbnailIdx;
 
 % Display row of selected thumbnails
 cla(handles.axes_Channel(axnum));
@@ -1449,7 +1452,7 @@ ylim(handles.axes_Channel(axnum), [1, thumbnailHeight]);
 hold(handles.axes_Channel(axnum), 'on');
 for k = 1:length(thumbnailIdx)
     idx = thumbnailIdx(k);
-    handles = displayBackgroundThumbnail(handles, idx, handles.thumbnailTs{axnum}*(k-1), axnum);
+    handles = displayBackgroundThumbnail(handles, idx, tLimits(1) + handles.thumbnailTs{axnum}*(k-1), axnum);
 end
 disp('Done loading video.');
 
@@ -1885,21 +1888,16 @@ xlim(xd(1:2));
 subplot(handles.axes_Segments);
 xlim(xd(1:2));
 
-subplot(handles.axes_Channel1);
-yl = ylim;
-xlim(xd(1:2));
-if strcmp(get(handles.menu_PeakDetect1,'checked'),'on')
-    handles = eg_PlotChannel(handles,1);
+for axnum = 1:length(handles.axes_Channel)
+    ax = handles.axes_Channel(axnum);
+    yl = ylim(ax);
+    xlim(ax, xd(1:2));
+    [~, ~, ~, isVideo] = getSelectedChannel(handles, axnum);
+    if strcmp(get(handles.menu_PeakDetect(axnum),'checked'),'on') || isVideo
+        handles = eg_PlotChannel(handles,axnum);
+    end
+    ylim(ax, yl);
 end
-ylim(yl);
-
-subplot(handles.axes_Channel2);
-yl = ylim;
-xlim(xd(1:2));
-if strcmp(get(handles.menu_PeakDetect2,'checked'),'on')
-    handles = eg_PlotChannel(handles,2);
-end
-ylim(yl);
 
 set(handles.slider_Time,'min',0,'max',length(handles.sound)/handles.fs-(xd(2)-xd(1))+eps);
 set(handles.slider_Time,'value',xd(1));

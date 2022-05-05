@@ -9,8 +9,6 @@ defaultTransform = 'uint8(repmat(mean(video, 3), [1, 1, 3, 1]))';
 defaultNames = {'transform'};
 defaultValues = {defaultTransform};
 
-% fraction of de-median operation, from 0 to 1. 0 leaves the video unchanged, 1 completely subtracts the median frame.
-
 label = 'User-defined video transform';
 if isstr(video) & strcmp(video,'params')
     video.Names = defaultNames;
