@@ -57,6 +57,15 @@ handles.output = hObject;
 
 set(handles.figure1, 'KeyPressFcn', @keyPressHandler);
 
+axis(handles.axesSegments, 'manual');
+set(handles.axesSegments, 'XTickLabel', []);
+set(handles.axesSegments, 'YTickLabel', []);
+ylim(handles.axesSegments, [0, 1]);
+
+set(handles.axesSonogram, 'XTickLabel', []);
+set(handles.axesSonogram, 'YTickLabel', []);
+
+
 handles.patterns = varargin{1};
 % Patterns struct should contain the following fields:
 %   pattern
@@ -73,8 +82,8 @@ handles.unselectedColor = 'blue';
 handles.selectedColor = 'red';
 
 set(handles.patternNumberList, 'String', arrayfun(@(x)num2str(x), 1:length(handles.patterns), 'UniformOutput', false));
-set(handles.patternNumberList, 'Value', 1);
-handles = updateAxes(handles);
+
+handles = switchSelectedPattern(handles, 1);
 
 % Update handles structure
 guidata(hObject, handles);
@@ -87,10 +96,10 @@ handles = guidata(hObject);
 switch eventdata.Key
     case 'uparrow'
         patternNum = getSelectedPatternNum(handles);
-        handles = setSelectedPatternNum(handles, mod(patternNum-1 + 1, length(handles.patterns))+1);
+        handles = switchSelectedPattern(handles, mod(patternNum-1 + 1, length(handles.patterns))+1);
     case 'downarrow'
         patternNum = getSelectedPatternNum(handles);
-        handles = setSelectedPatternNum(handles, mod(patternNum-1 - 1, length(handles.patterns))+1);
+        handles = switchSelectedPattern(handles, mod(patternNum-1 - 1, length(handles.patterns))+1);
 end
 guidata(hObject, handles);
 
@@ -104,6 +113,8 @@ guidata(ax, handles);
 function handles = switchSelectedPattern(handles, patternNum)
 handles = setSelectedPatternNum(handles, patternNum);
 handles = updatePatternLabelDisplay(handles);
+handles = updateAxesSonogram(handles);
+handles = updateAxesSegments(handles);
 
 function handles = updatePatternLabelText(handles)
 selectedPatternNum = getSelectedPatternNum(handles);
@@ -114,7 +125,6 @@ selectedPatternNum = getSelectedPatternNum(handles);
 handles.patterns(selectedPatternNum).ID = get(handles.patternLabelText, 'String');
 
 function handles = applyPatternLabelToAll(handles)
-selectedPatternNum = getSelectedPatternNum(handles);
 selectedID =  get(handles.patternLabelText, 'String');
 for k = 1:length(patterns)
     handles.patterns(k).ID = selectedID;
@@ -135,6 +145,23 @@ function handles = updatePatternLabelDisplay(handles)
 selectedPatternNum = getSelectedPatternNum(handles);
 set(handles.patternLabelText, 'String', handles.patterns(selectedPatternNum).ID);
 
+function handles = updateAxesSegments(handles)
+cla(handles.axesSegments);
+patternNum = getSelectedPatternNum(handles);
+samplingRate = handles.patterns(patternNum).samplingRate;
+xlim(handles.axesSegments, [0, length(handles.patterns(patternNum).pattern)/samplingRate]);
+for k = 1:size(handles.patterns(patternNum).segments, 1)
+    x0 = (handles.patterns(patternNum).segments(k, 1) - handles.patterns(patternNum).start)/samplingRate;
+    x1 = (handles.patterns(patternNum).segments(k, 2) - handles.patterns(patternNum).start)/samplingRate;
+    y0 = 0.25;
+    y1 = 0.75;
+    patch([x0, x1, x1, x0], [y0, y0, y1, y1], 'red', 'Parent', handles.axesSegments');
+end
+
+function handles = updateAxesSonogram(handles)
+patternNum = getSelectedPatternNum(handles);
+plot(handles.axesSonogram, handles.patterns(patternNum).audio);
+
 function handles = updateAxes(handles)
 selectedPatternNum = getSelectedPatternNum(handles);
 cla(handles.axes1);
@@ -145,10 +172,13 @@ for k = 1:length(handles.patterns)
     else
         color = handles.unselectedColor;
     end
+    textX = 50/handles.patterns(k).samplingRate;
     t = (1:length(handles.patterns(k).paddedPattern))/handles.patterns(k).samplingRate;
     plot(handles.axes1, t, handles.patterns(k).paddedPattern*0+k, ':', 'Color', 'black')
     handles.patterns(k).line = plot(handles.axes1, t, 0.5*handles.patterns(k).paddedPattern + k, 'Color', color);
-    text(50, k+0.25, num2str(handles.patterns(k).ID), 'Color', color);
+    if ~isempty(handles.patterns(k).ID)
+        text(textX, k+0.25, handles.patterns(k).ID, 'Color', color, 'Parent', handles.axes1);
+    end
     set(handles.patterns(k).line, 'ButtonDownFcn', @lineClickCallback);
 end
 ylim(handles.axes1, [0.5, k+1.5]);
