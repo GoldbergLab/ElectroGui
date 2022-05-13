@@ -40,30 +40,29 @@ templates = [];
 
 maxPatternLength = 0;
 
+searchAndLabelFileNums = sort(unique([labellingFileNums, searchFileNums]));
+
+fileIdx = 0;
 % Loop over files and find feedback patterns in the specified feedback
 % channel
-for fileIdx = 1:length(searchFileNums)
-    count = fileIdx;
-    fileNum = searchFileNums(fileIdx);
+for fileNum = searchAndLabelFileNums
+    fileIdx = fileIdx + 1;
+    searchFile = any(fileNum == searchFileNums);
+    labelFile = any(fileNum == labellingFileNums);
     if all(get(txt,'color')==[0 1 0])
-        count = count-1;
         delete(txt);
         msgbox('Labelling cancelled');
         return;
     end
 
-    % Get all segment titles and times
-    syllableTitles = handles.SegmentTitles{fileNum};
-    numSegments = size(syllableTitles, 2);
-
     % Load channel data
-    [data, fs, ~, ~, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{feedbackChannelNumber}, fullfile(handles.path_name, handles.chan_files{feedbackChannelNumber}(fileNum).name), true);
+    [data, fs, ~, ~, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{feedbackChannelNumber}, fullfile(handles.DefaultRootPath, handles.chan_files{feedbackChannelNumber}(fileNum).name), true);
     data = data > 0.5;
     if size(data, 1) > size(data, 2)
         data = data';
     end
     % Load audio
-    [snd, ~, ~, ~, ~] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.path_name, handles.sound_files(fileNum).name), true);
+    [snd, ~, ~, ~, ~] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.DefaultRootPath, handles.sound_files(fileNum).name), true);
     if size(snd, 1) > size(snd, 2)
         snd = snd';
     end
@@ -94,6 +93,7 @@ for fileIdx = 1:length(searchFileNums)
         risingEdges(end) = [];
     end
     
+    % Find pattern onsets and offsets
     interPulseIntervals = risingEdges(2:end) - fallingEdges(1:end-1);
     breakIdx = find(interPulseIntervals > silenceThreshold);
     patternStarts = [risingEdges(1), risingEdges(breakIdx+1)+1] - padLength;
@@ -104,9 +104,9 @@ for fileIdx = 1:length(searchFileNums)
     patternStarts(patternStarts < 1) = 1;
     patternEnds(patternEnds > length(data)) = length(data);
     
-    
     % Loop over patterns found and assemble data into struct array
     for newPatternNum = 1:length(patternStarts)
+        % Create a new pattern object
         newPattern.pattern = data(patternStarts(newPatternNum):patternEnds(newPatternNum));
         newPattern.fileNum = fileNum;
         newPattern.start = patternStarts(newPatternNum);
@@ -128,13 +128,17 @@ for fileIdx = 1:length(searchFileNums)
                     break;
                 end
             end
-            if patternIsLabeled
+            if patternIsLabeled && searchFile
+                % This is in a search file, and it is labeled - it's a
+                % template!
                 if isempty(templates)
                     templates = newPattern;
                 else
                     templates(end+1) = newPattern;
                 end
-            else
+            elseif ~patternIsLabeled && labelFile
+                % This is ia label file and it is unlabeled. Add it to the
+                % list to be labeled!
                 if isempty(patterns)
                     patterns = newPattern;
                 else
@@ -147,7 +151,7 @@ for fileIdx = 1:length(searchFileNums)
             newPattern.titles = {};
             patterns(end+1) = newPattern;
         end
-        if length(patterns(end).pattern) > maxPatternLength
+        if ~isempty(patterns) && length(patterns(end).pattern) > maxPatternLength
             maxPatternLength = length(patterns(end).pattern);
         end
     end
@@ -205,18 +209,15 @@ for k = 1:length(templates)
     end
 end
 
-labels = {};
-numUnlabeled = 0;
+% Replace each pattern segmentation with appropriate template segmentation & labeling
 for k = 1:length(templates)
     newTitles = templates(k).titles;
     newSelection = true(1, length(newTitles));
     for j = 1:length(templates(k).assignedPatterns)
         pattern = templates(k).assignedPatterns(j);
         fileNum = pattern.fileNum;
-        start = pattern.start;
-        stop = pattern.end;
         % Find nearby segments
-        idx = getNearbySegments(handles.SegmentTimes{fileNum}, start, stop, padLength);
+        idx = getNearbySegments(handles.SegmentTimes{fileNum}, pattern.start, pattern.end, padLength);
         % Delete nearby segments
         handles.SegmentTimes{fileNum}(idx, :) = [];
         handles.SegmentTitles{fileNum}(idx) = [];
