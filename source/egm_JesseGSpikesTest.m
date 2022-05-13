@@ -499,9 +499,9 @@ val = get(handles.(['popup_Channel',num2str(axnum)]),'value');
 str = get(handles.(['popup_Channel',num2str(axnum)]),'string');
 chan = str2num(str{val}(9:end));
 if length(str{val})>4 & strcmp(str{val}(1:5),'Sound')
-    [funct, fs, dt, lab, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.path_name, handles.sound_files(filenum).name), true);
+    [funct, fs, dt, lab, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name), true);
 else
-    [funct, fs, dt, lab, props] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{chan}, fullfile(handles.path_name, handles.chan_files{chan}(filenum).name), true);
+    [funct, fs, dt, lab, props] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{chan}, fullfile(handles.DefaultRootPath, handles.chan_files{chan}(filenum).name), true);
 end
 
 % Run currently displayed function on the data

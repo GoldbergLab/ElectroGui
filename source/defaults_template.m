@@ -1,25 +1,25 @@
-function handles = eg_Get_Defaults(handles)
+function handles = defaults_BrianKardon(handles)
 % Default settings
 
 % GENERAL SETTINGS
-handles.TooLong = 400000; % Number of points for a file to be considered too long for loading automatically
-handles.FileString = '*chan#.dat'; % File search string; use # to indicate channel number
-handles.DefaultFileLoader = 'AA_daq'; % Default file loader. Choose from egl_* files.
-handles.DefaultChannelNumber = 7; % Default number of channels
-handles.DefaultRootPath = pwd();
+handles.TooLong = 400000000; % Number of points for a file to be considered too long for loading automatically
+handles.FileString = '*chan%d.nc'; % File search string; must include a string formatting expression to handle an integer channel #, such as %02d for integers zero-padded to 2 digits, or %d for unpadded integers.handles.DefaultFileLoader = 'Intan_Bin'; % Default file loader. Choose from egl_* files.
+handles.DefaultFileLoader = 'Intan_Nc'; % Default file loader. Choose from egl_* files.
+handles.DefaultChannelNumber = 20; % Default number of channels
+handles.DefaultRootPath = '.';     % Default folder that file picker will open to when clicking "New" or "Open".
 
 % DEFAULT PROPERTIES
-handles.DefaultProperties.Names = {};   % Default property names to add to every loaded file
-handles.DefaultProperties.Values = {};  % Corresponding default values for /\
-handles.DefaultProperties.Types = [];   % Corresponding default types for /\  (1=string, 2=boolean, 3=list)
+handles.DefaultProperties.Names = {'bSorted', 'bDirected', 'bContainsStim', 'bUnusable'};   % Default property names to add to every loaded file
+handles.DefaultProperties.Values = {false, false, false, false};  % Corresponding default values for /\
+handles.DefaultProperties.Types = [2, 2, 2, 2];   % Corresponding default types for /\  (1=string, 2=boolean, 3=list)
 
 % SONOGRAM SETTINGS
 handles.SonogramAutoCalculate = 1; % Automatically calculate and plot the sonogram when a file is loaded or axes changed?
 handles.FreqLim = [500 7500]; % Frequency axis limits (Hz)
 handles.AllowFrequencyZoom = 0; % Allow user to zoom along the frequency axis by dragging a box over the sonogram?
-handles.SonogramClim = [10 20]; % Minimum and maximum color saturation values for power spectra
+handles.SonogramClim = [12.5 28]; % Minimum and maximum color saturation values for power spectra
 handles.DerivativeSlope = 0; % Brighness of spectral derivatives - values are divided by 10^slope
-handles.DerivativeOffset = 0; % Minimum saturation value for spectral derivatives
+handles.DerivativeOffset = 13.5; % Minimum saturation value for spectral derivatives
 handles.BackgroundColors = [0 0 0; 0.5 0.5 0.5]; % Background colors for sonograms. 1st row - for power spectra; 2nd row - for spectral derivatives
 handles.DefaultSonogramPlotter = 'AAquick_sonogram'; % Algorithm to use for plotting sonograms. Choose from egs_* files.
 handles.OverlayTop = 0; % Overlay the top plot over the sonogram?
@@ -48,6 +48,7 @@ handles.ChanLimits = [-1 1; -1 1]; % Initial y-limits for the channel plots, if 
 handles.ChannelColor = [0 0 1; 0 0 1]; % Colors of the channel plots
 handles.ChannelThresholdColor = [1 0 0; 1 0 0]; % Colors of the threshold lines on the channel plots
 handles.ChannelLineWidth = [1 1]; % Line widths of the channel plots
+handles.DefaultChannelFunction = 'FIRBandPass';
 
 % EVENT SETTINGS
 % Settings with two numbers or rows refer to the top and bottom plot respectively

@@ -63,7 +63,7 @@ for fileIdx = 1:length(labellingFileNums)
     numSegments = size(syllableTitles, 2);
 
     % Load audio
-    [snd, fs, dt, label, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.path_name, handles.sound_files(fileNum).name), true);
+    [snd, fs, dt, label, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.DefaultRootPath, handles.sound_files(fileNum).name), true);
     if size(snd,2)>size(snd,1)
         snd = snd';
     end

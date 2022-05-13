@@ -1,8 +1,8 @@
 function [handles ischanged] = eg_NewExperiment(handles)
 
 if handles.IsUpdating == 0
-    if isfield(handles,'path_name')
-        dr = handles.path_name;
+    if isfield(handles,'DefaultRootPath')
+        dr = handles.DefaultRootPath;
     else
         dr = pwd;
     end
@@ -13,7 +13,7 @@ if handles.IsUpdating == 0
     end
 
 
-    handles.path_name = path_name;
+    handles.DefaultRootPath = path_name;
 
     num_chan = handles.DefaultChannelNumber;
     str = 'New experiment';
@@ -52,7 +52,7 @@ try
 
     for c = 1:num_chan+1
         fstr = sprintf(handles.FileString, c-1);
-        if strcmp(fstr, handles.FileString) && strfind(handles.FileString, '##')
+        if strcmp(fstr, handles.FileString) && ~isempty(strfind(handles.FileString, '#'))
             % fstr is the same as handles.FileString, so it must not contain a
             % formatting pattern, and it does contain ##, which indicates this
             % is the legacy format.
@@ -89,7 +89,7 @@ try
     uiwait(fig);
 
     curr = pwd;
-    cd(handles.path_name);
+    cd(handles.DefaultRootPath);
     handles.sound_files = dir(get(textbox(1),'string'));
     handles.sound_loader = pop_str{get(popup(1),'value')};
     handles.chan_files = {};
@@ -124,7 +124,7 @@ end
 
     function ChangeText(hObject, eventdata)
         curr = pwd;
-        cd(handles.path_name);
+        cd(handles.DefaultRootPath);
         for c = 1:num_chan+1
             if c == 1
                 str = 'Sound - ';

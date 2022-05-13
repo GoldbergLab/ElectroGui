@@ -78,6 +78,11 @@ user = lic(1).user;
 f = regexpi(user,'[A-Z1-9]');
 user = user(f);
 
+% Unread file marker:
+handles.UnreadFileMarker = '> ';
+handles.FileEntryOpenTag = '<HTML><FONT COLOR=000000>';
+handles.FileEntryCloseTag = '</FONT></HTML>';
+
 % Segment/Marker colors
 handles.SegmentSelectColor = 'r';
 handles.SegmentUnSelectColor = [0.7, 0.5, 0.5];
@@ -141,6 +146,11 @@ else
     handles = eval(['defaults_' lst{val} '(handles)']);
 end
 
+if isfield(handles, 'QuoteFile')
+    quote = getQuote(handles.QuoteFile);
+    fprintf('Welcome to electro_gui.\n\nRandom quote of the moment:\n\n%s\n\nTo stop getting quotes, remove the ''handles.QuoteFile'' parameter from your defaults file.\n\n', quote);
+end
+
 dr = dir([mfilename('fullpath') '*m']);
 set(handles.figure_Main,'name',['ElectroGui v. ' datestr(datenum(dr.date),'yy.mm.dd.HH.MM')]);
 
@@ -154,6 +164,8 @@ handles.popup_Functions = [handles.popup_Function1, handles.popup_Function2];
 handles.popup_EventDetectors = [handles.popup_EventDetector1, handles.popup_EventDetector2];
 % handles.axes_Channel are the channel data display axes
 handles.axes_Channel = [handles.axes_Channel1, handles.axes_Channel2];
+% menu source top/bottom plot
+handles.menu_SourcePlots = [handles.menu_SourceTopPlot, handles.menu_SourceBottomPlot];
 
 handles.menu_AutoLimits = [handles.menu_AutoLimits1, handles.menu_AutoLimits2];
 handles.menu_PeakDetect = [handles.menu_PeakDetect1, handles.menu_PeakDetect2];
@@ -902,13 +914,15 @@ function handles = eg_LoadFile(handles)
 fileNum = getCurrentFileNum(handles);
 set(handles.list_Files,'value',fileNum);
 str = get(handles.list_Files,'string');
-if strcmp(str{fileNum}(26:27),'� ')
-    str{fileNum} = str{fileNum}([1:25 28:end]);
+
+% Remove unread file marker from filename
+if isFileUnread(handles, str{fileNum})
+    str{fileNum} = removeUnreadFileMarker(handles, str{fileNum});
     set(handles.list_Files,'string',str);
 end
 
 curr = pwd;
-cd(handles.path_name);
+cd(handles.DefaultRootPath);
 
 
 % Label
@@ -919,7 +933,7 @@ handles.BackupTitle = {'',''};
 
 % Plot sound
 subplot(handles.axes_Sound)
-[handles.sound, handles.fs, dt, label, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.path_name, handles.sound_files(fileNum).name), true);
+[handles.sound, handles.fs, dt, label, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.DefaultRootPath, handles.sound_files(fileNum).name), true);
 handles.DatesAndTimes(fileNum) = dt;
 handles.FileLength(fileNum) = length(handles.sound);
 set(handles.text_DateAndTime,'string',datestr(dt,0));
@@ -1144,8 +1158,10 @@ if ~strcmp(getEventFunction(handles, fileNum, channelNum), newEventFunction)
 end
 
 function handles = eg_LoadChannel(handles,axnum)
+% Load a new channel of data
 
 if get(handles.(['popup_Channel',num2str(axnum)]),'value')==1
+    % This is "(None)" channel selection, so disable everything
     cla(handles.axes_Channel(axnum));
     set(handles.axes_Channel(axnum),'visible','off');
     set(handles.popup_Functions(axnum),'enable','off');
@@ -1155,6 +1171,8 @@ if get(handles.(['popup_Channel',num2str(axnum)]),'value')==1
     handles = UpdateEventBrowser(handles);
     return
 else
+    % This is an actual channel selection, enable the axes and function
+    % menu.
     set(handles.axes_Channel(axnum),'visible','on');
     set(handles.popup_Functions(axnum),'enable','on');
 end
@@ -1169,10 +1187,11 @@ for c = 1:length(handles.EventTimes);
     nums(c) = size(handles.EventTimes{c},1);
 end
 if val <= length(str)-sum(nums)
+    % No idea what this signifies
     if isSound
-        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.path_name, handles.sound_files(filenum).name), true);
+        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name), true);
     else
-        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{selectedChannelNum}, fullfile(handles.path_name, handles.chan_files{selectedChannelNum}(filenum).name), true);
+        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{selectedChannelNum}, fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum}(filenum).name), true);
     end
 else
     ev = zeros(1,length(handles.sound));
@@ -1195,13 +1214,13 @@ else
 end
 
 if get(handles.popup_Functions(axnum),'value') > 1
-    str = get(handles.popup_Functions(axnum),'string');
-    str = str{get(handles.popup_Functions(axnum),'value')};
+    % This is not the "(Raw)" function - apply the selected function
+    allFunctionNames = get(handles.popup_Functions(axnum),'string');
+    str = allFunctionNames{get(handles.popup_Functions(axnum),'value')};
     val = handles.loadedChannelData{axnum};
     f = findstr(str,' - ');
     if isempty(f)
         [chan, lab] = eg_runPlugin(handles.plugins.filters, str, val, handles.fs, handles.FunctionParams{axnum});
-%        [chan lab] = eval(['egf_' str '(val,handles.fs,handles.FunctionParams' num2str(axnum) ')']);
         if iscell(lab)
             handles.Labels{axnum} = lab{1};
             handles.loadedChannelData{axnum} = chan{1};
@@ -1244,7 +1263,6 @@ if get(handles.popup_Functions(axnum),'value') > 1
             handles.loadedChannelData{axnum} = handles.BackupChan{axnum}{count};
         else
             [chan, lab] = eg_runPlugin(handles.plugins.filters, str(1:f-1), val, handles.fs, handles.FunctionParams{axnum});
-%            [chan lab] = eval(['egf_' str(1:f-1) '(val,handles.fs,handles.FunctionParams' num2str(axnum) ')']);
             handles.Labels{axnum} = lab{count};
             handles.loadedChannelData{axnum} = chan{count};
             handles.BackupChan{axnum} = chan;
@@ -1378,7 +1396,6 @@ handles.SegmenterParams.IsSplit = 0;
 handles.SegmentTimes{filenum} = eg_runPlugin(handles.plugins.segmenters, ...
     alg, handles.amplitude, handles.fs, handles.CurrentThreshold, ...
     handles.SegmenterParams);
-%handles.SegmentTimes{filenum} = eval(['egg_' alg '(handles.amplitude,handles.fs,handles.CurrentThreshold,handles.SegmenterParams)']);
 handles.SegmentTitles{filenum} = cell(1,size(handles.SegmentTimes{filenum},1));
 handles.SegmentSelection{filenum} = ones(1,size(handles.SegmentTimes{filenum},1));
 
@@ -1565,7 +1582,6 @@ set(hObject,'checked','on');
 if isempty(get(hObject,'userdata'))
     alg = get(hObject,'label');
     handles.SonogramParams = eg_runPlugin(handles.plugins.spectrums, alg, 'params');
-%    handles.SonogramParams = eval(['egs_' alg '(''params'')']);
     set(hObject,'userdata',handles.SonogramParams);
 else
     handles.SonogramParams = get(hObject,'userdata');
@@ -1588,7 +1604,6 @@ set(hObject,'checked','on');
 if isempty(get(hObject,'userdata'))
     alg = get(hObject,'label');
     handles.FilterParams = eg_runPlugin(handles.plugins.functions, alg, 'params');
-%    handles.FilterParams = eval(['egf_' alg '(''params'')']);
     set(hObject,'userdata',handles.FilterParams);
 else
     handles.FilterParams = get(hObject,'userdata');
@@ -1602,7 +1617,6 @@ end
 
 handles.filtered_sound = eg_runPlugin(handles.plugins.filters, alg, ...
     handles.sound, handles.fs, handles.FilterParams);
-%handles.filtered_sound = eval(['egf_' alg '(handles.sound,handles.fs,handles.FilterParams)']);
 
 subplot(handles.axes_Sound)
 xd = get(handles.xlimbox,'xdata');
@@ -1729,7 +1743,6 @@ end
 handles.ispower = eg_runPlugin(handles.plugins.spectrums, alg, ...
     handles.axes_Sonogram, handles.sound(xlp(1):xlp(2)), handles.fs, ...
     handles.SonogramParams);
-%handles.ispower = eval(['egs_' alg '(handles.axes_Sonogram,handles.sound(xlp(1):xlp(2)),handles.fs,handles.SonogramParams)']);
 set(handles.axes_Sonogram,'units','normalized');
 set(gca,'ydir','normal');
 set(gca,'uicontextmenu',handles.context_Sonogram);
@@ -1937,9 +1950,11 @@ SSs = handles.SegmentSelection{filenum};
 SNs = handles.SegmentTitles{filenum};
 
 if isempty(STs)
+    % No existing segments
     ind = 1;
 else
-    ind = getSortedArrayInsertion(STs, t0);
+    % Insert marker into appropriate place in segment arrays
+    ind = getSortedArrayInsertion(STs(:, 1), t0);
 end
 handles.SegmentTimes{filenum} = [STs(1:ind-1, :); [t0, t1]; STs(ind:end, :)];
 handles.SegmentSelection{filenum} = [SSs(1:ind-1), MS, SSs(ind:end)];
@@ -1959,8 +1974,10 @@ MSs = handles.MarkerSelection{filenum};
 MNs = handles.MarkerTitles{filenum};
 
 if isempty(MTs)
+    % No existing markers
     ind = 1;
 else
+    % Insert segment into appropriate place in marker arrays
     ind = getSortedArrayInsertion(MTs(:, 1), t0);
 end
 handles.MarkerTimes{filenum} = [MTs(1:ind-1, :); [t0, t1]; MTs(ind:end, :)];
@@ -2069,12 +2086,11 @@ if ischanged == 0
     return
 end
 
-handles.DefaultDirectory = handles.path_name;
 handles.DefaultFile = 'analysis.mat';
 
 if strcmp(handles.WorksheetTitle,'Untitled')
-    f = findstr(handles.path_name,'\');
-    handles.WorksheetTitle = handles.path_name(f(end)+1:end);
+    f = findstr(handles.DefaultRootPath,'\');
+    handles.WorksheetTitle = handles.DefaultRootPath(f(end)+1:end);
 end
 
 handles.TotalFileNumber = length(handles.sound_files);
@@ -2100,7 +2116,7 @@ set(handles.popup_EventList,'value',1);
 
 str = {};
 for c = 1:length(handles.sound_files)
-    str{c} = ['<HTML><FONT COLOR=000000>� ' handles.sound_files(c).name '</FONT></HTML>'];
+    str{c} = makeFileEntry(handles, handles.sound_files(c).name, true);
 end
 set(handles.list_Files,'string',str);
 
@@ -2139,7 +2155,6 @@ for c = 1:length(handles.menu_Segmenter)
 end
 if isempty(get(h,'userdata'))
     handles.SegmenterParams = eg_runPlugin(handles.plugins.segmenters, alg, 'params');
-%    handles.SegmenterParams = eval(['egg_' alg '(''params'')']);
     set(h,'userdata',handles.SegmenterParams);
 else
     handles.SegmenterParams = get(h,'userdata');
@@ -2154,7 +2169,6 @@ for c = 1:length(handles.menu_Algorithm)
 end
 if isempty(get(h,'userdata'))
     handles.SonogramParams = eg_runPlugin(handles.plugins.spectrums, alg, 'params');
-%    handles.SonogramParams = eval(['egs_' alg '(''params'')']);
     set(h,'userdata',handles.SonogramParams);
 else
     handles.SonogramParams = get(h,'userdata');
@@ -2169,7 +2183,6 @@ for c = 1:length(handles.menu_Filter)
 end
 if isempty(get(h,'userdata'))
     handles.FilterParams = eg_runPlugin(handles.plugins.filters, alg, 'params');
-%    handles.FilterParams = eval(['egf_' alg '(''params'')']);
     set(h,'userdata',handles.FilterParams);
 else
     handles.FilterParams = get(h,'userdata');
@@ -2183,7 +2196,6 @@ for axnum = 1:2
         str = get(handles.(['popup_EventDetector' num2str(axnum)]),'string');
         dtr = str{v};
         [handles.EventParams{axnum}, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, 'params');
-%        [handles.EventParams{axnum} labels] = eval(['ege_' dtr '(''params'')']);
         ud{v} = handles.EventParams{axnum};
         set(handles.(['popup_EventDetector' num2str(axnum)]),'userdata',ud);
     else
@@ -2199,7 +2211,6 @@ for axnum = 1:2
         str = get(handles.popup_Functions(axnum),'string');
         dtr = str{v};
         [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
-%        [handles.FunctionParams{axnum} labels] = eval(['egf_' dtr '(''params'')']);
         ud{v} = handles.FunctionParams{axnum};
         set(handles.popup_Functions(axnum),'userdata',ud);
     else
@@ -2230,9 +2241,8 @@ handles.Properties.Values = cell(1,handles.TotalFileNumber);
 handles.Properties.Types = cell(1,handles.TotalFileNumber);
 for c = 1:handles.TotalFileNumber
     [~, ~, ~, ~, props] = eg_runPlugin(handles.plugins.loaders, ...
-        handles.sound_loader, fullfile(handles.path_name, ...
+        handles.sound_loader, fullfile(handles.DefaultRootPath, ...
         handles.sound_files(c).name), 0);
-%    [~, ~, ~, ~, props] = eval(['egl_' handles.sound_loader '([''' handles.path_name '\' handles.sound_files(c).name '''],0)']);
     handles.Properties.Names{c} = [props.Names, defaultProps.Names];
     handles.Properties.Values{c} = [props.Values, defaultProps.Values];
     handles.Properties.Types{c} = [props.Types, defaultProps.Types];
@@ -2281,7 +2291,7 @@ function push_Open_Callback(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-[file, path] = uigetfile('*.mat','Load analysis');
+[file, path] = uigetfile(fullfile(handles.DefaultRootPath, '*.mat'),'Load analysis');
 if ~isstr(file)
     return
 end
@@ -2292,18 +2302,17 @@ handles.BackupChan = cell(1,2);
 handles.BackupLabel = cell(1,2);
 handles.BackupTitle = cell(1,2);
 
-handles.path_name = dbase.PathName;
-if ~isdir(handles.path_name)
-    path2 = uigetdir(pwd,['Directory ''' handles.path_name ''' not found. Find the new location.']);
+handles.DefaultRootPath = dbase.PathName;
+if ~isdir(handles.DefaultRootPath)
+    path2 = uigetdir(pwd,['Directory ''' handles.DefaultRootPath ''' not found. Find the new location.']);
     if ~isstr(path2)
         return
     end
-    handles.path_name = path2;
+    handles.DefaultRootPath = path2;
 end
 
 handles.DefaultFile = [path file];
 
-handles.DefaultDirectory = handles.path_name;
 handles.DatesAndTimes = dbase.Times;
 handles.FileLength = dbase.FileLength;
 handles.sound_files = dbase.SoundFiles;
@@ -2332,8 +2341,8 @@ set(handles.popup_EventList,'value',1);
 set(handles.axes_Events,'visible','off');
 
 if strcmp(handles.WorksheetTitle,'Untitled')
-    f = findstr(handles.path_name,'\');
-    handles.WorksheetTitle = handles.path_name(f(end)+1:end);
+    f = findstr(handles.DefaultRootPath,'\');
+    handles.WorksheetTitle = handles.DefaultRootPath(f(end)+1:end);
 end
 
 handles.TotalFileNumber = length(handles.sound_files);
@@ -2369,12 +2378,7 @@ set(handles.edit_FileNumber,'string','1');
 set(handles.list_Files,'value',1);
 str = {};
 for c = 1:length(handles.sound_files)
-    if handles.FileLength(c) > 0
-        str{c} = handles.sound_files(c).name;
-    else
-        str{c} = ['� ' handles.sound_files(c).name];
-    end
-    str{c} = ['<HTML><FONT COLOR=000000>' str{c} '</FONT></HTML>'];
+    str{c} = makeFileEntry(handles, handles.sound_files(c).name, handles.FileLength(c) <= 0);
 end
 set(handles.list_Files,'string',str);
 
@@ -2397,7 +2401,6 @@ else
     for c = 1:length(dbase.EventTimes)
         [param, labels] = eg_runPlugin(handles.plugins.eventDetectors, ...
             dbase.EventDetectors{c}, 'params');
-%        [param labels] = eval(['ege_' dbase.EventDetectors{c} '(''params'')']);
         for d = 1:length(labels)
             str{end+1} = [dbase.EventSources{c} ' - ' dbase.EventFunctions{c} ' - ' labels{d}];
         end
@@ -2408,7 +2411,6 @@ else
     str = {'(None)'};
     for c = 1:length(dbase.EventTimes)
         [param, labels] = eg_runPlugin(handles.plugins.eventDetectors, 'params');
-%        [param labels] = eval(['ege_' dbase.EventDetectors{c} '(''params'')']);
         for d = 1:length(labels)
             str{end+1} = [dbase.EventSources{c} ' - ' dbase.EventFunctions{c} ' - ' labels{d}];
         end
@@ -2430,7 +2432,6 @@ for c = 1:length(handles.menu_Segmenter)
 end
 if isempty(get(h,'userdata'))
     handles.SegmenterParams = eg_runPlugin(handles.plugins.segmenters, alg, 'params');
-%    handles.SegmenterParams = eval(['egg_' alg '(''params'')']);
     set(h,'userdata',handles.SegmenterParams);
 else
     handles.SegmenterParams = get(h,'userdata');
@@ -2445,7 +2446,6 @@ for c = 1:length(handles.menu_Algorithm)
 end
 if isempty(get(h,'userdata'))
     handles.SonogramParams = eg_runPlugin(handles.plugins.spectrums, alg, 'params');
-%    handles.SonogramParams = eval(['egs_' alg '(''params'')']);
     set(h,'userdata',handles.SonogramParams);
 else
     handles.SonogramParams = get(h,'userdata');
@@ -2459,7 +2459,6 @@ for axnum = 1:2
         str = get(handles.(['popup_EventDetector' num2str(axnum)]),'string');
         dtr = str{v};
         [handles.EventParams{axnum}, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, 'params');
-%        [handles.EventParams{axnum} labels] = eval(['ege_' dtr '(''params'')']);
         ud{v} = handles.EventParams{axnum};
         set(handles.(['popup_EventDetector' num2str(axnum)]),'userdata',ud);
     else
@@ -2475,7 +2474,6 @@ for axnum = 1:2
         str = get(handles.popup_Functions(axnum),'string');
         dtr = str{v};
         [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
-%        [handles.FunctionParams{axnum} labels] = eval(['egf_' dtr '(''params'')']);
         ud{v} = handles.FunctionParams{axnum};
         set(handles.popup_Functions(axnum),'userdata',ud);
     else
@@ -2496,6 +2494,10 @@ function push_Save_Callback(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
+if ~isfield(handles, 'DefaultFile')
+    msgbox('Please create a new experiment or open an existing one before saving.');
+    return;
+end
 
 [file, path] = uiputfile(handles.DefaultFile,'Save analysis');
 if ~isstr(file)
@@ -2794,7 +2796,6 @@ set(hObject,'checked','on');
 if isempty(get(hObject,'userdata'))
     alg = get(hObject,'label');
     handles.SegmenterParams = eg_runPlugin(handles.plugins.segmenters, alg, 'params');
-%    handles.SegmenterParams = eval(['egg_' alg '(''params'')']);
     set(hObject,'userdata',handles.SegmenterParams);
 else
     handles.SegmenterParams = get(hObject,'userdata');
@@ -3242,51 +3243,38 @@ end
 
 guidata(hObject, handles);
 
-
-% --- Executes on selection change in popup_Function1.
-function popup_Function1_Callback(hObject, ~, handles)
-% hObject    handle to popup_Function1 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: contents = get(hObject,'String') returns popup_Function1 contents as cell array
-%        contents{get(hObject,'Value')} returns selected item from popup_Function1
-
-axnum = 1;
-
-v = get(handles.popup_Function1,'value');
-ud = get(handles.popup_Function1,'userdata');
+function handles = popup_Functions_Callback(handles, axnum)
+v = get(handles.popup_Functions(axnum),'value');
+ud = get(handles.popup_Functions(axnum),'userdata');
 if isempty(ud{v}) & v>1
-    str = get(handles.popup_Function1,'string');
+    str = get(handles.popup_Functions(axnum),'string');
     dtr = str{v};
     f = findstr(dtr,' - ');
     if isempty(f)
         [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
-%        [handles.FunctionParams1 labels] = eval(['egf_' dtr '(''params'')']);
     else
         [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr(1:f-1), 'params');
-%        [handles.FunctionParams1 labels] = eval(['egf_' dtr(1:f-1) '(''params'')']);
     end
     ud{v} = handles.FunctionParams{axnum};
-    set(handles.popup_Function1,'userdata',ud);
+    set(handles.popup_Functions(axnum),'userdata',ud);
 else
     handles.FunctionParams{axnum} = ud{v};
 end
 
 if isempty(findobj('parent',handles.axes_Sonogram,'type','text'))
-    set(handles.popup_EventDetector1,'value',1);
-    handles = eg_LoadChannel(handles,1);
-    handles = eg_clickEventDetector(handles,1);
+    set(handles.popup_EventDetectors(axnum),'value', 1);
+    handles = eg_LoadChannel(handles, axnum);
+    handles = eg_clickEventDetector(handles, axnum);
 end
-str = get(handles.popup_Channel1,'string');
-str = str{get(handles.popup_Channel1,'value')};
+str = get(handles.popup_Channels(axnum),'string');
+str = str{get(handles.popup_Channels(axnum),'value')};
 if ~isempty(findstr(str,' - ')) | strcmp(str,'(None)')
-    set(handles.popup_EventDetector1,'enable','off');
+    set(handles.popup_EventDetectors(axnum),'enable','off');
 else
-    set(handles.popup_EventDetector1,'enable','on');
+    set(handles.popup_EventDetectors(axnum),'enable','on');
 end
 
-if strcmp(get(handles.menu_SourceTopPlot,'checked'),'on');
+if strcmp(get(handles.menu_SourcePlots(axnum),'checked'),'on');
     [handles.amplitude labs] = eg_CalculateAmplitude(handles);
 
     plt = findobj('parent',handles.axes_Amplitude,'linestyle','-');
@@ -3296,6 +3284,18 @@ if strcmp(get(handles.menu_SourceTopPlot,'checked'),'on');
 
     handles = SetThreshold(handles);
 end
+
+% --- Executes on selection change in popup_Function1.
+function popup_Function1_Callback(hObject, ~, handles)
+% hObject    handle to popup_Function1 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = get(hObject,'String') returns popup_Function1 contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from popup_Function1
+axnum = 1;
+
+handles = popup_Functions_Callback(handles, axnum);
 
 guidata(hObject, handles);
 
@@ -3311,7 +3311,6 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
     set(hObject,'BackgroundColor','white');
 end
 
-
 % --- Executes on selection change in popup_Function2.
 function popup_Function2_Callback(hObject, ~, handles)
 % hObject    handle to popup_Function2 (see GCBO)
@@ -3323,48 +3322,7 @@ function popup_Function2_Callback(hObject, ~, handles)
 
 axnum = 2;
 
-v = get(handles.popup_Function2,'value');
-ud = get(handles.popup_Function2,'userdata');
-if isempty(ud{v}) & v>1
-    str = get(handles.popup_Function2,'string');
-    dtr = str{v};
-    f = findstr(dtr,' - ');
-    if isempty(f)
-        [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
-%        [handles.FunctionParams1 labels] = eval(['egf_' dtr '(''params'')']);
-    else
-        [handles.FunctionParams{axnum}, labels] = eg_runPlugin(handles.plugins.filters, dtr(1:f-1), 'params');
-%        [handles.FunctionParams1 labels] = eval(['egf_' dtr(1:f-1) '(''params'')']);
-    end
-    ud{v} = handles.FunctionParams{axnum};
-    set(handles.popup_Function2,'userdata',ud);
-else
-    handles.FunctionParams{axnum} = ud{v};
-end
-
-if isempty(findobj('parent',handles.axes_Sonogram,'type','text'))
-    set(handles.popup_EventDetector2,'value',1);
-    handles = eg_LoadChannel(handles,2);
-    handles = eg_clickEventDetector(handles,2);
-end
-str = get(handles.popup_Channel2,'string');
-str = str{get(handles.popup_Channel2,'value')};
-if ~isempty(findstr(str,' - ')) | strcmp(str,'(None)')
-    set(handles.popup_EventDetector2,'enable','off');
-else
-    set(handles.popup_EventDetector2,'enable','on');
-end
-
-if strcmp(get(handles.menu_SourceBottomPlot,'checked'),'on');
-    [handles.amplitude labs] = eg_CalculateAmplitude(handles);
-
-    plt = findobj('parent',handles.axes_Amplitude,'linestyle','-');
-    set(plt,'ydata',handles.amplitude);
-    subplot(handles.axes_Amplitude)
-    ylabel(labs);
-
-    handles = SetThreshold(handles);
-end
+handles = popup_Functions_Callback(handles, axnum);
 
 guidata(hObject, handles);
 
@@ -3381,6 +3339,55 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
     set(hObject,'BackgroundColor','white');
 end
 
+function handles = popup_Channels_Callback(handles, axnum)
+% Handle change in value of either channel source menu
+
+if isempty(findobj('parent',handles.axes_Sonogram,'type','text'))
+    set(handles.popup_Functions(axnum),'value',1);
+    set(handles.popup_EventDetectors(axnum),'value',1);
+    handles = eg_LoadChannel(handles, axnum);
+    handles = eg_clickEventDetector(handles, axnum);
+end
+str = get(handles.popup_Channels(axnum),'string');
+str = str{get(handles.popup_Channels(axnum),'value')};
+if ~isempty(findstr(str,' - ')) | strcmp(str,'(None)')
+    set(handles.popup_EventDetectors(axnum),'enable','off');
+else
+    set(handles.popup_EventDetectors(axnum),'enable','on');
+end
+
+handles.BackupTitle = cell(1,2);
+
+if strcmp(get(handles.menu_SourcePlots(axnum),'checked'),'on');
+    [handles.amplitude labs] = eg_CalculateAmplitude(handles);
+
+    plt = findobj('parent',handles.axes_Amplitude,'linestyle','-');
+    set(plt,'ydata',handles.amplitude);
+    subplot(handles.axes_Amplitude)
+    ylabel(labs);
+
+    handles = SetThreshold(handles);
+end
+
+%If available, use the default channel filter (from defaults file)
+if isfield(handles, 'DefaultChannelFunction')
+    % handles.DefaultChannelFilter is defined
+    allFunctionNames = get(handles.popup_Functions(axnum),'string');
+    defaultChannelFunctionIdx = find(strcmp(allFunctionNames, handles.DefaultChannelFunction));
+    if ~isempty(defaultChannelFunctionIdx)
+        % Default channel function is valid
+        currentChannelFunctionIdx = get(handles.popup_Functions(axnum),'value');
+        if currentChannelFunctionIdx ~= defaultChannelFunctionIdx
+            % Default channel function does not match currently selected function. Switch it!
+            set(handles.popup_Functions(axnum), 'value', defaultChannelFunctionIdx);
+            % Trigger callback for changed channel function
+            handles = popup_Functions_Callback(handles, axnum);
+        end
+    else
+        warning('Found a default channel function in the defaults file, but it was not a recognized function: %s', handles.DefaultChannelFunction);
+    end
+end
+
 
 % --- Executes on selection change in popup_Channel1.
 function popup_Channel1_Callback(hObject, ~, handles)
@@ -3391,32 +3398,9 @@ function popup_Channel1_Callback(hObject, ~, handles)
 % Hints: contents = get(hObject,'String') returns popup_Channel1 contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from popup_Channel1
 
-if isempty(findobj('parent',handles.axes_Sonogram,'type','text'))
-    set(handles.popup_Function1,'value',1);
-    set(handles.popup_EventDetector1,'value',1);
-    handles = eg_LoadChannel(handles,1);
-    handles = eg_clickEventDetector(handles,1);
-end
-str = get(handles.popup_Channel1,'string');
-str = str{get(handles.popup_Channel1,'value')};
-if ~isempty(findstr(str,' - ')) | strcmp(str,'(None)')
-    set(handles.popup_EventDetector1,'enable','off');
-else
-    set(handles.popup_EventDetector1,'enable','on');
-end
+axnum = 1;
 
-handles.BackupTitle = cell(1,2);
-
-if strcmp(get(handles.menu_SourceTopPlot,'checked'),'on');
-    [handles.amplitude labs] = eg_CalculateAmplitude(handles);
-
-    plt = findobj('parent',handles.axes_Amplitude,'linestyle','-');
-    set(plt,'ydata',handles.amplitude);
-    subplot(handles.axes_Amplitude)
-    ylabel(labs);
-
-    handles = SetThreshold(handles);
-end
+handles = popup_Channels_Callback(handles, axnum);
 
 guidata(hObject, handles);
 
@@ -3442,32 +3426,9 @@ function popup_Channel2_Callback(hObject, ~, handles)
 % Hints: contents = get(hObject,'String') returns popup_Channel2 contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from popup_Channel2
 
-if isempty(findobj('parent',handles.axes_Sonogram,'type','text'))
-    set(handles.popup_Function2,'value',1);
-    set(handles.popup_EventDetector2,'value',1);
-    handles = eg_LoadChannel(handles,2);
-    handles = eg_clickEventDetector(handles,2);
-end
-str = get(handles.popup_Channel2,'string');
-str = str{get(handles.popup_Channel2,'value')};
-if ~isempty(findstr(str,' - ')) | strcmp(str,'(None)')
-    set(handles.popup_EventDetector2,'enable','off');
-else
-    set(handles.popup_EventDetector2,'enable','on');
-end
+axnum = 2;
 
-handles.BackupTitle = cell(1,2);
-
-if strcmp(get(handles.menu_SourceBottomPlot,'checked'),'on');
-    [handles.amplitude labs] = eg_CalculateAmplitude(handles);
-
-    plt = findobj('parent',handles.axes_Amplitude,'linestyle','-');
-    set(plt,'ydata',handles.amplitude);
-    subplot(handles.axes_Amplitude)
-    ylabel(labs);
-
-    handles = SetThreshold(handles);
-end
+handles = popup_Channels_Callback(handles, axnum);
 
 guidata(hObject, handles);
 
@@ -3989,7 +3950,6 @@ if isempty(ud{v}) & v>1
     str = get(handles.(['popup_EventDetector' num2str(axnum)]),'string');
     dtr = str{v};
     [handles.EventParams{axnum}, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, 'params');
-%    [handles.EventParams{axnum} labels] = eval(['ege_' dtr '(''params'')']);
     ud{v} = handles.EventParams{axnum};
     set(handles.(['popup_EventDetector' num2str(axnum)]),'userdata',ud);
 else
@@ -5056,10 +5016,8 @@ else
         [feature1, name1] = eg_runPlugin(handles.plugins.eventFeatures, ...
             str, chan, handles.fs, tmall, g, ...
             round(handles.EventLims(get(handles.popup_EventList,'value'),:)*handles.fs));
-%        [feature1 name1] = eval(['ega_' str '(chan,handles.fs,tmall,g,round(handles.EventLims(get(handles.popup_EventList,''value''),:)*handles.fs))']);
         f = findobj('parent',handles.menu_YAxis,'checked','on');
         str = get(f,'label');
-%        [feature2 name2] = eval(['ega_' str '(chan,handles.fs,tmall,g,round(handles.EventLims(get(handles.popup_EventList,''value''),:)*handles.fs))']);
         [feature2, name2] = eg_runPlugin(handles.plugins.eventFeatures, ...
             str, chan, handles.fs, tmall, g, ...
             round(handles.EventLims(get(handles.popup_EventList,'value'),:)*handles.fs));
@@ -5738,12 +5696,12 @@ val = get(handles.popup_Export,'value');
 str = str{val};
 switch str
     case 'Segments'
-        path = uigetdir(handles.DefaultDirectory,'Directory for segments');
+        path = uigetdir(handles.DefaultRootPath,'Directory for segments');
         if ~isstr(path)
             delete(txtexp)
             return
         end
-        handles.DefaultDirectory = path;
+        handles.DefaultRootPath = path;
 
         filenum = getCurrentFileNum(handles);
 
@@ -5831,12 +5789,12 @@ switch str
     case 'Sonogram'
         if get(handles.radio_Files,'value')==1
             [pathstr,name,ext,versn] = fileparts(get(handles.text_FileName,'string'));
-            [file, path] = uiputfile([handles.DefaultDirectory '\' name '.jpg'],'Save image');
+            [file, path] = uiputfile([handles.DefaultRootPath '\' name '.jpg'],'Save image');
             if ~isstr(file)
                 delete(txtexp)
                 return
             end
-            handles.DefaultDirectory = path;
+            handles.DefaultRootPath = path;
         end
         xl = get(handles.axes_Sonogram,'xlim');
         yl = get(handles.axes_Sonogram,'ylim');
@@ -5873,7 +5831,6 @@ switch str
             end
             pow = eg_runPlugin(handles.plugins.spectrums, alg, gca, ...
                 handles.sound(xlp(1):xlp(2)), handles.fs, handles.SonogramParams);
-%            pow = eval(['egs_' alg '(gca,handles.sound(xlp(1):xlp(2)),handles.fs,handles.SonogramParams)']);
             set(gca,'ydir','normal');
             handles.NewSlope = handles.DerivativeSlope;
             handles.DerivativeSlope = 0;
@@ -6084,12 +6041,12 @@ elseif get(handles.radio_Files,'value')==1
 
         case {'Current sound', 'Sound mix'}
             [pathstr,name,ext,versn] = fileparts(get(handles.text_FileName,'string'));
-            [file, path] = uiputfile([handles.DefaultDirectory '\' name '.wav'],'Save sound');
+            [file, path] = uiputfile([handles.DefaultRootPath '\' name '.wav'],'Save sound');
             if ~isstr(file)
                 delete(txtexp)
                 return
             end
-            handles.DefaultDirectory = path;
+            handles.DefaultRootPath = path;
             warning off
             wavwrite(wav,fs,16,[path file]);
             warning on
@@ -6374,7 +6331,6 @@ elseif get(handles.radio_PowerPoint,'value')==1
                             pow = eg_runPlugin(handles.plugins.spectrums, ...
                                 alg, gca, handles.sound(xlp(1):xlp(2)), ...
                                 handles.fs, handles.SonogramParams);
-%                            pow = eval(['egs_' alg '(gca,handles.sound(xlp(1):xlp(2)),handles.fs,handles.SonogramParams)']);
                             set(gca,'ydir','normal');
                             handles.NewSlope = handles.DerivativeSlope;
                             handles.DerivativeSlope = 0;
@@ -7036,7 +6992,6 @@ else
     end
     pow = eg_runPlugin(handles.plugins.spectrums, alg, gca, ...
         handles.sound(xlp(1):xlp(2)), handles.fs, handles.SonogramParams);
-%    pow = eval(['egs_' alg '(gca,handles.sound(xlp(1):xlp(2)),handles.fs,handles.SonogramParams)']);
     set(gca,'ydir','normal');
     handles.NewSlope = handles.DerivativeSlope;
     handles.DerivativeSlope = 0;
@@ -7546,7 +7501,6 @@ f = find(handles.menu_Macros==hObject);
 
 mcr = get(handles.menu_Macros(f),'label');
 handles = eg_runPlugin(handles.plugins.macros, mcr, handles);
-%handles = eval(['egm_' mcr '(handles)']);
 
 guidata(hObject, handles);
 
@@ -7746,7 +7700,6 @@ if strcmp(get(hObject,'Label'),'(Default)')
     cmap(1,:) = [0 0 0];
 else
     cmap = eg_runPlugin(handles.plugins.colormaps, get(hObject, 'Label'));
-%    cmap = eval(['egc_' get(hObject,'Label')]);
 end
 
 handles.Colormap = cmap;
@@ -8010,7 +7963,6 @@ end
 handles.SegmenterParams.IsSplit = 1;
 sg = eg_runPlugin(handles.plugins.segmenters, alg, handles.amplitude, ...
     handles.fs, rect(2), handles.SegmenterParams);
-%sg = eval(['egg_' alg '(handles.amplitude,handles.fs,' num2str(rect(2)) ',handles.SegmenterParams)']);
 
 f = find(sg(:,1)>rect(1)*handles.fs & sg(:,1)<(rect(1)+rect(3))*handles.fs);
 g = find(sg(:,2)>rect(1)*handles.fs & sg(:,2)<(rect(1)+rect(3))*handles.fs);
@@ -8330,7 +8282,6 @@ for c = 1:length(handles.menu_Filter)
 end
 
 handles.filtered_sound = eg_runPlugin(handles.plugins.filters, alg, handles.sound, handles.fs, handles.FilterParams);
-%handles.filtered_sound = eval(['egf_' alg '(handles.sound,handles.fs,handles.FilterParams)']);
 
 subplot(handles.axes_Sound)
 xd = get(handles.xlimbox,'xdata');
@@ -8672,7 +8623,7 @@ switch button
     case 'Some files...'
         str = get(handles.list_Files,'string');
         for c = 1:length(str)
-            str{c} = [num2str(c) '. ' str{c}(26:end-14)];
+            str{c} = [num2str(c), '. ', extractFileNameFromEntry(handles, str{c}, true)];
         end
         [indx,ok] = listdlg('ListString',str,'InitialValue',filenum,'ListSize',[300 450],'Name','Select files','PromptString','Files to add new property to');
         if ok == 0
@@ -8776,7 +8727,7 @@ switch button
     case 'Some files...'
         str = get(handles.list_Files,'string');
         for c = 1:length(str)
-            str{c} = [num2str(c) '. ' str{c}(26:end-14)];
+            str{c} = [num2str(c) '. ' extractFileNameFromEntry(handles, str{c}, true)];
         end
         [indx,ok] = listdlg('ListString',str,'InitialValue',filenum,'ListSize',[300 450],'Name','Select files','PromptString','Files to remove property from');
         if ok == 0
@@ -9042,7 +8993,7 @@ end
 
 str = get(handles.list_Files,'string');
 for c = 1:length(str)
-    str{c} = [num2str(c) '. ' str{c}(26:end-14)];
+    str{c} = [num2str(c) '. ' extractFileNameFromEntry(handles, str{c}, true)];
 end
 [files,ok] = listdlg('ListString',str,'InitialValue',filenum,'ListSize',[300 450],'Name','Select files','PromptString',['Files in which to fill property "' handles.PropertyNames{indx} '"']);
 if isempty(files)
@@ -9409,6 +9360,44 @@ handles = eg_LoadFile(handles);
 guidata(hObject, handles);
 
 
+function fileEntry = makeFileEntry(handles, fileName, unread)
+% Construct a file entry
+% filename = name of file
+% unread = boolean - has it been read or not?
+if strcmp(fileName(1:length(handles.UnreadFileMarker)), handles.UnreadFileMarker)
+    warning('Loaded a file that starts with the same character in use as the unread file marker character. This will probably cause some problems.');
+end
+fileEntry = [handles.FileEntryOpenTag, repmat(handles.UnreadFileMarker, [1, unread]), fileName, handles.FileEntryCloseTag];
+
+function fileName = extractFileNameFromEntry(handles, fileEntry, includeUnreadMarker)
+% Get the filename from the file entry (which may include the unread file
+% marker)
+% fileEntry = a file entry string from the file listbox
+% includeUnreadFileMarker = a boolean - should we include the unread file marker in the returned name?
+unreadFileMarkerStart = length(handles.FileEntryOpenTag)+1;
+unreadFileMarkerEnd = length(handles.FileEntryOpenTag)+length(handles.UnreadFileMarker)-1;
+if ~includeUnreadMarker && strcmp(fileEntry(unreadFileMarkerStart:unreadFileMarkerEnd), handles.UnreadFileMarker)
+    fileName = fileEntry(unreadFileMarkerEnd+1:(end-length(handles.FileEntryCloseTag)));
+else
+    fileName = fileEntry(length(handles.FileEntryOpenTag)+1:(end-length(handles.FileEntryCloseTag)));    
+end
+
+function newFileEntry = removeUnreadFileMarker(handles, fileEntry)
+% Remove the unread file marker from a file entry
+% fileEntry = a file entry string from the file listbox
+% newFileEntry = the same file entry string with the unread file marker removed.
+unreadFileMarkerStart = length(handles.FileEntryOpenTag)+1;
+unreadFileMarkerEnd = unreadFileMarkerStart+length(handles.UnreadFileMarker)-1;
+newFileEntry = [fileEntry(1:unreadFileMarkerStart-1), fileEntry(unreadFileMarkerEnd+1:end)];
+
+function isUnread = isFileUnread(handles, fileEntry)
+% Check if file in this file entry is unread
+% fileEntry = a file entry string from the file listbox
+unreadFileMarkerStart = length(handles.FileEntryOpenTag)+1;
+unreadFileMarkerEnd = unreadFileMarkerStart+length(handles.UnreadFileMarker)-1;
+isUnread = strcmp(fileEntry(unreadFileMarkerStart:unreadFileMarkerEnd), handles.UnreadFileMarker);
+
+
 function handles = UpdateFiles(handles, old_sound_files)
 
 handles.TotalFileNumber = length(handles.sound_files);
@@ -9426,7 +9415,7 @@ set(handles.list_Files,'value',1);
 bck = get(handles.list_Files,'string');
 str = {};
 for c = 1:length(handles.sound_files)
-    str{c} = ['<HTML><FONT COLOR=000000>� ' handles.sound_files(c).name '</FONT></HTML>'];
+    str{c} = makeFileEntry(handles, handles.sound_files(c).name, true);
 end
 
 % Generate translation lists
@@ -9438,7 +9427,7 @@ for c = 1:length(old_sound_files)
         if strcmp(old_sound_files(c).name,handles.sound_files(d).name)
             oldnum(end+1) = c;
             newnum(end+1) = d;
-            str{d} = str{d}([1:25 28:end]);
+            str{d} = removeUnreadFileMarker(handles, str{d});
             if c==oldfilenum
                 newfilenum = d;
             end
@@ -9543,7 +9532,7 @@ guidata(hObject, handles);
 
 function dbase = GetDBase(handles)
 
-dbase.PathName = handles.path_name;
+dbase.PathName = handles.DefaultRootPath;
 dbase.Times = handles.DatesAndTimes;
 dbase.FileLength = handles.FileLength;
 dbase.SoundFiles = handles.sound_files;
