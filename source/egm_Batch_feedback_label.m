@@ -6,23 +6,29 @@ fileRangeString = ['1:' num2str(handles.TotalFileNumber)];
 
 answer = inputdlg( ...
     {'File range to label', ...
+     'File range to search', ...
      'Feedback channel number', ...
      'Interpattern silence length threshold in seconds', ...
-     'Number of pattern types expected'}, ...
+     'Max allowed BOS fractional duration variation', ...
+     'BOS padding length in seconds'}, ...
      'AutoLabelling Macro', 1, ...
      {fileRangeString, ...
+      fileRangeString, ...
       '17', ...
-      '0.125', ...
-      '6', ...
+      '0.25', ...
+      '0.05', ...
+      '0.5', ...
       });
 if isempty(answer)
     return
 end
 
 labellingFileNums = eval(answer{1});
-feedbackChannelNumber = str2double(answer{2});
-silenceThresholdSeconds = str2double(answer{3});
-numGroups = str2double(answer{4});
+searchFileNums = eval(answer{2});
+feedbackChannelNumber = str2double(answer{3});
+silenceThresholdSeconds = str2double(answer{4});
+durationVariationThreshold = abs(str2double(answer{5}));
+padLengthSeconds = str2double(answer{6});
 ax = handles.axes_Sonogram;
 xlim(ax)
 ylim(ax)
@@ -30,15 +36,16 @@ txt = text(mean(xlim(ax)), mean(ylim(ax)),'Extracting patterns... Click to quit.
 set(txt,'ButtonDownFcn','set(gco,''color'',''g''); drawnow;');
 
 patterns = [];
+templates = [];
 
 maxPatternLength = 0;
 
 % Loop over files and find feedback patterns in the specified feedback
 % channel
-for fileIdx = 1:length(labellingFileNums)
+for fileIdx = 1:length(searchFileNums)
     count = fileIdx;
-    fileNum = labellingFileNums(fileIdx);
-    if sum(get(txt,'color')==[0 1 0])==3
+    fileNum = searchFileNums(fileIdx);
+    if all(get(txt,'color')==[0 1 0])
         count = count-1;
         delete(txt);
         msgbox('Labelling cancelled');
@@ -51,7 +58,7 @@ for fileIdx = 1:length(labellingFileNums)
 
     % Load channel data
     [data, fs, ~, ~, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{feedbackChannelNumber}, fullfile(handles.path_name, handles.chan_files{feedbackChannelNumber}(fileNum).name), true);
-    data = logical(data);
+    data = data > 0.5;
     if size(data, 1) > size(data, 2)
         data = data';
     end
@@ -60,6 +67,9 @@ for fileIdx = 1:length(labellingFileNums)
     if size(snd, 1) > size(snd, 2)
         snd = snd';
     end
+    
+    % Convert pathLength from seconds to samples
+    padLength = round(padLengthSeconds * fs);
     
     % Convert silence threshold from seconds to samples
     silenceThreshold = silenceThresholdSeconds * fs;
@@ -86,123 +96,147 @@ for fileIdx = 1:length(labellingFileNums)
     
     interPulseIntervals = risingEdges(2:end) - fallingEdges(1:end-1);
     breakIdx = find(interPulseIntervals > silenceThreshold);
-    patternStarts = [risingEdges(1), risingEdges(breakIdx+1)+1];
-    patternEnds = [fallingEdges(breakIdx), fallingEdges(end)];
+    patternStarts = [risingEdges(1), risingEdges(breakIdx+1)+1] - padLength;
+    patternEnds = [fallingEdges(breakIdx), fallingEdges(end)] + padLength;
     
-    nextPatternNum = length(patterns)+1;
+    % Ensure the pad doesn't cause patterns to extend past the ends of the
+    % file
+    patternStarts(patternStarts < 1) = 1;
+    patternEnds(patternEnds > length(data)) = length(data);
+    
+    
+    % Loop over patterns found and assemble data into struct array
     for newPatternNum = 1:length(patternStarts)
-%         patterns(nextPatternNum).pattern = data(max(1, patternStarts(newPatternNum)-2000):min(patternEnds(newPatternNum)+2000, length(data)));
-        patterns(nextPatternNum).pattern = data(patternStarts(newPatternNum):patternEnds(newPatternNum));
-        patterns(nextPatternNum).fileNum = fileNum;
-        patterns(nextPatternNum).start = patternStarts(newPatternNum);
-        patterns(nextPatternNum).end = patternEnds(newPatternNum);
-        patterns(nextPatternNum).samplingRate = fs;
-        patterns(nextPatternNum).audio = snd(patternStarts(newPatternNum):patternEnds(newPatternNum));
+        newPattern.pattern = data(patternStarts(newPatternNum):patternEnds(newPatternNum));
+        newPattern.fileNum = fileNum;
+        newPattern.start = patternStarts(newPatternNum);
+        newPattern.end = patternEnds(newPatternNum);
+        newPattern.duration = patternEnds(newPatternNum) - patternStarts(newPatternNum);
+        newPattern.samplingRate = fs;
+        newPattern.audio = snd(patternStarts(newPatternNum):patternEnds(newPatternNum));
         idx = getOverlappingSegments(handles.SegmentTimes{fileNum}, patternStarts(newPatternNum), patternEnds(newPatternNum));
         if ~isempty(handles.SegmentTimes{fileNum})
-            patterns(nextPatternNum).segments = handles.SegmentTimes{fileNum}(idx, :);
+            newPattern.segmentTimes = handles.SegmentTimes{fileNum}(idx, :) - newPattern.start;
+            newPattern.titles = handles.SegmentTitles{fileNum}(idx);
+            % Check if this pattern is labeled or not. If it's labeled, add
+            % it to the templates array. If it is unlabeled, add it to the
+            % pattern array.
+            patternIsLabeled = false;
+            for segmentNum = 1:length(newPattern.titles)
+                if ~isempty(newPattern.titles{segmentNum})
+                    patternIsLabeled = true;
+                    break;
+                end
+            end
+            if patternIsLabeled
+                if isempty(templates)
+                    templates = newPattern;
+                else
+                    templates(end+1) = newPattern;
+                end
+            else
+                if isempty(patterns)
+                    patterns = newPattern;
+                else
+                    patterns(end+1) = newPattern;
+                end
+            end
         else
-            patterns(nextPatternNum).segments = [];
+            % No segments found
+            newPattern.segmentTimes = [];
+            newPattern.titles = {};
+            patterns(end+1) = newPattern;
         end
-        if length(patterns(nextPatternNum).pattern) > maxPatternLength
-            maxPatternLength = length(patterns(nextPatternNum).pattern);
+        if length(patterns(end).pattern) > maxPatternLength
+            maxPatternLength = length(patterns(end).pattern);
         end
-        nextPatternNum = nextPatternNum + 1;
     end
     
-    set(txt,'string',['Extracted patterns from file ' num2str(fileNum) ' (' num2str(fileIdx) '/' num2str(length(labellingFileNums)) '). Click to quit.']);
+    set(txt,'string',fprintf('Extracted patterns from file %d (%d / %d). Click to quit.\n', fileNum, fileIdx, length(labellingFileNums)));
     drawnow;
 end
 
-set(txt,'string','Choose labels for each pattern or pattern group...');
+if isempty(templates)
+    error('No templates found. Please make sure you label at least one feedback event!');
+end
+
+% Find max and min allowable durations and weed out obviously unusable
+% patterns
+maxDuration = max([templates.duration]) * (1+durationVariationThreshold);
+minDuration = min([templates.duration]) * (1-durationVariationThreshold);
+patterns([patterns.duration] > maxDuration) = [];
+patterns([patterns.duration] < minDuration) = [];
 
 % Pad patterns so they're all the same length
 for k = 1:length(patterns)
     patterns(k).paddedPattern = [patterns(k).pattern, zeros(1, maxPatternLength-length(patterns(k).pattern))]; 
 end
 
-
-allPatterns = vertcat(patterns.paddedPattern);
-groupIdx = kmeans(allPatterns, numGroups, 'EmptyAction', 'drop', 'Replicates', 5);
-
-groupList = unique(groupIdx);
-
-patternGroups = cell(1, length(groupList)+1);
-patternGroupMeans = {};
-patternGroupConformity = {};
-weirdoIdx = length(groupList)+1;
-for g = 1:length(groupList)
-    patternGroups{g} = patterns(groupIdx == groupList(g));
-    
-    % Find a mean pattern
-    patternGroupMeans{g} = mean(vertcat(patternGroups{g}.paddedPattern));
-    % Calculate how much each pattern in this group conforms to the mean
-    conformity = arrayfun(@(p) sum(p.paddedPattern == patternGroupMeans{g}), patternGroups{g});
-    % Find average and std conformity 
-    meanConformity = mean(conformity);
-    stdConformity = std(conformity);
-    % Create mask identifying weirdos (> 1 std from mean)
-    weirdoMask = (meanConformity - stdConformity < conformity) & (conformity < meanConformity + stdConformity);
-    % Split off weirdos into their own group
-    patternGroups{weirdoIdx} = [patternGroups{weirdoIdx}, patternGroups{g}(weirdoMask)];
-    % Keep only normos in this group.
-    patternGroups{g} = patternGroups{g}(~weirdoMask);
+% Pad templates so they're all the same length
+for k = 1:length(templates)
+    templates(k).paddedPattern = [templates(k).pattern, zeros(1, maxPatternLength-length(templates(k).pattern))]; 
 end
 
-% Remove any empty groups
-emptyGroupIdx = [];
-for g = 1:length(patternGroups)
-    if isempty(patternGroups{g})
-        emptyGroupIdx(end+1) = g;
+maxLag = max(100, padLength);
+similarity = zeros(length(templates), length(patterns));
+% Get similarity score for each pattern with each template
+for k = 1:length(templates)
+    % Normalize template pattern so they can be compared to each other
+    templatePaddedPattern = templates(k).paddedPattern;
+    templatePaddedPattern = templatePaddedPattern;
+    for j = 1:length(patterns)
+        similarity(k, j) = max(xcorr(templatePaddedPattern, patterns(j).paddedPattern, maxLag));
+        patterns(j).similarity = similarity(:, j);
     end
 end
-patternGroups(emptyGroupIdx) = [];
 
-for g = 1:length(patternGroups)
-    patternGroups{g} = PatternID(patternGroups{g});
-%     figure;
-%     for k = 1:length(patternGroups{g})
-%         hold on;
-%         plot(patternGroups{g}(k).paddedPattern + k*1.5);
-%     end
+% Assign each pattern to one template or the other
+[~, assignments] = max(similarity, [], 1);
+for k = 1:length(templates)
+    templates(k).assignedPatterns = patterns(assignments == k);
 end
 
-patterns = [patternGroups{:}];
+for k = 1:length(templates)
+    figure;
+    ax = axes();
+    hold(ax, 'on');
+    for j = 1:length(templates(k).assignedPatterns)
+        plot(ax, templates(k).assignedPatterns(j).paddedPattern + (j-1) * 1.1);
+    end
+end
 
 labels = {};
 numUnlabeled = 0;
-for k = 1:length(patterns)
-    if ~isempty(patterns(k).ID)
-        fileNum = patterns(k).fileNum;
-        start = patterns(k).start;
-        stop = patterns(k).end;
-        ID = patterns(k).ID;
+for k = 1:length(templates)
+    newTitles = templates(k).titles;
+    newSelection = true(1, length(newTitles));
+    for j = 1:length(templates(k).assignedPatterns)
+        pattern = templates(k).assignedPatterns(j);
+        fileNum = pattern.fileNum;
+        start = pattern.start;
+        stop = pattern.end;
         % Find nearby segments
-        idx = getNearbySegments(handles.SegmentTimes{fileNum}, start, stop, (stop-start)/2, length(ID));
-        % Label nearby segments
-        for j = 1:length(ID)
-            % Loop over individual characters in ID string
-            character = ID(j);
-            if j > length(idx)
-                break;
-            end
-            % Assign each character in the ID string to an individaul
-            % segment
-            handles.SegmentTitles{fileNum}{idx(j)} = character;
-        end
-            
-    else
-        numUnlabeled = numUnlabeled + 1;
+        idx = getNearbySegments(handles.SegmentTimes{fileNum}, start, stop, padLength);
+        % Delete nearby segments
+        handles.SegmentTimes{fileNum}(idx, :) = [];
+        handles.SegmentTitles{fileNum}(idx) = [];
+        handles.SegmentSelection{fileNum}(idx) = [];
+        % Add in new segments from template
+        startIdx = min(idx);
+        newTimes = templates(k).segmentTimes + pattern.start;
+        handles.SegmentTimes{fileNum} = [handles.SegmentTimes{fileNum}(1:(startIdx-1), :); newTimes; handles.SegmentTimes{fileNum}(startIdx:end, :)];
+        handles.SegmentTitles{fileNum} = [handles.SegmentTitles{fileNum}(1:(startIdx-1)), newTitles, handles.SegmentTitles{fileNum}(startIdx:end)];
+        handles.SegmentSelection{fileNum} = [handles.SegmentSelection{fileNum}(1:(startIdx-1)), newSelection, handles.SegmentSelection{fileNum}(startIdx:end)];
     end
 end
 
-uniqueLabels = unique(labels);
-fprintf('\nFinished batch feedback labelling\n');
-fprintf('Label counts:\n');
-for k = 1:length(uniqueLabels)
-    fprintf('\t%s: %d\n', uniqueLabels{k}, sum(strcmp(uniqueLabels{k}, labels)));
-end
-fprintf('# of feedback events unlabeled: %d\n', numUnlabeled);
+% uniqueLabels = unique(labels);
+% fprintf('\nFinished batch feedback labelling\n');
+% fprintf('Label counts:\n');
+% for k = 1:length(uniqueLabels)
+%     fprintf('\t%s: %d\n', uniqueLabels{k}, sum(strcmp(uniqueLabels{k}, labels)));
+% end
+% fprintf('# of feedback events unlabeled: %d\n', numUnlabeled);
 
 set(txt,'string','Done labelling feedback!');
 delete(txt);
@@ -215,6 +249,9 @@ function idx = getNearbySegments(segmentTimes, t0, t1, maxExcursion, nSegments)
 % Find a specified number of syllables within the time limits that are
 %   closest to the center of the time interval. Max excursion is how far
 %   outside the time range it is permissible to look.
+if ~exist('nSegments', 'var') || isempty(nSegments)
+    nSegments = Inf;
+end
 idx = getOverlappingSegments(segmentTimes, t0-maxExcursion, t1+maxExcursion);
 if length(idx) <= nSegments
     % There are just enough segments, or not enough - no need to winnow
@@ -234,7 +271,7 @@ idx = sort(idx(1:nSegments));
 function idx = getOverlappingSegments(segmentTimes, t0, t1)
 % Return list of indices of segments that overlap given time (in samples)
 if isempty(segmentTimes)
-    idx = 1;
+    idx = [];
     return;
 end
 idx = find((segmentTimes(:, 1) <= t0) & (segmentTimes(:, 2) >= t0) | ...
