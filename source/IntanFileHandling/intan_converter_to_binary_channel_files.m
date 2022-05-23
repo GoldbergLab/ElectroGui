@@ -404,9 +404,10 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
                     % Check that amplifier-based-timestamp does not differ
                     % significantly from rhd-filename-based-timestamp
                     maxTimestampDiscrepancy = 60;
-                    filenameTime = 60*60*24*datenum([year, month, day, hour_filename, minute_filename, second_filename]);
-                    ampTime = 60*60*24*datenum(year, month, day, hour_first, minute_first, second_first + data.t_amplifier(k)) - k / fs;
-                    timestampDiscrepancy = abs(sum((filenameTime - ampTime) .* [3600, 60, 1]));
+                    filenameTime = 60*60*24*datenum([year, month, day, hour_filename, minute_filename, second_filename + start_t_amplifier]);
+                    ampTime = 60*60*24*datenum(year, month, day, hour_first, minute_first, second_first + data.t_amplifier(1));
+                    
+                    timestampDiscrepancy = abs(filenameTime - ampTime);
                     if timestampDiscrepancy > maxTimestampDiscrepancy
                         error('FUCK amplifier and filename timestamps don''t match: \nRHD file num %d\n', file_num);
                     end
