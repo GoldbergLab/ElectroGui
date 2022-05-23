@@ -139,6 +139,7 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
         fs = data.frequency_parameters.amplifier_sample_rate;
         rolloverCorrection = (2^32)/fs;
         start_t_amplifier = data.t_amplifier(1);
+        start_t_aux = data.t_aux_input(1);
     end
     
     % Calculate # of seconds from session start to start of this RHD file
@@ -257,7 +258,10 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
                 %%the song-containing section of the rhd file being
                 %%analyzed
                 
-                second=second_first+data.t_amplifier(k);    %update time
+                % Find the # of seconds since the first RHD file in this
+                % directory.
+                second=second_first + data.t_amplifier(k) - start_t_amplifier;    %update time
+                % Convert seconds into a datevec
                 if second >= 60
                     minute=minute+floor(second./60);
                     second = rem(second,60);
@@ -329,7 +333,7 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
                     end
                     hour=hour_first;
                     minute=minute_first;
-                    second=second_first+data.t_aux_input(k_aux);    %update time
+                    second=second_first + data.t_aux_input(k_aux) - start_t_aux;    %update time
                     
                     if second >= 60
                         minute=minute+floor(second./60);
@@ -391,7 +395,7 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
                 for chan = (channel_count*(headstage_num-1)+1):(channel_count*headstage_num)
                     hour=hour_first;
                     minute=minute_first;
-                    second=second_first+data.t_amplifier(k);    %update time
+                    second=second_first + data.t_amplifier(k) - start_t_amplifier;    %update time
                     if second >= 60
                         minute=minute+floor(second./60);
                         second = rem(second,60);
