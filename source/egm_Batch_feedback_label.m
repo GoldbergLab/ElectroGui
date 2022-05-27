@@ -3,21 +3,22 @@ function handles = egm_Batch_feedback_label(handles)
 % Batch label feedback patterns found in a particular channel
 
 fileRangeString = ['1:' num2str(handles.TotalFileNumber)];
+currentFileNum = num2str(getCurrentFileNum(handles));
 
 answer = inputdlg( ...
     {'File range to label', ...
      'File range to search', ...
-     'Feedback channel number', ...
-     'Interpattern silence length threshold in seconds', ...
-     'Max allowed BOS fractional duration variation', ...
-     'BOS padding length in seconds'}, ...
+     'Feedback channel number (channel containing feedback signal)', ...
+     'Interpattern silence length threshold in seconds (how far between signal spikes for them to be considered separate patterns)', ...
+     'Max allowed BOS fractional duration variation (0 = zero allowed variation, 1 = 100% allowed variation)', ...
+     'BOS padding length in seconds (how far outside channel signal to look for syllables)'}, ...
      'AutoLabelling Macro', 1, ...
      {fileRangeString, ...
-      fileRangeString, ...
+      currentFileNum, ...
       '17', ...
       '0.25', ...
       '0.05', ...
-      '0.5', ...
+      '0.25', ...
       });
 if isempty(answer)
     return
@@ -41,6 +42,9 @@ templates = [];
 maxPatternLength = 0;
 
 searchAndLabelFileNums = sort(unique([labellingFileNums, searchFileNums]));
+
+stats.nonSearchingLabeled = 0;
+stats.nonLabelingUnlabeled = 0;
 
 fileIdx = 0;
 % Loop over files and find feedback patterns in the specified feedback
@@ -96,8 +100,8 @@ for fileNum = searchAndLabelFileNums
     % Find pattern onsets and offsets
     interPulseIntervals = risingEdges(2:end) - fallingEdges(1:end-1);
     breakIdx = find(interPulseIntervals > silenceThreshold);
-    patternStarts = [risingEdges(1), risingEdges(breakIdx+1)+1] - padLength;
-    patternEnds = [fallingEdges(breakIdx), fallingEdges(end)] + padLength;
+    patternStarts = [risingEdges(1), risingEdges(breakIdx+1)+1]; % - padLength;
+    patternEnds = [fallingEdges(breakIdx), fallingEdges(end)]; % + padLength;
     
     % Ensure the pad doesn't cause patterns to extend past the ends of the
     % file
@@ -114,7 +118,9 @@ for fileNum = searchAndLabelFileNums
         newPattern.duration = patternEnds(newPatternNum) - patternStarts(newPatternNum);
         newPattern.samplingRate = fs;
         newPattern.audio = snd(patternStarts(newPatternNum):patternEnds(newPatternNum));
-        idx = getOverlappingSegments(handles.SegmentTimes{fileNum}, patternStarts(newPatternNum), patternEnds(newPatternNum));
+%        idx = getOverlappingSegments(handles.SegmentTimes{fileNum}, patternStarts(newPatternNum), patternEnds(newPatternNum));
+        idx = getNearbySegments(handles.SegmentTimes{fileNum}, patternStarts(newPatternNum), patternEnds(newPatternNum), padLength);
+        
         if ~isempty(handles.SegmentTimes{fileNum})
             newPattern.segmentTimes = handles.SegmentTimes{fileNum}(idx, :) - newPattern.start;
             newPattern.titles = handles.SegmentTitles{fileNum}(idx);
@@ -144,6 +150,10 @@ for fileNum = searchAndLabelFileNums
                 else
                     patterns(end+1) = newPattern;
                 end
+            elseif patternIsLabeled && ~searchFile
+                stats.nonSearchingLabeled = stats.nonSearchingLabeled + 1;
+            elseif ~patternIsLabeled && ~labelFile
+                stats.nonLabelingUnlabeled = stats.nonLabelingUnlabeled + 1;
             end
         else
             % No segments found
@@ -156,7 +166,8 @@ for fileNum = searchAndLabelFileNums
         end
     end
     
-    set(txt,'string',fprintf('Extracted patterns from file %d (%d / %d). Click to quit.\n', fileNum, fileIdx, length(labellingFileNums)));
+    fprintf('Extracted patterns from file %d (%d / %d)...\n', fileNum, fileIdx, length(searchAndLabelFileNums));
+    set(txt,'string',sprintf('Extracted patterns from file %d (%d / %d). Click to quit.\n', fileNum, fileIdx, length(searchAndLabelFileNums)));
     drawnow;
 end
 
@@ -164,12 +175,25 @@ if isempty(templates)
     error('No templates found. Please make sure you label at least one feedback event!');
 end
 
+stats.numPatternsFound = length(patterns);
+stats.numTemplatesFound = length(templates);
+stats.numLabelFiles = length(labellingFileNums);
+stats.numSearchFiles = length(searchFileNums);
+
 % Find max and min allowable durations and weed out obviously unusable
 % patterns
 maxDuration = max([templates.duration]) * (1+durationVariationThreshold);
 minDuration = min([templates.duration]) * (1-durationVariationThreshold);
-patterns([patterns.duration] > maxDuration) = [];
-patterns([patterns.duration] < minDuration) = [];
+
+tooLongPatternIdx = [patterns.duration] > maxDuration;
+tooShortPatternIdx = [patterns.duration] < minDuration;
+
+stats.numTooShortPatterns = sum(tooShortPatternIdx);
+stats.numTooLongPatterns = sum(tooLongPatternIdx);
+
+rejectedPatterns = patterns(tooLongPatternIdx | tooShortPatternIdx);
+patterns(tooLongPatternIdx) = [];
+patterns(tooShortPatternIdx) = [];
 
 % Pad patterns so they're all the same length
 for k = 1:length(patterns)
@@ -179,6 +203,11 @@ end
 % Pad templates so they're all the same length
 for k = 1:length(templates)
     templates(k).paddedPattern = [templates(k).pattern, zeros(1, maxPatternLength-length(templates(k).pattern))]; 
+end
+
+% Pad rejected patterns so they're all the same length
+for k = 1:length(rejectedPatterns)
+    rejectedPatterns(k).paddedPattern = [rejectedPatterns(k).pattern, zeros(1, maxPatternLength-length(rejectedPatterns(k).pattern))]; 
 end
 
 maxLag = max(100, padLength);
@@ -194,19 +223,36 @@ for k = 1:length(templates)
     end
 end
 
+stats.meanSimilarity = mean(similarity, 2);
+stats.stdSimilarity = std(similarity, [], 2);
+stats.maxSimilarity = max(similarity, [], 2);
+stats.minSimilarity = min(similarity, [], 2);
+
 % Assign each pattern to one template or the other
 [~, assignments] = max(similarity, [], 1);
 for k = 1:length(templates)
     templates(k).assignedPatterns = patterns(assignments == k);
 end
 
+% Plot matched patterns
 for k = 1:length(templates)
     figure;
     ax = axes();
+    title(sprintf('Template #%d/%d and matched patterns', k, length(templates)));
     hold(ax, 'on');
+    plot(ax, templates(k).paddedPattern, 'r');
     for j = 1:length(templates(k).assignedPatterns)
-        plot(ax, templates(k).assignedPatterns(j).paddedPattern + (j-1) * 1.1);
+        plot(ax, templates(k).assignedPatterns(j).paddedPattern + j * 1.1, 'b');
     end
+end
+
+% Plot rejected patterns
+figure;
+ax = axes();
+title('Rejected patterns');
+hold(ax, 'on');
+for j = 1:length(rejectedPatterns)
+    plot(ax, rejectedPatterns(j).paddedPattern + (j-1) * 1.1, 'b');
 end
 
 % Replace each pattern segmentation with appropriate template segmentation & labeling
@@ -243,6 +289,9 @@ set(txt,'string','Done labelling feedback!');
 delete(txt);
 drawnow;
 
+disp('Auto-labeling statistics:')
+disp(stats)
+
 msgbox('Autolabelling complete!', 'Autolabelling complete!');
 %msgbox(['Segmented ' num2str(count) ' files.'],'Segmentation complete')
 
@@ -278,3 +327,6 @@ end
 idx = find((segmentTimes(:, 1) <= t0) & (segmentTimes(:, 2) >= t0) | ...
            (segmentTimes(:, 1) <= t1) & (segmentTimes(:, 2) >= t1) | ...
            (segmentTimes(:, 1) >= t0) & (segmentTimes(:, 2) <= t1));
+
+function currentFileNum = getCurrentFileNum(handles)
+currentFileNum = str2double(get(handles.edit_FileNumber, 'string'));
