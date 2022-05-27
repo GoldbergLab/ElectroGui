@@ -1,4 +1,4 @@
-function intan_converter_to_binary_channel_files(acc_array, acc_present, path_input, start_index, verbose)
+function intan_converter_to_binary_channel_files_orig5_20_2022(acc_array, acc_present, path_input, start_index, verbose)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % intan_converter_to_binary_channel_files: Convert Intan .rhd files to
 %   individual binary .nc channel files
