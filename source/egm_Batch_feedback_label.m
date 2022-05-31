@@ -45,6 +45,9 @@ searchAndLabelFileNums = sort(unique([labellingFileNums, searchFileNums]));
 
 stats.nonSearchingLabeled = 0;
 stats.nonLabelingUnlabeled = 0;
+stats.patternOverlappingFileEnd = 0;
+
+fileLengths = nan(1, max(searchAndLabelFileNums));
 
 fileIdx = 0;
 % Loop over files and find feedback patterns in the specified feedback
@@ -70,6 +73,9 @@ for fileNum = searchAndLabelFileNums
     if size(snd, 1) > size(snd, 2)
         snd = snd';
     end
+    
+    % Record file length
+    fileLengths(fileNum) = length(snd);
     
     % Convert pathLength from seconds to samples
     padLength = round(padLengthSeconds * fs);
@@ -262,6 +268,15 @@ for k = 1:length(templates)
     for j = 1:length(templates(k).assignedPatterns)
         pattern = templates(k).assignedPatterns(j);
         fileNum = pattern.fileNum;
+        % Construct new times
+        newTimes = templates(k).segmentTimes + pattern.start;
+        % Check if new times will go off ends of file or not
+        if min(newTimes(:)) < 1 || max(newTimes(:)) > fileLengths(fileNum)
+            % This pattern overlaps the beginning or end of the file.
+            % Ignore it.
+            stats.patternOverlappingFileEnd = stats.patternOverlappingFileEnd + 1;
+            continue;
+        end
         % Find nearby segments
         idx = getNearbySegments(handles.SegmentTimes{fileNum}, pattern.start, pattern.end, padLength);
         % Delete nearby segments
@@ -270,20 +285,11 @@ for k = 1:length(templates)
         handles.SegmentSelection{fileNum}(idx) = [];
         % Add in new segments from template
         startIdx = min(idx);
-        newTimes = templates(k).segmentTimes + pattern.start;
         handles.SegmentTimes{fileNum} = [handles.SegmentTimes{fileNum}(1:(startIdx-1), :); newTimes; handles.SegmentTimes{fileNum}(startIdx:end, :)];
         handles.SegmentTitles{fileNum} = [handles.SegmentTitles{fileNum}(1:(startIdx-1)), newTitles, handles.SegmentTitles{fileNum}(startIdx:end)];
         handles.SegmentSelection{fileNum} = [handles.SegmentSelection{fileNum}(1:(startIdx-1)), newSelection, handles.SegmentSelection{fileNum}(startIdx:end)];
     end
 end
-
-% uniqueLabels = unique(labels);
-% fprintf('\nFinished batch feedback labelling\n');
-% fprintf('Label counts:\n');
-% for k = 1:length(uniqueLabels)
-%     fprintf('\t%s: %d\n', uniqueLabels{k}, sum(strcmp(uniqueLabels{k}, labels)));
-% end
-% fprintf('# of feedback events unlabeled: %d\n', numUnlabeled);
 
 set(txt,'string','Done labelling feedback!');
 delete(txt);
@@ -293,7 +299,6 @@ disp('Auto-labeling statistics:')
 disp(stats)
 
 msgbox('Autolabelling complete!', 'Autolabelling complete!');
-%msgbox(['Segmented ' num2str(count) ' files.'],'Segmentation complete')
 
 function idx = getNearbySegments(segmentTimes, t0, t1, maxExcursion, nSegments)
 % Find a specified number of syllables within the time limits that are
