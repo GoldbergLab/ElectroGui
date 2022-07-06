@@ -191,14 +191,14 @@ stats.numSearchFiles = length(searchFileNums);
 maxDuration = max([templates.duration]) * (1+durationVariationThreshold);
 minDuration = min([templates.duration]) * (1-durationVariationThreshold);
 
-tooLongPatternIdx = [patterns.duration] > maxDuration;
-tooShortPatternIdx = [patterns.duration] < minDuration;
+tooLongPatternMask = [patterns.duration] > maxDuration;
+tooShortPatternMask = [patterns.duration] < minDuration;
 
-stats.numTooShortPatterns = sum(tooShortPatternIdx);
-stats.numTooLongPatterns = sum(tooLongPatternIdx);
+stats.numTooShortPatterns = sum(tooShortPatternMask);
+stats.numTooLongPatterns = sum(tooLongPatternMask);
 
-rejectedPatterns = patterns(tooLongPatternIdx | tooShortPatternIdx);
-patterns([tooLongPatternIdx, tooShortPatternIdx]) = [];
+rejectedPatterns = patterns(tooLongPatternMask | tooShortPatternMask);
+patterns(tooLongPatternMask | tooShortPatternMask) = [];
 
 % Pad patterns so they're all the same length
 for k = 1:length(patterns)
