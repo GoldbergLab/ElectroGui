@@ -198,8 +198,7 @@ stats.numTooShortPatterns = sum(tooShortPatternIdx);
 stats.numTooLongPatterns = sum(tooLongPatternIdx);
 
 rejectedPatterns = patterns(tooLongPatternIdx | tooShortPatternIdx);
-patterns(tooLongPatternIdx) = [];
-patterns(tooShortPatternIdx) = [];
+patterns([tooLongPatternIdx, tooShortPatternIdx]) = [];
 
 % Pad patterns so they're all the same length
 for k = 1:length(patterns)
