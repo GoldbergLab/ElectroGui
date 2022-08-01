@@ -2227,11 +2227,22 @@ guidata(hObject, handles);
 function handles = loadProperties(handles)
 % Load properties from files, add to default properties.
 
+defaultProps = [];
 if isfield(handles, 'DefaultProperties')
     % DefaultProperties was loaded from defaults_* file
     defaultProps = handles.DefaultProperties;
-else
-    % DefaultProperties was not loaded.
+    % Check to make sure we have the same # of names, values, and types
+    n = length(defaultProps.Names);
+    v = length(defaultProps.Values);
+    t = length(defaultProps.Types);
+    if n~=v || v~= t
+        errordlg('Loaded default properties have different #s of names, types, and values. Please fix your defaults file so handles.DefaultProperties has the same length vectors for Names, Values, and Types.', 'Error loading default properties');
+        defaultProps = [];
+    end
+end
+
+if isempty(defaultProps)
+    % DefaultProperties was not loaded, or was invalid
     defaultProps.Names = {};
     defaultProps.Values = {};
     defaultProps.Types = {};
