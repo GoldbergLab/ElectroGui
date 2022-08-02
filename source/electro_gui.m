@@ -1062,6 +1062,10 @@ cd(curr);
 
 function currentFileNum = getCurrentFileNum(handles)
 currentFileNum = str2double(get(handles.edit_FileNumber, 'string'));
+function currentFileName = getCurrentFileName(handles)
+currentFileNum = getCurrentFileNum(handles);
+currentFileName = handles.sound_files(currentFileNum).name;
+
 function [selectedChannelNum, selectedChannelName, isSound] = getSelectedChannel(handles, axnum)
 % Return the name and number of the selected channel from the specified
 %   axis. If the name is not a valid channel, selectedChannelNum will be
@@ -1160,7 +1164,7 @@ end
 function handles = eg_LoadChannel(handles,axnum)
 % Load a new channel of data
 
-if get(handles.(['popup_Channel',num2str(axnum)]),'value')==1
+if get(handles.popup_Channels(axnum),'value')==1
     % This is "(None)" channel selection, so disable everything
     cla(handles.axes_Channel(axnum));
     set(handles.axes_Channel(axnum),'visible','off');
@@ -1180,8 +1184,8 @@ end
 filenum = getCurrentFileNum(handles);
 [selectedChannelNum, ~, isSound] = getSelectedChannel(handles, axnum);
 
-val = get(handles.(['popup_Channel',num2str(axnum)]),'value');
-str = get(handles.(['popup_Channel',num2str(axnum)]),'string');
+val = get(handles.popup_Channels(axnum),'value');
+str = get(handles.popup_Channels(axnum),'string');
 nums = [];
 for c = 1:length(handles.EventTimes);
     nums(c) = size(handles.EventTimes{c},1);
@@ -1302,8 +1306,8 @@ if strcmp(get(gca,'visible'),'off')
 end
 set(gca,'visible','on');
 set(handles.popup_Functions(axnum),'enable','on');
-str = get(handles.(['popup_Channel',num2str(axnum)]),'string');
-str = str{get(handles.(['popup_Channel',num2str(axnum)]),'value')};
+str = get(handles.popup_Channels(axnum),'string');
+str = str{get(handles.popup_Channels(axnum),'value')};
 if isempty(findstr(str,' - '))
     set(handles.(['popup_EventDetector',num2str(axnum)]),'enable','on');
     set(handles.(['push_Detect',num2str(axnum)]),'enable','on');
@@ -3088,6 +3092,61 @@ if chn==46
     guidata(hObject, handles);
     return
 end
+% User pressed "control-e"
+if chn == 5
+    % Press control-e to produce a export of the sonogram and any channel
+    % views.
+    f_export = figure();
+
+    % Determine how many channels are visible
+    numChannels = 0;
+    for c = 1:length(handles.axes_Channel)
+        if strcmp(get(handles.axes_Channel(c), 'Visible'), 'on')
+            numChannels = numChannels + 1;
+        end
+    end
+    
+    % Copy sonogram
+    sonogram_export = subplot(numChannels+1, 1, 1, 'Parent', f_export);
+    sonogram_children = get(handles.axes_Sonogram, 'Children');
+    for k = 1:length(sonogram_children)
+        copyobj(sonogram_children(k), sonogram_export);
+    end
+    % Match axes limits
+    xlim(sonogram_export, xlim(handles.axes_Sonogram));
+    ylim(sonogram_export, ylim(handles.axes_Sonogram));
+    set(sonogram_export, 'CLim', get(handles.axes_Sonogram, 'CLim'));
+    
+    % Set figure size to match contents
+    set(sonogram_export, 'Units', get(handles.axes_Sonogram, 'Units'));
+    curr_pos = get(sonogram_export, 'Position');
+    son_pos = get(handles.axes_Sonogram, 'Position');
+    aspect_ratio = 1.2*(1+numChannels)*son_pos(4) / son_pos(3);
+    f_pos = get(f_export, 'Position');
+    f_pos(4) = f_pos(3) * aspect_ratio;
+    set(f_export, 'Position', f_pos);
+
+    % Add title to sonogram (file name)
+    currentFileName = getCurrentFileName(handles);
+    title(sonogram_export, currentFileName, 'Interpreter', 'none');
+
+    % Loop over any channels that are currently visible, and copy them
+    chan = 0;
+    for c = 1:length(handles.axes_Channel)
+        if strcmp(get(handles.axes_Channel(c), 'Visible'), 'on')
+            chan = chan + 1;
+            channel_export = subplot(numChannels+1, 1, 1+chan, 'Parent', f_export);
+            channel_children = get(handles.axes_Channel(c), 'Children');
+            for k = 1:length(channel_children)
+                copyobj(channel_children(k), channel_export);
+            end
+            
+            [~, selectedChannelName, ~] = getSelectedChannel(handles, c);
+            title(channel_export, selectedChannelName, 'Interpreter', 'none');
+        end
+    end
+    return
+end
 
 % Find the handle for the currently active segment
 segmentNum = FindActiveSegment(handles);
@@ -3608,8 +3667,8 @@ elseif strcmp(get(gcf,'selectiontype'),'extend')
                             handles = UpdateEventBrowser(handles);
                         end
 
-                        val = get(handles.(['popup_Channel' num2str(3-axn)]),'value');
-                        str = get(handles.(['popup_Channel' num2str(3-axn)]),'string');
+                        val = get(handles.popup_Channels(3-axn),'value');
+                        str = get(handles.popup_Channels(3-axn),'string');
                         nums = [];
                         for c = 1:length(handles.EventTimes);
                             nums(c) = size(handles.EventTimes{c},1);
@@ -3671,8 +3730,8 @@ elseif strcmp(get(gcf,'selectiontype'),'extend')
             end
         end
 
-        val = get(handles.(['popup_Channel' num2str(3-axnum)]),'value');
-        str = get(handles.(['popup_Channel' num2str(3-axnum)]),'string');
+        val = get(handles.popup_Channels(3-axnum),'value');
+        str = get(handles.popup_Channels(3-axnum),'string');
         nums = [];
         for c = 1:length(handles.EventTimes);
             nums(c) = size(handles.EventTimes{c},1);
@@ -3970,8 +4029,8 @@ end
 if strcmp(get(handles.(['axes_Channel' num2str(axnum)]),'visible'),'off')
     return
 end
-str = get(handles.(['popup_Channel' num2str(axnum)]),'string');
-src = str{get(handles.(['popup_Channel' num2str(axnum)]),'value')};
+str = get(handles.popup_Channels(axnum),'string');
+src = str{get(handles.popup_Channels(axnum),'value')};
 if get(handles.(['popup_EventDetector' num2str(axnum)]),'value')==1 | ~isempty(findstr(src,' - '))
     set(handles.(['menu_Events' num2str(axnum)]),'enable','off');
     set(handles.(['push_Detect' num2str(axnum)]),'enable','off');
@@ -4195,8 +4254,8 @@ for axn = 1:2
                 handles = UpdateEventBrowser(handles);
             end
 
-            val = get(handles.(['popup_Channel' num2str(3-axn)]),'value');
-            str = get(handles.(['popup_Channel' num2str(3-axn)]),'string');
+            val = get(handles.popup_Channels(3-axn),'value');
+            str = get(handles.popup_Channels(3-axn),'string');
             nums = [];
             for c = 1:length(handles.EventTimes);
                 nums(c) = size(handles.EventTimes{c},1);
@@ -4373,8 +4432,8 @@ if strcmp(get(gcf,'selectiontype'),'extend')
         end
     end
 
-    val = get(handles.(['popup_Channel' num2str(3-axnum)]),'value');
-    str = get(handles.(['popup_Channel' num2str(3-axnum)]),'string');
+    val = get(handles.popup_Channels(3-axnum),'value');
+    str = get(handles.popup_Channels(3-axnum),'string');
     nums = [];
     for c = 1:length(handles.EventTimes);
         nums(c) = size(handles.EventTimes{c},1);
@@ -5299,8 +5358,8 @@ for axn = 1:2
         handles = DisplayEvents(handles,axn);
     end
 
-    val = get(handles.(['popup_Channel' num2str(3-axn)]),'value');
-    str = get(handles.(['popup_Channel' num2str(3-axn)]),'string');
+    val = get(handles.popup_Channels(3-axn),'value');
+    str = get(handles.popup_Channels(3-axn),'string');
     nums = [];
     for c = 1:length(handles.EventTimes);
         nums(c) = size(handles.EventTimes{c},1);
