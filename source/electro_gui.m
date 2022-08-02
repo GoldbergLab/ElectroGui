@@ -9902,7 +9902,7 @@ function center_Timescale_Callback(hObject, eventdata, handles)
 % When user right clicks on axes_Sonogram, and selects "Center timescale",
 %   display a popup so they can select a center time (default is where they
 %   right-click), and a radius (how much time on either side of center time
-%   to display).
+%   to display), then set the timescale accordingly
 
 handles = guidata(hObject);
 
@@ -9911,17 +9911,17 @@ click_position = get(handles.axes_Sonogram, 'CurrentPoint');
 centerTime = click_position(1, 1);
 
 % Prompt user to alter center time if desired, and choose a radius
-prompt = {'Center time (sec):','Time radius (sec):'};
+prompt = {'Time radius (sec):', 'Center time (sec):'};
 dlgtitle = 'Center timescale';
 dims = [1 35];
-definput = {num2str(centerTime),'1'};
+definput = {'1', num2str(centerTime)};
 answer = inputdlg(prompt,dlgtitle,dims,definput);
 if isempty(answer)
     % User pressed cancel
     return;
 end
-centerTime = str2double(answer{1});
-radiusTime = str2double(answer{2});
+radiusTime = str2double(answer{1});
+centerTime = str2double(answer{2});
 
 % Set time
 handles = centerTimescale(handles, centerTime, radiusTime);
