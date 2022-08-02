@@ -3131,6 +3131,7 @@ if chn == 5
     xlim(sonogram_export, xlim(handles.axes_Sonogram));
     ylim(sonogram_export, ylim(handles.axes_Sonogram));
     set(sonogram_export, 'CLim', get(handles.axes_Sonogram, 'CLim'));
+    colormap(sonogram_export, handles.Colormap);
     
     % Set figure size to match contents
     set(sonogram_export, 'Units', get(handles.axes_Sonogram, 'Units'));
