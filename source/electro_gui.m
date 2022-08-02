@@ -1863,7 +1863,9 @@ elseif strcmp(get(gcf,'selectiontype'),'open')
     end
     % Update spectrogram scales
     handles = eg_EditTimescale(handles);
-elseif strcmp(get(gcf, 'selectiontype'), 'alt')
+elseif strcmp(get(gcf, 'selectiontype'), 'alt') && ~isempty(get(gcf, 'CurrentModifier')) && strcmp(get(gcf, 'CurrentModifier'), 'control')
+    % User control-clicked on axes_Spectrogram
+    
     % Switch the axes back to normalized units
     set(get(gca,'parent'),'units','normalized');
     set(gca,'units','normalized');
