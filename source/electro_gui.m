@@ -23,7 +23,7 @@ function varargout = electro_gui(varargin)
 
 % Edit the above text to modify the response to help electro_gui
 
-% Last Modified by GUIDE v2.5 03-Oct-2021 19:44:51
+% Last Modified by GUIDE v2.5 02-Aug-2022 09:38:58
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -889,13 +889,26 @@ if ~isempty(findobj('parent',handles.axes_Sonogram,'type','text'))
     return
 end
 
-xd = get(handles.xlimbox,'xdata');
+tmin = getTimescale(handles);
 tscale = str2num(get(handles.edit_Timescale,'string'));
-xd(2:3) = xd(1)+tscale;
+handles = setTimescale(handles, tmin, tmin+tscale);
+
+guidata(hObject, handles);
+
+function [tmin, tmax] = getTimescale(handles)
+xd = get(handles.xlimbox,'xdata');
+tmin = xd(1);
+tmax = xd(2);
+
+function handles = setTimescale(handles, minTime, maxTime)
+xd = get(handles.xlimbox,'xdata');
+xd([1, 4, 5]) = minTime;
+xd([2, 3]) = maxTime;
 set(handles.xlimbox,'xdata',xd);
 handles = eg_EditTimescale(handles);
 
-guidata(hObject, handles);
+function handles = centerTimescale(handles, centerTime, radiusTime)
+handles = setTimescale(handles, centerTime - radiusTime, centerTime + radiusTime);
 
 % --- Executes during object creation, after setting all properties.
 function edit_Timescale_CreateFcn(hObject, ~, handles)
@@ -9878,3 +9891,39 @@ function ShowHelpButton_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 msgbox(eg_HelpText(handles), 'electro_gui info and help:');
+
+
+% --------------------------------------------------------------------
+function center_Timescale_Callback(hObject, eventdata, handles)
+% hObject    handle to center_Timescale (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% When user right clicks on axes_Sonogram, and selects "Center timescale",
+%   display a popup so they can select a center time (default is where they
+%   right-click), and a radius (how much time on either side of center time
+%   to display).
+
+handles = guidata(hObject);
+
+% Get time where user right-clicks
+click_position = get(handles.axes_Sonogram, 'CurrentPoint');
+centerTime = click_position(1, 1);
+
+% Prompt user to alter center time if desired, and choose a radius
+prompt = {'Center time (sec):','Time radius (sec):'};
+dlgtitle = 'Center timescale';
+dims = [1 35];
+definput = {num2str(centerTime),'1'};
+answer = inputdlg(prompt,dlgtitle,dims,definput);
+if isempty(answer)
+    % User pressed cancel
+    return;
+end
+centerTime = str2double(answer{1});
+radiusTime = str2double(answer{2});
+
+% Set time
+handles = centerTimescale(handles, centerTime, radiusTime);
+
+guidata(hObject, handles);
