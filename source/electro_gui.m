@@ -3156,8 +3156,8 @@ if chn == 5
                 copyobj(channel_children(k), channel_export);
             end
             
-            [~, selectedChannelName, ~] = getSelectedChannel(handles, c);
-            title(channel_export, selectedChannelName, 'Interpreter', 'none');
+%            [~, selectedChannelName, ~] = getSelectedChannel(handles, c);
+%             title(channel_export, selectedChannelName, 'Interpreter', 'none');
         end
     end
     return
