@@ -33,9 +33,9 @@ for r=1:1000
     fd_all(r,:) = fd;
     fd=fd(1:end-1);%eliminates the last bin representing #spks==dur.stop
     
-    ratemin=[ratemin min(fd)];ratemax=[ratemax max(fd)];
-    fds=smooth(fd,s)';
-    ratemins=[ratemins min(fds)];ratemaxs=[ratemaxs max(fds)];
+    ratemin=[ratemin min(fd)];ratemax=[ratemax max(fd)]; %get rate maxes and mins for this simulation (r) and add them to this vector
+    fds=smooth(fd,s)';%smooth the fake data with s = 3, hard coded above
+    ratemins=[ratemins min(fds)];ratemaxs=[ratemaxs max(fds)]; %get smoothed rate mins and maxes for this r
 end
 trigInfo.pval.minrate=mean(ratemin<=min(trigInfo.rd));%mean of 0s and 1s will yield the pvalue.
 trigInfo.pval.maxrate=mean(ratemax>=max(trigInfo.rd));
@@ -51,8 +51,8 @@ trigInfo.fd.pct1min = prctile(fd_all,1);
 [yo ndxs.min]=min(trigInfo.rds);[yo ndxs.max]=max(trigInfo.rds);
 
 trigInfo.s=s;
-trigInfo.corrtime.min=edges(ndx.min);
-trigInfo.corrtime.max=edges(ndx.max);
+trigInfo.corrtime.min=edges(ndx.min);%find time relative to onset that min occured
+trigInfo.corrtime.max=edges(ndx.max);%find time relative to onset that max occured
 trigInfo.corrtime.mins=edges(ndxs.min);
 trigInfo.corrtime.maxs=edges(ndxs.max);
 trigInfo.moddepth=(max(trigInfo.rd)-min(trigInfo.rd))/mean(trigInfo.rd);

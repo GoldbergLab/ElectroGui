@@ -6,6 +6,7 @@ handles.TooLong = 400000000; % Number of points for a file to be considered too 
 handles.FileString = '*chan%d.nc'; % File search string; must include a string formatting expression to handle an integer channel #, such as %02d for integers zero-padded to 2 digits, or %d for unpadded integers.handles.DefaultFileLoader = 'Intan_Bin'; % Default file loader. Choose from egl_* files.
 handles.DefaultFileLoader = 'Intan_Nc'; % Default file loader. Choose from egl_* files.
 handles.DefaultChannelNumber = 20; % Default number of channels
+handles.DefaultRootPath = '.';     % Default folder that file picker will open to when clicking "New" or "Open".
 
 % DEFAULT PROPERTIES
 handles.DefaultProperties.Names = {'bSorted', 'bDirected', 'bContainsStim', 'bUnusable'};   % Default property names to add to every loaded file

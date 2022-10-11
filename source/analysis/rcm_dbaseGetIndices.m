@@ -34,11 +34,11 @@ for i = 1:length(dbase.EventDetectors)
 
 
     if strcmp(dbase.EventDetectors{i},'Spikes_AA') &&...
-        (strcmp(dbase.EventFunctions{i},'FIRBandPass2')) %|| strcmp(dbase.EventFunctions{i},'FIRBandPass'));
+        (strcmp(dbase.EventFunctions{i},'FIRBandPass2')) || strcmp(dbase.EventFunctions{i},'FIRBandPass');
         indx=[indx i];  dbase.indx=i;
         if length(indx)>1;%this loop below considers cases where there are more than one FIR bandpasses used
             chan=dbase.title(4+strfind(dbase.title,'chan'):5+strfind(dbase.title,'chan')); 
-            firbandx = dbase.title(3+strfind(dbase.title,'Fir'));  
+            firbandx = dbase.title(3+strfind(dbase.title,'FIR'));  
             for j=1:length(indx)
                 if str2num(chan) == str2num(dbase.EventSources{indx(j)}(end-1:end))   
                     if isempty(firbandx)
@@ -76,6 +76,6 @@ for i = 1:length(dbase.EventDetectors)
 end
 
 
-[filestarttimes fileendtimes dbase.syllstarttimes dbase.syllendtimes dbase.sylldurs preintrvl postintrvl allintrvls dbase.syllnames] = dbaseGetSylls(dbase);
-dbase.filestarttimes=filestarttimes;dbase.fileendtimes=fileendtimes;
-dbase.allsyllnames=cell2mat(concatenate(dbase.syllnames));
+% [filestarttimes fileendtimes dbase.syllstarttimes dbase.syllendtimes dbase.sylldurs preintrvl postintrvl allintrvls dbase.syllnames] = dbaseGetSylls(dbase);
+% dbase.filestarttimes=filestarttimes;dbase.fileendtimes=fileendtimes;
+% dbase.allsyllnames=cell2mat(concatenate(dbase.syllnames));

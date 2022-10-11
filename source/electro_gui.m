@@ -23,7 +23,7 @@ function varargout = electro_gui(varargin)
 
 % Edit the above text to modify the response to help electro_gui
 
-% Last Modified by GUIDE v2.5 03-Oct-2021 19:44:51
+% Last Modified by GUIDE v2.5 02-Aug-2022 09:38:58
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -145,6 +145,11 @@ if val == 1 | (val == indx & isnewuser == 1)
     %
 else
     handles = eval(['defaults_' lst{val} '(handles)']);
+end
+
+if isfield(handles, 'QuoteFile')
+    quote = getQuote(handles.QuoteFile);
+    fprintf('Welcome to electro_gui.\n\nRandom quote of the moment:\n\n%s\n\nTo stop getting quotes, remove the ''handles.QuoteFile'' parameter from your defaults file.\n\n', quote);
 end
 
 dr = dir([mfilename('fullpath') '*m']);
@@ -885,13 +890,26 @@ if ~isempty(findobj('parent',handles.axes_Sonogram,'type','text'))
     return
 end
 
-xd = get(handles.xlimbox,'xdata');
+tmin = getTimescale(handles);
 tscale = str2num(get(handles.edit_Timescale,'string'));
-xd(2:3) = xd(1)+tscale;
+handles = setTimescale(handles, tmin, tmin+tscale);
+
+guidata(hObject, handles);
+
+function [tmin, tmax] = getTimescale(handles)
+xd = get(handles.xlimbox,'xdata');
+tmin = xd(1);
+tmax = xd(2);
+
+function handles = setTimescale(handles, minTime, maxTime)
+xd = get(handles.xlimbox,'xdata');
+xd([1, 4, 5]) = minTime;
+xd([2, 3]) = maxTime;
 set(handles.xlimbox,'xdata',xd);
 handles = eg_EditTimescale(handles);
 
-guidata(hObject, handles);
+function handles = centerTimescale(handles, centerTime, radiusTime)
+handles = setTimescale(handles, centerTime - radiusTime, centerTime + radiusTime);
 
 % --- Executes during object creation, after setting all properties.
 function edit_Timescale_CreateFcn(hObject, ~, handles)
@@ -918,7 +936,7 @@ if isFileUnread(handles, str{fileNum})
 end
 
 curr = pwd;
-cd(handles.path_name);
+cd(handles.DefaultRootPath);
 
 
 % Label
@@ -929,7 +947,7 @@ handles.BackupTitle = {'',''};
 
 % Plot sound
 subplot(handles.axes_Sound)
-[handles.sound, handles.fs, dt, label, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.path_name, handles.sound_files(fileNum).name), true);
+[handles.sound, handles.fs, dt, label, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.DefaultRootPath, handles.sound_files(fileNum).name), true);
 handles.DatesAndTimes(fileNum) = dt;
 handles.FileLength(fileNum) = length(handles.sound);
 set(handles.text_DateAndTime,'string',datestr(dt,0));
@@ -1058,6 +1076,10 @@ cd(curr);
 
 function currentFileNum = getCurrentFileNum(handles)
 currentFileNum = str2double(get(handles.edit_FileNumber, 'string'));
+function currentFileName = getCurrentFileName(handles)
+currentFileNum = getCurrentFileNum(handles);
+currentFileName = handles.sound_files(currentFileNum).name;
+
 function [selectedChannelNum, selectedChannelName, isSound] = getSelectedChannel(handles, axnum)
 % Return the name and number of the selected channel from the specified
 %   axis. If the name is not a valid channel, selectedChannelNum will be
@@ -1156,7 +1178,7 @@ end
 function handles = eg_LoadChannel(handles,axnum)
 % Load a new channel of data
 
-if get(handles.(['popup_Channel',num2str(axnum)]),'value')==1
+if get(handles.popup_Channels(axnum),'value')==1
     % This is "(None)" channel selection, so disable everything
     cla(handles.axes_Channel(axnum));
     set(handles.axes_Channel(axnum),'visible','off');
@@ -1176,8 +1198,8 @@ end
 filenum = getCurrentFileNum(handles);
 [selectedChannelNum, ~, isSound] = getSelectedChannel(handles, axnum);
 
-val = get(handles.(['popup_Channel',num2str(axnum)]),'value');
-str = get(handles.(['popup_Channel',num2str(axnum)]),'string');
+val = get(handles.popup_Channels(axnum),'value');
+str = get(handles.popup_Channels(axnum),'string');
 nums = [];
 for c = 1:length(handles.EventTimes);
     nums(c) = size(handles.EventTimes{c},1);
@@ -1185,9 +1207,9 @@ end
 if val <= length(str)-sum(nums)
     % No idea what this signifies
     if isSound
-        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.path_name, handles.sound_files(filenum).name), true);
+        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name), true);
     else
-        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{selectedChannelNum}, fullfile(handles.path_name, handles.chan_files{selectedChannelNum}(filenum).name), true);
+        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{selectedChannelNum}, fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum}(filenum).name), true);
     end
 else
     ev = zeros(1,length(handles.sound));
@@ -1298,8 +1320,8 @@ if strcmp(get(gca,'visible'),'off')
 end
 set(gca,'visible','on');
 set(handles.popup_Functions(axnum),'enable','on');
-str = get(handles.(['popup_Channel',num2str(axnum)]),'string');
-str = str{get(handles.(['popup_Channel',num2str(axnum)]),'value')};
+str = get(handles.popup_Channels(axnum),'string');
+str = str{get(handles.popup_Channels(axnum),'value')};
 if isempty(findstr(str,' - '))
     set(handles.(['popup_EventDetector',num2str(axnum)]),'enable','on');
     set(handles.(['push_Detect',num2str(axnum)]),'enable','on');
@@ -1842,7 +1864,9 @@ elseif strcmp(get(gcf,'selectiontype'),'open')
     end
     % Update spectrogram scales
     handles = eg_EditTimescale(handles);
-elseif strcmp(get(gcf, 'selectiontype'), 'alt')
+elseif strcmp(get(gcf, 'selectiontype'), 'alt') && ~isempty(get(gcf, 'CurrentModifier')) && strcmp(get(gcf, 'CurrentModifier'), 'control')
+    % User control-clicked on axes_Spectrogram
+    
     % Switch the axes back to normalized units
     set(get(gca,'parent'),'units','normalized');
     set(gca,'units','normalized');
@@ -2082,12 +2106,11 @@ if ischanged == 0
     return
 end
 
-handles.DefaultDirectory = handles.path_name;
 handles.DefaultFile = 'analysis.mat';
 
 if strcmp(handles.WorksheetTitle,'Untitled')
-    f = findstr(handles.path_name,'\');
-    handles.WorksheetTitle = handles.path_name(f(end)+1:end);
+    f = findstr(handles.DefaultRootPath,'\');
+    handles.WorksheetTitle = handles.DefaultRootPath(f(end)+1:end);
 end
 
 handles.TotalFileNumber = length(handles.sound_files);
@@ -2224,11 +2247,22 @@ guidata(hObject, handles);
 function handles = loadProperties(handles)
 % Load properties from files, add to default properties.
 
+defaultProps = [];
 if isfield(handles, 'DefaultProperties')
     % DefaultProperties was loaded from defaults_* file
     defaultProps = handles.DefaultProperties;
-else
-    % DefaultProperties was not loaded.
+    % Check to make sure we have the same # of names, values, and types
+    n = length(defaultProps.Names);
+    v = length(defaultProps.Values);
+    t = length(defaultProps.Types);
+    if n~=v || v~= t
+        errordlg('Loaded default properties have different #s of names, types, and values. Please fix your defaults file so handles.DefaultProperties has the same length vectors for Names, Values, and Types.', 'Error loading default properties');
+        defaultProps = [];
+    end
+end
+
+if isempty(defaultProps)
+    % DefaultProperties was not loaded, or was invalid
     defaultProps.Names = {};
     defaultProps.Values = {};
     defaultProps.Types = {};
@@ -2238,7 +2272,7 @@ handles.Properties.Values = cell(1,handles.TotalFileNumber);
 handles.Properties.Types = cell(1,handles.TotalFileNumber);
 for c = 1:handles.TotalFileNumber
     [~, ~, ~, ~, props] = eg_runPlugin(handles.plugins.loaders, ...
-        handles.sound_loader, fullfile(handles.path_name, ...
+        handles.sound_loader, fullfile(handles.DefaultRootPath, ...
         handles.sound_files(c).name), 0);
     handles.Properties.Names{c} = [props.Names, defaultProps.Names];
     handles.Properties.Values{c} = [props.Values, defaultProps.Values];
@@ -2288,7 +2322,7 @@ function push_Open_Callback(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-[file, path] = uigetfile('*.mat','Load analysis');
+[file, path] = uigetfile(fullfile(handles.DefaultRootPath, '*.mat'),'Load analysis');
 if ~isstr(file)
     return
 end
@@ -2299,18 +2333,17 @@ handles.BackupChan = cell(1,2);
 handles.BackupLabel = cell(1,2);
 handles.BackupTitle = cell(1,2);
 
-handles.path_name = dbase.PathName;
-if ~isdir(handles.path_name)
-    path2 = uigetdir(pwd,['Directory ''' handles.path_name ''' not found. Find the new location.']);
+handles.DefaultRootPath = dbase.PathName;
+if ~isdir(handles.DefaultRootPath)
+    path2 = uigetdir(pwd,['Directory ''' handles.DefaultRootPath ''' not found. Find the new location.']);
     if ~isstr(path2)
         return
     end
-    handles.path_name = path2;
+    handles.DefaultRootPath = path2;
 end
 
 handles.DefaultFile = [path file];
 
-handles.DefaultDirectory = handles.path_name;
 handles.DatesAndTimes = dbase.Times;
 handles.FileLength = dbase.FileLength;
 handles.sound_files = dbase.SoundFiles;
@@ -2339,8 +2372,8 @@ set(handles.popup_EventList,'value',1);
 set(handles.axes_Events,'visible','off');
 
 if strcmp(handles.WorksheetTitle,'Untitled')
-    f = findstr(handles.path_name,'\');
-    handles.WorksheetTitle = handles.path_name(f(end)+1:end);
+    f = findstr(handles.DefaultRootPath,'\');
+    handles.WorksheetTitle = handles.DefaultRootPath(f(end)+1:end);
 end
 
 handles.TotalFileNumber = length(handles.sound_files);
@@ -2492,6 +2525,10 @@ function push_Save_Callback(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
+if ~isfield(handles, 'DefaultFile')
+    msgbox('Please create a new experiment or open an existing one before saving.');
+    return;
+end
 
 [file, path] = uiputfile(handles.DefaultFile,'Save analysis');
 if ~isstr(file)
@@ -3071,6 +3108,62 @@ if chn==46
     guidata(hObject, handles);
     return
 end
+% User pressed "control-e"
+if chn == 5
+    % Press control-e to produce a export of the sonogram and any channel
+    % views.
+    f_export = figure();
+
+    % Determine how many channels are visible
+    numChannels = 0;
+    for c = 1:length(handles.axes_Channel)
+        if strcmp(get(handles.axes_Channel(c), 'Visible'), 'on')
+            numChannels = numChannels + 1;
+        end
+    end
+    
+    % Copy sonogram
+    sonogram_export = subplot(numChannels+1, 1, 1, 'Parent', f_export);
+    sonogram_children = get(handles.axes_Sonogram, 'Children');
+    for k = 1:length(sonogram_children)
+        copyobj(sonogram_children(k), sonogram_export);
+    end
+    % Match axes limits
+    xlim(sonogram_export, xlim(handles.axes_Sonogram));
+    ylim(sonogram_export, ylim(handles.axes_Sonogram));
+    set(sonogram_export, 'CLim', get(handles.axes_Sonogram, 'CLim'));
+    colormap(sonogram_export, handles.Colormap);
+    
+    % Set figure size to match contents
+    set(sonogram_export, 'Units', get(handles.axes_Sonogram, 'Units'));
+    curr_pos = get(sonogram_export, 'Position');
+    son_pos = get(handles.axes_Sonogram, 'Position');
+    aspect_ratio = 1.2*(1+numChannels)*son_pos(4) / son_pos(3);
+    f_pos = get(f_export, 'Position');
+    f_pos(4) = f_pos(3) * aspect_ratio;
+    set(f_export, 'Position', f_pos);
+
+    % Add title to sonogram (file name)
+    currentFileName = getCurrentFileName(handles);
+    title(sonogram_export, currentFileName, 'Interpreter', 'none');
+
+    % Loop over any channels that are currently visible, and copy them
+    chan = 0;
+    for c = 1:length(handles.axes_Channel)
+        if strcmp(get(handles.axes_Channel(c), 'Visible'), 'on')
+            chan = chan + 1;
+            channel_export = subplot(numChannels+1, 1, 1+chan, 'Parent', f_export);
+            channel_children = get(handles.axes_Channel(c), 'Children');
+            for k = 1:length(channel_children)
+                copyobj(channel_children(k), channel_export);
+            end
+            
+%            [~, selectedChannelName, ~] = getSelectedChannel(handles, c);
+%             title(channel_export, selectedChannelName, 'Interpreter', 'none');
+        end
+    end
+    return
+end
 
 % Find the handle for the currently active segment
 segmentNum = FindActiveSegment(handles);
@@ -3369,7 +3462,6 @@ if isfield(handles, 'DefaultChannelFunction')
     allFunctionNames = get(handles.popup_Functions(axnum),'string');
     defaultChannelFunctionIdx = find(strcmp(allFunctionNames, handles.DefaultChannelFunction));
     if ~isempty(defaultChannelFunctionIdx)
-        disp('hi2')
         % Default channel function is valid
         currentChannelFunctionIdx = get(handles.popup_Functions(axnum),'value');
         if currentChannelFunctionIdx ~= defaultChannelFunctionIdx
@@ -3592,8 +3684,8 @@ elseif strcmp(get(gcf,'selectiontype'),'extend')
                             handles = UpdateEventBrowser(handles);
                         end
 
-                        val = get(handles.(['popup_Channel' num2str(3-axn)]),'value');
-                        str = get(handles.(['popup_Channel' num2str(3-axn)]),'string');
+                        val = get(handles.popup_Channels(3-axn),'value');
+                        str = get(handles.popup_Channels(3-axn),'string');
                         nums = [];
                         for c = 1:length(handles.EventTimes);
                             nums(c) = size(handles.EventTimes{c},1);
@@ -3655,8 +3747,8 @@ elseif strcmp(get(gcf,'selectiontype'),'extend')
             end
         end
 
-        val = get(handles.(['popup_Channel' num2str(3-axnum)]),'value');
-        str = get(handles.(['popup_Channel' num2str(3-axnum)]),'string');
+        val = get(handles.popup_Channels(3-axnum),'value');
+        str = get(handles.popup_Channels(3-axnum),'string');
         nums = [];
         for c = 1:length(handles.EventTimes);
             nums(c) = size(handles.EventTimes{c},1);
@@ -3954,8 +4046,8 @@ end
 if strcmp(get(handles.(['axes_Channel' num2str(axnum)]),'visible'),'off')
     return
 end
-str = get(handles.(['popup_Channel' num2str(axnum)]),'string');
-src = str{get(handles.(['popup_Channel' num2str(axnum)]),'value')};
+str = get(handles.popup_Channels(axnum),'string');
+src = str{get(handles.popup_Channels(axnum),'value')};
 if get(handles.(['popup_EventDetector' num2str(axnum)]),'value')==1 | ~isempty(findstr(src,' - '))
     set(handles.(['menu_Events' num2str(axnum)]),'enable','off');
     set(handles.(['push_Detect' num2str(axnum)]),'enable','off');
@@ -4179,8 +4271,8 @@ for axn = 1:2
                 handles = UpdateEventBrowser(handles);
             end
 
-            val = get(handles.(['popup_Channel' num2str(3-axn)]),'value');
-            str = get(handles.(['popup_Channel' num2str(3-axn)]),'string');
+            val = get(handles.popup_Channels(3-axn),'value');
+            str = get(handles.popup_Channels(3-axn),'string');
             nums = [];
             for c = 1:length(handles.EventTimes);
                 nums(c) = size(handles.EventTimes{c},1);
@@ -4357,8 +4449,8 @@ if strcmp(get(gcf,'selectiontype'),'extend')
         end
     end
 
-    val = get(handles.(['popup_Channel' num2str(3-axnum)]),'value');
-    str = get(handles.(['popup_Channel' num2str(3-axnum)]),'string');
+    val = get(handles.popup_Channels(3-axnum),'value');
+    str = get(handles.popup_Channels(3-axnum),'string');
     nums = [];
     for c = 1:length(handles.EventTimes);
         nums(c) = size(handles.EventTimes{c},1);
@@ -5283,8 +5375,8 @@ for axn = 1:2
         handles = DisplayEvents(handles,axn);
     end
 
-    val = get(handles.(['popup_Channel' num2str(3-axn)]),'value');
-    str = get(handles.(['popup_Channel' num2str(3-axn)]),'string');
+    val = get(handles.popup_Channels(3-axn),'value');
+    str = get(handles.popup_Channels(3-axn),'string');
     nums = [];
     for c = 1:length(handles.EventTimes);
         nums(c) = size(handles.EventTimes{c},1);
@@ -5691,12 +5783,12 @@ val = get(handles.popup_Export,'value');
 str = str{val};
 switch str
     case 'Segments'
-        path = uigetdir(handles.DefaultDirectory,'Directory for segments');
+        path = uigetdir(handles.DefaultRootPath,'Directory for segments');
         if ~isstr(path)
             delete(txtexp)
             return
         end
-        handles.DefaultDirectory = path;
+        handles.DefaultRootPath = path;
 
         filenum = getCurrentFileNum(handles);
 
@@ -5784,12 +5876,12 @@ switch str
     case 'Sonogram'
         if get(handles.radio_Files,'value')==1
             [pathstr,name,ext,versn] = fileparts(get(handles.text_FileName,'string'));
-            [file, path] = uiputfile([handles.DefaultDirectory '\' name '.jpg'],'Save image');
+            [file, path] = uiputfile([handles.DefaultRootPath '\' name '.jpg'],'Save image');
             if ~isstr(file)
                 delete(txtexp)
                 return
             end
-            handles.DefaultDirectory = path;
+            handles.DefaultRootPath = path;
         end
         xl = get(handles.axes_Sonogram,'xlim');
         yl = get(handles.axes_Sonogram,'ylim');
@@ -6036,12 +6128,12 @@ elseif get(handles.radio_Files,'value')==1
 
         case {'Current sound', 'Sound mix'}
             [pathstr,name,ext,versn] = fileparts(get(handles.text_FileName,'string'));
-            [file, path] = uiputfile([handles.DefaultDirectory '\' name '.wav'],'Save sound');
+            [file, path] = uiputfile([handles.DefaultRootPath '\' name '.wav'],'Save sound');
             if ~isstr(file)
                 delete(txtexp)
                 return
             end
-            handles.DefaultDirectory = path;
+            handles.DefaultRootPath = path;
             warning off
             wavwrite(wav,fs,16,[path file]);
             warning on
@@ -9527,7 +9619,7 @@ guidata(hObject, handles);
 
 function dbase = GetDBase(handles)
 
-dbase.PathName = handles.path_name;
+dbase.PathName = handles.DefaultRootPath;
 dbase.Times = handles.DatesAndTimes;
 dbase.FileLength = handles.FileLength;
 dbase.SoundFiles = handles.sound_files;
@@ -9803,3 +9895,39 @@ function ShowHelpButton_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 msgbox(eg_HelpText(handles), 'electro_gui info and help:');
+
+
+% --------------------------------------------------------------------
+function center_Timescale_Callback(hObject, eventdata, handles)
+% hObject    handle to center_Timescale (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% When user right clicks on axes_Sonogram, and selects "Center timescale",
+%   display a popup so they can select a center time (default is where they
+%   right-click), and a radius (how much time on either side of center time
+%   to display), then set the timescale accordingly
+
+handles = guidata(hObject);
+
+% Get time where user right-clicks
+click_position = get(handles.axes_Sonogram, 'CurrentPoint');
+centerTime = click_position(1, 1);
+
+% Prompt user to alter center time if desired, and choose a radius
+prompt = {'Time radius (sec):', 'Center time (sec):'};
+dlgtitle = 'Center timescale';
+dims = [1 35];
+definput = {'1', num2str(centerTime)};
+answer = inputdlg(prompt,dlgtitle,dims,definput);
+if isempty(answer)
+    % User pressed cancel
+    return;
+end
+radiusTime = str2double(answer{1});
+centerTime = str2double(answer{2});
+
+% Set time
+handles = centerTimescale(handles, centerTime, radiusTime);
+
+guidata(hObject, handles);

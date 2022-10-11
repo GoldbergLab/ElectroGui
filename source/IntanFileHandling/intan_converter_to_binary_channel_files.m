@@ -66,11 +66,6 @@ function intan_converter_to_binary_channel_files(acc_array, acc_present, path_in
 % first rhd file and the incremental time step of the t_amplifier array.
 
 % Modified for multiple headstages with accelerometers.
-
-%%IMPORTANT!! On the command window make an array named acc_array=[x x x x]
-%%where x = 0 or 1 according to whether each of the four headstages recorded from in the Intan files
-%%have an accelerometer or not. Do this BEFORE running the script.
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 if ~exist('start_index', 'var')
@@ -98,7 +93,6 @@ year = 2000 + str2double(year);
 month = str2double(month);
 day = str2double(day);
 
-
 %The time from the first RHD file in the directory is used to compute
 %subsequent times for the txt files
 
@@ -122,11 +116,77 @@ file_count=1;
 
 % acc_present=0; %(variable to check if accelerometer signal is present.)
 
+% Intan has a problem where if you record for more than ~22 hours, the
+%   t_amplifier field overflows and becomes negative. Therefore we need to
+%   count how many rollovers have occurred, and adjust the t_amplifier
+%   timestamps accordingly.
+% Variable to count how many times intan timestamp overflows and rolls over
+numRollovers = 0;
+% Expected file length, to compare to actual file length to check for
+% rollovers
+expectedFileDuration = 60;
+
+oldTimestampDiscrepancy = 0;
+thisTimestampDiscrepancy = 0;
 
 for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files in one directory (one recording session)
     fprintf('Reading rhd file %d of %d\n', file_num, numel(Intan_file_dir));
     
     data = read_Intan_RHD2000_file_to_struct(path_input, Intan_file_dir(file_num).name, verbose);       %reads *rhd files into a data struct.
+    
+    % Calculate appropriate rollover correction.
+    if file_num == start_index
+        fs = data.frequency_parameters.amplifier_sample_rate;
+        rolloverCorrection = (2^32)/fs;
+        start_t_amplifier = data.t_amplifier(1);
+        start_t_aux = data.t_aux_input(1);
+    end
+    
+    % Calculate # of seconds from session start to start of this RHD file
+    % based on filename timestamps
+    this_rhd_file = Intan_file_dir(file_num).name;   % extracts name of first file for date and time
+    this_month = this_rhd_file((numel(this_rhd_file)-11-3):(numel(this_rhd_file)-11-2));
+    this_day = this_rhd_file((numel(this_rhd_file)-11-1):(numel(this_rhd_file)-11));
+    this_year = this_rhd_file((numel(this_rhd_file)-11-5):(numel(this_rhd_file)-11-4));
+    this_year = 2000 + str2double(this_year);
+    this_month = str2double(this_month);
+    this_day = str2double(this_day);
+    this_hour = str2double(this_rhd_file((numel(this_rhd_file)-4-5):(numel(this_rhd_file)-4-4)));
+    this_minute = str2double(this_rhd_file((numel(this_rhd_file)-4-3):(numel(this_rhd_file)-4-2)));
+    this_second = str2double(this_rhd_file((numel(this_rhd_file)-4-1):(numel(this_rhd_file)-4)));
+    this_timestamp = 60*60*24*datenum([this_year, this_month, this_day, this_hour, this_minute, this_second]);
+    first_timestamp = 60*60*24*datenum([year, month, day, hour_first, minute_first, second_first]);
+    
+    % Calculate amount of time since the session start based on the
+    % filename timestamps
+    secondsSinceSessionStart = this_timestamp - first_timestamp;
+    % Calculate amount of time since the session start based on the
+    % data.t_amplifier timestamps
+    secondsSinceSessionStart_amplifier = (data.t_amplifier(end)-start_t_amplifier) - expectedFileDuration;
+    
+    % Calculate time since session start discrepancy between filename
+    % timetsamps and data.t_amplifier timestamps
+    thisTimestampDiscrepancy = abs(secondsSinceSessionStart_amplifier - secondsSinceSessionStart);
+    
+%     fileDuration = data.t_amplifier(1) - data.t_amplifier(end);
+    
+    % Check if there is a rollover by determining if the amount by which
+    % the amplifier and filename timestamps disagree has jumped since the
+    % last file
+    if abs(oldTimestampDiscrepancy - thisTimestampDiscrepancy) > 10
+        % Uh oh, stupid Intan rolled over the t_amplifier times
+        disp('ROLLOVER DETECTED...COMPENSATING...');
+        numRollovers = numRollovers + 1;
+        jumpPoint = find(abs(diff(data.t_amplifier)) > 1) + 1;
+    else
+        jumpPoint = 1;
+    end
+    
+    % this timestamp discrepancy is now old timestamp discrepancy
+    oldTimestampDiscrepancy = thisTimestampDiscrepancy;
+    
+    % Correct t_amplifier time based on how many rollovers have accumultae
+    data.t_amplifier(jumpPoint:end) = data.t_amplifier(jumpPoint:end) + numRollovers * rolloverCorrection;
     
     rhd_file = Intan_file_dir(file_num).name;
     hour_filename = str2double(rhd_file((numel(rhd_file)-4-5):(numel(rhd_file)-4-4)));
@@ -174,13 +234,15 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
             n_acc=n_acc+1;
         end
         
+        % Check if current sound sample is over threshold (to trigger
+        % recording)
         while k < numel(data.board_adc_data(headstage_num,:))   %going through the analog channel for song
             hour=hour_first;
             minute=minute_first;
             second=second_first;
             
 
-            if abs(data.board_adc_data(n,k)) > 0.5 %|| abs((data.amplifier_data(1,k)*unit)) > 0.003  %checks for stims if it is NOT a song file************* Changed to 0.5 CBJ 6/17/21
+            if abs(data.board_adc_data(headstage_num,k)) > 0.3 %|| abs((data.amplifier_data(1,k)*unit)) > 0.003  %checks for stims if it is NOT a song file************* 
 
                 motif_number=motif_number+1;
                 motif_number_array(headstage_num)=motif_number;
@@ -196,7 +258,10 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
                 %%the song-containing section of the rhd file being
                 %%analyzed
                 
-                second=second_first+data.t_amplifier(k);    %update time
+                % Find the # of seconds since the first RHD file in this
+                % directory.
+                second=second_first + data.t_amplifier(k) - start_t_amplifier;    %update time
+                % Convert seconds into a datevec
                 if second >= 60
                     minute=minute+floor(second./60);
                     second = rem(second,60);
@@ -210,10 +275,10 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
                 effCopyChannel = 17;
                 
                 time_string= sprintf('%s%s%s',num2str(hour_filename), num2str(minute_filename),num2str(second_filename,'% 10.0f')); %this is only for labelling txt files and does not get updated for the same rhd file
-                songfile_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(headstage_num),date_string, time_string, songChannel);
+                songfile_name = sprintf('d0000%04u_%sT%s_chan%d.nc',motif_number_array(headstage_num),date_string, time_string, songChannel);
                 full_songfile_name = fullfile(path_output,songfile_name);
                 
-                effcopyfile_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(headstage_num),date_string, time_string, effCopyChannel);
+                effcopyfile_name = sprintf('d0000%04u_%sT%s_chan%d.nc',motif_number_array(headstage_num),date_string, time_string, effCopyChannel); %Changed to pad w/ 4 zeros (line 208 as well)
                 full_effcopyfile_name = fullfile(path_output,effcopyfile_name);
                 
                 songData.timeVector = abs([year, month, day, hour, minute, second]);
@@ -268,7 +333,7 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
                     end
                     hour=hour_first;
                     minute=minute_first;
-                    second=second_first+data.t_aux_input(k_aux);    %update time
+                    second=second_first + data.t_aux_input(k_aux) - start_t_aux;    %update time
                     
                     if second >= 60
                         minute=minute+floor(second./60);
@@ -330,7 +395,7 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
                 for chan = (channel_count*(headstage_num-1)+1):(channel_count*headstage_num)
                     hour=hour_first;
                     minute=minute_first;
-                    second=second_first+data.t_amplifier(k);    %update time
+                    second=second_first + data.t_amplifier(k) - start_t_amplifier;    %update time
                     if second >= 60
                         minute=minute+floor(second./60);
                         second = rem(second,60);
@@ -339,6 +404,18 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
                         hour=hour+floor(minute./60);
                         minute = rem(minute,60);
                     end
+                    
+                    % Check that amplifier-based-timestamp does not differ
+                    % significantly from rhd-filename-based-timestamp
+                    maxTimestampDiscrepancy = 60;
+                    filenameTime = 60*60*24*datenum([year, month, day, hour_filename, minute_filename, second_filename + start_t_amplifier]);
+                    ampTime = 60*60*24*datenum(year, month, day, hour_first, minute_first, second_first + data.t_amplifier(1));
+                    
+                    timestampDiscrepancy = abs(filenameTime - ampTime);
+                    if timestampDiscrepancy > maxTimestampDiscrepancy
+                        error('FUCK amplifier and filename timestamps don''t match: \nRHD file num %d\n', file_num);
+                    end
+                    
                     time_string= sprintf('%s%s%s',num2str(hour_filename), num2str(minute_filename),num2str(second_filename,'% 10.0f')); %this is only for labelling txt files and does not get updated for the same rhd file
 
                     file_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(headstage_num),date_string, time_string,amplifier_file_count);
@@ -363,9 +440,11 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
                 
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 
+                % Increment current sample to end of recorded segment
                 k_step =(buffer_end*fs)+20;   % to avoid over-writing....
                 k=k+k_step;
             else
+                % Increment sample by a tiny chunk to check next chunk
                 k_step=(0.05*fs)+1;     %%%step jump when it doesn't find song signal (keeping this large enough to save time and small enough to avoid missing anything)
                 k=k+k_step;
             end
