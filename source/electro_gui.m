@@ -127,6 +127,7 @@ end
 
 lst = {'(Default)'};
 mt = dir('defaults_*.m');
+indx = 1;
 for c = 1:length(mt)
     lst{end+1} = mt(c).name(10:end-2);
     if strcmp(handles.userfile,mt(c).name)
