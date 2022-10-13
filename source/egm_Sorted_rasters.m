@@ -781,7 +781,7 @@ if ~isempty(handles.WarpPoints)
             warpTimes(c,:) = [warp_points{filenum}(f(end-handles.WarpNumBefore+1:end))' triggerInfo.absTime(c) warp_points{filenum}(g(1:handles.WarpNumAfter))'];
             warpTimes(c,:) = (warpTimes(c,:) - triggerInfo.absTime(c))*(24*60*60);
         else
-            keepi(find(keepi==c)) = [];
+            keepi(keepi==c) = [];
         end
     end
     warpTimes = warpTimes(keepi,:);
@@ -913,9 +913,9 @@ if ~isempty(handles.WarpPoints)
         fld = getfield(triggerInfo,towarp{w});
         for c = 1:size(warpTimes,1)
             if iscell(fld)
-                [fld{c} strt] = WarpTrial(fld{c},warpTimes(c,:),newwarp,str{val},handles.egh.fs,towarp{w});
+                [fld{c}, strt] = WarpTrial(fld{c},warpTimes(c,:),newwarp,str{val},handles.egh.fs,towarp{w});
             else
-                [fld(c) strt] = WarpTrial(fld(c),warpTimes(c,:),newwarp,str{val},handles.egh.fs,towarp{w});
+                [fld(c), strt] = WarpTrial(fld(c),warpTimes(c,:),newwarp,str{val},handles.egh.fs,towarp{w});
             end
             stretch(c,:) = strt;
         end
@@ -1545,7 +1545,7 @@ if handles.HistShow(1)==1
                 numtrials = numtrials + (xs(2:end)>triggerInfo.dataStart{c}(d) & xs(1:end-1)<triggerInfo.dataStop{c}(d))';
             end
         end
-        numtrials(find(numtrials==0)) = inf;
+        numtrials(numtrials==0) = inf;
 
         switch str_unit
             case 'Rate (Hz)'
@@ -1692,8 +1692,8 @@ if handles.HistShow(2)==1
                                     st(intersect(h1,h2)) = [];
                                     en(intersect(h1,h2)) = [];
                                 end
-                                st(find(st<triggerInfo.dataStart{tNum}(j))) = triggerInfo.dataStart{tNum}(j);
-                                en(find(st>triggerInfo.dataStop{tNum}(j))) = triggerInfo.dataStop{tNum}(j);
+                                st(st<triggerInfo.dataStart{tNum}(j)) = triggerInfo.dataStart{tNum}(j);
+                                en(st>triggerInfo.dataStop{tNum}(j)) = triggerInfo.dataStop{tNum}(j);
                                 g = find(en>st);
                                 st = st(g);
                                 en = en(g);
@@ -1909,19 +1909,19 @@ warning on
 guidata(hObject, handles);
 
 
-function [triggerInfo EventFilters] = GetTriggerAlignedEvents(handles,trig,event,warp_points,EventFilters)
+function [triggerInfo, EventFilters] = GetTriggerAlignedEvents(handles,trig,event,warp_points,EventFilters)
 % Aligns events to triggers
 
 count = 0;
 triggerInfo = [];
 for c = 1:length(trig.on)
-    if ~isempty(trig.on{c}) & strcmp(get(handles.popup_EventType,'enable'),'off')
+    if ~isempty(trig.on{c}) && strcmp(get(handles.popup_EventType,'enable'),'off')
         val = get(handles.popup_EventSource,'value')-1;
         axnum = val - length(handles.egh.EventTimes);
         if get(handles.egh.popup_Channel1,'value')==1
             axnum = 2;
         end
-        [funct triggerInfo.contLabel fxs] = getContinuousFunction(handles,trig.info.filenum(c),axnum,1);
+        [funct, triggerInfo.contLabel, fxs] = getContinuousFunction(handles,trig.info.filenum(c),axnum,1);
     end
     
     corr_ax = get(handles.popup_Correlation,'value')-1;
@@ -1929,7 +1929,7 @@ for c = 1:length(trig.on)
         if get(handles.egh.popup_Channel1,'value')==1
             corr_ax = 2;
         end
-        [cfunct lab cxs] = getContinuousFunction(handles,trig.info.filenum(c),corr_ax,0);
+        [cfunct, lab, cxs] = getContinuousFunction(handles,trig.info.filenum(c),corr_ax,0);
         if ~isempty(cfunct)
             cfunct = cfunct-mean(cfunct);
             cfunct = cfunct/norm(cfunct);
@@ -2043,11 +2043,11 @@ for c = 1:length(trig.on)
                 ons = (cxs(indx(1))-algn)'/handles.egh.fs;
                 cval = cfunct(indx);
                 if exist('ref_ons','var')
-                    [cx lags] = xcorr(cval,ref_cval);
+                    [cx, lags] = xcorr(cval,ref_cval);
                     f = find(abs(lags/handles.egh.fs)<handles.corrMax);
                     cx = cx(f);
                     lags = lags(f);
-                    [mx f] = max(cx);
+                    [mx, f] = max(cx);
                     triggerInfo.corrShift(count) = lags(f)/handles.egh.fs + (ons-ref_ons);
                 else
                     triggerInfo.corrShift(count) = 0;
@@ -2098,7 +2098,7 @@ for c = 1:length(trig.on)
             fields = fieldnames(triggerInfo);
             for j = 1:length(fields)
                 fld = getfield(triggerInfo,fields{j});
-                if ~strcmp(fields{j},'contLabel') & length(fld)==count
+                if ~strcmp(fields{j},'contLabel') && length(fld)==count
                     fld = getfield(triggerInfo,fields{j});
                     fld(count) = [];
                     triggerInfo = setfield(triggerInfo,fields{j},fld);
@@ -2214,7 +2214,7 @@ end
 
 
 
-function [triggerInfo ord] = SortTriggers(triggerInfo,type,descend,inc,group_labels)
+function [triggerInfo, ord] = SortTriggers(triggerInfo,type,descend,inc,group_labels)
 % Sorts triggers according to the specifications
 
 switch type
@@ -2325,7 +2325,7 @@ if group_labels == 1
     labs = unique(triggerInfo.label);
     srt = zeros(size(triggerInfo.label));
     for c = 1:length(labs)
-        srt(find(triggerInfo.label==labs(c))) = mean(find(triggerInfo.label(ord)==labs(c)));
+        srt(triggerInfo.label==labs(c)) = mean(find(triggerInfo.label(ord)==labs(c)));
     end
     [srt, ord] = sort(srt);
 end
@@ -3250,7 +3250,7 @@ set(findobj(handles.axes_Raster,'type','text'),'visible','off');
 
 print('-dtiff','raster.tif',['-r' num2str(handles.ExportResolution)],'-noui');
 set(handles.fig_Main,'Renderer','painters');
-[newslide pic_top pic_left] = PowerPointExport(handles,imheight,imwidth);
+[newslide, pic_top, pic_left] = PowerPointExport(handles,imheight,imwidth);
 delete('raster.tif');
 
 set(get(handles.axes_Raster,'children'),'visible','off');
@@ -3402,7 +3402,7 @@ if strcmp(get(ch(1),'enable'),'on')
     handles.ExportHeight(ih) = ExportHeight;
 end
 
-function [newslide pic_top pic_left] = PowerPointExport(handles,imheight,imwidth)
+function [newslide, pic_top, pic_left] = PowerPointExport(handles,imheight,imwidth)
 
 % Start presentation
 ppt = actxserver('PowerPoint.Application');
@@ -4518,7 +4518,7 @@ end
 
 
 
-function [funct lab indx] = getContinuousFunction(handles,filenum,axnum,doSubsample)
+function [funct, lab, indx] = getContinuousFunction(handles,filenum,axnum,doSubsample)
 val = get(handles.egh.popup_Channels(axnum),'value');
 str = get(handles.egh.popup_Channels(axnum),'string');
 nums = [];
@@ -4556,7 +4556,7 @@ else
     end
     tm = handles.egh.EventTimes{f}{g,filenum};
     issel = handles.egh.EventSelected{f}{g,filenum};
-    ev(tm(find(issel==1))) = 1;
+    ev(tm(issel==1)) = 1;
     funct = ev;
 end
 
@@ -5155,10 +5155,10 @@ if isempty(handles.LabelRange)
 
     f = zeros(1,length(handles.triggerInfo.absTime));
     for c = 1:length(handles.triggerInfo.absTime)
-        if ~isempty(find(inc==handles.triggerInfo.label(c))) || isempty(inc)
+        if ~isempty(find(inc==handles.triggerInfo.label(c), 1)) || isempty(inc)
             f(c) = 1;
         end
-        if ~isempty(find(exc==handles.triggerInfo.label(c)))
+        if ~isempty(find(exc==handles.triggerInfo.label(c), 1))
             f(c) = 0;
         end
     end
@@ -5506,7 +5506,7 @@ if ~isempty(handles.P.trig.ignoreSyllList) && (is_syllable || is_marker)
         exc(f) = 0;
     end
     for c = 1:length(exc)
-        inc(find(inc==exc(c))) = [];
+        inc(inc==exc(c)) = [];
     end
 end
 
@@ -5843,7 +5843,7 @@ for c = length(handles.DatesAndTimes)-1:-1:1
         end
         handles.FileLength(c) = round((handles.DatesAndTimes(c+1)-handles.DatesAndTimes(c))*(24*60*60)*handles.fs + handles.FileLength(c+1));
         
-        handles.Overlaps(find(handles.Overlaps==c+1)) = c;
+        handles.Overlaps(handles.Overlaps==c+1) = c;
     end
     
 end
@@ -6458,6 +6458,7 @@ handles = loadPresets(handles);
 guidata(hObject, handles);
 
 function disable_silly_warnings()
+disable_silly_warnings;
 egm_Sorted_rasters_OpeningFcn;
 popup_TriggerSource_Callback;
 popup_TriggerSource_CreateFcn;
