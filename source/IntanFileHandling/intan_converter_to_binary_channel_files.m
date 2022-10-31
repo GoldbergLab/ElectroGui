@@ -437,7 +437,7 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
                         otherChannel.data = data.amplifier_data(chan,(k-(buffer_start*fs)):(k+(buffer_end*fs)))*unit;
                     end
                     
-                    otherChannel.data(chan,:) = notch_filter(otherChannel.data(chan,:), fs, data.notch_filter_frequency, 10);
+                    otherChannel.data = notch_filter(otherChannel.data, fs, data.notch_filter_frequency, 10);
                     
                     writeIntanNcFile(full_file_name, otherChannel.timeVector, otherChannel.deltaT, chan, otherChannel.metaData, otherChannel.data, true);
 
