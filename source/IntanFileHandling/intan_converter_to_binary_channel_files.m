@@ -239,7 +239,8 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
         
         % Check if current sound sample is over threshold (to trigger
         % recording)
-        while k < numel(data.board_adc_data(headstage_num,:))   %going through the analog channel for song
+        numSamples = numel(data.board_adc_data(headstage_num,:));
+        while k < numSamples   %going through the analog channel for song
             hour=hour_first;
             minute=minute_first;
             second=second_first;
