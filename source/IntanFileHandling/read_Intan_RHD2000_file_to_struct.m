@@ -452,8 +452,8 @@ if (data_present)
         print_increment = 10;
         percent_done = print_increment;
         for i=1:num_amplifier_channels
-            amplifier_data(i,:) = ...
-                notch_filter(amplifier_data(i,:), sample_rate, notch_filter_frequency, 10);
+%             amplifier_data(i,:) = ...
+%                 notch_filter(amplifier_data(i,:), sample_rate, notch_filter_frequency, 10);
             if verbose
                 fraction_done = 100 * (i / num_amplifier_channels);
                 if (fraction_done >= percent_done)
@@ -475,6 +475,8 @@ data = struct();
 
 data.filename = filename;
 data.path = path;
+
+data.notch_filter_frequency = notch_filter_frequency
 
 data.notes = notes;
 data.frequency_parameters = frequency_parameters;
