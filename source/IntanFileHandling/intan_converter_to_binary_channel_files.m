@@ -224,6 +224,7 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
         if isdir(path_output)
             path_output = sprintf('%s%sHeadstage%d', path_input, '\Data_extracted_2\',headstage_count);
         end
+        
         [success, msg, err] = mkdir(path_output);
         if ~success
             error('Error while making headstage subfolder:\n%s\n%s', err, msg);
