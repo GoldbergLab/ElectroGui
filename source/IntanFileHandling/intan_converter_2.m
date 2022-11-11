@@ -1,15 +1,15 @@
-function intan_converter_2(acc_array, acc_present, path_input, start_index, audio_threshold, verbose)
+function intan_converter_2(acc_array, path_input, start_index, audio_threshold, writer, verbose)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % intan_converter_2: Convert Intan .rhd files to binary .nc channel files
-% usage:  intan_converter_2(acc_array, acc_present, path_input, 
-%                           start_index, audio_threshold, verbose)
+% usage:  intan_converter_2(acc_array, path_input, start_index, 
+%                           audio_threshold, writer)
+%         intan_converter_2(acc_array, path_input, start_index, 
+%                           audio_threshold, writer, verbose)
 %
 % where,
 %    acc_array is a 1xN array of boolean values, where N is the number of
 %       headstages in the .rhd files. Each value in the array indicates
 %       whether or not the headstage at that index has accelerometer data.
-%    acc_present is a boolean value that indicates whether or not there are
-%       any accelerometers present? I guess? Seems redundant.
 %    path_input is an optional char array representing a path to a
 %       directory in which to look (non-recursively) for .rhd files. If
 %       this argument is omitted, or is an empty array, then the user will
@@ -18,6 +18,9 @@ function intan_converter_2(acc_array, acc_present, path_input, start_index, audi
 %       begin conversion at within the directory
 %    audio_threshold is an optional floating point number indicating what
 %       volume threshold to use to trigger file recording
+%    writer is a function handle to a function that writes the data. Two
+%       scripts current available are writeIntanNcFile and 
+%       writeIntanTextFile
 %    verbose is an optional boolean flag indicating whether or not to
 %       produce extra informational output during processing
 %
@@ -44,7 +47,7 @@ function intan_converter_2(acc_array, acc_present, path_input, start_index, audi
 %   converted .nc files. These .nc files are designed to be loaded into
 %   electro_gui using the 'egl_Intan_Nc.m' loader script.
 %
-% See also: egl_Intan_Nc, writeIntanNcFile, 
+% See also: egl_Intan_Nc, writeIntanNcFile, writeIntanTextFile,
 %   read_Intan_RHD2000_file_to_struct
 %
 % Version: 1.0
@@ -54,7 +57,7 @@ function intan_converter_2(acc_array, acc_present, path_input, start_index, audi
 % Real_email = regexprep(Email,{'=','*'},{'@','.'})
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Brian Kardon, modified April 2021 to write .nc binary files instead of .txt files
+% Brian Kardon, modified April 2022 to write either .nc binary files or .txt files
 
 % Anindita Das, July 2018, edited on August 2019 for 'song-searching'.
 % Reads and extracts Intan files and saves into text files with date and time
@@ -74,403 +77,263 @@ function intan_converter_2(acc_array, acc_present, path_input, start_index, audi
 % Modified for multiple headstages with accelerometers.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-if ~exist('start_index', 'var')
-    start_index = 1;
-end
-if ~exist('verbose', 'var')
-    verbose = 0;
-end
+%% Apply defaults if necessary
 if ~exist('path_input', 'var') || isempty(path_input)
     path_input = ...
         uigetdir('.', 'Select RHD data folder for extraction');  % directory where the rhd files to be analysed are stored
 end
+if ~exist('start_index', 'var') || isempty(start_index)
+    start_index = 1;
+end
 if ~exist('audio_threshold', 'var') || isempty(audio_threshold)
     audio_threshold = 0.3;
 end
-fprintf('Looking for rhd files in: \n\t ''%s''\n', path_input);
+if ~exist('writer', 'var') || isempty(writer)
+    writer = @writeIntanNcFile;
+end
+if ~exist('verbose', 'var') || isempty(verbose)
+    verbose = 0;
+end
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%Extracts time and date info from the first RHD file in the directory
+%% Define constants
 
-Intan_file_dir = dir(fullfile(path_input, '*.rhd')); % Goes to the folder where all the rhd files for one recording session is stored
-first_rhd_file = Intan_file_dir(1).name;   % extracts name of first file for date and time
-month = first_rhd_file((numel(first_rhd_file)-11-3):(numel(first_rhd_file)-11-2));
-day = first_rhd_file((numel(first_rhd_file)-11-1):(numel(first_rhd_file)-11));
-year = first_rhd_file((numel(first_rhd_file)-11-5):(numel(first_rhd_file)-11-4));
-rhd_file_first = Intan_file_dir(1).name;
-year = 2000 + str2double(year);
-month = str2double(month);
-day = str2double(day);
+% Predefined channel numbers
+song_channel = 0;
+eff_copy_channel = 17;
+acc1_channel = 18;
+acc2_channel = 19;
+acc3_channel = 20;
+max_timestamp_discrepancy = 60;
 
-%The time from the first RHD file in the directory is used to compute
-%subsequent times for the txt files
-
-hour_first = str2double(rhd_file_first((numel(rhd_file_first)-4-5):(numel(rhd_file_first)-4-4)));
-minute_first = str2double(rhd_file_first((numel(rhd_file_first)-4-3):(numel(rhd_file_first)-4-2)));
-second_first = str2double(rhd_file_first((numel(rhd_file_first)-4-1):(numel(rhd_file_first)-4)));
-time_first = sprintf('%d:%02u:%02u', hour_first, minute_first, second_first); %extract time from rhd file
-
-
-date_string = sprintf('%04d%02d%02d', year, month, day);
-%time_string = sprintf('%s%s%s', first_rhd_file((numel(first_rhd_file)-4-5):(numel(first_rhd_file)-4-4)), first_rhd_file((numel(first_rhd_file)-4-3):(numel(first_rhd_file)-4-2)),first_rhd_file((numel(first_rhd_file)-4-1):(numel(first_rhd_file)-4)));
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% The next section is for parsing a single RHD file amplifier data with song signal into txt
-% files and saving in separate folders according to the headstage it was
-% recorded from
-
-buffer_start =2 ; % time (sec) before analog signal crosses threshold first time in one adc channel data file
+buffer_start = 2 ; % time (sec) before analog signal crosses threshold first time in one adc channel data file
 buffer_end = 10;  % time (sec) after first threshold crossing of analog signal
-file_count=1;
 
-% acc_present=0; %(variable to check if accelerometer signal is present.)
-
-% Intan has a problem where if you record for more than ~22 hours, the
-%   t_amplifier field overflows and becomes negative. Therefore we need to
-%   count how many rollovers have occurred, and adjust the t_amplifier
-%   timestamps accordingly.
 % Variable to count how many times intan timestamp overflows and rolls over
-numRollovers = 0;
-% Expected file length, to compare to actual file length to check for
-% rollovers
-expectedFileDuration = 60;
+num_rollovers = 0;
+last_t_amplifier = [];
 
-oldTimestampDiscrepancy = 0;
-thisTimestampDiscrepancy = 0;
+channel_count = 16; %(figure out a way to NOT hard code this)rhd files don't save the number of headstages being recorded from, but all amp channels are saved as a continuous series
+unit = 1e-6;     % conversion factor (Intan amplifier data is in microvolt, digital and analog inputs are in Volts)
 
-for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files in one directory (one recording session)
-    fprintf('Reading rhd file %d of %d\n', file_num, numel(Intan_file_dir));
-    
-    data = read_Intan_RHD2000_file_to_struct(path_input, Intan_file_dir(file_num).name, verbose);       %reads *rhd files into a data struct.
-    
-    % Calculate appropriate rollover correction.
+
+%% Find RHD files
+fprintf('Looking for rhd files in: \n\t ''%s''\n', path_input);
+% Get a list of all *.rhd files in the input directory
+rhd_file_list = dir(fullfile(path_input, '*.rhd'));
+% Store the name of the first RHD file in the directory
+first_rhd_filename = rhd_file_list(start_index).name;
+% Extract time and date from first rhd file name
+first_file_timestamp = get_rhd_filename_timestamp(first_rhd_filename);
+first_rhd_date_string = format_rhd_date(first_file_timestamp);
+
+%% Loop over RHD files, look for audio over the threshold, and save channel files 
+for file_num = start_index:numel(rhd_file_list)    % goes through all rhd files in one directory (one recording session)
+    fprintf('Reading rhd file %d of %d\n', file_num, numel(rhd_file_list));
+
+    % Generate RHD filename
+    rhd_filename = rhd_file_list(file_num).name;
+
+    % Read RHD data from file into the data struct
+    data = read_Intan_RHD2000_file_to_struct_2(path_input, rhd_filename, verbose);       %reads *rhd files into a data struct.
+
     if file_num == start_index
+        %% Collect information from the first RHD file
+        % Get the amplifier sampling rate and period
         fs = data.frequency_parameters.amplifier_sample_rate;
-        rolloverCorrection = (2^32)/fs;
+        delta_t = 1 / fs;
+        % Get the amplifier timestamp of the first sample of the first file
+        % in the directory
         start_t_amplifier = data.t_amplifier(1);
-        start_t_aux = data.t_aux_input(1);
+        % Determine how many headstages are present
+        num_headstages = size(data.amplifier_channels, 2) / channel_count;
+
+        % Size of window for moving window averaging when detecting volume
+        % threshold crossings
+        window_size = round(fs / 1000);
+
+        for headstage_num = 1:num_headstages
+            %% Create output directories
+            % New directory where extracted files will be stored
+            path_output_base = fullfile(path_input, 'Data_extracted');
+
+            % Create alternative extracted file directory if this one 
+            %   already exists.
+            attempt_num = 2;
+            while isdir(path_output_base)
+                path_output_base = fullfile(path_input, sprintf('Data_extracted_%d', attempt_num));
+                attempt_num = attempt_num + 1;
+            end
+        end
+        
+        session_chunk_nums = zeros(1, num_headstages);
+    
+    end
+
+    % Check that amplifier-based-timestamp does not differ
+    % significantly from rhd-filename-based-timestamp
+    rhd_filename_timestamp = get_rhd_filename_timestamp(rhd_filename);
+    rhd_amplifier_timestamp = get_rhd_amplifier_timestamp(data.t_amplifier(1), first_file_timestamp, start_t_amplifier);
+    
+    timestampDiscrepancy = abs(rhd_filename_timestamp - rhd_amplifier_timestamp);
+    if timestampDiscrepancy > max_timestamp_discrepancy
+        error('Error! Amplifier and filename timestamps don''t match: \nRHD file num %d\n', file_num);
     end
     
-    % Calculate # of seconds from session start to start of this RHD file
-    % based on filename timestamps
-    this_rhd_file = Intan_file_dir(file_num).name;   % extracts name of first file for date and time
-    this_month = this_rhd_file((numel(this_rhd_file)-11-3):(numel(this_rhd_file)-11-2));
-    this_day = this_rhd_file((numel(this_rhd_file)-11-1):(numel(this_rhd_file)-11));
-    this_year = this_rhd_file((numel(this_rhd_file)-11-5):(numel(this_rhd_file)-11-4));
-    this_year = 2000 + str2double(this_year);
-    this_month = str2double(this_month);
-    this_day = str2double(this_day);
-    this_hour = str2double(this_rhd_file((numel(this_rhd_file)-4-5):(numel(this_rhd_file)-4-4)));
-    this_minute = str2double(this_rhd_file((numel(this_rhd_file)-4-3):(numel(this_rhd_file)-4-2)));
-    this_second = str2double(this_rhd_file((numel(this_rhd_file)-4-1):(numel(this_rhd_file)-4)));
-    this_timestamp = 60*60*24*datenum([this_year, this_month, this_day, this_hour, this_minute, this_second]);
-    first_timestamp = 60*60*24*datenum([year, month, day, hour_first, minute_first, second_first]);
+    rhd_time_string = format_rhd_time(rhd_filename_timestamp);
+
+    % Fix intan t_amplifier overflow/rollover issue
+    [data.t_amplifier, num_rollovers, last_t_amplifier] = fix_t_amplifier(data.t_amplifier, num_rollovers, last_t_amplifier, fs);
     
-    % Calculate amount of time since the session start based on the
-    % filename timestamps
-    secondsSinceSessionStart = this_timestamp - first_timestamp;
-    % Calculate amount of time since the session start based on the
-    % data.t_amplifier timestamps
-    secondsSinceSessionStart_amplifier = (data.t_amplifier(end)-start_t_amplifier) - expectedFileDuration;
-    
-    % Calculate time since session start discrepancy between filename
-    % timetsamps and data.t_amplifier timestamps
-    thisTimestampDiscrepancy = abs(secondsSinceSessionStart_amplifier - secondsSinceSessionStart);
-    
-%     fileDuration = data.t_amplifier(1) - data.t_amplifier(end);
-    
-    % Check if there is a rollover by determining if the amount by which
-    % the amplifier and filename timestamps disagree has jumped since the
-    % last file
-    if abs(oldTimestampDiscrepancy - thisTimestampDiscrepancy) > 10
-        % Uh oh, stupid Intan rolled over the t_amplifier times
-        disp('ROLLOVER DETECTED...COMPENSATING...');
-        numRollovers = numRollovers + 1;
-        jumpPoint = find(abs(diff(data.t_amplifier)) > 1) + 1;
-    else
-        jumpPoint = 1;
-    end
-    
-    % this timestamp discrepancy is now old timestamp discrepancy
-    oldTimestampDiscrepancy = thisTimestampDiscrepancy;
-    
-    % Correct t_amplifier time based on how many rollovers have accumultae
-    data.t_amplifier(jumpPoint:end) = data.t_amplifier(jumpPoint:end) + numRollovers * rolloverCorrection;
-    
-    rhd_file = Intan_file_dir(file_num).name;
-    hour_filename = str2double(rhd_file((numel(rhd_file)-4-5):(numel(rhd_file)-4-4)));
-    minute_filename = str2double(rhd_file((numel(rhd_file)-4-3):(numel(rhd_file)-4-2)));
-    second_filename = str2double(rhd_file((numel(rhd_file)-4-1):(numel(rhd_file)-4)));
-    time_filename = sprintf('%d:%02u:%02u', hour_filename,  minute_filename, second_filename); %extract time from rhd file
-    
-    %parameters
-    fs = data.frequency_parameters.amplifier_sample_rate; % sampling frequency Hz
-    channel_count = 16; %(figure out a way to NOT hard code this)rhd files don't save the number of headstages being recorded from, but all amp channels are saved as a continuous series
-    delta_t=1/fs;
-    unit = 1e-6;     % conversion factor (Intan amplifier data is in microvolt, digital and analog inputs are in Volts)
-    total_headstage = size(data.amplifier_channels,2)/channel_count;
-    headstage_count=1;
-    
-    if file_num==start_index
-        motif_number_array=zeros(1,total_headstage);   % needs to be initialized only once
-    end
-    
-    n_acc=0; % used later to keep track of headstages with acc based on the acc_array input by user before running this script
+    n_acc = 0;
     if (file_num==start_index) && (isfield(data, 'aux_input_channels'))
-        acc_present=1;
         number_aux = size(data.aux_input_channels, 2);
+        % Get the aux sample rate, which is different from the amplifier
+        % sample rate
         fs_aux = data.frequency_parameters.aux_input_sample_rate;
     end
-    % for every channel recorded in a single rhd file, the first time is identical
     
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%writing the song file on chan 0, efference copy on chan 17
-    
-    for headstage_num = 1:total_headstage
-        fprintf('\tHandling headstage %d of %d\n', headstage_num, total_headstage);
+    for headstage_num = 1:num_headstages
+        %% Loop over each headstage in this file
+        fprintf('\tHandling headstage %d of %d\n', headstage_num, num_headstages);
 
-        path_output = sprintf('%s%sHeadstage%d', path_input, '\Data_extracted\',headstage_count);   %new directory where extracted files will be stored
-        if isdir(path_output)
-            path_output = sprintf('%s%sHeadstage%d', path_input, '\Data_extracted_2\',headstage_count);
-        end
+        % Construct a headstage output subdirectory
+        path_output = fullfile(path_output_base, sprintf('Headstage%d', headstage_num));
+
+        % Create headstage folder
         [success, msg, err] = mkdir(path_output);
         if ~success
             error('Error while making headstage subfolder:\n%s\n%s', err, msg);
         end
         
-        motif_number=motif_number_array(headstage_num);
-        %k=(buffer_start*fs)+1;
-        k=1;
-        
-        if (acc_present == 1) && (acc_array(headstage_num)==1)
+        if acc_array(headstage_num)==1
             n_acc=n_acc+1;
         end
+
+        % Find all periods within this file and this headstage with sound
+        % that is over the designated threshold.
+        [chunk_starts, chunk_ends] = generate_file_chunk_times(data.board_adc_data(headstage_num, :), audio_threshold, window_size, buffer_start*fs, buffer_end*fs);
         
-        % Check if current sound sample is over threshold (to trigger
-        % recording)
-        numSamples = numel(data.board_adc_data(headstage_num,:));
-        while k < numSamples   %going through the analog channel for song
-            hour=hour_first;
-            minute=minute_first;
-            second=second_first;
+        for chunk_num = 1:length(chunk_starts)
+            %% Loop over all chunks of data which contain audio over the threshold.
+            chunk_start = chunk_starts(chunk_num);
+            chunk_end = chunk_ends(chunk_num);
             
+            % Increment the overall session chunk count for this headstage
+            session_chunk_nums(headstage_num) = session_chunk_nums(headstage_num) + 1;
 
-            if abs(data.board_adc_data(headstage_num,k)) > audio_threshold %|| abs((data.amplifier_data(1,k)*unit)) > 0.003  %checks for stims if it is NOT a song file************* 
+            % Construct a filename pattern. Note that the writer function
+            % will add the appropriate file extension
+            filename_pattern = sprintf('d%07u_%sT%s_chan%%d', session_chunk_nums(headstage_num), first_rhd_date_string, rhd_time_string);
 
-                motif_number=motif_number+1;
-                motif_number_array(headstage_num)=motif_number;
-                %k
-%                 fprintf ('headstage number= %f\n', n);
-%                 fprintf ('motif number = %f\n', motif_number);
-%                 fprintf ('time point (k) = %f\n', k);
-%                 fprintf ('time step (k_step) = %f\n', k_step);
-%                 fprintf ('rhd file number being analyzed = %f\n', file_count);
-                
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                %%this section first writes the song and eff copy data for
-                %%the song-containing section of the rhd file being
-                %%analyzed
-                
-                % Find the # of seconds since the first RHD file in this
-                % directory.
-                second=second_first + data.t_amplifier(k) - start_t_amplifier;    %update time
-                % Convert seconds into a datevec
-                if second >= 60
-                    minute=minute+floor(second./60);
-                    second = rem(second,60);
-                end
-                if minute >= 60
-                    hour=hour+floor(minute ./60);
-                    minute = rem(minute,60);
-                end
-                
-                songChannel = 0;
-                effCopyChannel = 17;
-                
-                time_string= sprintf('%s%s%s',num2str(hour_filename), num2str(minute_filename),num2str(second_filename,'% 10.0f')); %this is only for labelling txt files and does not get updated for the same rhd file
-                songfile_name = sprintf('d0000%04u_%sT%s_chan%d.nc',motif_number_array(headstage_num),date_string, time_string, songChannel);
-                full_songfile_name = fullfile(path_output,songfile_name);
-                
-                effcopyfile_name = sprintf('d0000%04u_%sT%s_chan%d.nc',motif_number_array(headstage_num),date_string, time_string, effCopyChannel); %Changed to pad w/ 4 zeros (line 208 as well)
-                full_effcopyfile_name = fullfile(path_output,effcopyfile_name);
-                
-                songData.timeVector = abs([year, month, day, hour, minute, second]);
-                songData.metaData = sprintf('%s\t%s%d\r\n', Intan_file_dir(file_num).name, 'Motif file', motif_number);
-                songData.deltaT = delta_t;
-                
-                % If no digital signals are present (typically DAF EC
-                % signal) then don't bother recording them. Because it
-                % won't work. Because they aren't there.
-                recordEffCopy = isfield(data, 'board_dig_in_data');
-                
-                if recordEffCopy
-                    effCopyData = songData;
-                end
-                
-                if k > (numel(data.board_adc_data(headstage_num,:))- buffer_end*fs) %&& k >(numel(data.board_adc_data(2*n-1,:))- buffer_start*fs)
-                    songData.data = data.board_adc_data((headstage_num),(k-(buffer_start*fs)):(numel(data.board_adc_data(headstage_num,:))));
-                    if recordEffCopy
-                        effCopyData.data = data.board_dig_in_data((headstage_num),(k-(buffer_start*fs)):(numel(data.board_adc_data(headstage_num,:))));
-                    end
-                elseif k <(buffer_start*fs+1)
-                    songData.data =       data.board_adc_data((headstage_num),1:(k+(buffer_end*fs)));
-                    if recordEffCopy
-                        effCopyData.data = data.board_dig_in_data((headstage_num),1:(k+(buffer_end*fs)));
-                    end
-                else
-                    songData.data = data.board_adc_data((headstage_num),(k-(buffer_start*fs)):(k+(buffer_end*fs)));
-                    if recordEffCopy
-                        effCopyData.data = data.board_dig_in_data((headstage_num),(k-(buffer_start*fs)):(k+(buffer_end*fs)));
-                    end
-                end
-                
-                writeIntanNcFile(full_songfile_name,    songData.timeVector,    songData.deltaT,    songChannel,    songData.metaData,    songData.data,    true);
-                if recordEffCopy
-                    writeIntanNcFile(full_effcopyfile_name, effCopyData.timeVector, effCopyData.deltaT, effCopyChannel, effCopyData.metaData, effCopyData.data, true);
-                end
-                
-                fprintf('\t\tWriting chunk: %f seconds\n', length(songData.data)/fs);
-                
-                %file_count_anlg=file_count_anlg+1;
-                %                 file_count=file_count+1;
-                
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                %%%% This section writes the accelerometer data if present
-                %%%% for the coresponding song-containg section
-                
-                if (acc_present == 1) && (acc_array(headstage_num)==1)
-                    
-                    k_aux= round(fs_aux*(k/fs));   % since sampling freq of analg chans and acc chans are different
-                    if k_aux < 1
-                        k_aux=1;
-                    end
-                    hour=hour_first;
-                    minute=minute_first;
-                    second=second_first + data.t_aux_input(k_aux) - start_t_aux;    %update time
-                    
-                    if second >= 60
-                        minute=minute+floor(second./60);
-                        second = rem(second,60);
-                    end
-                    if minute >= 60
-                        hour=hour+floor(minute ./60);
-                        minute = rem(minute,60);
-                    end
-                    
-                    acc1Channel = 18;
-                    acc2Channel = 19;
-                    acc3Channel = 20;
-                    
-                    time_string= sprintf('%s%s%s',num2str(hour_filename), num2str(minute_filename),num2str(second_filename,'% 10.0f')); %this is only for labelling txt files and does not get updated for the same rhd file
-                    
-                    accfile1_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(headstage_num),date_string, time_string, acc1Channel);
-                    full_accfile1_name = fullfile(path_output,accfile1_name);
-                    
-                    accfile2_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(headstage_num),date_string, time_string, acc2Channel);
-                    full_accfile2_name = fullfile(path_output,accfile2_name);
-                    
-                    accfile3_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(headstage_num),date_string, time_string, acc3Channel);
-                    full_accfile3_name = fullfile(path_output,accfile3_name);
-                    
-                    acc1.timeVector = abs([year, month, day, hour, minute, second]);
-                    acc1.metaData = sprintf('%s\t%s%d\r\n', Intan_file_dir(file_num).name, 'Motif file', motif_number);
-                    acc1.deltaT = delta_t;
-                    
-                    acc2 = acc1;
-                    acc3 = acc1;
-                    
-                    if k > (numel(data.board_adc_data(headstage_num,:))- buffer_end*fs) %&& k >(numel(data.board_adc_data(2*n-1,:))- buffer_start*fs)
-                        acc1.data = data.aux_input_data((3*n_acc-2),(k_aux-(buffer_start*fs_aux)):(numel(data.aux_input_data((3*n_acc-2),:))));
-                        acc2.data = data.aux_input_data((3*n_acc-1),(k_aux-(buffer_start*fs_aux)):(numel(data.aux_input_data((3*n_acc-1),:))));
-                        acc3.data = data.aux_input_data((3*n_acc),(k_aux-(buffer_start*fs_aux)):(numel(data.aux_input_data((3*n_acc),:))));
-                    elseif k <(buffer_start*fs+1)
-                        acc1.data = data.aux_input_data((3*n_acc-2),1:(k_aux+(buffer_end*fs_aux)));
-                        acc2.data = data.aux_input_data((3*n_acc-1),1:(k_aux+(buffer_end*fs_aux)));
-                        acc3.data = data.aux_input_data((3*n_acc),1:(k_aux+(buffer_end*fs_aux)));
-                    else
-                        acc1.data = data.aux_input_data((3*n_acc-2),(k_aux-(buffer_start*fs_aux)):(k_aux+(buffer_end*fs_aux)));
-                        acc2.data = data.aux_input_data((3*n_acc-1),(k_aux-(buffer_start*fs_aux)):(k_aux+(buffer_end*fs_aux)));
-                        acc3.data = data.aux_input_data((3*n_acc),(k_aux-(buffer_start*fs_aux)):(k_aux+(buffer_end*fs_aux)));
-                    end
-                    
-                    writeIntanNcFile(full_accfile1_name, acc1.timeVector, acc1.deltaT, acc1Channel, acc1.metaData, acc1.data, true);
-                    writeIntanNcFile(full_accfile2_name, acc2.timeVector, acc2.deltaT, acc2Channel, acc2.metaData, acc2.data, true);
-                    writeIntanNcFile(full_accfile3_name, acc3.timeVector, acc3.deltaT, acc3Channel, acc3.metaData, acc3.data, true);
+            % Determine the timestamp of the first sample of this chunk
+            chunk_timestamp = get_rhd_amplifier_timestamp(data.t_amplifier(chunk_start), first_file_timestamp, start_t_amplifier);
+            
+            % Convert the timestamps to a date vector
+            [chunk_year, chunk_month, chunk_day, chunk_hour, chunk_minute, chunk_second] = get_rhd_time_components(chunk_timestamp);
+            
+            % Construct a filename for the song file
+            song_filename = sprintf(filename_pattern, song_channel);
+            full_song_filename = fullfile(path_output, song_filename);
 
-                    %file_count_acc=file_count_acc+1;
+            % Construct a filename for the efference copy file
+            eff_copy_filename = sprintf(filename_pattern, eff_copy_channel);
+            eff_copy_file_path = fullfile(path_output, eff_copy_filename);
+            
+            % Assemble song information to prepare for writing
+            song_data.timeVector = abs([chunk_year, chunk_month, chunk_day, chunk_hour, chunk_minute, chunk_second]);
+            song_data.metaData = sprintf('%s\t%s%d\r\n', rhd_file_list(file_num).name, 'Motif file', chunk_num);
+            song_data.deltaT = delta_t;
+            song_data.data = data.board_adc_data(headstage_num, chunk_start:chunk_end);
+
+            % Write the song and possibly the efference copy to file
+            writer(full_song_filename, song_data.timeVector, song_data.deltaT, song_channel, song_data.metaData, song_data.data, true);
+
+            % If no digital signals are present (typically DAF EC
+            % signal) then don't bother recording them. Because it
+            % won't work. Because they aren't there.
+            record_eff_copy = isfield(data, 'board_dig_in_data');
+            if record_eff_copy
+                eff_copy_data = song_data;
+                eff_copy_data.data = data.board_dig_in_data(headstage_num, chunk_start:chunk_end);
+                writer(eff_copy_file_path, eff_copy_data.timeVector, eff_copy_data.deltaT, eff_copy_channel, eff_copy_data.metaData, eff_copy_data.data, true);
+            end
+
+            fprintf('\t\tWriting chunk: %f seconds, #%d\n', length(song_data.data)/fs, chunk_num);
+
+            if acc_array(headstage_num)==1
+                %% Write accelerometer data
+                
+                % Translate chunk start/end to the aux_input_data timebase
+                % (which runs at a slower frequency than the amplifier
+                % timebase)
+                chunk_start_aux = round(fs_aux * (chunk_start - 1)/ fs) + 1;
+                chunk_end_aux = round(fs_aux * (chunk_end - 1) / fs) + 1;
+                
+                % Handle the edge case where the amplifier => aux timebase
+                % conversion ends up with a sample number that is one
+                % sample too large
+                if chunk_end_aux > size(data.aux_input_data, 2)
+                    chunk_end_aux = size(data.aux_input_data, 2);
                 end
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                
-                %%writing the amplifier data files for the song-containing
-                %%section
-                
-                amplifier_file_count=1;
-                for chan = (channel_count*(headstage_num-1)+1):(channel_count*headstage_num)
-                    hour=hour_first;
-                    minute=minute_first;
-                    second=second_first + data.t_amplifier(k) - start_t_amplifier;    %update time
-                    if second >= 60
-                        minute=minute+floor(second./60);
-                        second = rem(second,60);
-                    end
-                    if minute >= 60
-                        hour=hour+floor(minute./60);
-                        minute = rem(minute,60);
-                    end
-                    
-                    % Check that amplifier-based-timestamp does not differ
-                    % significantly from rhd-filename-based-timestamp
-                    maxTimestampDiscrepancy = 60;
-                    filenameTime = 60*60*24*datenum([year, month, day, hour_filename, minute_filename, second_filename + start_t_amplifier]);
-                    ampTime = 60*60*24*datenum(year, month, day, hour_first, minute_first, second_first + data.t_amplifier(1));
-                    
-                    timestampDiscrepancy = abs(filenameTime - ampTime);
-                    if timestampDiscrepancy > maxTimestampDiscrepancy
-                        error('FUCK amplifier and filename timestamps don''t match: \nRHD file num %d\n', file_num);
-                    end
-                    
-                    time_string= sprintf('%s%s%s',num2str(hour_filename), num2str(minute_filename),num2str(second_filename,'% 10.0f')); %this is only for labelling txt files and does not get updated for the same rhd file
 
-                    file_name = sprintf('d0000%03u_%sT%s_chan%d.nc',motif_number_array(headstage_num),date_string, time_string,amplifier_file_count);
-                    full_file_name = fullfile(path_output,file_name);
+                % Generate accelerometer filenames
+                accfile1_name = sprintf(filename_pattern, acc1_channel);
+                full_acc1_filename = fullfile(path_output, accfile1_name);
 
-                    otherChannel.timeVector = abs([year, month, day, hour, minute, second]);
-                    otherChannel.metaData = sprintf('%s\t%s%d\r\n', Intan_file_dir(file_num).name, 'Motif file', motif_number);
-                    otherChannel.deltaT = delta_t;
-                    
-                    if k > (numel(data.board_adc_data(headstage_num,:))- buffer_end*fs) %&& k >(numel(data.board_adc_data(2*n-1,:))- buffer_start*fs)
-                        otherChannel.data = data.amplifier_data(chan,(k-(buffer_start*fs)):(numel(data.board_adc_data(headstage_num,:))))*unit;
-                    elseif k <(buffer_start*fs+1)
-                        otherChannel.data = data.amplifier_data(chan,1:(k+(buffer_end*fs)))*unit;
-                    else
-                        otherChannel.data = data.amplifier_data(chan,(k-(buffer_start*fs)):(k+(buffer_end*fs)))*unit;
-                    end
-                    
-                    otherChannel.data = notch_filter(otherChannel.data, fs, data.notch_filter_frequency, 10);
-                    
-                    writeIntanNcFile(full_file_name, otherChannel.timeVector, otherChannel.deltaT, chan, otherChannel.metaData, otherChannel.data, true);
+                accfile2_name = sprintf(filename_pattern, acc2_channel);
+                full_acc2_filename = fullfile(path_output, accfile2_name);
 
-                    amplifier_file_count=amplifier_file_count+1;
-                end
+                accfile3_name = sprintf(filename_pattern, acc3_channel);
+                full_acc3_filename = fullfile(path_output, accfile3_name);
+
+                % Assemble acceleromater information to prepare for writing
+                acc1.timeVector = abs([chunk_year, chunk_month, chunk_day, chunk_hour, chunk_minute, chunk_second]);
+                acc1.metaData = sprintf('%s\t%s%d\r\n', rhd_file_list(file_num).name, 'Motif file', chunk_num);
+                acc1.deltaT = delta_t;
+
+                % Copy metadata to other accelerometer channels
+                acc2 = acc1;
+                acc3 = acc1;
                 
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                % Copy accelerometer data into save structure
+                acc1.data = data.aux_input_data((3*n_acc-2), chunk_start_aux:chunk_end_aux);
+                acc2.data = data.aux_input_data((3*n_acc-1), chunk_start_aux:chunk_end_aux);
+                acc3.data = data.aux_input_data((3*n_acc),   chunk_start_aux:chunk_end_aux);
+
+                % Save accelerometer data & metadata to file
+                writer(full_acc1_filename, acc1.timeVector, acc1.deltaT, acc1_channel, acc1.metaData, acc1.data, true);
+                writer(full_acc2_filename, acc2.timeVector, acc2.deltaT, acc2_channel, acc2.metaData, acc2.data, true);
+                writer(full_acc3_filename, acc3.timeVector, acc3.deltaT, acc3_channel, acc3.metaData, acc3.data, true);
+
+            end
+
+            channel_num = 1;
+            % Loop over channel data for this headstage (channel data is
+            % not segregated by headstage in rhd file)
+            for rhd_channel_idx = (channel_count*(headstage_num-1)+1):(channel_count*headstage_num)
+                % Generate channel filenames
+                file_name = sprintf(filename_pattern, channel_num);
+                full_file_name = fullfile(path_output, file_name);
+
+                % Generate channel metadata
+                otherChannel.timeVector = abs([chunk_year, chunk_month, chunk_day, chunk_hour, chunk_minute, chunk_second]);
+                otherChannel.metaData = sprintf('%s\t%s%d\r\n', rhd_file_list(file_num).name, 'Motif file', chunk_num);
+                otherChannel.deltaT = delta_t;
+
+                % Copy channel data into struct
+                otherChannel.data = data.amplifier_data(rhd_channel_idx, chunk_start:chunk_end) * unit;
                 
-                % Increment current sample to end of recorded segment
-                k_step =(buffer_end*fs)+20;   % to avoid over-writing....
-                k=k+k_step;
-            else
-                % Increment sample by a tiny chunk to check next chunk
-                k_step=(0.05*fs)+1;     %%%step jump when it doesn't find song signal (keeping this large enough to save time and small enough to avoid missing anything)
-                k=k+k_step;
+                % Notch filter data for 60 Hz noise
+                otherChannel.data = notch_filter(otherChannel.data, fs, data.notch_filter_frequency, 10);
+
+                % Save channel data & metadata to file
+                writer(full_file_name, otherChannel.timeVector, otherChannel.deltaT, rhd_channel_idx, otherChannel.metaData, otherChannel.data, true);
+
+                channel_num = channel_num+1;
             end
         end
-        headstage_count = headstage_count+1;
-        
     end
-    file_count=file_count+1;
 end
-
-
 
 
 
@@ -520,5 +383,94 @@ end
 
 return
 
+function [chunk_starts, chunk_ends] = generate_file_chunk_times(sound, audio_threshold, window_size, pre_buffer_samples, post_buffer_samples)
+% Sound is a 1 x N vector of audio data, where N is the number of samples
+audio_levels = conv(abs(sound), ones(1, window_size)/window_size, 'same');
+audio_high = audio_levels > audio_threshold;
+k = 1;
+total_samples = numel(sound);
+chunk_starts = [];
+chunk_ends = [];
+while true
+    k = find(audio_high(k:end), 1) + k - 1;
+    if isempty(k)
+        % No more high audio samples found - stop looking for chunks
+        break;
+    end
+    chunk_start = k - pre_buffer_samples;
+    chunk_start = max(chunk_start, 1);
+    chunk_end = k + post_buffer_samples;
+    chunk_end = min(chunk_end, total_samples);
+    chunk_starts(end+1) = chunk_start;
+    chunk_ends(end+1) = chunk_end;
+    k = k + post_buffer_samples + 1;
+end
 
+function rhd_date_string = format_rhd_date(timestamp)
+% Convert a scalar timestamp in seconds since epoch to a output file
+% datestamp
 
+[year, month, day] = get_rhd_time_components(timestamp);
+
+rhd_date_string = sprintf('%04d%02d%02d', year, month, day);
+
+function rhd_time_string = format_rhd_time(timestamp)
+% Convert a scalar timestamp in seconds since epoch to a output file
+% timestamp
+
+[~, ~, ~, hour, minute, second] = get_rhd_time_components(timestamp);
+
+rhd_time_string = sprintf('%02d%02d%02d', hour, minute, round(second));
+
+function [year, month, day, hour, minute, second] = get_rhd_time_components(timestamp)
+% Convert a scalar timestamp in seconds since epoch to data components
+
+[year, month, day, hour, minute, second] = datevec(timestamp/(60*60*24));
+
+function timestamp = get_rhd_amplifier_timestamp(t_amplifier, start_timestamp, start_t_amplifier)
+% Extract timestamp from rhd amplifier time in seconds since epoch
+
+timestamp = start_timestamp + t_amplifier - start_t_amplifier;
+
+function timestamp = get_rhd_filename_timestamp(rhd_filename)
+% Extract timestamp from rhd file name in seconds since epoch
+
+tokens = regexp(rhd_filename, '.*_([0-9]{2})([0-9]{2})([0-9]{2})_([0-9]{2})([0-9]{2})([0-9]{2})\.[rR][hH][dD]', 'tokens');
+tokens = cellfun(@str2double, tokens{1}, 'UniformOutput', true);
+% Convert 2 digit year to 4 digit year
+tokens(1) = tokens(1) + 2000;
+% Convert vector time to scalar time
+timestamp = datenum(tokens(:)') * 60 * 60 * 24;
+
+function [t_amplifier, num_rollovers, last_t_amplifier] = fix_t_amplifier(t_amplifier, num_rollovers, last_t_amplifier, fs)
+% Intan has a problem where if you record for more than ~22 hours, the
+%   t_amplifier field overflows and becomes negative, because intan used a
+%   int32 field to store the timestamps. Therefore we need to count how 
+%   many rollovers have occurred, and adjust the t_amplifier timestamps 
+%   accordingly.
+
+rollover_correction = (2^32) / fs;
+
+% Look for a discontinuity in the t_amplifier field
+jump_point = find(round(abs(diff([last_t_amplifier, t_amplifier])) * fs) > 1) + length(last_t_amplifier) - 1;
+if isempty(jump_point)
+    % No rollover detected
+    jump_point = 1;
+else
+    % Uh oh, stupid Intan rolled over the t_amplifier times
+    disp('ROLLOVER DETECTED...COMPENSATING...');
+
+    % This is the point where the time field rolls over again
+    num_rollovers = num_rollovers + 1;
+end
+
+% Correct t_amplifier time based on how many rollovers have accumultae
+t_amplifier(1:jump_point-1) = t_amplifier(1:jump_point-1) + num_rollovers * rollover_correction;
+
+% Correct t_amplifier time based on how many rollovers have accumultae
+t_amplifier(jump_point:end) = t_amplifier(jump_point:end) + num_rollovers * rollover_correction;
+
+% Return last timestamp so we can tack it on to the beginning of the next
+% time series to check for rollovers just before the first sample of the
+% next file
+last_t_amplifier = t_amplifier(end);

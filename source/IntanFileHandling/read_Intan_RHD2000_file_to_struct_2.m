@@ -414,13 +414,7 @@ if (data_present)
     amplifier_data = 0.195 * (amplifier_data - 32768); % units = microvolts
     aux_input_data = 37.4e-6 * aux_input_data; % units = volts
     supply_voltage_data = 74.8e-6 * supply_voltage_data; % units = volts
-    if (eval_board_mode == 1)
-        board_adc_data = 152.59e-6 * (board_adc_data - 32768); % units = volts
-    elseif (eval_board_mode == 13) % Intan Recording Controller
-        board_adc_data = 312.5e-6 * (board_adc_data - 32768); % units = volts
-    else
-        board_adc_data = 50.354e-6 * board_adc_data; % units = volts
-    end
+    board_adc_data = scale_adc_data(board_adc_data, eval_board_mode);
     temp_sensor_data = temp_sensor_data / 100; % units = deg C
 
     % Check for gaps in timestamps.
@@ -476,7 +470,7 @@ data = struct();
 data.filename = filename;
 data.path = path;
 
-data.notch_filter_frequency = notch_filter_frequency
+data.notch_filter_frequency = notch_filter_frequency;
 
 data.notes = notes;
 data.frequency_parameters = frequency_parameters;
@@ -538,9 +532,9 @@ elapsedTime = toc;
 if verbose
     fprintf(1, 'Done!  Elapsed time: %0.1f seconds\n', elapsedTime);
     if (data_present)
-        fprintf(1, 'Extracted data are now available in the MATLAB workspace.\n');
+        fprintf(1, 'Extracted data are now available in the returned struct.\n');
     else
-        fprintf(1, 'Extracted waveform information is now available in the MATLAB workspace.\n');
+        fprintf(1, 'Extracted waveform information is now available in the returned struct.\n');
     end
     fprintf(1, 'Type ''whos'' to see variables.\n');
     fprintf(1, '\n');
@@ -633,3 +627,12 @@ for i=3:L
 end
 
 return
+
+function board_adc_data = scale_adc_data(board_adc_data, eval_board_mode)
+    if (eval_board_mode == 1)
+        board_adc_data = 152.59e-6 * (board_adc_data - 32768); % units = volts
+    elseif (eval_board_mode == 13) % Intan Recording Controller
+        board_adc_data = 312.5e-6 * (board_adc_data - 32768); % units = volts
+    else
+        board_adc_data = 50.354e-6 * board_adc_data; % units = volts
+    end
