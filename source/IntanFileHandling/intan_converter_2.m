@@ -176,7 +176,7 @@ for file_num = start_index:numel(rhd_file_list)    % goes through all rhd files 
     
     timestampDiscrepancy = abs(rhd_filename_timestamp - rhd_amplifier_timestamp);
     if timestampDiscrepancy > max_timestamp_discrepancy
-        error('Error! Amplifier and filename timestamps don''t match: \nRHD file num %d\n', file_num);
+        error('Error! Amplifier and filename timestamps don''t match: \nRHD file num: %d\nRHD file name: %s\nRHD filename timestamp: %s\n RHD amplifier timestamp: %s\n', file_num, rhd_filename, num2str(datevec(rhd_filename_timestamp)), num2str(datevec(rhd_amplifier_timestamp)));
     end
     
     rhd_time_string = format_rhd_time(rhd_filename_timestamp);
