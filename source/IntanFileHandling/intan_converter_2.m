@@ -125,12 +125,15 @@ first_rhd_filename = rhd_file_list(start_index).name;
 % Extract time and date from first rhd file name
 first_file_timestamp = get_rhd_filename_timestamp(first_rhd_filename);
 first_rhd_date_string = format_rhd_date(first_file_timestamp);
+% Get base name from first RHD filename to make sure all files belong in
+% the same data series
+first_base_name = get_rhd_base_name(first_rhd_filename);
 
 %% Loop over RHD files, look for audio over the threshold, and save channel files 
 for file_num = start_index:numel(rhd_file_list)    % goes through all rhd files in one directory (one recording session)
     fprintf('Reading rhd file %d of %d\n', file_num, numel(rhd_file_list));
 
-    % Generate RHD filename
+    % Get RHD filename
     rhd_filename = rhd_file_list(file_num).name;
 
     % Read RHD data from file into the data struct
@@ -169,6 +172,16 @@ for file_num = start_index:numel(rhd_file_list)    % goes through all rhd files 
     
     end
 
+    % Check that RHD base name matches the base name of the 1st RHD file
+    base_name = get_rhd_base_name(rhd_filename);
+    if ~strcmp(base_name, first_base_name)
+        warning(['RHD base name changed: \n', ...
+               'RHD file num: %d\n', ...
+               'RHD file name:     %s\n', ...
+               '1st RHD file name: %s\n'], ...
+               file_num, rhd_filename, first_rhd_filename);
+    end
+    
     % Check that amplifier-based-timestamp does not differ
     % significantly from rhd-filename-based-timestamp
     rhd_filename_timestamp = get_rhd_filename_timestamp(rhd_filename);
@@ -176,7 +189,12 @@ for file_num = start_index:numel(rhd_file_list)    % goes through all rhd files 
     
     timestampDiscrepancy = abs(rhd_filename_timestamp - rhd_amplifier_timestamp);
     if timestampDiscrepancy > max_timestamp_discrepancy
-        error('Error! Amplifier and filename timestamps don''t match: \nRHD file num: %d\nRHD file name: %s\nRHD filename timestamp: %s\n RHD amplifier timestamp: %s\n', file_num, rhd_filename, num2str(datevec(rhd_filename_timestamp)), num2str(datevec(rhd_amplifier_timestamp)));
+        error(['Error! Amplifier and filename timestamps don''t match: \n', ...
+               'RHD file num: %d\n', ...
+               'RHD file name: %s\n', ...
+               'RHD filename timestamp:  %s\n', ... 
+               'RHD amplifier timestamp: %s\n'], ...
+               file_num, rhd_filename, num2str(round(datevec(rhd_filename_timestamp/(24*60*60)))), num2str(round(datevec(rhd_amplifier_timestamp/(24*60*60)))));
     end
     
     rhd_time_string = format_rhd_time(rhd_filename_timestamp);
@@ -435,12 +453,21 @@ timestamp = start_timestamp + t_amplifier - start_t_amplifier;
 function timestamp = get_rhd_filename_timestamp(rhd_filename)
 % Extract timestamp from rhd file name in seconds since epoch
 
-tokens = regexp(rhd_filename, '.*_([0-9]{2})([0-9]{2})([0-9]{2})_([0-9]{2})([0-9]{2})([0-9]{2})\.[rR][hH][dD]', 'tokens');
+tokens = regexp(rhd_filename, '(.*)_([0-9]{2})([0-9]{2})([0-9]{2})_([0-9]{2})([0-9]{2})([0-9]{2})\.[rR][hH][dD]', 'tokens');
+% Remove basename, which is the first token:
+tokens{1}(1) = [];
+
 tokens = cellfun(@str2double, tokens{1}, 'UniformOutput', true);
 % Convert 2 digit year to 4 digit year
 tokens(1) = tokens(1) + 2000;
 % Convert vector time to scalar time
 timestamp = datenum(tokens(:)') * 60 * 60 * 24;
+
+function base_name = get_rhd_base_name(rhd_filename)
+% Extract the base name from an RHD filename
+
+tokens = regexp(rhd_filename, '(.*)_([0-9]{2})([0-9]{2})([0-9]{2})_([0-9]{2})([0-9]{2})([0-9]{2})\.[rR][hH][dD]', 'tokens');
+base_name = tokens{1}{1};
 
 function [t_amplifier, num_rollovers, last_t_amplifier] = fix_t_amplifier(t_amplifier, num_rollovers, last_t_amplifier, fs)
 % Intan has a problem where if you record for more than ~22 hours, the
