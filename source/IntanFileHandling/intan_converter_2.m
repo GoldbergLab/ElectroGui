@@ -202,14 +202,16 @@ for file_num = start_index:numel(rhd_file_list)    % goes through all rhd files 
     % Fix intan t_amplifier overflow/rollover issue
     [data.t_amplifier, num_rollovers, last_t_amplifier] = fix_t_amplifier(data.t_amplifier, num_rollovers, last_t_amplifier, fs);
     
-    n_acc = 0;
+    % Obtain the aux frequency
     if (file_num==start_index) && (isfield(data, 'aux_input_channels'))
         number_aux = size(data.aux_input_channels, 2);
         % Get the aux sample rate, which is different from the amplifier
         % sample rate
         fs_aux = data.frequency_parameters.aux_input_sample_rate;
     end
-    
+
+    n_acc = 0;
+
     for headstage_num = 1:num_headstages
         %% Loop over each headstage in this file
         fprintf('\tHandling headstage %d of %d\n', headstage_num, num_headstages);
@@ -329,6 +331,8 @@ for file_num = start_index:numel(rhd_file_list)    % goes through all rhd files 
             % Loop over channel data for this headstage (channel data is
             % not segregated by headstage in rhd file)
             for rhd_channel_idx = (channel_count*(headstage_num-1)+1):(channel_count*headstage_num)
+                %% Write channel data
+                
                 % Generate channel filenames
                 file_name = sprintf(filename_pattern, channel_num);
                 full_file_name = fullfile(path_output, file_name);
