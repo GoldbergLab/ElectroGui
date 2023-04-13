@@ -5264,6 +5264,12 @@ function check_HistShow_Callback(hObject, ~, handles)
 
 % Hint: get(hObject,'Value') returns toggle state of check_HistShow
 
+handles = updateHistogramVisibility(handles);
+
+guidata(hObject, handles);
+
+function handles = updateHistogramVisibility(handles)
+
 switch getHistogramDirection(handles)
     case 'horizontal'
         handles.HistShow(1) = get(handles.check_HistShow,'value');
@@ -5301,9 +5307,6 @@ pos = get(handles.axes_Hist,'position');
 pos(4) = h;
 drawnow
 set(handles.axes_Hist,'position',pos);
-
-guidata(hObject, handles);
-
 
 % --- Executes on selection change in popup_HistUnits.
 function popup_HistUnits_Callback(~, ~, ~)
@@ -6210,6 +6213,8 @@ handles = setDimensions(handles, preset.ExportPSTHHeight, preset.ExportHistHeigh
 
 % Histogram options
 set(handles.check_HistShow, 'Value', preset.check_HistShow);
+handles = updateHistogramVisibility(handles);
+
 set(handles.radio_PSTHAuto, 'Value', preset.radio_PSTHAuto);
 set(handles.radio_PSTHManual, 'Value', preset.radio_PSTHManual);
 handles = setHistogramDirection(handles, preset.histogram_direction);
