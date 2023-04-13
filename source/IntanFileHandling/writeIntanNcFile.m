@@ -1,15 +1,16 @@
-function writeIntanNcFile(path, timeVector, deltaT, channel, metaData, data, overwrite)
+function writeIntanNcFile(filepath, timeVector, deltaT, channel, metaData, data, overwrite)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % writeIntanNcFile: A function to create a binary netCDF format file from
 %   a 1 channel time series, for example a single channel of Intan data.
 %
 % usage:  
-%   writeIntanNcFile(path, timeVector, deltaT, channel, metaData, data[, 
-%                    overwrite])
+%   writeIntanNcFile(filepath, timeVector, deltaT, channel, metaData, data
+%                    [, overwrite])
 %
 % where,
-%    path is a char array representing the path to save the binary file to
-%    timeVector is a time/date vector of the form 
+%    filepath is a char array representing the path to save the binary file
+%       to. If the filepath lacks a file extension, '.nc' will be added.
+%    timeVector is a time/date vector of the form
 %           [year, month, day, hour, minute, second, microseconds]
 %       or
 %           [year, month, day, hour, minute, fractionalSeconds]
@@ -66,11 +67,18 @@ if length(timeVector) == 6
     timeVector(7) = 1000000*timeVector(6)-1000000*floor(timeVector(6));
 end
 
+
+[path, filename, ext] = fileparts(filepath);
+if isempty(ext)
+    % No file extension found - add '.nc' on
+    filepath = fullfile(path, [filename, '.nc']);
+end
+
 % Create blank netCDF file
 if overwrite
-    ncid = netcdf.create(path, 'CLOBBER');
+    ncid = netcdf.create(filepath, 'CLOBBER');
 else
-    ncid = netcdf.create(path, 'NOCLOBBER');
+    ncid = netcdf.create(filepath, 'NOCLOBBER');
 end
 
 try

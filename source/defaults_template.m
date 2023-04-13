@@ -1,4 +1,4 @@
-function handles = defaults_BrianKardon(handles)
+function handles = defaults_template(handles)
 % Default settings
 
 % GENERAL SETTINGS

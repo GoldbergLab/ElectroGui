@@ -23,7 +23,7 @@ function varargout = electro_gui(varargin)
 
 % Edit the above text to modify the response to help electro_gui
 
-% Last Modified by GUIDE v2.5 02-Aug-2022 09:38:58
+% Last Modified by GUIDE v2.5 20-Oct-2022 09:32:07
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -2108,6 +2108,9 @@ end
 
 handles.DefaultFile = 'analysis.mat';
 
+% Placeholder for custom fields
+handles.OriginalDbase = struct();
+
 if strcmp(handles.WorksheetTitle,'Untitled')
     f = findstr(handles.DefaultRootPath,'\');
     handles.WorksheetTitle = handles.DefaultRootPath(f(end)+1:end);
@@ -2343,6 +2346,10 @@ if ~isdir(handles.DefaultRootPath)
 end
 
 handles.DefaultFile = [path file];
+
+% Store original dbase in case it has custom fields, so we can restore them
+%   when we save the dbase
+handles.OriginalDbase = dbase;
 
 handles.DatesAndTimes = dbase.Times;
 handles.FileLength = dbase.FileLength;
@@ -9651,6 +9658,18 @@ dbase.AnalysisState.EventList = get(handles.popup_EventList,'string');
 dbase.AnalysisState.CurrentFile = getCurrentFileNum(handles);
 dbase.AnalysisState.EventWhichPlot = handles.EventWhichPlot;
 dbase.AnalysisState.EventLims = handles.EventLims;
+
+% Add any other custom fields from the original dbase that might exist to
+% the exported dbase
+if isfield(handles, 'OriginalDbase')
+    originalFields = fieldnames(handles.OriginalDbase);
+    for k = 1:length(originalFields)
+        fieldName = originalFields{k};
+        if ~isfield(dbase, fieldName)
+            dbase.(fieldName) = handles.OriginalDbase.(fieldName);
+        end
+    end
+end
 
 function suppressStupidCallbackWarnings()
 edit_FileNumber_Callback;
