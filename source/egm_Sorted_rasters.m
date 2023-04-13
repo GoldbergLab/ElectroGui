@@ -461,8 +461,8 @@ if isempty(answer)
 end
 bckPre = handles.P.preStartRef;
 bckPost = handles.P.postStopRef;
-handles.P.preStartRef = str2num(answer{1});
-handles.P.postStopRef = str2num(answer{2});
+handles.P.preStartRef = str2double(answer{1});
+handles.P.postStopRef = str2double(answer{2});
 
 guidata(hObject, handles);
 
@@ -584,7 +584,7 @@ end
 
 guidata(hObject, handles);
 
-function opt = edit_Options(opt,obj);
+function opt = edit_Options(opt,obj)
 % Edit trigger or event options
 
 switch get(obj,'tag')
@@ -613,7 +613,7 @@ switch str{val}
         indx = 8:9;
     case 'Pauses'
         indx = 10;
-    case 'Continuous function';
+    case 'Continuous function'
         indx = 11:12;
 end
 
@@ -633,7 +633,7 @@ query = { ...
 motseq = '{';
 for c = 1:length(opt.motifSequences)
     if c > 1
-        motseq = [motseq ', '];
+        motseq = [motseq ', ']; %#ok<*AGROW> 
     end
     motseq = [motseq '''' opt.motifSequences{c} ''''];
 end
@@ -666,24 +666,24 @@ switch str{val}
         opt.ignoreSyllList = answer{2};
     case 'Motifs'
         opt.motifSequences = eval(answer{1});
-        opt.motifInterval = str2num(answer{2});
+        opt.motifInterval = str2double(answer{2});
     case 'Bouts'
         opt.includeSyllList = answer{1};
         opt.ignoreSyllList = answer{2};
-        opt.boutInterval = str2num(answer{3});
-        opt.boutMinDuration = str2num(answer{4});
-        opt.boutMinSyllables = str2num(answer{5});
+        opt.boutInterval = str2double(answer{3});
+        opt.boutMinDuration = str2double(answer{4});
+        opt.boutMinSyllables = str2double(answer{5});
     case 'Events'
         errordlg('Events do not require options!','Error');
         return
     case {'Bursts','Burst events','Single events'}
-        opt.burstFrequency= str2num(answer{1});
-        opt.burstMinSpikes = str2num(answer{2});
+        opt.burstFrequency= str2double(answer{1});
+        opt.burstMinSpikes = str2double(answer{2});
     case 'Pauses'
-        opt.pauseMinDuration  = str2num(answer{1});
+        opt.pauseMinDuration  = str2double(answer{1});
     case 'Continuous function'
-        opt.contSmooth = str2num(answer{1});
-        opt.contSubsample = str2num(answer{2});
+        opt.contSmooth = str2double(answer{1});
+        opt.contSubsample = str2double(answer{2});
 end
 
 
@@ -791,9 +791,9 @@ end
 fields = fieldnames(triggerInfo);
 for c = 1:length(fields)
     if ~strcmp(fields{c},'contLabel')
-        fld = getfield(triggerInfo,fields{c});
+        fld = triggerInfo.(fields{c});
         fld = fld(keepi);
-        triggerInfo = setfield(triggerInfo,fields{c},fld);
+        triggerInfo.(fields{c}) = fld;
     end
 end
 
@@ -850,9 +850,9 @@ else
     fields = fieldnames(triggerInfo);
     for c = 1:length(fields)
         if ~strcmp(fields{c},'contLabel')
-            fld = getfield(triggerInfo,fields{c});
+            fld = triggerInfo.(fields{c});
             fld = fld(ord);
-            triggerInfo = setfield(triggerInfo,fields{c},fld);
+            triggerInfo.(fields{c}) = fld;
         end
     end
     warpTimes = warpTimes(ord,:);
@@ -910,7 +910,7 @@ if ~isempty(handles.WarpPoints)
     towarp = {'prevTrigOnset','prevTrigOffset','currTrigOnset','currTrigOffset','nextTrigOnset','nextTrigOffset','eventOnsets','eventOffsets','dataStart','dataStop'};
     stretch = zeros(size(warpTimes,1),size(warpTimes,2)-1);
     for w = 1:length(towarp)
-        fld = getfield(triggerInfo,towarp{w});
+        fld = triggerInfo.(towarp{w});
         for c = 1:size(warpTimes,1)
             if iscell(fld)
                 [fld{c}, strt] = WarpTrial(fld{c},warpTimes(c,:),newwarp,str{val},handles.egh.fs,towarp{w});
@@ -919,7 +919,7 @@ if ~isempty(handles.WarpPoints)
             end
             stretch(c,:) = strt;
         end
-        triggerInfo = setfield(triggerInfo,towarp{w},fld);
+        triggerInfo.(towarp{w}) = fld;
     end
 end
 
@@ -1106,7 +1106,7 @@ str = get(handles.popup_EventType,'string');
 ev_str = str{get(handles.popup_EventType,'value')};
 str = get(handles.popup_EventSource,'string');
 ev_str = ['[' ev_str '] ' str{get(handles.popup_EventSource,'value')}];
-if ~isempty(findstr(ev_str,'Syllables')) || ~isempty(findstr(ev_str,'Markers')) 
+if ~isempty(strfind(ev_str,'Syllables')) || ~isempty(strfind(ev_str,'Markers')) 
     if ~isempty(handles.P.event.includeSyllList)
         ev_str = [ev_str ' - Include ' handles.P.event.includeSyllList];
     end
@@ -1120,7 +1120,7 @@ str{length(handles.AllEventOnsets)} = ev_str;
 
 plt = {'On','Off','Box','PSTH','Vert'};
 for c = 1:length(str)
-    f = findstr(str{c},'-');
+    f = strfind(str{c},'-');
     str{c} = str{c}(1:f(end)-2);
     if sum(handles.AllEventPlots(c,:)) == 0
         str{c} = [str{c} ' - No plots'];
@@ -2097,11 +2097,11 @@ for c = 1:length(trig.on)
         if f == 0
             fields = fieldnames(triggerInfo);
             for j = 1:length(fields)
-                fld = getfield(triggerInfo,fields{j});
+                fld = triggerInfo.(fields{j});
                 if ~strcmp(fields{j},'contLabel') && length(fld)==count
-                    fld = getfield(triggerInfo,fields{j});
+                    fld = triggerInfo.(fields{j});
                     fld(count) = [];
-                    triggerInfo = setfield(triggerInfo,fields{j},fld);
+                    triggerInfo.(fields{j}) = fld;
                 end
             end
             count = count - 1;
@@ -2199,11 +2199,11 @@ for c = 1:length(trig.on)
         if f == 0
             fields = fieldnames(triggerInfo);
             for j = 1:length(fields)
-                fld = getfield(triggerInfo,fields{j});
+                fld = triggerInfo.(fields{j});
                 if ~strcmp(fields{j},'contLabel') && length(fld)==count
-                    fld = getfield(triggerInfo,fields{j});
+                    fld = triggerInfo.(fields{j});
                     fld(count) = [];
-                    triggerInfo = setfield(triggerInfo,fields{j},fld);
+                    triggerInfo.(fields{j}) = fld;
                 end
             end
             count = count - 1;
@@ -2233,7 +2233,7 @@ switch type
     case 'Trigger label'
         srt = triggerInfo.label;
         if max(srt) && ~isempty(inc)
-            f = findstr(inc,'''''');
+            f = strfind(inc,'''''');
             inc = double(inc);
             if ~isempty(f)
                 inc(f+1) = [];
@@ -2241,7 +2241,7 @@ switch type
             end
            [dummy ord] = sort(inc);
            for c = 1:length(inc)
-               srt(find(srt==inc(c))) = 1000+c;
+               srt(srt==inc(c)) = 1000+c;
            end
         end                
     case 'Preceding event onset'
@@ -2333,9 +2333,9 @@ end
 fields = fieldnames(triggerInfo);
 for c = 1:length(fields)
     if ~strcmp(fields{c},'contLabel')
-        fld = getfield(triggerInfo,fields{c});
+        fld = triggerInfo.(fields{c});
         fld = fld(ord);
-        triggerInfo = setfield(triggerInfo,fields{c},fld);
+        triggerInfo.(fields{c}) = fld;
     end
 end
 
@@ -2463,7 +2463,7 @@ for c = 1:length(lst)
                 inform.label{c} = lab;
                 
                 inc = P.includeSyllList;
-                f = findstr(inc,'''''');
+                f = strfind(inc,'''''');
                 inc([f f+1]) = [];
                 inc = double(inc);
                 if ~isempty(f)
@@ -2480,7 +2480,7 @@ for c = 1:length(lst)
                 end
                 
                 inc = P.ignoreSyllList;
-                f = findstr(inc,'''''');
+                f = strfind(inc,'''''');
                 inc([f f+1]) = [];
                 inc = double(inc);
                 if ~isempty(f)
@@ -2515,8 +2515,6 @@ for c = 1:length(lst)
                 offs{c} = [];
                 inform.label{c} = [];
                 for mot = 1:length(P.motifSequences)
-                    st = [];
-                    en = [];
                     [st en] = regexp(stitl,P.motifSequences{mot},'start','end');
                     for j = length(st):-1:1
                         if max(son(st(j)+1:en(j))-soff(st(j):en(j)-1)) > handles.egh.fs*P.motifInterval
@@ -2542,7 +2540,7 @@ for c = 1:length(lst)
                 end
                 
                 inc = P.includeSyllList;
-                g = findstr(inc,'''''');
+                g = strfind(inc,'''''');
                 inc([g g+1]) = [];
                 inc = double(inc);
                 if ~isempty(g)
@@ -2559,7 +2557,7 @@ for c = 1:length(lst)
                 end
                 
                 inc = P.ignoreSyllList;
-                g = findstr(inc,'''''');
+                g = strfind(inc,'''''');
                 inc([g g+1]) = [];
                 inc = double(inc);
                 if ~isempty(g)
@@ -2695,7 +2693,7 @@ function edit_FilterFrom_Callback(hObject, ~, handles)
 %        str2double(get(hObject,'String')) returns contents of edit_FilterFrom as a double
 
 val = get(handles.list_Filter,'value');
-handles.P.filter(val,1) = str2num(get(handles.edit_FilterFrom,'string'));
+handles.P.filter(val,1) = str2double(get(handles.edit_FilterFrom,'string'));
 guidata(hObject, handles);
 
 
@@ -2723,7 +2721,7 @@ function edit_FilterTo_Callback(hObject, ~, handles)
 
 
 val = get(handles.list_Filter,'value');
-handles.P.filter(val,2) = str2num(get(handles.edit_FilterTo,'string'));
+handles.P.filter(val,2) = str2double(get(handles.edit_FilterTo,'string'));
 guidata(hObject, handles);
 
 
@@ -2984,7 +2982,7 @@ if strcmp(get(handles.push_PlotWidth,'string'),'Width')
         return
     end
 
-    handles.PlotLineWidth(val) = str2num(answer{1});
+    handles.PlotLineWidth(val) = str2double(answer{1});
 else
     query = [str{val}(26:end-14) ' transparency'];
     answer = inputdlg(query,'Transparency',1,{num2str(handles.PlotAlpha(val))});
@@ -2992,7 +2990,7 @@ else
         return
     end
 
-    handles.PlotAlpha(val) = str2num(answer{1});
+    handles.PlotAlpha(val) = str2double(answer{1});
 end
 
 if isempty(handles.PlotHandles{val})
@@ -3126,22 +3124,22 @@ if f == 3
         if isempty(answer)
             return
         end
-        handles.PlotTickSize(f) = str2num(answer{1});
-        handles.PlotOverlap = str2num(answer{2});
+        handles.PlotTickSize(f) = str2double(answer{1});
+        handles.PlotOverlap = str2double(answer{2});
     else
         answer = inputdlg({['Tick height (' str{f} ')'],'Inches per second'},'Tick height',1,{num2str(handles.PlotTickSize(f)),num2str(handles.PlotInPerSec)});
         if isempty(answer)
             return
         end
-        handles.PlotTickSize(f) = str2num(answer{1});
-        handles.PlotInPerSec = str2num(answer{2});
+        handles.PlotTickSize(f) = str2double(answer{1});
+        handles.PlotInPerSec = str2double(answer{2});
     end
 else
     answer = inputdlg(['Tick height (' str{f} ')'],'Tick height',1,{num2str(handles.PlotTickSize(f))});
     if isempty(answer)
         return
     end
-    handles.PlotTickSize(f) = str2num(answer{1});
+    handles.PlotTickSize(f) = str2double(answer{1});
 end
 
 guidata(hObject, handles);
@@ -3843,10 +3841,10 @@ switch getHistogramDirection(handles)
             return
         end
 
-        handles.PSTHBinSize = str2num(answer{1});
-        handles.PSTHSmoothingWindow = str2num(answer{2});
-        handles.PSTHYLim(val,1) = str2num(answer{3});
-        handles.PSTHYLim(val,2) = str2num(answer{4});
+        handles.PSTHBinSize = str2double(answer{1});
+        handles.PSTHSmoothingWindow = str2double(answer{2});
+        handles.PSTHYLim(val,1) = str2double(answer{3});
+        handles.PSTHYLim(val,2) = str2double(answer{4});
 
         if get(handles.radio_PSTHManual,'value')==1
             set(handles.axes_PSTH,'ylim',handles.PSTHYLim(val,:));
@@ -3872,12 +3870,12 @@ switch getHistogramDirection(handles)
             return
         end
 
-        handles.HistBinSize(val) = str2num(answer{1});
-        handles.HistSmoothingWindow = str2num(answer{2});
-        handles.ROILim(1) = str2num(answer{3});
-        handles.ROILim(2) = str2num(answer{4});
-        handles.HistYLim(val,1) = str2num(answer{5});
-        handles.HistYLim(val,2) = str2num(answer{6});
+        handles.HistBinSize(val) = str2double(answer{1});
+        handles.HistSmoothingWindow = str2double(answer{2});
+        handles.ROILim(1) = str2double(answer{3});
+        handles.ROILim(2) = str2double(answer{4});
+        handles.HistYLim(val,1) = str2double(answer{5});
+        handles.HistYLim(val,2) = str2double(answer{6});
 
         if get(handles.radio_PSTHManual,'value')==1
             set(handles.axes_Hist,'xlim',handles.HistYLim(val,:));
@@ -4181,7 +4179,7 @@ answer = inputdlg({['Custom duration for interval ' intervalName]},'Duration',1,
 if isempty(answer)
     return
 end
-handles.WarpIntervalDuration(intervalIndex) = str2num(answer{1});
+handles.WarpIntervalDuration(intervalIndex) = str2double(answer{1});
 handles.WarpIntervalType(intervalIndex) = 4;
 set(handles.radio_WarpCustom,'value',1);
 
@@ -4194,7 +4192,7 @@ function push_IntervalLeft_Callback(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-num = str2num(get(handles.text_Interval,'string'));
+num = str2double(get(handles.text_Interval,'string'));
 num = num - 1;
 if num == 0
     num = -1;
@@ -4209,7 +4207,7 @@ function push_IntervalRight_Callback(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-num = str2num(get(handles.text_Interval,'string'));
+num = str2double(get(handles.text_Interval,'string'));
 num = num + 1;
 if num == 0
     num = 1;
@@ -4250,7 +4248,7 @@ set(ch(handles.WarpIntervalType(indx)),'value',1);
 
 function RadioWarpedDurations(hObject, ~, handles)
 
-num = str2num(get(handles.text_Interval,'string'));
+num = str2double(get(handles.text_Interval,'string'));
 indx = num - handles.WarpIntervalLim(1) + 1;
 if num > 0
     indx = indx - 1;
@@ -4393,7 +4391,7 @@ else
 end
 
 
-function [fld_new, stretch] = WarpTrial(fld,oldwarp,newwarp,method,fs,warpstr);
+function [fld_new, stretch] = WarpTrial(fld,oldwarp,newwarp,method,fs,warpstr)
 % warping algorithms
 
 tol = 1/fs;
@@ -4535,8 +4533,8 @@ if val <= length(str)-sum(nums)
         pos = [0 cumsum(true_len)];
         funct = [];
         for ovr = 1:length(fm);
-            chan = str2num(str{val}(9:end));
-            if length(str{val})>4 & strcmp(str{val}(1:5),'Sound')
+            chan = str2double(str{val}(9:end));
+            if length(str{val})>4 && strcmp(str{val}(1:5),'Sound')
                 [funct1, fs, dt, lab, props] = eg_runPlugin(handles.egh.plugins.loaders, handles.egh.sound_loader, fullfile(handles.egh.DefaultRootPath, handles.egh.sound_files(fm(ovr)).name), true);
             else
                 [funct1, fs, dt, lab, props] = eg_runPlugin(handles.egh.plugins.loaders, handles.egh.chan_loader{chan}, fullfile(handles.egh.DefaultRootPath, handles.egh.chan_files{chan}(fm(ovr)).name), true);
@@ -4563,7 +4561,7 @@ end
 if get(handles.egh.popup_Functions(axnum),'value') > 1
     str = get(handles.egh.popup_Functions(axnum),'string');
     str = str{get(handles.egh.popup_Functions(axnum),'value')};
-    f = findstr(str,' - ');
+    f = strfind(str,' - ');
     if isempty(f)
         [funct, lab] = eg_runPlugin(handles.egh.plugins.filters, str, funct,handles.egh.fs,handles.egh.FunctionParams{axnum});
     else
@@ -4656,8 +4654,8 @@ answer = inputdlg({'Min','Max'},'C-limits',1,{num2str(handles.CLim(1)),num2str(h
 if isempty(answer)
     return
 end
-handles.CLim(1) = str2num(answer{1});
-handles.CLim(2) = str2num(answer{2});
+handles.CLim(1) = str2double(answer{1});
+handles.CLim(2) = str2double(answer{2});
 set(handles.axes_Raster,'clim',handles.CLim);
 
 guidata(hObject, handles);
@@ -5022,8 +5020,8 @@ if num == 2
     handles.Selection(num,1) = datenum(answer{1});
     handles.Selection(num,2) = datenum(answer{2});
 else
-    handles.Selection(num,1) = str2num(answer{1});
-    handles.Selection(num,2) = str2num(answer{2});
+    handles.Selection(num,1) = str2double(answer{1});
+    handles.Selection(num,2) = str2double(answer{2});
 end
 
 
@@ -5137,7 +5135,7 @@ if isempty(handles.LabelRange)
     handles.LabelSelectionInc = answer{1};
     handles.LabelSelectionExc = answer{2};
 
-    f = findstr(handles.LabelSelectionInc,'''''');
+    f = strfind(handles.LabelSelectionInc,'''''');
     inc = handles.LabelSelectionInc;
     inc([f f+1]) = [];
     inc = double(inc);
@@ -5145,7 +5143,7 @@ if isempty(handles.LabelRange)
         inc = [inc 0];
     end
 
-    f = findstr(handles.LabelSelectionExc,'''''');
+    f = strfind(handles.LabelSelectionExc,'''''');
     exc = handles.LabelSelectionExc;
     exc([f f+1]) = [];
     exc = double(exc);
@@ -5167,8 +5165,8 @@ else
     if isempty(answer)
         return
     end
-    handles.LabelRange(1) = str2num(answer{1});
-    handles.LabelRange(2) = str2num(answer{2});
+    handles.LabelRange(1) = str2double(answer{1});
+    handles.LabelRange(2) = str2double(answer{2});
     
     f = (handles.triggerInfo.label>=handles.LabelRange(1)+1000 & handles.triggerInfo.label<=handles.LabelRange(2)+1000);
 end
@@ -5488,7 +5486,7 @@ is_marker = strcmp(str{get(handles.popup_TriggerType,'value')},'Markers');
 if ~isempty(handles.P.trig.includeSyllList) && (is_syllable || is_marker)
     inc = handles.P.trig.includeSyllList;
     inc = double(inc);
-    f = findstr(inc,'''''');
+    f = strfind(inc,'''''');
     if ~isempty(f)
         inc(f+1) = [];
         inc(f) = 0;
@@ -5500,7 +5498,7 @@ end
 if ~isempty(handles.P.trig.ignoreSyllList) && (is_syllable || is_marker)
     exc = handles.P.trig.ignoreSyllList;
     exc = double(exc);
-    f = findstr(exc,'''''');
+    f = strfind(exc,'''''');
     if ~isempty(f)
         exc(f+1) = [];
         exc(f) = 0;
@@ -5560,7 +5558,7 @@ while islast == 0
        case 3
            answer = inputdlg({'Number of colors'},'Auto colors',1,{num2str(size(handles.PlotAutoColors,1))});
            if ~isempty(answer)
-               handles.PlotAutoColors = hsv(str2num(answer{1}));
+               handles.PlotAutoColors = hsv(str2double(answer{1}));
            end
        case 4
            
@@ -5810,7 +5808,7 @@ if isempty(answer)
     return
 end
 
-handles.overlaptolerance = str2num(answer{1});
+handles.overlaptolerance = str2double(answer{1});
 tol = handles.overlaptolerance*handles.fs;
 
 for c = length(handles.DatesAndTimes)-1:-1:1
@@ -5906,7 +5904,7 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_ExportData_Callback(hObject, ~, handles)
+function menu_ExportData_Callback(~, ~, handles)
 % hObject    handle to menu_ExportData (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -5924,11 +5922,11 @@ triggerInfo.eventOffsets = handles.AllEventOffsets;
 triggerInfo.eventLabels = handles.AllEventLabels;
 triggerInfo.eventNames = get(handles.popup_EventList,'string')';
 for warpInterval = 1:length(triggerInfo.eventNames)
-    f = findstr(triggerInfo.eventNames{warpInterval},'Syllables');
+    f = strfind(triggerInfo.eventNames{warpInterval},'Syllables');
     if ~isempty(f)
         triggerInfo.eventNames{warpInterval} = '[Syllables] Sound';
     else
-        f = findstr(triggerInfo.eventNames{warpInterval},'-');
+        f = strfind(triggerInfo.eventNames{warpInterval},'-');
         triggerInfo.eventNames{warpInterval} = triggerInfo.eventNames{warpInterval}(1:f(end)-2);
     end
 end
