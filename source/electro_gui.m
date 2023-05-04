@@ -2197,10 +2197,7 @@ end
 set(handles.popup_Channel1,'string',sourceStrings);
 set(handles.popup_Channel2,'string',sourceStrings);
 
-% Set up list of sources for the sound axes
-sourceIndices = 0:length(handles.chan_files);
-set(handles.popup_SoundSource, 'string', sourceStrings(2:end));
-set(handles.popup_SoundSource, 'UserData', sourceIndices);
+handles = eg_PopulateSoundSources(handles);
 
 set(handles.popup_EventList,'string',{'(None)'});
 
@@ -2567,6 +2564,8 @@ for axnum = 1:2
         handles.FunctionParams{axnum} = ud{v};
     end
 end
+
+handles = eg_PopulateSoundSources(handles);
 
 handles = eg_RestartProperties(handles);
 
@@ -10012,6 +10011,19 @@ centerTime = str2double(answer{2});
 handles = centerTimescale(handles, centerTime, radiusTime);
 
 guidata(hObject, handles);
+
+function handles = eg_PopulateSoundSources(handles)
+
+% Set up list of sources for the sound axes
+sourceStrings = {'Sound'};
+for c = 1:length(handles.chan_files)
+    if ~isempty(handles.chan_files{c})
+        sourceStrings{end+1} = ['Channel ' num2str(c)];
+    end
+end
+sourceIndices = 0:length(handles.chan_files);
+set(handles.popup_SoundSource, 'string', sourceStrings);
+set(handles.popup_SoundSource, 'UserData', sourceIndices);
 
 
 % --- Executes on selection change in popup_SoundSource.
