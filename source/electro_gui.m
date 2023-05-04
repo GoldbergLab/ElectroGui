@@ -23,7 +23,7 @@ function varargout = electro_gui(varargin)
 
 % Edit the above text to modify the response to help electro_gui
 
-% Last Modified by GUIDE v2.5 20-Oct-2022 09:32:07
+% Last Modified by GUIDE v2.5 04-May-2023 10:21:37
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -946,6 +946,9 @@ set(handles.text_FileName,'string',handles.sound_files(fileNum).name);
 
 handles.BackupTitle = {'',''};
 
+% Load properties
+handles = eg_LoadProperties(handles);
+
 % Load sound
 handles.sound = [];
 
@@ -954,28 +957,28 @@ handles.sound = [];
 subplot(handles.axes_Sound)
 handles.DatesAndTimes(fileNum) = dt;
 handles.FileLength(fileNum) = eg_GetNumSamples(handles);
-set(handles.text_DateAndTime,'string',datestr(dt,0));
+set(handles.text_DateAndTime, 'string', datestr(dt,0));
 
 handles = eg_FilterSound(handles);
 
 [handles, filtered_sound] = eg_GetSound(handles, true);
 
-h = eg_peak_detect(gca,linspace(0,eg_GetNumSamples(handles)/handles.fs,eg_GetNumSamples(handles)), filtered_sound);
+h = eg_peak_detect(handles.axes_Sound, linspace(0,eg_GetNumSamples(handles)/handles.fs, eg_GetNumSamples(handles)), filtered_sound);
 set(h,'color','c');
-set(gca,'xtick',[],'ytick',[]);
-set(gca,'color',[0 0 0]);
-axis tight;
-yl = max(abs(ylim));
-ylim([-yl*1.2 yl*1.2]);
+set(handles.axes_Sound, 'xtick', [], 'ytick', []);
+set(handles.axes_Sound, 'color', [0 0 0]);
+axis(handles.axes_Sound, 'tight');
+yl = max(abs(ylim(handles.axes_Sound)));
+ylim(handles.axes_Sound, [-yl*1.2 yl*1.2]);
 
 % Set limits
-yl = ylim;
+yl = ylim(handles.axes_Sound);
 xmax = eg_GetNumSamples(handles)/handles.fs;
-hold on
-handles.xlimbox = plot([0 xmax xmax 0 0],[yl(1) yl(1) yl(2) yl(2) yl(1)]*.93,':y','linewidth',2);
-xlim([0 xmax]);
-hold off
-box on;
+hold(handles.axes_Sound, 'on');
+handles.xlimbox = plot(handles.axes_Sound, [0, xmax, xmax, 0, 0],[yl(1), yl(1), yl(2), yl(2), yl(1)]*.93,':y', 'linewidth', 2);
+xlim(handles.axes_Sound, [0 xmax]);
+hold(handles.axes_Sound, 'off');
+box(handles.axes_Sound, 'on');
 
 % Delete old plots
 cla(handles.axes_Sonogram);
@@ -997,16 +1000,12 @@ set(handles.axes_Amplitude,'xlim',[0 xmax]);
 set(handles.axes_Channel1,'xlim',[0 xmax]);
 set(handles.axes_Channel2,'xlim',[0 xmax]);
 
-% Load properties
-handles = eg_LoadProperties(handles);
-
-
 % If file too long
-subplot(handles.axes_Sonogram)
+% subplot(handles.axes_Sonogram)
 if eg_GetNumSamples(handles) > handles.TooLong
-    txt = text(mean(xlim),mean(ylim),'Long file. Click to load.',...
-        'horizontalalignment','center','color','r','fontsize',14);
-    set(txt,'buttondownfcn','electro_gui(''click_loadfile'',gcbo,[],guidata(gcbo))');
+    txt = text(mean(xlim),mean(ylim), 'Long file. Click to load.',...
+        'horizontalalignment', 'center', 'color', 'r', 'fontsize', 14, 'Parent', handles.axes_Sonogram);
+    set(txt, 'buttondownfcn', 'electro_gui(''click_loadfile'',gcbo,[],guidata(gcbo))');
     cd(curr);
 
     set(handles.edit_Timescale,'string',num2str(eg_GetNumSamples(handles)/handles.fs,4));
@@ -1017,15 +1016,15 @@ if eg_GetNumSamples(handles) > handles.TooLong
 end
 
 % Define callbacks
-subplot(handles.axes_Sound);
-set(gca,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
-ch = get(gca,'children');
-set(ch,'buttondownfcn',get(gca,'buttondownfcn'));
+% subplot(handles.axes_Sound);
+set(handles.axes_Sonogram, 'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
+ch = get(handles.axes_Sonogram, 'children');
+set(ch,'buttondownfcn', get(handles.axes_Sonogram, 'buttondownfcn'));
 
 
 % Plot channels
-val = get(handles.popup_Channel1,'value');
-str = get(handles.popup_Channel1,'string');
+val = get(handles.popup_Channel1, 'value');
+str = get(handles.popup_Channel1, 'string');
 if isempty(findstr(str{val},' - '))
     handles = eg_LoadChannel(handles,1);
     handles = EventSetThreshold(handles,1);
@@ -1040,19 +1039,19 @@ end
 
 
 % Plot amplitude
-[handles.amplitude labs] = eg_CalculateAmplitude(handles);
+[handles.amplitude, labs] = eg_CalculateAmplitude(handles);
 
 if ~isempty(handles.amplitude)
-    subplot(handles.axes_Amplitude);
-    h = plot(linspace(0,eg_GetNumSamples(handles)/handles.fs,eg_GetNumSamples(handles)),handles.amplitude,'color',handles.AmplitudeColor);
-    set(gca,'xticklabel',[]);
-    ylim(handles.AmplitudeLims);
-    box off;
-    ylabel(labs);
-    set(gca,'uicontextmenu',handles.context_Amplitude);
-    set(gca,'buttondownfcn','electro_gui(''click_Amplitude'',gcbo,[],guidata(gcbo))');
-    set(get(gca,'children'),'uicontextmenu',get(gca,'uicontextmenu'));
-    set(get(gca,'children'),'buttondownfcn',get(gca,'buttondownfcn'));
+%     subplot(handles.axes_Amplitude);
+    h = plot(handles.axes_Amplitude, linspace(0,eg_GetNumSamples(handles)/handles.fs,eg_GetNumSamples(handles)),handles.amplitude,'color',handles.AmplitudeColor);
+    set(handles.axes_Amplitude, 'xticklabel',[]);
+    ylim(handles.axes_Amplitude, handles.AmplitudeLims);
+    box(handles.axes_Amplitude, 'off');
+    ylabel(handles.axes_Amplitude, labs);
+    set(handles.axes_Amplitude, 'uicontextmenu',handles.context_Amplitude);
+    set(handles.axes_Amplitude, 'buttondownfcn','electro_gui(''click_Amplitude'',gcbo,[],guidata(gcbo))');
+    set(get(handles.axes_Amplitude, 'children'), 'uicontextmenu',get(handles.axes_Amplitude, 'uicontextmenu'));
+    set(get(handles.axes_Amplitude, 'children'), 'buttondownfcn', get(handles.axes_Amplitude, 'buttondownfcn'));
 
     if handles.SoundThresholds(fileNum)==inf
         if strcmp(get(handles.menu_AutoThreshold,'checked'),'on')
@@ -1347,7 +1346,8 @@ switch handles.SoundChannel
         sound = handles.loadedChannelData{2};
     otherwise
         % Use some other not-already-loaded channel data as sound
-        sound = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{selectedChannelNum}, fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum}(filenum).name), true);
+        fileNum = getCurrentFileNum(handles);
+        sound = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{handles.SoundChannel}, fullfile(handles.DefaultRootPath, handles.chan_files{handles.SoundChannel}(fileNum).name), true);
 end
 
 function handles = eg_FilterSound(handles)
@@ -2188,14 +2188,19 @@ end
 set(handles.list_Files,'string',str);
 
 
-str = {'(None)','Sound'};
+sourceStrings = {'(None)','Sound'};
 for c = 1:length(handles.chan_files)
     if ~isempty(handles.chan_files{c})
-        str{end+1} = ['Channel ' num2str(c)];
+        sourceStrings{end+1} = ['Channel ' num2str(c)];
     end
 end
-set(handles.popup_Channel1,'string',str);
-set(handles.popup_Channel2,'string',str);
+set(handles.popup_Channel1,'string',sourceStrings);
+set(handles.popup_Channel2,'string',sourceStrings);
+
+% Set up list of sources for the sound axes
+sourceIndices = 0:length(handles.chan_files);
+set(handles.popup_SoundSource, 'string', sourceStrings(2:end));
+set(handles.popup_SoundSource, 'UserData', sourceIndices);
 
 set(handles.popup_EventList,'string',{'(None)'});
 
@@ -2836,7 +2841,7 @@ drawnow;
 handles = eg_LoadFile(handles);
 handles.TooLong = temp;
 
-guidata(gca, handles);
+guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
@@ -10007,3 +10012,35 @@ centerTime = str2double(answer{2});
 handles = centerTimescale(handles, centerTime, radiusTime);
 
 guidata(hObject, handles);
+
+
+% --- Executes on selection change in popup_SoundSource.
+function popup_SoundSource_Callback(hObject, eventdata, handles)
+% hObject    handle to popup_SoundSource (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns popup_SoundSource contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from popup_SoundSource
+
+% Handle a user change of the "Sound source" popup menu.
+% This menu controls the handles.SoundChannel variable, which determines
+% which channel is used for displaying the spectrogram etc.
+sourceIndices = get(handles.popup_SoundSource, 'UserData');
+idx = get(handles.popup_SoundSource, 'Value');
+handles.SoundChannel = sourceIndices(idx);
+
+handles = eg_LoadFile(handles);
+guidata(hObject, handles);
+
+% --- Executes during object creation, after setting all properties.
+function popup_SoundSource_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to popup_SoundSource (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
