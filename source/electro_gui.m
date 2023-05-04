@@ -78,6 +78,9 @@ user = lic(1).user;
 f = regexpi(user,'[A-Z1-9]');
 user = user(f);
 
+% Default sound to display is the designated sound channel
+handles.SoundChannel = 0;
+
 % Unread file marker:
 handles.UnreadFileMarker = '> ';
 handles.FileEntryOpenTag = '<HTML><FONT COLOR=000000>';
@@ -772,8 +775,8 @@ xd(2) = xd(2)-1;
 if xd(1)<1
     xd(1) = 1;
 end
-if xd(2)>length(handles.sound)
-    xd(2) = length(handles.sound);
+if xd(2) > eg_GetNumSamples(handles)
+    xd(2) = eg_GetNumSamples(handles);
 end
 if xd(2)<=xd(1)
     return
@@ -938,32 +941,26 @@ end
 curr = pwd;
 cd(handles.DefaultRootPath);
 
-
 % Label
 set(handles.text_FileName,'string',handles.sound_files(fileNum).name);
 
 handles.BackupTitle = {'',''};
 
+% Load sound
+handles.sound = [];
 
 % Plot sound
+[~, ~, dt] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.DefaultRootPath, handles.sound_files(fileNum).name), true);
 subplot(handles.axes_Sound)
-[handles.sound, handles.fs, dt, label, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.DefaultRootPath, handles.sound_files(fileNum).name), true);
 handles.DatesAndTimes(fileNum) = dt;
-handles.FileLength(fileNum) = length(handles.sound);
+handles.FileLength(fileNum) = eg_GetNumSamples(handles);
 set(handles.text_DateAndTime,'string',datestr(dt,0));
-if size(handles.sound,2)>size(handles.sound,1)
-    handles.sound = handles.sound';
-end
 
-for c = 1:length(handles.menu_Filter)
-    if strcmp(get(handles.menu_Filter(c),'checked'),'on')
-        alg = get(handles.menu_Filter(c),'label');
-    end
-end
+handles = eg_FilterSound(handles);
 
-handles.filtered_sound = eg_runPlugin(handles.plugins.filters, alg, handles.sound, handles.fs, handles.FilterParams);
+[handles, filtered_sound] = eg_GetSound(handles, true);
 
-h = eg_peak_detect(gca,linspace(0,length(handles.sound)/handles.fs,length(handles.sound)),handles.filtered_sound);
+h = eg_peak_detect(gca,linspace(0,eg_GetNumSamples(handles)/handles.fs,eg_GetNumSamples(handles)), filtered_sound);
 set(h,'color','c');
 set(gca,'xtick',[],'ytick',[]);
 set(gca,'color',[0 0 0]);
@@ -973,7 +970,7 @@ ylim([-yl*1.2 yl*1.2]);
 
 % Set limits
 yl = ylim;
-xmax = length(handles.sound)/handles.fs;
+xmax = eg_GetNumSamples(handles)/handles.fs;
 hold on
 handles.xlimbox = plot([0 xmax xmax 0 0],[yl(1) yl(1) yl(2) yl(2) yl(1)]*.93,':y','linewidth',2);
 xlim([0 xmax]);
@@ -1006,13 +1003,13 @@ handles = eg_LoadProperties(handles);
 
 % If file too long
 subplot(handles.axes_Sonogram)
-if length(handles.sound) > handles.TooLong
+if eg_GetNumSamples(handles) > handles.TooLong
     txt = text(mean(xlim),mean(ylim),'Long file. Click to load.',...
         'horizontalalignment','center','color','r','fontsize',14);
     set(txt,'buttondownfcn','electro_gui(''click_loadfile'',gcbo,[],guidata(gcbo))');
     cd(curr);
 
-    set(handles.edit_Timescale,'string',num2str(length(handles.sound)/handles.fs,4));
+    set(handles.edit_Timescale,'string',num2str(eg_GetNumSamples(handles)/handles.fs,4));
 
     handles = PlotSegments(handles);
 
@@ -1047,7 +1044,7 @@ end
 
 if ~isempty(handles.amplitude)
     subplot(handles.axes_Amplitude);
-    h = plot(linspace(0,length(handles.sound)/handles.fs,length(handles.sound)),handles.amplitude,'color',handles.AmplitudeColor);
+    h = plot(linspace(0,eg_GetNumSamples(handles)/handles.fs,eg_GetNumSamples(handles)),handles.amplitude,'color',handles.AmplitudeColor);
     set(gca,'xticklabel',[]);
     ylim(handles.AmplitudeLims);
     box off;
@@ -1212,7 +1209,7 @@ if val <= length(str)-sum(nums)
         [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{selectedChannelNum}, fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum}(filenum).name), true);
     end
 else
-    ev = zeros(1,length(handles.sound));
+    ev = zeros(1,eg_GetNumSamples(handles));
     indx = val-(length(str)-sum(nums));
     cs = cumsum(nums);
     f = length(find(cs<indx))+1;
@@ -1290,8 +1287,8 @@ if get(handles.popup_Functions(axnum),'value') > 1
     end
 end
 
-if length(handles.loadedChannelData{axnum}) < length(handles.sound)
-    indx = fix(linspace(1,length(handles.loadedChannelData{axnum}),length(handles.sound)));
+if length(handles.loadedChannelData{axnum}) < eg_GetNumSamples(handles)
+    indx = fix(linspace(1,length(handles.loadedChannelData{axnum}),eg_GetNumSamples(handles)));
     chan = handles.loadedChannelData{axnum};
     handles.loadedChannelData{axnum} = chan(indx);
 end
@@ -1312,6 +1309,58 @@ end
 
 handles = eg_Overlay(handles);
 
+function numSamples = eg_GetNumSamples(handles)
+[handles, sound] = eg_GetSound(handles, false);
+numSamples = length(sound);
+
+function [handles, sound] = eg_GetSound(handles, filtered)
+% Get the timeseries specified by handles.SoundChannel to use as sound for
+%   the purposes of plotting the spectrogram, etc
+
+if ~exist('filtered', 'var') || isempty(filtered)
+    filtered = false;
+end
+
+switch handles.SoundChannel
+    case 0
+        if filtered
+            if isempty(handles.filtered_sound);
+                handles = eg_FilterSound(handles);
+            end
+            sound = handles.filtered_sound;
+        else
+            % User just wants unfiltered sound
+            if isempty(handles.sound)
+                fileNum = getCurrentFileNum(handles);
+                [handles.sound, handles.fs] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.DefaultRootPath, handles.sound_files(fileNum).name), true);
+                if size(handles.sound,2)>size(handles.sound,1)
+                    handles.sound = handles.sound';
+                end
+            end
+            sound = handles.sound;
+        end
+    case getSelectedChannel(handles, 1)
+        % Use whatever is loaded in channel axes #1 as sound 
+        sound = handles.loadedChannelData{2};
+    case getSelectedChannel(handles, 2)
+        % Use whatever is loaded in channel axes #2 as sound 
+        sound = handles.loadedChannelData{2};
+    otherwise
+        % Use some other not-already-loaded channel data as sound
+        sound = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{selectedChannelNum}, fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum}(filenum).name), true);
+end
+
+function handles = eg_FilterSound(handles)
+for c = 1:length(handles.menu_Filter)
+    if strcmp(get(handles.menu_Filter(c),'checked'),'on')
+        alg = get(handles.menu_Filter(c),'label');
+    end
+end
+
+[handles, sound] = eg_GetSound(handles, false);
+
+handles.filtered_sound = eg_runPlugin(handles.plugins.filters, alg, sound, handles.fs, handles.FilterParams);
+
 function handles = eg_PlotChannel(handles,axnum)
 
 subplot(handles.axes_Channel(axnum));
@@ -1330,7 +1379,7 @@ else
     set(handles.(['push_Detect',num2str(axnum)]),'enable','off');
 end
 
-f = linspace(0,length(handles.sound)/handles.fs,length(handles.sound));
+f = linspace(0,eg_GetNumSamples(handles)/handles.fs,eg_GetNumSamples(handles));
 xl = get(gca,'xlim');
 delete(findobj('parent',gca,'linestyle','-'));
 hold on
@@ -1368,7 +1417,7 @@ if isempty(thr)
     hold(ax, 'on')
     xl = xlim(ax);
     % Create new threshold line
-    plot([0 length(handles.sound)/handles.fs],[handles.CurrentThreshold handles.CurrentThreshold],':',...
+    plot([0, eg_GetNumSamples(handles)/handles.fs],[handles.CurrentThreshold handles.CurrentThreshold],':',...
         'color',handles.AmplitudeThresholdColor);
     xlim(ax, xl);
     hold(ax, 'off');
@@ -1424,7 +1473,7 @@ function [markerHandles, labelHandles] = CreateMarkers(handles, times, titles, s
 % "segments" and "markers")
 
 % Create a time vector that corresponds to the loaded audio samples
-xs = linspace(0,length(handles.sound)/handles.fs,length(handles.sound));
+xs = linspace(0, eg_GetNumSamples(handles)/handles.fs, eg_GetNumSamples(handles));
 
 y0 = yExtent(1);
 y1 = yExtent(1) + (yExtent(2) - yExtent(1))*0.3;
@@ -1533,7 +1582,7 @@ switch activeType
 end
 
 function h = eg_peak_detect(ax,x,y)
-
+% Plot an envelope of the signal "y", downsampled to fit in the axes width
 set(ax,'units','pixels');
 set(get(ax,'parent'),'units','pixels');
 pos = get(gca,'position');
@@ -1627,19 +1676,13 @@ else
     handles.FilterParams = get(hObject,'userdata');
 end
 
-for c = 1:length(handles.menu_Filter)
-    if strcmp(get(handles.menu_Filter(c),'checked'),'on')
-        alg = get(handles.menu_Filter(c),'label');
-    end
-end
-
-handles.filtered_sound = eg_runPlugin(handles.plugins.filters, alg, ...
-    handles.sound, handles.fs, handles.FilterParams);
+handles = eg_FilterSound(handles);
 
 subplot(handles.axes_Sound)
 xd = get(handles.xlimbox,'xdata');
 cla
-h = eg_peak_detect(gca,linspace(0,length(handles.sound)/handles.fs,length(handles.sound)),handles.filtered_sound);
+[handles, filtered_sound] = eg_GetSound(handles, true);
+h = eg_peak_detect(gca,linspace(0, eg_GetNumSamples(handles)/handles.fs, eg_GetNumSamples(handles)), filtered_sound);
 set(h,'color','c');
 set(gca,'xtick',[],'ytick',[]);
 set(gca,'color',[0 0 0]);
@@ -1650,7 +1693,7 @@ ylim([-yl*1.2 yl*1.2]);
 yl = ylim;
 hold on
 handles.xlimbox = plot([xd(1) xd(2) xd(2) xd(1) xd(1)],[yl(1) yl(1) yl(2) yl(2) yl(1)]*.93,':y','linewidth',2);
-xlim([0 length(handles.sound)/handles.fs]);
+xlim([0, eg_GetNumSamples(handles)/handles.fs]);
 hold off
 box on;
 
@@ -1675,8 +1718,8 @@ xd = get(handles.xlimbox,'xdata');
 if xd(1) < 0
     xd([1 4:5]) = 0;
 end
-if xd(2) > length(handles.sound)/handles.fs
-    xd(2:3) = length(handles.sound)/handles.fs;
+if xd(2) > eg_GetNumSamples(handles)/handles.fs
+    xd(2:3) = eg_GetNumSamples(handles)/handles.fs;
 end
 
 set(handles.xlimbox,'xdata',xd);
@@ -1713,9 +1756,9 @@ if strcmp(get(handles.menu_PeakDetect2,'checked'),'on')
 end
 ylim(yl);
 
-set(handles.slider_Time,'min',0,'max',length(handles.sound)/handles.fs-(xd(2)-xd(1))+eps);
+set(handles.slider_Time,'min',0,'max',eg_GetNumSamples(handles)/handles.fs-(xd(2)-xd(1))+eps);
 set(handles.slider_Time,'value',xd(1));
-stp = min([1 (xd(2)-xd(1))/((length(handles.sound)/handles.fs-(xd(2)-xd(1)))+eps)]);
+stp = min([1 (xd(2)-xd(1))/((eg_GetNumSamples(handles)/handles.fs-(xd(2)-xd(1)))+eps)]);
 set(handles.slider_Time,'sliderstep',[0.1*stp 0.5*stp]);
 
 for c = 1:length(handles.SegmentLabelHandles)
@@ -1734,6 +1777,7 @@ handles = eg_Overlay(handles);
 
 
 function handles = eg_PlotSonogram(handles)
+[handles, sound] = eg_GetSound(handles);
 
 xd = get(handles.xlimbox,'xdata');
 xl = xd(1:2);
@@ -1742,7 +1786,7 @@ if xl(1)>=xl(2)
 end
 xlp = round(xl*handles.fs);
 if xlp(1)<1; xlp(1) = 1; end
-if xlp(2)>length(handles.sound); xlp(2) = length(handles.sound); end
+if xlp(2)>eg_GetNumSamples(handles); xlp(2) = eg_GetNumSamples(handles); end
 
 for c = 1:length(handles.menu_Algorithm)
     if strcmp(get(handles.menu_Algorithm(c),'checked'),'on')
@@ -1759,7 +1803,7 @@ else
     ylim([handles.FreqLim(1) handles.FreqLim(2)]);
 end
 handles.ispower = eg_runPlugin(handles.plugins.spectrums, alg, ...
-    handles.axes_Sonogram, handles.sound(xlp(1):xlp(2)), handles.fs, ...
+    handles.axes_Sonogram, sound(xlp(1):xlp(2)), handles.fs, ...
     handles.SonogramParams);
 set(handles.axes_Sonogram,'units','normalized');
 set(gca,'ydir','normal');
@@ -1855,7 +1899,7 @@ elseif strcmp(get(gcf,'selectiontype'),'extend')
 elseif strcmp(get(gcf,'selectiontype'),'open')
     % Double-click
     %   Reset zoom
-    xd = [0 length(handles.sound)/handles.fs length(handles.sound)/handles.fs 0 0];
+    xd = [0 eg_GetNumSamples(handles)/handles.fs eg_GetNumSamples(handles)/handles.fs 0 0];
     % Update zoom box in top plot
     set(handles.xlimbox,'xdata',xd);
     if strcmp(get(handles.menu_FrequencyZoom,'checked'),'on')
@@ -2101,7 +2145,7 @@ function push_New_Callback(hObject, ~, handles)
 
 
 handles.IsUpdating = 0;
-[handles ischanged] = eg_NewExperiment(handles);
+[handles, ischanged] = eg_NewExperiment(handles);
 if ischanged == 0
     return
 end
@@ -2727,7 +2771,7 @@ guidata(hObject, handles);
 function click_Amplitude(hObject, ~, handles)
 
 if strcmp(get(gcf,'selectiontype'),'open')
-    xd = [0 length(handles.sound)/handles.fs length(handles.sound)/handles.fs 0 0];
+    xd = [0 eg_GetNumSamples(handles)/handles.fs eg_GetNumSamples(handles)/handles.fs 0 0];
     set(handles.xlimbox,'xdata',xd);
     handles = eg_EditTimescale(handles);
 
@@ -2882,7 +2926,7 @@ if strcmp(get(gcf,'selectiontype'),'normal')
     set(handles.SegmentHandles,'facecolor',handles.SegmentSelectColor);
     set(handles.SegmentHandles(find(handles.SegmentSelection{filenum}==0)),'facecolor',handles.SegmentUnSelectColor);
 elseif strcmp(get(gcf,'selectiontype'),'open')
-    xd = [0 length(handles.sound)/handles.fs length(handles.sound)/handles.fs 0 0];
+    xd = [0 eg_GetNumSamples(handles)/handles.fs eg_GetNumSamples(handles)/handles.fs 0 0];
     set(handles.xlimbox,'xdata',xd);
     handles = eg_EditTimescale(handles);
 elseif strcmp(get(gcf,'selectiontype'),'extend')
@@ -3604,7 +3648,7 @@ end
 
 
 if strcmp(get(gcf,'selectiontype'),'open')
-    xd = [0 length(handles.sound)/handles.fs length(handles.sound)/handles.fs 0 0];
+    xd = [0 eg_GetNumSamples(handles)/handles.fs eg_GetNumSamples(handles)/handles.fs 0 0];
     set(handles.xlimbox,'xdata',xd);
 
     for axn = 1:2
@@ -3823,7 +3867,7 @@ if ~isempty(obj)
     set(obj,'ydata',[handles.EventCurrentThresholds(indx) handles.EventCurrentThresholds(indx)]);
 else
     hold on
-    plot([0 length(handles.sound)/handles.fs],[handles.EventCurrentThresholds(indx) handles.EventCurrentThresholds(indx)],':',...
+    plot([0 eg_GetNumSamples(handles)/handles.fs],[handles.EventCurrentThresholds(indx) handles.EventCurrentThresholds(indx)],':',...
         'color',handles.ChannelThresholdColor(axnum,:));
     hold off
 end
@@ -4401,7 +4445,7 @@ for c = 1:size(handles.EventTimes{indx},1)
 end
 h = handles.menu_EventsDisplayList{axnum};
 chan = handles.loadedChannelData{axnum};
-xs = linspace(0,length(handles.sound)/handles.fs,length(handles.sound));
+xs = linspace(0,eg_GetNumSamples(handles)/handles.fs,eg_GetNumSamples(handles));
 for c = 1:length(ev)
     if strcmp(get(h(c),'checked'),'on');
         for i = 1:length(ev{c})
@@ -4499,7 +4543,7 @@ elseif strcmp(get(gcf,'selectiontype'),'normal') & sum(get(hObject,'markerfaceco
     filenum = getCurrentFileNum(handles);
     tm = handles.EventTimes{f}{g,filenum};
     sel = handles.EventSelected{f}{g,filenum};
-    xs = linspace(0,length(handles.sound)/handles.fs,length(handles.sound));
+    xs = linspace(0,eg_GetNumSamples(handles)/handles.fs,eg_GetNumSamples(handles));
     tm = xs(tm(find(sel==1)));
     xclick = get(hObject,'xdata');
     [dummy j] = min(abs(tm-xclick));
@@ -5222,7 +5266,7 @@ tm = handles.EventTimes{f}{g,filenum};
 sel = handles.EventSelected{f}{g,filenum};
 tm = tm(find(sel==1));
 
-xs = linspace(0,length(handles.sound)/handles.fs,length(handles.sound));
+xs = linspace(0,eg_GetNumSamples(handles)/handles.fs,eg_GetNumSamples(handles));
 subplot(handles.axes_Sound);
 hold on;
 plot([xs(tm(i)) xs(tm(i))],ylim,'-.','linewidth',2,'color','r');
@@ -5785,6 +5829,9 @@ txtexp = text(mean(xlim),mean(ylim),'Exporting...',...
 drawnow
 
 %%%
+
+[handles, sound] = eg_GetSound(handles);
+
 str = get(handles.popup_Export,'String');
 val = get(handles.popup_Export,'value');
 str = str{val};
@@ -5872,7 +5919,7 @@ switch str
                     str = [str(1:j-1) indx str(j+3:end)];
                 end
 
-                wav = handles.sound(handles.SegmentTimes{filenum}(c,1):handles.SegmentTimes{filenum}(c,2));
+                wav = sound(handles.SegmentTimes{filenum}(c,1):handles.SegmentTimes{filenum}(c,2));
                 warning off
                 wavwrite(wav,handles.fs,16,[path '\' str '.wav']);
                 warning on
@@ -5917,14 +5964,14 @@ switch str
             ylim(yl);
             xlp = round(xl*handles.fs);
             if xlp(1)<1; xlp(1) = 1; end
-            if xlp(2)>length(handles.sound); xlp(2) = length(handles.sound); end
+            if xlp(2)>eg_GetNumSamples(handles); xlp(2) = eg_GetNumSamples(handles); end
             for c = 1:length(handles.menu_Algorithm)
                 if strcmp(get(handles.menu_Algorithm(c),'checked'),'on')
                     alg = get(handles.menu_Algorithm(c),'label');
                 end
             end
             pow = eg_runPlugin(handles.plugins.spectrums, alg, gca, ...
-                handles.sound(xlp(1):xlp(2)), handles.fs, handles.SonogramParams);
+                sound(xlp(1):xlp(2)), handles.fs, handles.SonogramParams);
             set(gca,'ydir','normal');
             handles.NewSlope = handles.DerivativeSlope;
             handles.DerivativeSlope = 0;
@@ -6416,14 +6463,14 @@ elseif get(handles.radio_PowerPoint,'value')==1
                             ylim(yl);
                             xlp = round(xl*handles.fs);
                             if xlp(1)<1; xlp(1) = 1; end
-                            if xlp(2)>length(handles.sound); xlp(2) = length(handles.sound); end
+                            if xlp(2)>eg_GetNumSamples(handles); xlp(2) = eg_GetNumSamples(handles); end
                             for j = 1:length(handles.menu_Algorithm)
                                 if strcmp(get(handles.menu_Algorithm(j),'checked'),'on')
                                     alg = get(handles.menu_Algorithm(j),'label');
                                 end
                             end
                             pow = eg_runPlugin(handles.plugins.spectrums, ...
-                                alg, gca, handles.sound(xlp(1):xlp(2)), ...
+                                alg, gca, sound(xlp(1):xlp(2)), ...
                                 handles.fs, handles.SonogramParams);
                             set(gca,'ydir','normal');
                             handles.NewSlope = handles.DerivativeSlope;
@@ -6452,7 +6499,7 @@ elseif get(handles.radio_PowerPoint,'value')==1
                         f = unique([f; g; h]);
 
                         hold on
-                        xs = linspace(0,length(handles.sound)/handles.fs,length(handles.sound));
+                        xs = linspace(0,eg_GetNumSamples(handles)/handles.fs,eg_GetNumSamples(handles));
                         for j = f'
                             if sel(j)==1
                                 patch(xs([st(j,1) st(j,2) st(j,2) st(j,1)]),[0 0 1 1],handles.SegmentSelectColor);
@@ -6473,7 +6520,7 @@ elseif get(handles.radio_PowerPoint,'value')==1
                         f = unique([f; g; h]);
 
                         hold on
-                        xs = linspace(0,length(handles.sound)/handles.fs,length(handles.sound));
+                        xs = linspace(0,eg_GetNumSamples(handles)/handles.fs,eg_GetNumSamples(handles));
                         for j = f'
                             if sel(j)==1
                                 if ~isempty(lab{j})
@@ -7078,14 +7125,17 @@ else
     ylim(yl);
     xlp = round(xl*handles.fs);
     if xlp(1)<1; xlp(1) = 1; end
-    if xlp(2)>length(handles.sound); xlp(2) = length(handles.sound); end
+    if xlp(2)>eg_GetNumSamples(handles); xlp(2) = eg_GetNumSamples(handles); end
     for c = 1:length(handles.menu_Algorithm)
         if strcmp(get(handles.menu_Algorithm(c),'checked'),'on')
             alg = get(handles.menu_Algorithm(c),'label');
         end
     end
+    
+    [handles, sound] = eg_GetSound(handles);
+    
     pow = eg_runPlugin(handles.plugins.spectrums, alg, gca, ...
-        handles.sound(xlp(1):xlp(2)), handles.fs, handles.SonogramParams);
+        sound(xlp(1):xlp(2)), handles.fs, handles.SonogramParams);
     set(gca,'ydir','normal');
     handles.NewSlope = handles.DerivativeSlope;
     handles.DerivativeSlope = 0;
@@ -8146,13 +8196,16 @@ guidata(hObject, handles);
 
 function [amp labs] = eg_CalculateAmplitude(handles)
 
+[handles, sound] = eg_GetSound(handles);
+
 wind = round(handles.SmoothWindow*handles.fs);
 if strcmp(get(handles.menu_DontPlot,'checked'),'on')
-    amp = zeros(size(handles.sound));
+    amp = zeros(size(sound));
     labs = '';
 else
     if strcmp(get(handles.menu_SourceSoundAmplitude,'checked'),'on')
-        amp = smooth(10*log10(handles.filtered_sound.^2+eps),wind);
+        [handles, filtered_sound] = eg_GetSound(handles, true);
+        amp = smooth(10*log10(filtered_sound.^2+eps),wind);
         amp = amp-min(amp(wind:length(amp)-wind));
         amp(find(amp<0))=0;
         labs = 'Loudness (dB)';
@@ -8161,7 +8214,7 @@ else
             amp = smooth(handles.loadedChannelData{1},wind);
             labs = get(get(handles.axes_Channel1,'ylabel'),'string');
         else
-            amp = zeros(size(handles.sound));
+            amp = zeros(size(sound));
             labs = '';
         end
     elseif strcmp(get(handles.menu_SourceBottomPlot,'checked'),'on')
@@ -8169,7 +8222,7 @@ else
             amp = smooth(handles.loadedChannelData{2},wind);
             labs = get(get(handles.axes_Channel2,'ylabel'),'string');
         else
-            amp = zeros(size(handles.sound));
+            amp = zeros(size(sound));
             labs = '';
         end
     end
@@ -8277,12 +8330,15 @@ function snd = GenerateSound(handles,sound_type)
 % Generate sound with the selected options. Sound_type is either 'snd' or
 % 'mix'
 
-snd = zeros(size(handles.sound));
+[handles, sound] = eg_GetSound(handles, false);
+[handles, filtered_sound] = eg_GetSound(handles, true);
+
+snd = zeros(size(sound));
 if get(handles.check_Sound,'value')==1 | strcmp(sound_type,'snd')
     if strcmp(get(handles.menu_FilterSound,'checked'),'on')
-        snd = snd + handles.filtered_sound * handles.SoundWeights(1);
+        snd = snd + filtered_sound * handles.SoundWeights(1);
     else
-        snd = snd + handles.sound * handles.SoundWeights(1);
+        snd = snd + sound * handles.SoundWeights(1);
     end
 end
 
@@ -8371,16 +8427,17 @@ for c = 1:length(handles.menu_Filter)
     if strcmp(get(handles.menu_Filter(c),'checked'),'on')
         h = handles.menu_Filter(c);
         set(h,'userdata',handles.FilterParams);
-        alg = get(handles.menu_Filter(c),'label');
     end
 end
 
-handles.filtered_sound = eg_runPlugin(handles.plugins.filters, alg, handles.sound, handles.fs, handles.FilterParams);
+handles = eg_FilterSound(handles);
+
+[handles, filtered_sound] = eg_GetSound(handles, true);
 
 subplot(handles.axes_Sound)
 xd = get(handles.xlimbox,'xdata');
 cla
-h = eg_peak_detect(gca,linspace(0,length(handles.sound)/handles.fs,length(handles.sound)),handles.filtered_sound);
+h = eg_peak_detect(gca, linspace(0, eg_GetNumSamples(handles)/handles.fs, eg_GetNumSamples(handles)), filtered_sound);
 set(h,'color','c');
 set(gca,'xtick',[],'ytick',[]);
 set(gca,'color',[0 0 0]);
@@ -8391,7 +8448,7 @@ ylim([-yl*1.2 yl*1.2]);
 yl = ylim;
 hold on
 handles.xlimbox = plot([xd(1) xd(2) xd(2) xd(1) xd(1)],[yl(1) yl(1) yl(2) yl(2) yl(1)]*.93,':y','linewidth',2);
-xlim([0 length(handles.sound)/handles.fs]);
+xlim([0 eg_GetNumSamples(handles)/handles.fs]);
 hold off
 box on;
 
