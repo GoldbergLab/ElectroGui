@@ -80,6 +80,7 @@ user = user(f);
 
 % Default sound to display is the designated sound channel
 handles.SoundChannel = 0;
+handles.SoundExpression = '';
 
 % Unread file marker:
 handles.UnreadFileMarker = '> ';
@@ -1312,17 +1313,22 @@ function numSamples = eg_GetNumSamples(handles)
 [handles, sound] = eg_GetSound(handles, false);
 numSamples = length(sound);
 
-function [handles, sound] = eg_GetSound(handles, filtered)
+function [handles, sound] = eg_GetSound(handles, filtered, soundChannel)
 % Get the timeseries specified by handles.SoundChannel to use as sound for
 %   the purposes of plotting the spectrogram, etc
 
 if ~exist('filtered', 'var') || isempty(filtered)
     filtered = false;
 end
+if ~exist('soundChannel', 'var') || isempty(soundChannel)
+    soundChannel = handles.SoundChannel;
+end
 
-switch handles.SoundChannel
+switch soundChannel
     case 0
+        % Use channel 0 (the normal sound channel)
         if filtered
+            % User requested filtered sound
             if isempty(handles.filtered_sound);
                 handles = eg_FilterSound(handles);
             end
@@ -1344,10 +1350,37 @@ switch handles.SoundChannel
     case getSelectedChannel(handles, 2)
         % Use whatever is loaded in channel axes #2 as sound 
         sound = handles.loadedChannelData{2};
+    case 'calculated'
+        sourceIndices = get(handles.popup_SoundSource, 'UserData');
+        for k = 1:(length(sourceIndices)-1)
+            channelIdx = sourceIndices{k};
+            switch channelIdx
+                case 0
+                    varName = 'sound';
+                otherwise
+                    varName = sprintf('chan%d', channelIdx);
+            end
+            if regexp(handles.SoundExpression, varName)
+                if strcmp(varName, 'sound')
+                    [handles, data] = eg_GetSound(handles, false, 0);
+                else
+                    fileNum = getCurrentFileNum(handles);
+                    data = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{channelIdx}, fullfile(handles.DefaultRootPath, handles.chan_files{channelIdx}(fileNum).name), true);
+                end
+                assignin('base', varName, data);
+            end
+            try
+                sound = evalin('base', handles.SoundExpression);
+            catch ME
+                fprintf('Error evaluating calculated channel: %s\n', handles.SoundExpression);
+                ME
+            end
+
+        end
     otherwise
         % Use some other not-already-loaded channel data as sound
         fileNum = getCurrentFileNum(handles);
-        sound = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{handles.SoundChannel}, fullfile(handles.DefaultRootPath, handles.chan_files{handles.SoundChannel}(fileNum).name), true);
+        sound = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{soundChannel}, fullfile(handles.DefaultRootPath, handles.chan_files{soundChannel}(fileNum).name), true);
 end
 
 function handles = eg_FilterSound(handles)
@@ -10018,10 +10051,14 @@ function handles = eg_PopulateSoundSources(handles)
 sourceStrings = {'Sound'};
 for c = 1:length(handles.chan_files)
     if ~isempty(handles.chan_files{c})
-        sourceStrings{end+1} = ['Channel ' num2str(c)];
+        sourceStrings{end+1} = sprintf('Channel %d', c);
     end
 end
-sourceIndices = 0:length(handles.chan_files);
+sourceStrings{end+1} = 'Calculated';
+
+sourceIndices = num2cell(0:length(handles.chan_files));
+sourceIndices{end+1} = 'calculated';
+
 set(handles.popup_SoundSource, 'string', sourceStrings);
 set(handles.popup_SoundSource, 'UserData', sourceIndices);
 
@@ -10040,7 +10077,21 @@ function popup_SoundSource_Callback(hObject, eventdata, handles)
 % which channel is used for displaying the spectrogram etc.
 sourceIndices = get(handles.popup_SoundSource, 'UserData');
 idx = get(handles.popup_SoundSource, 'Value');
-handles.SoundChannel = sourceIndices(idx);
+handles.SoundChannel = sourceIndices{idx};
+            
+if strcmp(handles.SoundChannel, 'calculated')
+    % Allow user to input expression for calculated sound channel
+    expression = inputdlg('Enter expression for calculated channel, using ''sound'', ''chan1'', ''chan2'', etc. as variables.', 'Input calculated channel expression', 1, {handles.SoundExpression});
+    
+    if isempty(expression) || isempty(strtrim(expression{1}))
+        % User did not provide an expression - default to normal sound
+        % channel.
+        handles.SoundChannel = sourceIndices{1};
+        handles.SoundExpression = '';
+    else
+        handles.SoundExpression = expression{1};
+    end
+end
 
 handles = eg_LoadFile(handles);
 guidata(hObject, handles);
