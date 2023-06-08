@@ -2132,7 +2132,7 @@ elseif strcmp(get(gcf,'selectiontype'),'open')
     %   Reset zoom
     [handles, numSamples] = eg_GetNumSamples(handles);
     
-    xd = [0 numSasmples/handles.fs numSamples/handles.fs 0 0];
+    xd = [0 numSamples/handles.fs numSamples/handles.fs 0 0];
     % Update zoom box in top plot
     set(handles.xlimbox,'xdata',xd);
     if strcmp(get(handles.menu_FrequencyZoom,'checked'),'on')
@@ -2727,7 +2727,7 @@ else
 
     str = {'(None)'};
     for c = 1:length(dbase.EventTimes)
-        [param, labels] = eg_runPlugin(handles.plugins.eventDetectors, 'params');
+        [param, labels] = eg_runPlugin(handles.plugins.eventDetectors, dbase.EventDetectors{c}, 'params');
         for d = 1:length(labels)
             str{end+1} = [dbase.EventSources{c} ' - ' dbase.EventFunctions{c} ' - ' labels{d}];
         end
