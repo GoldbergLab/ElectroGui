@@ -1,4 +1,4 @@
-function convertIntanNcToTxt(pathToNcs, recursive, regex)
+function convertIntanNcToTxt(pathInput, recursive, regex)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % convertIntanNcToTxt: A function for converting new .nc binary channel 
 %   files to Intan legacy .txt channel files. This is really only useful
@@ -12,7 +12,8 @@ function convertIntanNcToTxt(pathToNcs, recursive, regex)
 %
 % where,
 %    pathToNcs is a char array representing a path to either a single .nc
-%       file, or a directory containing them.
+%       file, or a directory containing them, or a cell array containing
+%       multiple of those
 %    recursive is an optional boolean flag indicating whether or not to 
 %       look in subdirectories. You can also specify a positive integer 
 %       indicating how many levels deep to look. Default is true.
@@ -34,17 +35,26 @@ if ~exist('recursive', 'var')
     recursive = true;
 end
 
-if exist(pathToNcs, 'dir')
-    pathToNcs = findFilesByRegex(pathToNcs, regex, false, recursive);
-elseif exist(pathToNcs, 'file')
-    pathToNcs = {pathToNcs};
-else
-    error('''%s'' is not a valid file or directory.', pathToNcs);
+if ~iscell(pathInput)
+    % If user provides a single file/dir char array, wrap it in a cell
+    % array for consistency with other input patterns.
+    pathInput = {pathInput};
+end
+pathsToFiles = {};
+for k = 1:length(pathInput)
+    path = pathInput{k};
+    if exist(path, 'dir')
+        pathsToFiles = [pathsToFiles, findFilesByRegex(path, regex, false, recursive)];
+    elseif exist(path, 'file')
+        pathsToFiles{end+1} = path;
+    else
+        error('''%s'' is not a valid file or directory.', path);
+    end
 end
 
-fprintf('Found %d nc files to convert. Converting...\n', length(pathToNcs));
-for k = 1:length(pathToNcs)
-    pathToNc = pathToNcs{k};
+fprintf('Found %d nc files to convert. Converting...\n', length(pathsToFiles));
+for k = 1:length(pathsToFiles)
+    pathToNc = pathsToFiles{k};
     
     data = readIntanNcFile(pathToNc);
     [path, name, ~] = fileparts(pathToNc);

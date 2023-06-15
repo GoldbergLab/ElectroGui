@@ -1,4 +1,4 @@
-function convertIntanTxtToNc(pathToTxts, recursive, regex)
+function convertIntanTxtToNc(pathInput, recursive, regex)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % convertIntanNcToTxt: A function for converting Intan legacy .txt channel
 %   files to new .nc binary channel files.
@@ -8,8 +8,9 @@ function convertIntanTxtToNc(pathToTxts, recursive, regex)
 %   convertIntanNcToTxt(pathToNcs, recursive, regex)
 %
 % where,
-%    pathToTxts is a char array representing a path to either a single .txt
-%       file, or a directory containing them.
+%    pathInput is a char array representing a path to either a single .txt
+%       file, or a directory containing them, or a cell array containing
+%       multiple of those.
 %    recursive is an optional boolean flag indicating whether or not to 
 %       look in subdirectories. You can also specify a positive integer 
 %       indicating how many levels deep to look. Default is true.
@@ -36,17 +37,27 @@ if ~exist('recursive', 'var')
     recursive = true;
 end
 
-if exist(pathToTxts, 'dir')
-    pathToTxts = findFilesByRegex(pathToTxts, regex, false, recursive);
-elseif exist(pathToTxts, 'file')
-    pathToTxts = {pathToTxts};
-else
-    error('''%s'' is not a valid file or directory.', pathToTxts);
+if ~iscell(pathInput)
+    % If user provides a single file/dir char array, wrap it in a cell
+    % array for consistency with other input patterns.
+    pathInput = {pathInput};
+end
+pathsToFiles = {};
+for k = 1:length(pathInput)
+    path = pathInput{k};
+    if exist(path, 'dir')
+        pathsToFiles = [pathsToFiles, findFilesByRegex(path, regex, false, recursive)];
+    elseif exist(path, 'file')
+        pathsToFiles{end+1} = path;
+    else
+        error('''%s'' is not a valid file or directory.', path);
+    end
 end
 
-fprintf('Found %d txt files to convert. Converting...\n', length(pathToTxts));
-for k = 1:length(pathToTxts)
-    pathToTxt = pathToTxts{k};
+fprintf('Found %d txt files to convert. Converting...\n', length(pathInput));
+for k = 1:length(pathsToFiles)
+    pathToTxt = pathsToFiles{k};
+    displayProgress('converted %d of %d...\n', k, length(pathsToFiles), 30);
     
     [path, name, ~] = fileparts(pathToTxt);
     chanTxt = regexp(name, 'chan([0-9]+)$', 'tokens');
@@ -82,5 +93,5 @@ for k = 1:length(pathToTxts)
     newPath = fullfile(path, [name, '.nc']);
 
     writeIntanNcFile(newPath, timeStampVector, deltaT, channel, metaData, data, true);
-    fprintf('\tCompleted %d of %d\n', k, length(pathToTxts));
+    fprintf('\tCompleted %d of %d\n', k, length(pathsToFiles));
 end
