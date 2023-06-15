@@ -1,16 +1,23 @@
 function deleteRedundantTxtFiles(rootDir, dryRun)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % deleteRedundantTxtFiles: Delete txt files that are redundant to nc files
-% usage:  deleteRedundantTxtFiles(rooTDir, dryRun)
+% usage:  deleteRedundantTxtFiles(rootDir, dryRun)
 %
-% where,
-%    <arg1> is <description>
-%    <arg2> is <description>
-%    <argN> is <description>
+% where
+%    rootDir is a char array representing the path to a directory
+%       containing txt and nc files
+%    dryRun is a logical flag indicating whether to actually delete txt
+%       files or just inform the user what would have been deleted.
 %
-% <long description>
+% Intan electrophysiology systems record RHD files, which historically we
+%   have converted into txt files. However, these files are inefficient for
+%   storing data, so we switched to producing binary "netCDF" format files,
+%   or nc files. 
+% This function is meant to deal with deleting old txt files
+%   that are redundant because they have already been converted to nc
+%   files.
 %
-% See also: <related functions>
+% See also: intan_converter_2, convertIntanNcToTxt, compareIntanNcAndTxt
 %
 % Version: 1.0
 % Author:  Brian Kardon

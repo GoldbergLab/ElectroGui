@@ -1,4 +1,39 @@
 function [pairs, unpairedNcFiles, unpairedTxtFiles] = compareIntanNcAndTxt(rootDir)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% compareIntanNcAndTxt: Check if nc and txt files containt the same data
+% usage:  [pairs, unpairedNcFiles, unpairedTxtFiles] 
+%               = compareIntanNcAndTxt(rootDir)
+%
+% where,
+%    rootDir is a char array representing the path to a directory
+%       containing txt and nc files
+%    pairs is a struct array containing one entry for each pair of txt and
+%       nc files with matching names. It contains the following fields:
+%           ncFile - path to the nc file in the pair
+%           txtFile - path to the txt file in the pair
+%           maxDiff - maximum difference between the data in the two files
+%           match - logical indicating if the two files are the same
+%           matchErrors - messages indicating why two files are not a match
+%    unpairedNcFiles is a cell array of paths to nc files that did not have
+%       txt files with the same name
+%    unpairedTxtfiles is a cell array of paths to txt files that did not
+%       have nc files with the same name.
+%
+% Intan electrophysiology systems record RHD files, which historically we
+%   have converted into txt files. However, these files are inefficient for
+%   storing data, so we switched to producing binary "netCDF" format files,
+%   or nc files. 
+% This function is meant to deal with comparing txt files and nc files to
+%   check if they are the same (presumably so the txt files can be safely
+%   deleted)
+%
+% See also: intan_converter_2, convertIntanNcToTxt, deleteRedundantTxtFiles
+%
+% Version: 1.0
+% Author:  Brian Kardon
+% Email:   bmk27=cornell*org, brian*kardon=google*com
+% Real_email = regexprep(Email,{'=','*'},{'@','.'})
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 ncFiles = findFilesByRegex(rootDir, '.*\.[nNcC]');
 txtFiles = findFilesByRegex(rootDir, '.*\.[tTxXtT]');
