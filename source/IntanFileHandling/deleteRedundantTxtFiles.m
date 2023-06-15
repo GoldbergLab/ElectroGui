@@ -34,8 +34,38 @@ if ~islogical(dryRun)
     error('dryRun should be a logical true or false.');
 end
 
-% Compare nc and txt files
-[pairs, unpairedNcFiles, unpairedTxtFiles] = compareIntanNcAndTxt(rootDir);
+if ~iscell(rootDir)
+    rootDir = {rootDir};
+end
+
+rootDir = unique(rootDir);
+
+pairs = [];
+unpairedNcFiles = {};
+unpairedTxtFiles = {};
+
+% Loop over root dirs
+for k = 1:length(rootDir)
+    currentRootDir = rootDir{k};
+    if length(rootDir) > 1
+        fprintf('\nChecking files in directory %d of %d...\n\n', k, length(rootDir));
+    end
+
+    % Compare nc and txt files
+    [newPairs, newUnpairedNcFiles, newUnpairedTxtFiles] = compareIntanNcAndTxt(currentRootDir);
+
+    % Add pairs from this root directory to the list of pairs
+    if isempty(pairs)
+        pairs = newPairs;
+    else
+        pairs = [pairs, newPairs];
+    end
+
+    % Add unpaired files from this root directory to the lists of unpaired
+    %   files.
+    unpairedNcFiles = [unpairedNcFiles, newUnpairedNcFiles];
+    unpairedTxtFiles = [unpairedTxtFiles, newUnpairedTxtFiles];
+end
 
 % Separate pairs into valid and invalid matches
 validPairs = pairs([pairs.match]);
@@ -57,7 +87,7 @@ if dryRun
     disp({validPairs.txtFile}');
 else
     % Get final confirmation from user
-    go = input('Are you sure you want to delete %d redundant text files? y/n  ', 's');
+    go = input(sprintf('Are you sure you want to delete %d redundant text files? y/n  ', length(validPairs)), 's');
     if strcmp(go, 'y')
         fprintf('\n\nDeleting redundant txt files...\n')
         for k = 1:length(validPairs)
