@@ -25,7 +25,7 @@ function deleteRedundantTxtFiles(rootDir, dryRun)
 % Real_email = regexprep(Email,{'=','*'},{'@','.'})
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
+% Dry run by default
 if ~exist('dryRun', 'var') || isempty(dryRun)
     dryRun = true;
 end
@@ -34,13 +34,17 @@ if ~islogical(dryRun)
     error('dryRun should be a logical true or false.');
 end
 
+% Compare nc and txt files
 [pairs, unpairedNcFiles, unpairedTxtFiles] = compareIntanNcAndTxt(rootDir);
 
+% Separate pairs into valid and invalid matches
 validPairs = pairs([pairs.match]);
 invalidPairs = pairs(~[pairs.match]);
 
+% Get total file count
 fileCount = 2*length(pairs) + length(unpairedNcFiles) + length(unpairedTxtFiles);
 
+% Print file stats
 fprintf('Found %d files:\n', fileCount)
 fprintf('\t%d pairs\n', length(pairs));
 fprintf('\t\t%d valid pairs\n', length(validPairs))
@@ -52,6 +56,7 @@ if dryRun
     fprintf('\n\nThis would have deleted:\n');
     disp({validPairs.txtFile}');
 else
+    % Get final confirmation from user
     go = input('Are you sure you want to delete %d redundant text files? y/n  ', 's');
     if strcmp(go, 'y')
         fprintf('\n\nDeleting redundant txt files...\n')
@@ -66,6 +71,7 @@ else
     end
 end
 
+% Print results
 fprintf('Found %d files:\n', fileCount)
 fprintf('\t%d pairs\n', length(pairs));
 fprintf('\t\t%d valid pairs\n', length(validPairs))
