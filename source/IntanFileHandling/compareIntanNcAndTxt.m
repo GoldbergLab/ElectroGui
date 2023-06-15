@@ -1,0 +1,51 @@
+function pairs = compareIntanNcAndTxt(rootDir)
+
+ncFiles = findFilesByRegex(rootDir, '.*\.[nNcC]');
+txtFiles = findFilesByRegex(rootDir, '.*\.[tTxXtT]');
+
+pairs = struct.empty();
+
+for k = 1:length(ncFiles)
+    ncFile = ncFiles{k};
+    [~, ncFileName, ~] = fileparts(ncFile);
+    for j = 1:length(txtFiles)
+        txtFile = txtFiles{j};
+        [~, txtFileName, ~] = fileparts(txtFile);
+        if strcmp(ncFileName, txtFileName)
+            idx = length(pairs)+1;
+            pairs(idx).ncFile = ncFile;
+            pairs(idx).txtFile = txtFile;
+        end
+    end
+end
+
+minAccuracy = eps(single(0))
+
+for k = 1:length(pairs)
+    displayProgress('Compared %d of %d\n', k, length(pairs), 20)
+    [ncData, ncFs, ncDateandtime, ncLabel, ncProps] = egl_Intan_Nc(pairs(k).ncFile, true);
+    [txtData, txtFs, txtDateandtime, txtLabel, txtProps] = egl_HC_ad(pairs(k).txtFile, true);
+    match = true;
+    matchErrors = {};
+    
+    pairs(k).maxDiff = max(abs(ncData - txtData));
+    
+    if any(abs(ncData - txtData) > eps(single(ncData)))
+        match = false;
+        matchErrors{end+1} = 'Data does not match';
+    end
+    if ncFs ~= txtFs
+        match = false;
+        matchErrors{end+1} = 'Fs does not match';
+    end
+    if ~all(ncDateandtime == txtDateandtime)
+        match = false;
+        matchErrors{end+1} = 'Timestamp does not match';
+    end
+    if ~strcmp(ncLabel, txtLabel)
+        match = false;
+        matchErrors{end+1} = 'Label does not match';
+    end
+    pairs(k).match = match;
+    pairs(k).matchErrors = matchErrors;
+end
