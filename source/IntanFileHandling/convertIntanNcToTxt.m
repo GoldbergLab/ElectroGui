@@ -1,4 +1,4 @@
-function convertIntanNcToTxt(pathInput, recursive, regex)
+function convertIntanNcToTxt(pathInput, recursive, regex, skipPreexisting)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % convertIntanNcToTxt: A function for converting new .nc binary channel 
 %   files to Intan legacy .txt channel files. This is really only useful
@@ -9,6 +9,7 @@ function convertIntanNcToTxt(pathInput, recursive, regex)
 %   convertIntanNcToTxt(pathToNcs)
 %   convertIntanNcToTxt(pathToNcs, recursive)
 %   convertIntanNcToTxt(pathToNcs, recursive, regex)
+%   convertIntanNcToTxt(pathToNcs, recursive, regex, skipPreexisting)
 %
 % where,
 %    pathToNcs is a char array representing a path to either a single .nc
@@ -19,6 +20,9 @@ function convertIntanNcToTxt(pathInput, recursive, regex)
 %       indicating how many levels deep to look. Default is true.
 %    regex is an optional char array representing a regular expression to
 %       use to filter the files found. Default is '.*\.[Nn][Cc]$'
+%    skipPreexisting is an optional boolean flag indicating whether or not
+%       to skip converting nc files if the corresponding txt file already 
+%       exists. Default is true.
 %
 % See also: convertIntanTxtToNc, intan_converter_to_binary_channel_files
 %
@@ -28,11 +32,14 @@ function convertIntanNcToTxt(pathInput, recursive, regex)
 % Real_email = regexprep(Email,{'=','*'},{'@','.'})
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-if ~exist('regex', 'var')
+if ~exist('regex', 'var') || isempty(regex)
     regex = '.*\.[Nn][Cc]$';
 end
-if ~exist('recursive', 'var')
+if ~exist('recursive', 'var') || isempty(recursive)
     recursive = true;
+end
+if ~exist('skipPreexisting', 'var') || iseempty(skipPreexisting)
+    skipPreexisting = true;
 end
 
 if ~iscell(pathInput)
@@ -59,6 +66,13 @@ for k = 1:length(pathsToFiles)
     data = readIntanNcFile(pathToNc);
     [path, name, ~] = fileparts(pathToNc);
     pathToTxt = fullfile(path, [name, '.txt']);
+    if skipPreexisting
+        if exist(pathToTxt, 'file')
+            % Txt file already exists, and user requested to skip
+            % preexisting txt files, so skip it.
+            continue;
+        end
+    end
 
     year = data.time(1);
     month = data.time(2);
