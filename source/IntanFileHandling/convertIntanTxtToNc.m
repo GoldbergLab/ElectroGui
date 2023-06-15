@@ -61,10 +61,12 @@ for k = 1:length(pathInput)
     end
 end
 
+skipCount = 0;
+
 fprintf('Found %d txt files to convert. Converting...\n', length(pathInput));
 for k = 1:length(pathsToFiles)
+    displayProgress('\tCompleted %d of %d\n', k, length(pathsToFiles), 20);
     pathToTxt = pathsToFiles{k};
-    displayProgress('converted %d of %d...\n', k, length(pathsToFiles), 30);
     
     [path, name, ~] = fileparts(pathToTxt);
 
@@ -73,6 +75,7 @@ for k = 1:length(pathsToFiles)
         if exist(pathToNc, 'file')
             % Nc file already exists, and user requested to skip
             % preexisting nc files, so skip it.
+            skipCount = skipCount + 1;
             continue;
         end
     end
@@ -108,5 +111,6 @@ for k = 1:length(pathsToFiles)
     metaData = textData{metaDataLine};
 
     writeIntanNcFile(pathToNc, timeStampVector, deltaT, channel, metaData, data, true);
-    fprintf('\tCompleted %d of %d\n', k, length(pathsToFiles));
 end
+
+fprintf('\nFound %d files, converted %d files and skipped %d preexisting files.\n', length(pathsToFiles), length(pathsToFiles) - skipCount, skipCount);

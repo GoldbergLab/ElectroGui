@@ -59,8 +59,11 @@ for k = 1:length(pathInput)
     end
 end
 
+skipCount = 0;
+
 fprintf('Found %d nc files to convert. Converting...\n', length(pathsToFiles));
 for k = 1:length(pathsToFiles)
+    displayProgress('\tCompleted %d of %d\n', k, length(pathsToFiles), 20);
     pathToNc = pathsToFiles{k};
     
     data = readIntanNcFile(pathToNc);
@@ -70,6 +73,7 @@ for k = 1:length(pathsToFiles)
         if exist(pathToTxt, 'file')
             % Txt file already exists, and user requested to skip
             % preexisting txt files, so skip it.
+            skipCount = skipCount + 1;
             continue;
         end
     end
@@ -91,3 +95,5 @@ for k = 1:length(pathsToFiles)
 
     fclose(fileID);
 end
+
+fprintf('\nFound %d files, converted %d files and skipped %d preexisting files.\n', length(pathsToFiles), length(pathsToFiles) - skipCount, skipCount);
