@@ -38,7 +38,7 @@ end
 if ~exist('recursive', 'var') || isempty(recursive)
     recursive = true;
 end
-if ~exist('skipPreexisting', 'var') || iseempty(skipPreexisting)
+if ~exist('skipPreexisting', 'var') || isempty(skipPreexisting)
     skipPreexisting = true;
 end
 
