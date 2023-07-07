@@ -11,14 +11,14 @@ end
 switch class(originalRoots)
     case 'char'
         originalRoots = {originalRoots};
-    case cell
+    case 'cell'
     otherwise
         error('originalRoots must be a char array containing a drive letter, or a cell array of them.');
 end
 switch class(newRoots)
     case 'char'
         newRoots = {newRoots};
-    case cell
+    case 'cell'
     otherwise
         error('newRoots must be a char array containing a drive letter, or a cell array of them.');
 end
