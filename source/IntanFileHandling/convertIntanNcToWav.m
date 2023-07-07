@@ -1,4 +1,4 @@
-function convertIntanNcToWav(pathInput, recursive, regex, skipPreexisting)
+function convertIntanNcToWav(pathInput, recursive, regex, skipPreexisting, scale)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % convertIntanNcToWav: Convert .nc binary channel files to wav files.
 %
@@ -20,6 +20,11 @@ function convertIntanNcToWav(pathInput, recursive, regex, skipPreexisting)
 %    skipPreexisting is an optional boolean flag indicating whether or not
 %       to skip converting nc files if the corresponding wav file already 
 %       exists. Default is true.
+%    scale is an optional boolean flag indicating whether or not to scale
+%       the nc data to fit within the required wav format range of -1 to 1.
+%       If true, the data is scaled so it fits in that range. If false, the
+%       data is not scaled, and any data outside that range will be
+%       clipped. Default is true.
 %
 % See also: convertIntanTxtToNc, convertIntanNcToTxt,
 %           intan_converter_to_binary_channel_files
@@ -38,6 +43,9 @@ if ~exist('recursive', 'var') || isempty(recursive)
 end
 if ~exist('skipPreexisting', 'var') || isempty(skipPreexisting)
     skipPreexisting = true;
+end
+if ~exist('scale', 'var') || isempty(scale)
+    scale = true;
 end
 
 if ~iscell(pathInput)
@@ -64,7 +72,6 @@ for k = 1:length(pathsToFiles)
     displayProgress('\tCompleted %d of %d\n', k, length(pathsToFiles), 20);
     pathToNc = pathsToFiles{k};
     
-    data = readIntanNcFile(pathToNc);
     [path, name, ~] = fileparts(pathToNc);
     pathToWav = fullfile(path, [name, '.wav']);
     if skipPreexisting
@@ -76,7 +83,18 @@ for k = 1:length(pathsToFiles)
         end
     end
 
-    audiowrite(pathToWav, data.data, round(1/data.dt));
+    data = readIntanNcFile(pathToNc);
+
+    audioData = data.data;
+
+    if scale
+        % User requested data be scaled to fit within range -1 to 1
+        maxVal = max(audioData);
+        minVal = min(audioData);
+        audioData = (audioData - minVal) * (2 / (maxVal - minVal)) - 1;
+    end
+
+    audiowrite(pathToWav, audioData, round(1/data.dt));
 end
 
 fprintf('\nFound %d files, converted %d files and skipped %d preexisting files.\n', length(pathsToFiles), length(pathsToFiles) - skipCount, skipCount);
