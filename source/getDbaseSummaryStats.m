@@ -30,15 +30,16 @@ if length(uniqueFileLengths) == 1
 else
     meanLength = mean(dbase.FileLength)/dbase.Fs;
     stdLength = std(dbase.FileLength)/dbase.Fs;
-    fileLength = sprintf('%.01f +/- %.01f', meanLength, stdLength);
+    fileLength = sprintf('%.01f ± %.01f', meanLength, stdLength);
 end
 
 fprintf('\n************************* dbase summary *************************\n\n');
-fprintf('Root path:               %s\n', dbase.PathName);
-fprintf('# of files:              %d\n', length(dbase.SoundFiles));
-fprintf('# of non-sound channels: %d\n', length(dbase.ChannelFiles));
-fprintf('File length:             %s s\n', fileLength);
-fprintf('Sampling rate:           %d Hz\n', dbase.Fs);
+fprintf('Root path:                 %s\n', dbase.PathName);
+fprintf('# of files:                %d\n', length(dbase.SoundFiles));
+fprintf('# of non-sound channels:   %d\n', length(dbase.ChannelFiles));
+fprintf('File length:               %s s\n', fileLength);
+fprintf('Sampling rate:             %d Hz\n', dbase.Fs);
+
 fprintf('\nSegments:\n')
 
 numSegments = sum(cellfun(@length, dbase.SegmentTitles));
@@ -58,13 +59,14 @@ stdDuration = std(durations);
 pctFilesWithSegments = sum(cellfun(@(c)~isempty(c), dbase.SegmentTitles));
 
 fprintf('   # of segments:          %d\n', numSegments);
-fprintf('   # of segments/file:     %0.02f +/- %0.02f\n', meanSegments, stdSegments);
-fprintf('   Segment duration:       %0.01f +/- %0.01f ms\n', meanDuration, stdDuration);
+fprintf('   # of segments/file:     %0.02f ± %0.02f\n', meanSegments, stdSegments);
+fprintf('   Segment durations:      %0.01f ± %0.01f ms\n', meanDuration, stdDuration);
 fprintf('   %% of files w/ segments: %0.01f%%\n', pctFilesWithSegments)
 fprintf('\n')
 
 titles = dbase.SegmentTitles(cellfun(@iscell, dbase.SegmentTitles));
 titles = [titles{:}];
+titles = titles(cellfun(@ischar, titles));
 uniqueTitles = unique(titles);
 uniqueTitles = sort([uniqueTitles{:}]);
 
@@ -89,8 +91,69 @@ durations = 1000 * durations / dbase.Fs;
 meanDuration = mean(durations);
 stdDuration = std(durations);
 
-fprintf('   %s      %3d    % 6.01f +/-%- 5.01f\n', t, numSegments, meanDuration, stdDuration);
+fprintf('   %s      %3d    % 6.01f ±%- 5.01f\n', t, numSegments, meanDuration, stdDuration);
 
+end
+
+fprintf('\nMarkers:\n');
+
+if isfield(dbase, 'MarkerTitles')
+
+numMarkers = sum(cellfun(@length, dbase.MarkerTitles));
+meanMarkers = mean(cellfun(@length, dbase.MarkerTitles));
+stdMarkers = std(cellfun(@length, dbase.MarkerTitles));
+
+durations = [];
+for k = 1:length(dbase.SoundFiles)
+    if ~isempty(dbase.MarkerTimes{k})
+        durations = [durations, (dbase.MarkerTimes{k}(:, 2) - dbase.MarkerTimes{k}(:, 1))'];
+    end
+end
+
+durations = 1000 * durations / dbase.Fs;
+meanDuration = mean(durations);
+stdDuration = std(durations);
+pctFilesWithMarkers = sum(cellfun(@(c)~isempty(c), dbase.MarkerTitles));
+
+fprintf('   # of markers:          %d\n', numMarkers);
+fprintf('   # of markers/file:     %0.02f ± %0.02f\n', meanMarkers, stdMarkers);
+fprintf('   Marker durations:      %0.01f ± %0.01f ms\n', meanDuration, stdDuration);
+fprintf('   %% of files w/ markers: %0.01f%%\n', pctFilesWithMarkers)
+fprintf('\n')
+
+titles = dbase.MarkerTitles(cellfun(@iscell, dbase.MarkerTitles));
+titles = [titles{:}];
+titles = titles(cellfun(@ischar, titles));
+uniqueTitles = unique(titles);
+uniqueTitles = sort([uniqueTitles{:}]);
+
+fprintf('   Segmment titles:    %s\n', uniqueTitles);
+
+fprintf('   Title  Count   Duration\n');
+
+for k = 1:length(uniqueTitles)
+t = uniqueTitles(k);
+
+numMarkers = sum(strcmp(titles, t));
+
+durations = [];
+for k = 1:length(dbase.SoundFiles)
+    if ~isempty(dbase.MarkerTimes{k})
+        idx = strcmp(dbase.MarkerTitles{k}, t);
+        durations = [durations, (dbase.MarkerTimes{k}(idx, 2) - dbase.MarkerTimes{k}(idx, 1))'];
+    end
+end
+
+durations = 1000 * durations / dbase.Fs;
+meanDuration = mean(durations);
+stdDuration = std(durations);
+
+fprintf('   %s      %3d    % 6.01f ±%- 5.01f\n', t, numMarkers, meanDuration, stdDuration);
+
+end
+
+else
+fprintf('   Markers not included in dbase\n');
 end
 
 fprintf('\n************************* dbase summary *************************\n\n');
