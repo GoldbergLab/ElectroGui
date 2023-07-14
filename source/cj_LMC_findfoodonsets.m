@@ -1,11 +1,14 @@
 function [dbase] = cj_LMC_findfoodonsets(dbase)
     path = dbase.PathName;
     %navigate to and load in all chan6 files
+    %CHECK IF FILE NUMBER IS MAINTAINED WHEN filnames IS CREATED - it seems
+    %to be the case that it is maintained but I am unfamiliar with the
+    %structure of the filename
     cd(path)
     files = dir('*chan6.dat');
     filenames = {files.name};
     foodOnsets = zeros(1,length(filenames));
-    for i = 3:length(filenames)
+    for i = 1:length(filenames)
         display(['File #' num2str(i) ' of ' num2str(length(filenames))])
         [data,fs,~,~,~] = egl_FP_vg(filenames{i},1);                    
         pulseonsets = find(diff(data)==1);
