@@ -1,4 +1,6 @@
 function [dbase] = cj_LMC_findfoodonsets(dbase)
+%Find onset times (in seconds) for servo opening. Adds new field to dbase
+%that is a 1xn cell array where n is number of files
     path = dbase.PathName;
     %navigate to and load in all chan6 files
     %CHECK IF FILE NUMBER IS MAINTAINED WHEN filnames IS CREATED - it seems
