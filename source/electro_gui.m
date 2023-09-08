@@ -5784,6 +5784,8 @@ txtexp = text(mean(xlim),mean(ylim),'Exporting...',...
     'horizontalalignment','center','color','r','backgroundcolor',[1 1 1],'fontsize',14);
 drawnow
 
+tempFilename = 'eg_temp.wav';
+
 %%%
 str = get(handles.popup_Export,'String');
 val = get(handles.popup_Export,'value');
@@ -5830,7 +5832,7 @@ switch str
         dtm = datenum(get(handles.text_DateAndTime,'string'));
         sd = datestr(dtm,'yyyymmdd');
         st = datestr(dtm,'HHMMSS');
-        [pathstr,name,ext,versn] = fileparts(get(handles.text_FileName,'string'));
+        [pathstr,name,ext] = fileparts(get(handles.text_FileName,'string'));
         sf = name;
         for c = 1:length(handles.SegmentTitles{filenum})
             if ~isempty(findstr(newlab,handles.SegmentTitles{filenum}{c})) | isempty(newlab) | (isempty(handles.SegmentTitles{filenum}{c}) & ~isempty(findstr(newlab,'''''')))
@@ -5873,16 +5875,22 @@ switch str
                 end
 
                 wav = handles.sound(handles.SegmentTimes{filenum}(c,1):handles.SegmentTimes{filenum}(c,2));
-                warning off
-                wavwrite(wav,handles.fs,16,[path '\' str '.wav']);
-                warning on
+
+                try
+                    warning off
+                    wavwrite(wav,fs,16,[path '\' str '.wav']);
+                    warning on
+                catch
+                    audiowrite([path '\' str '.wav'], wav, fs, 'BitsPerSample', 16);
+                end
+
             end
         end
 
 
     case 'Sonogram'
         if get(handles.radio_Files,'value')==1
-            [pathstr,name,ext,versn] = fileparts(get(handles.text_FileName,'string'));
+            [pathstr,name,ext] = fileparts(get(handles.text_FileName,'string'));
             [file, path] = uiputfile([handles.DefaultRootPath '\' name '.jpg'],'Save image');
             if ~isstr(file)
                 delete(txtexp)
@@ -6134,17 +6142,21 @@ elseif get(handles.radio_Files,'value')==1
             delete(fig);
 
         case {'Current sound', 'Sound mix'}
-            [pathstr,name,ext,versn] = fileparts(get(handles.text_FileName,'string'));
+            [pathstr,name,ext] = fileparts(get(handles.text_FileName,'string'));
             [file, path] = uiputfile([handles.DefaultRootPath '\' name '.wav'],'Save sound');
             if ~isstr(file)
                 delete(txtexp)
                 return
             end
             handles.DefaultRootPath = path;
-            warning off
-            wavwrite(wav,fs,16,[path file]);
-            warning on
 
+            try
+                warning off
+                wavwrite(wav,fs,16,[path file]);
+                warning on
+            catch
+                audiowrite([path file], wav, fs, 'BitsPerSample', 16);
+            end
     end
 
 elseif get(handles.radio_PowerPoint,'value')==1
@@ -6175,13 +6187,19 @@ elseif get(handles.radio_PowerPoint,'value')==1
             if handles.ExportSonogramIncludeClip > 0
                 wav = GenerateSound(handles,'snd');
                 fs = handles.fs * handles.SoundSpeed;
-                warning off
-                wavwrite(wav,fs,16,'eg_temp.wav');
-                warning on
-                snd = invoke(newslide.Shapes,'AddMediaObject',[pwd '\eg_temp.wav']);
+    
+                try
+                    warning off
+                    wavwrite(wav,fs,16,f.UserData.ax);
+                    warning on
+                catch
+                    audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
+                end
+                
+                snd = invoke(newslide.Shapes,'AddMediaObject', fullfile(pwd, tempFilename));
                 set(snd,'Left',get(ug,'Left'));
                 set(snd,'Top',get(ug,'Top'));
-                mt = dir('eg_temp.wav');
+                mt = dir(f.UserData.ax);
                 delete(mt(1).name);
             end
 
@@ -6214,11 +6232,15 @@ elseif get(handles.radio_PowerPoint,'value')==1
             end
 
         case {'Current sound', 'Sound mix'}
-            warning off
-            wavwrite(wav,fs,16,'eg_temp.wav');
-            warning on
-            snd = invoke(newslide.Shapes,'AddMediaObject',[pwd '\eg_temp.wav']);
-            mt = dir('eg_temp.wav');
+            try
+                warning off
+                wavwrite(wav,fs,16,tempFilename);
+                warning on
+            catch
+                audiowrite(tempFilename, wav, fs, 'BitsPerSample', 16);
+            end
+            snd = invoke(newslide.Shapes,'AddMediaObject', fullfile(pwd, tempFilename));
+            mt = dir(tempFilename);
             delete(mt(1).name);
 
             if handles.ExportSonogramIncludeLabel == 1
@@ -6337,13 +6359,17 @@ elseif get(handles.radio_PowerPoint,'value')==1
                         if handles.ExportSonogramIncludeClip > 0
                             wav = handles.WorksheetSounds{lst{indx}(d)};
                             fs = handles.WorksheetFs(lst{indx}(d));
-                            warning off
-                            wavwrite(wav,fs,16,'eg_temp.wav');
-                            warning on
-                            snd = invoke(newslide.Shapes,'AddMediaObject',[pwd '\eg_temp.wav']);
+                            try
+                                warning off
+                                wavwrite(wav,fs,16,f.UserData.ax);
+                                warning on
+                            catch
+                                audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
+                            end
+                            snd = invoke(newslide.Shapes,'AddMediaObject', fullfile(pwd, tempFilename));
                             set(snd,'Left',get(ug,'Left'));
                             set(snd,'Top',get(ug,'Top'));
-                            mt = dir('eg_temp.wav');
+                            mt = dir(f.UserData.ax);
                             delete(mt(1).name);
                         end
                     end
@@ -6791,13 +6817,18 @@ elseif get(handles.radio_PowerPoint,'value')==1
                         end
                         fs = handles.fs * handles.SoundSpeed;
 
-                        warning off
-                        wavwrite(wav,fs,16,'eg_temp.wav');
-                        warning on
-                        snd = invoke(newslide.Shapes,'AddMediaObject',[pwd '\eg_temp.wav']);
+                        try
+                            warning off
+                            wavwrite(wav,fs,16,f.UserData.ax);
+                            warning on
+                        catch
+                            audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
+                        end
+
+                        snd = invoke(newslide.Shapes,'AddMediaObject', fullfile(pwd, tempFilename));
                         set(snd,'Left',get(ug,'Left'));
                         set(snd,'Top',get(ug,'Top'));
-                        mt = dir('eg_temp.wav');
+                        mt = dir(f.UserData.ax);
                         delete(mt(1).name);
                         sound_inserted = 1;
                     end
@@ -6840,13 +6871,18 @@ elseif get(handles.radio_PowerPoint,'value')==1
                 end
                 fs = handles.fs * handles.SoundSpeed;
 
-                warning off
-                wavwrite(wav,fs,16,'eg_temp.wav');
-                warning on
+                try
+                    warning off
+                    wavwrite(wav,fs,16,f.UserData.ax);
+                    warning on
+                catch
+                    audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
+                end
+
                 snd = invoke(newslide.Shapes,'AddMediaObject',[pwd '\eg_temp.wav']);
                 set(snd,'Left',offx);
                 set(snd,'Top',offy);
-                mt = dir('eg_temp.wav');
+                mt = dir(f.UserData.ax);
                 delete(mt(1).name);
             end
 
