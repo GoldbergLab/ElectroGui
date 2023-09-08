@@ -33,6 +33,10 @@ for k = nargin:-1:1
         newDbase = varargin{k};
     end
 
+    if ~isstruct(newDbase)
+        error('dbase must be a path to a dbase or a struct');
+    end
+
     if k == nargin
         dbase = newDbase;
         continue;

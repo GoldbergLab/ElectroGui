@@ -1,4 +1,4 @@
-function getDbaseSummaryStats(dbase)
+function dbase = getDbaseSummaryStats(dbase)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % getDbaseSummaryStats: Output summary stats about an electro_gui dbase
 % usage:  dbase = getDbaseSummaryStats(dbase, fileIdx)
@@ -66,7 +66,9 @@ fprintf('\n')
 
 titles = dbase.SegmentTitles(cellfun(@iscell, dbase.SegmentTitles));
 titles = [titles{:}];
-titles = titles(cellfun(@ischar, titles));
+emptyTitleMask = cellfun(@(x)~ischar(x), titles);
+titles(emptyTitleMask) = repmat({' '}, [1, sum(emptyTitleMask)]);
+%titles = titles(cellfun(@ischar, titles));
 uniqueTitles = unique(titles);
 uniqueTitles = sort([uniqueTitles{:}]);
 
@@ -80,10 +82,10 @@ t = uniqueTitles(k);
 numSegments = sum(strcmp(titles, t));
 
 durations = [];
-for k = 1:length(dbase.SoundFiles)
-    if ~isempty(dbase.SegmentTimes{k})
-        idx = strcmp(dbase.SegmentTitles{k}, t);
-        durations = [durations, (dbase.SegmentTimes{k}(idx, 2) - dbase.SegmentTimes{k}(idx, 1))'];
+for j = 1:length(dbase.SoundFiles)
+    if ~isempty(dbase.SegmentTimes{j})
+        idx = strcmp(dbase.SegmentTitles{j}, t);
+        durations = [durations, (dbase.SegmentTimes{j}(idx, 2) - dbase.SegmentTimes{j}(idx, 1))'];
     end
 end
 
@@ -91,7 +93,13 @@ durations = 1000 * durations / dbase.Fs;
 meanDuration = mean(durations);
 stdDuration = std(durations);
 
-fprintf('   %s      %3d    % 6.01f ±%- 5.01f\n', t, numSegments, meanDuration, stdDuration);
+if strcmp(t, ' ')
+    displayTitle = '<none>';
+else
+    displayTitle = t;
+end
+
+fprintf('   %s\t\t%3d    % 6.01f ±%- 5.01f\n', displayTitle, numSegments, meanDuration, stdDuration);
 
 end
 
@@ -123,7 +131,9 @@ fprintf('\n')
 
 titles = dbase.MarkerTitles(cellfun(@iscell, dbase.MarkerTitles));
 titles = [titles{:}];
-titles = titles(cellfun(@ischar, titles));
+emptyTitleMask = cellfun(@(x)~ischar(x), titles);
+titles(emptyTitleMask) = repmat(' ', [1, sum(emptyTitleMask)]);
+%titles = titles(cellfun(@ischar, titles));
 uniqueTitles = unique(titles);
 uniqueTitles = sort([uniqueTitles{:}]);
 
@@ -137,10 +147,10 @@ t = uniqueTitles(k);
 numMarkers = sum(strcmp(titles, t));
 
 durations = [];
-for k = 1:length(dbase.SoundFiles)
-    if ~isempty(dbase.MarkerTimes{k})
-        idx = strcmp(dbase.MarkerTitles{k}, t);
-        durations = [durations, (dbase.MarkerTimes{k}(idx, 2) - dbase.MarkerTimes{k}(idx, 1))'];
+for j = 1:length(dbase.SoundFiles)
+    if ~isempty(dbase.MarkerTimes{j})
+        idx = strcmp(dbase.MarkerTitles{j}, t);
+        durations = [durations, (dbase.MarkerTimes{j}(idx, 2) - dbase.MarkerTimes{j}(idx, 1))'];
     end
 end
 
@@ -148,7 +158,13 @@ durations = 1000 * durations / dbase.Fs;
 meanDuration = mean(durations);
 stdDuration = std(durations);
 
-fprintf('   %s      %3d    % 6.01f ±%- 5.01f\n', t, numMarkers, meanDuration, stdDuration);
+if strcmp(t, ' ')
+    displayTitle = '<none>';
+else
+    displayTitle = t;
+end
+
+fprintf('   %s\t\t%3d    % 6.01f ±%- 5.01f\n', displayTitle, numMarkers, meanDuration, stdDuration);
 
 end
 
