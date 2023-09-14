@@ -221,9 +221,9 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
         fprintf('\tHandling headstage %d of %d\n', headstage_num, total_headstage);
 
         path_output = sprintf('%s%sHeadstage%d', path_input, '\Data_extracted\',headstage_count);   %new directory where extracted files will be stored
-        if isdir(path_output)
-            path_output = sprintf('%s%sHeadstage%d', path_input, '\Data_extracted_2\',headstage_count);
-        end
+%         if isdir(path_output)
+%             path_output = sprintf('%s%sHeadstage%d', path_input, '\Data_extracted_2\',headstage_count);
+%         end
         
         [success, msg, err] = mkdir(path_output);
         if ~success
