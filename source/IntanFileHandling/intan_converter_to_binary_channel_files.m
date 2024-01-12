@@ -1,4 +1,4 @@
-function intan_converter_to_binary_channel_files(acc_array, acc_present, path_input, start_index, verbose)
+function intan_converter_to_binary_channel_files(acc_array, acc_present, path_input,mic_thresh, start_index, verbose)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % intan_converter_to_binary_channel_files: Convert Intan .rhd files to
 %   individual binary .nc channel files
@@ -247,7 +247,7 @@ for file_num = start_index:numel(Intan_file_dir)    % goes through all rhd files
             second=second_first;
             
 
-            if abs(data.board_adc_data(headstage_num,k)) > 0.3 %|| abs((data.amplifier_data(1,k)*unit)) > 0.003  %checks for stims if it is NOT a song file************* 
+            if abs(data.board_adc_data(headstage_num,k)) > mic_thresh %|| abs((data.amplifier_data(1,k)*unit)) > 0.003  %checks for stims if it is NOT a song file************* 
 
                 motif_number=motif_number+1;
                 motif_number_array(headstage_num)=motif_number;
