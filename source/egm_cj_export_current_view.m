@@ -55,12 +55,28 @@ function handles = egm_cj_export_current_view(handles)
     
     %MODIFY THIS MOFO
     h1 = subplot(211);
+<<<<<<< Updated upstream
     %set(h1,'Visible','off');
     set(h1,'Ylim',[250 7000]);
     xlims = get(h1,'Xlim');
     h2 = subplot(212);
     set(h2,'Xlim',xlims);
     
+=======
+    set(gcf,'Position',[306 353 981 486]);
+    set(h1,'Ylim',[250 7000]);
+    xlabel('');
+    set(h1,'Ytick',[2000 4000 6000]);
+    set(h1,'YTickLabel',['2k'; '4k'; '6k'])
+    set(h1,'FontSize',16)
+    ylabel('Freq (Hz)');
+    xlims = get(h1,'Xlim');
+    h2 = subplot(212);
+    loc2 = get(h2,'Position');
+    set(h2,'Xlim',xlims);
+    set(h2,'Visible','off');
+    set(h2,'Position',[loc2(1) loc2(2)+0.1 loc2(3) loc2(4)])
+>>>>>>> Stashed changes
     
     return
     
