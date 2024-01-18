@@ -976,7 +976,7 @@ end
 
 function inCache = isFileInCache(handles, filepath, loader)
 % Check if file is in the file cache or not. inCache is false if
-%   it is not in the cache, or a positive numerical cache index if it is in 
+%   it is not in the cache, or a positive numerical cache index if it is in
 %   the cache.
 inCache = false;
 for k = 1:length(handles.file_cache)
@@ -989,7 +989,7 @@ for k = 1:length(handles.file_cache)
 end
 
 function handles = refreshFileCache(handles)
-% Get a list of files that should be in cache, 
+% Get a list of files that should be in cache,
 filesInCache = {};
 loadersInCache = {};
 
@@ -1347,7 +1347,7 @@ for c = 1:length(handles.EventTimes);
 end
 if val <= length(str)-sum(nums)
     % /\/\/\ No idea what this signifies /\/\/\
-    
+
     if isSound
         loader = handles.sound_loader;
         filePath = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
@@ -1355,7 +1355,7 @@ if val <= length(str)-sum(nums)
         loader = handles.chan_loader{selectedChannelNum};
         filePath = fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum}(filenum).name);
     end
-    
+
     if handles.EnableFileCaching
         [handles, data] = retrieveFileFromCache(handles, filePath, loader);
         [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = data{:};
@@ -1497,14 +1497,14 @@ switch soundChannel
                 fileNum = getCurrentFileNum(handles);
                 filePath = fullfile(handles.DefaultRootPath, handles.sound_files(fileNum).name);
                 loader = handles.sound_loader;
-                
+
                 if handles.EnableFileCaching
                     [handles, data] = retrieveFileFromCache(handles, filePath, loader);
                     [handles.sound, handles.fs] = data{:};
                 else
                     [handles.sound, handles.fs] = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
                 end
-                
+
                 if size(handles.sound,2)>size(handles.sound,1)
                     handles.sound = handles.sound';
                 end
@@ -1512,10 +1512,10 @@ switch soundChannel
             sound = handles.sound;
         end
     case getSelectedChannel(handles, 1)
-        % Use whatever is loaded in channel axes #1 as sound 
+        % Use whatever is loaded in channel axes #1 as sound
         sound = handles.loadedChannelData{2};
     case getSelectedChannel(handles, 2)
-        % Use whatever is loaded in channel axes #2 as sound 
+        % Use whatever is loaded in channel axes #2 as sound
         sound = handles.loadedChannelData{2};
     case 'calculated'
         sourceIndices = get(handles.popup_SoundSource, 'UserData');
@@ -1541,7 +1541,7 @@ switch soundChannel
                     else
                         data = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
                     end
-                    
+
                 end
                 assignin('base', varName, data);
             end
@@ -2131,7 +2131,7 @@ elseif strcmp(get(gcf,'selectiontype'),'open')
     % Double-click
     %   Reset zoom
     [handles, numSamples] = eg_GetNumSamples(handles);
-    
+
     xd = [0 numSamples/handles.fs numSamples/handles.fs 0 0];
     % Update zoom box in top plot
     set(handles.xlimbox,'xdata',xd);
@@ -2143,7 +2143,7 @@ elseif strcmp(get(gcf,'selectiontype'),'open')
     handles = eg_EditTimescale(handles);
 elseif strcmp(get(gcf, 'selectiontype'), 'alt') && ~isempty(get(gcf, 'CurrentModifier')) && strcmp(get(gcf, 'CurrentModifier'), 'control')
     % User control-clicked on axes_Spectrogram
-    
+
     % Switch the axes back to normalized units
     set(get(gca,'parent'),'units','normalized');
     set(gca,'units','normalized');
@@ -3153,7 +3153,7 @@ if strcmp(get(gcf,'selectiontype'),'normal')
 
     rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
     rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
-   
+
     f = find(handles.SegmentTimes{filenum}(:,1)>rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*handles.fs);
     g = find(handles.SegmentTimes{filenum}(:,2)>rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*handles.fs);
     h = find(handles.SegmentTimes{filenum}(:,1)<rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*handles.fs);
@@ -3412,7 +3412,7 @@ if chn == 5
             numChannels = numChannels + 1;
         end
     end
-    
+
     % Copy sonogram
     sonogram_export = subplot(numChannels+1, 1, 1, 'Parent', f_export);
     sonogram_children = get(handles.axes_Sonogram, 'Children');
@@ -3424,7 +3424,7 @@ if chn == 5
     ylim(sonogram_export, ylim(handles.axes_Sonogram));
     set(sonogram_export, 'CLim', get(handles.axes_Sonogram, 'CLim'));
     colormap(sonogram_export, handles.Colormap);
-    
+
     % Set figure size to match contents
     set(sonogram_export, 'Units', get(handles.axes_Sonogram, 'Units'));
     curr_pos = get(sonogram_export, 'Position');
@@ -3448,7 +3448,7 @@ if chn == 5
             for k = 1:length(channel_children)
                 copyobj(channel_children(k), channel_export);
             end
-            
+
 %            [~, selectedChannelName, ~] = getSelectedChannel(handles, c);
 %             title(channel_export, selectedChannelName, 'Interpreter', 'none');
         end
@@ -4110,7 +4110,7 @@ if ~isempty(obj)
 else
     hold on
     [handles, numSamples] = eg_GetNumSamples(handles);
-    
+
     plot([0, numSamples/handles.fs], [handles.EventCurrentThresholds(indx), handles.EventCurrentThresholds(indx)], ':', ...
         'color', handles.ChannelThresholdColor(axnum,:));
     hold off
@@ -4792,7 +4792,7 @@ elseif strcmp(get(gcf,'selectiontype'),'normal') & sum(get(hObject,'markerfaceco
     sel = handles.EventSelected{f}{g,filenum};
 
     [handles, numSamples] = eg_GetNumSamples(handles);
-    
+
     xs = linspace(0, numSamples/handles.fs, numSamples);
     tm = xs(tm(find(sel==1)));
     xclick = get(hObject,'xdata');
@@ -6080,6 +6080,8 @@ txtexp = text(mean(xlim),mean(ylim),'Exporting...',...
     'horizontalalignment','center','color','r','backgroundcolor',[1 1 1],'fontsize',14);
 drawnow
 
+tempFilename = 'eg_temp.wav';
+
 %%%
 
 [handles, sound] = eg_GetSound(handles);
@@ -6129,7 +6131,7 @@ switch str
         dtm = datenum(get(handles.text_DateAndTime,'string'));
         sd = datestr(dtm,'yyyymmdd');
         st = datestr(dtm,'HHMMSS');
-        [pathstr,name,ext,versn] = fileparts(get(handles.text_FileName,'string'));
+        [pathstr,name,ext] = fileparts(get(handles.text_FileName,'string'));
         sf = name;
         for c = 1:length(handles.SegmentTitles{filenum})
             if ~isempty(findstr(newlab,handles.SegmentTitles{filenum}{c})) | isempty(newlab) | (isempty(handles.SegmentTitles{filenum}{c}) & ~isempty(findstr(newlab,'''''')))
@@ -6172,16 +6174,22 @@ switch str
                 end
 
                 wav = sound(handles.SegmentTimes{filenum}(c,1):handles.SegmentTimes{filenum}(c,2));
-                warning off
-                wavwrite(wav,handles.fs,16,[path '\' str '.wav']);
-                warning on
+
+                try
+                    warning off
+                    wavwrite(wav,fs,16,[path '\' str '.wav']);
+                    warning on
+                catch
+                    audiowrite([path '\' str '.wav'], wav, fs, 'BitsPerSample', 16);
+                end
+
             end
         end
 
 
     case 'Sonogram'
         if get(handles.radio_Files,'value')==1
-            [pathstr,name,ext,versn] = fileparts(get(handles.text_FileName,'string'));
+            [pathstr,name,ext] = fileparts(get(handles.text_FileName,'string'));
             [file, path] = uiputfile([handles.DefaultRootPath '\' name '.jpg'],'Save image');
             if ~isstr(file)
                 delete(txtexp)
@@ -6438,17 +6446,21 @@ elseif get(handles.radio_Files,'value')==1
             delete(fig);
 
         case {'Current sound', 'Sound mix'}
-            [pathstr,name,ext,versn] = fileparts(get(handles.text_FileName,'string'));
+            [pathstr,name,ext] = fileparts(get(handles.text_FileName,'string'));
             [file, path] = uiputfile([handles.DefaultRootPath '\' name '.wav'],'Save sound');
             if ~isstr(file)
                 delete(txtexp)
                 return
             end
             handles.DefaultRootPath = path;
-            warning off
-            wavwrite(wav,fs,16,[path file]);
-            warning on
 
+            try
+                warning off
+                wavwrite(wav,fs,16,[path file]);
+                warning on
+            catch
+                audiowrite([path file], wav, fs, 'BitsPerSample', 16);
+            end
     end
 
 elseif get(handles.radio_PowerPoint,'value')==1
@@ -6479,13 +6491,19 @@ elseif get(handles.radio_PowerPoint,'value')==1
             if handles.ExportSonogramIncludeClip > 0
                 wav = GenerateSound(handles,'snd');
                 fs = handles.fs * handles.SoundSpeed;
-                warning off
-                wavwrite(wav,fs,16,'eg_temp.wav');
-                warning on
-                snd = invoke(newslide.Shapes,'AddMediaObject',[pwd '\eg_temp.wav']);
+
+                try
+                    warning off
+                    wavwrite(wav,fs,16,f.UserData.ax);
+                    warning on
+                catch
+                    audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
+                end
+
+                snd = invoke(newslide.Shapes,'AddMediaObject', fullfile(pwd, tempFilename));
                 set(snd,'Left',get(ug,'Left'));
                 set(snd,'Top',get(ug,'Top'));
-                mt = dir('eg_temp.wav');
+                mt = dir(f.UserData.ax);
                 delete(mt(1).name);
             end
 
@@ -6518,11 +6536,15 @@ elseif get(handles.radio_PowerPoint,'value')==1
             end
 
         case {'Current sound', 'Sound mix'}
-            warning off
-            wavwrite(wav,fs,16,'eg_temp.wav');
-            warning on
-            snd = invoke(newslide.Shapes,'AddMediaObject',[pwd '\eg_temp.wav']);
-            mt = dir('eg_temp.wav');
+            try
+                warning off
+                wavwrite(wav,fs,16,tempFilename);
+                warning on
+            catch
+                audiowrite(tempFilename, wav, fs, 'BitsPerSample', 16);
+            end
+            snd = invoke(newslide.Shapes,'AddMediaObject', fullfile(pwd, tempFilename));
+            mt = dir(tempFilename);
             delete(mt(1).name);
 
             if handles.ExportSonogramIncludeLabel == 1
@@ -6641,13 +6663,17 @@ elseif get(handles.radio_PowerPoint,'value')==1
                         if handles.ExportSonogramIncludeClip > 0
                             wav = handles.WorksheetSounds{lst{indx}(d)};
                             fs = handles.WorksheetFs(lst{indx}(d));
-                            warning off
-                            wavwrite(wav,fs,16,'eg_temp.wav');
-                            warning on
-                            snd = invoke(newslide.Shapes,'AddMediaObject',[pwd '\eg_temp.wav']);
+                            try
+                                warning off
+                                wavwrite(wav,fs,16,f.UserData.ax);
+                                warning on
+                            catch
+                                audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
+                            end
+                            snd = invoke(newslide.Shapes,'AddMediaObject', fullfile(pwd, tempFilename));
                             set(snd,'Left',get(ug,'Left'));
                             set(snd,'Top',get(ug,'Top'));
-                            mt = dir('eg_temp.wav');
+                            mt = dir(f.UserData.ax);
                             delete(mt(1).name);
                         end
                     end
@@ -7101,13 +7127,18 @@ elseif get(handles.radio_PowerPoint,'value')==1
                         end
                         fs = handles.fs * handles.SoundSpeed;
 
-                        warning off
-                        wavwrite(wav,fs,16,'eg_temp.wav');
-                        warning on
-                        snd = invoke(newslide.Shapes,'AddMediaObject',[pwd '\eg_temp.wav']);
+                        try
+                            warning off
+                            wavwrite(wav,fs,16,f.UserData.ax);
+                            warning on
+                        catch
+                            audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
+                        end
+
+                        snd = invoke(newslide.Shapes,'AddMediaObject', fullfile(pwd, tempFilename));
                         set(snd,'Left',get(ug,'Left'));
                         set(snd,'Top',get(ug,'Top'));
-                        mt = dir('eg_temp.wav');
+                        mt = dir(f.UserData.ax);
                         delete(mt(1).name);
                         sound_inserted = 1;
                     end
@@ -7150,13 +7181,18 @@ elseif get(handles.radio_PowerPoint,'value')==1
                 end
                 fs = handles.fs * handles.SoundSpeed;
 
-                warning off
-                wavwrite(wav,fs,16,'eg_temp.wav');
-                warning on
+                try
+                    warning off
+                    wavwrite(wav,fs,16,f.UserData.ax);
+                    warning on
+                catch
+                    audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
+                end
+
                 snd = invoke(newslide.Shapes,'AddMediaObject',[pwd '\eg_temp.wav']);
                 set(snd,'Left',offx);
                 set(snd,'Top',offy);
-                mt = dir('eg_temp.wav');
+                mt = dir(f.UserData.ax);
                 delete(mt(1).name);
             end
 
@@ -7396,9 +7432,9 @@ else
             alg = get(handles.menu_Algorithm(c),'label');
         end
     end
-    
+
     [handles, sound] = eg_GetSound(handles);
-    
+
     pow = eg_runPlugin(handles.plugins.spectrums, alg, gca, ...
         sound(xlp(1):xlp(2)), handles.fs, handles.SonogramParams);
     set(gca,'ydir','normal');
@@ -9797,7 +9833,7 @@ unreadFileMarkerEnd = length(handles.FileEntryOpenTag)+length(handles.UnreadFile
 if ~includeUnreadMarker && strcmp(fileEntry(unreadFileMarkerStart:unreadFileMarkerEnd), handles.UnreadFileMarker)
     fileName = fileEntry(unreadFileMarkerEnd+1:(end-length(handles.FileEntryCloseTag)));
 else
-    fileName = fileEntry(length(handles.FileEntryOpenTag)+1:(end-length(handles.FileEntryCloseTag)));    
+    fileName = fileEntry(length(handles.FileEntryOpenTag)+1:(end-length(handles.FileEntryCloseTag)));
 end
 
 function newFileEntry = removeUnreadFileMarker(handles, fileEntry)
@@ -10308,11 +10344,11 @@ function popup_SoundSource_Callback(hObject, eventdata, handles)
 sourceIndices = get(handles.popup_SoundSource, 'UserData');
 idx = get(handles.popup_SoundSource, 'Value');
 handles.SoundChannel = sourceIndices{idx};
-            
+
 if strcmp(handles.SoundChannel, 'calculated')
     % Allow user to input expression for calculated sound channel
     expression = inputdlg('Enter expression for calculated channel, using ''sound'', ''chan1'', ''chan2'', etc. as variables.', 'Input calculated channel expression', 1, {handles.SoundExpression});
-    
+
     if isempty(expression) || isempty(strtrim(expression{1}))
         % User did not provide an expression - default to normal sound
         % channel.

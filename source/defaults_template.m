@@ -7,6 +7,7 @@ handles.FileString = '*chan%d.nc'; % File search string; must include a string f
 handles.DefaultFileLoader = 'Intan_Nc'; % Default file loader. Choose from egl_* files.
 handles.DefaultChannelNumber = 20; % Default number of channels
 handles.DefaultRootPath = '.';     % Default folder that file picker will open to when clicking "New" or "Open".
+handles.QuoteFile = 'quotes.txt';
 
 % DEFAULT PROPERTIES
 handles.DefaultProperties.Names = {'bSorted', 'bDirected', 'bContainsStim', 'bUnusable'};   % Default property names to add to every loaded file
