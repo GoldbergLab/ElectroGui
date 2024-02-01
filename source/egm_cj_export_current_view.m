@@ -100,6 +100,7 @@ function handles = egm_cj_export_current_view(handles)
     set(h2,'Xlim',xlims);
     set(h2,'Visible','off');
     set(h2,'Position',[loc2(1) loc2(2)+0.05 loc2(3) loc2(4)])
+
     
     return
     
