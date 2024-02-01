@@ -20,6 +20,7 @@ handles.BackwardFileCacheSize = 2;  % Number of files to load before the current
 handles.ForwardFileCacheSize = 4;   % Number of files to load after the current file in case user goes forwards
 
 % SONOGRAM SETTINGS
+handles.Colormap = 'parula';  % Default coloramp
 handles.SonogramAutoCalculate = 1; % Automatically calculate and plot the sonogram when a file is loaded or axes changed?
 handles.FreqLim = [500 7500]; % Frequency axis limits (Hz)
 handles.AllowFrequencyZoom = 0; % Allow user to zoom along the frequency axis by dragging a box over the sonogram?

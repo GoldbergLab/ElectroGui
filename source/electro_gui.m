@@ -348,7 +348,7 @@ for c = 1:length(mt)
         'callback','electro_gui(''ColormapClick'',gcbo,[],guidata(gcbo))');
 end
 
-colormap('default');
+%colormap('default');
 handles.Colormap = colormap;
 handles.Colormap(1,:) = handles.BackgroundColors(1,:);
 
@@ -8140,7 +8140,7 @@ function menu_Colormap_Callback(hObject, ~, handles)
 function ColormapClick(hObject, ~, handles)
 
 if strcmp(get(hObject,'Label'),'(Default)')
-    colormap('default');
+    colormap('parula');
     cmap = colormap;
     cmap(1,:) = [0 0 0];
 else
