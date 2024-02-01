@@ -19,15 +19,21 @@ function handles = egm_cj_playvideo(handles)
     birdpath = [basepath '\' birdID '\videos\' month day year];
     if birdID == '0010'
          birdpath = [basepath '\' birdID '\videos\' month day year '\Alligned_videos_new'];
+         if ~isdir(birdpath)
+            birdpath = [basepath '\' birdID '\videos\' month day year '\Alligned_videos'];
+         end 
     end
-    dnum = str2num(n(tt(1)+2:tt(2)-1));
-    dnum = num2str(dnum);
+    fnum = n(tt(1)+2:tt(2)-1);
+    hnum = fnum(end-3:end);
+%     dnum = str2num(fnum);
+%     dnum = num2str(dnum);
     cd(birdpath)
-    vidName = dir(['*' dnum '*.mp4']);
-    vidName = vidName.name;
-    fullPath = [birdpath '\' vidName];
-    if ~exist(fullPath,'file')
-        error('Video does not exist');
+    vid = dir(['*' hnum '*.mp4']);
+    if ~isempty(vid)
+        vidName = vid.name;
+        fullPath = [birdpath '\' vidName];
+    else
+        error('Video not found')
     end
     
     %video stuff
@@ -45,13 +51,13 @@ function handles = egm_cj_playvideo(handles)
     display(tempAudPath)
     chanNum = handles.EventCurrentIndex(axnum);
     spikeAudio = zeros(1,length(snd));
-    if chanNum ~= 0
-        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{chanNum}, fullfile(handles.DefaultRootPath, handles.chan_files{chanNum}(fileNum).name), true);
-        eventTimes = handles.EventTimes{chanNum}{2,fileNum};
-        spikeAudio(eventTimes) = 1;
-    else 
-        eventTimes = zeros(1,length(snd));
-    end
+%     if chanNum ~= 0
+%         [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{chanNum}, fullfile(handles.DefaultRootPath, handles.chan_files{chanNum}(fileNum).name), true);
+%         eventTimes = handles.EventTimes{chanNum}{2,fileNum};
+%         spikeAudio(eventTimes) = 1;
+%     else 
+%         eventTimes = zeros(1,length(snd));
+%     end
     
     padsize = 5; % Higher number means lower frequency sound for spikes 
     padKernel = ones(1,2*padsize+1);

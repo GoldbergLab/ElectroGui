@@ -52,17 +52,41 @@ function handles = egm_cj_export_current_view(handles)
         end
     end
     
+    %get filenum and mark/seg info
+    fileNum  = getCurrentFileNum(handles);
+    fs = handles.fs;
+    markerTimes = handles.MarkerTimes{fileNum}/fs;
+    markerTitles = handles.MarkerTitles{fileNum};
+
+    segmentTimes = handles.SegmentTimes{fileNum}/fs;
+    segmentTitles = handles.SegmentTitles{fileNum};
     
-    %MODIFY THIS MOFO
+    % modify the plot
+
     h1 = subplot(211);
-<<<<<<< Updated upstream
     %set(h1,'Visible','off');
     set(h1,'Ylim',[250 7000]);
     xlims = get(h1,'Xlim');
     h2 = subplot(212);
     set(h2,'Xlim',xlims);
+    loc1 = get(h1,'Position');
+    set(h1,'Position',[loc1(1) loc1(2)+0.03 loc1(3) loc1(4)])
     
-=======
+    % add axes for behav segs
+    hs = axes('Position',[loc1(1) loc1(2)-0.125 loc1(3) loc1(4)*0.5]);
+    set(hs,'XLim',get(h1,'XLim'));
+    set(hs,'YLim',[-1 1]);
+    axis off
+    % plot markers
+    for q = 1:size(markerTimes,1)
+        line([markerTimes(q,1) markerTimes(q,2)],[-0.5 -0.5],'color','b','LineWidth',5)
+        text((markerTimes(q,1)+markerTimes(q,2))/2,-0.25,markerTitles(q),'Color','blue','FontSize',14)
+    end
+    % plot segs
+    for q = 1:size(segmentTimes,1)
+        line([segmentTimes(q,1) segmentTimes(q,2)],[0 0],'color','r','LineWidth',5)
+    end
+    
     set(gcf,'Position',[306 353 981 486]);
     set(h1,'Ylim',[250 7000]);
     xlabel('');
@@ -75,8 +99,7 @@ function handles = egm_cj_export_current_view(handles)
     loc2 = get(h2,'Position');
     set(h2,'Xlim',xlims);
     set(h2,'Visible','off');
-    set(h2,'Position',[loc2(1) loc2(2)+0.1 loc2(3) loc2(4)])
->>>>>>> Stashed changes
+    set(h2,'Position',[loc2(1) loc2(2)+0.05 loc2(3) loc2(4)])
     
     return
     

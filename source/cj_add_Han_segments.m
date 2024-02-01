@@ -41,9 +41,15 @@ function dbase = cj_add_Han_segments(dbase,bWash)
         x.SegmentTimes = dbase.SegmentTimes;
         x.SegmentTitles = dbase.SegmentTitles;
         x.SegmentIsSelected = dbase.SegmentIsSelected;
-        x.MarkerTimes = dbase.MarkerTimes;
-        x.MarkerTitles = dbase.MarkerTitles;
-        x.MarkerIsSelected = dbase.MarkerIsSelected;
+        if isfield(dbase,'MarkerTimes')
+             x.MarkerTimes = dbase.MarkerTimes;
+             x.MarkerTitles = dbase.MarkerTitles;
+             x.MarkerIsSelected = dbase.MarkerIsSelected;
+        else
+            x.MarkerTimes = cell(1,length(dbase.Times));
+            x.MarkerTitles = cell(1,length(dbase.Times));
+            x.MarkerIsSelected = cell(1,length(dbase.Times));
+        end
         x.EventSources = dbase.EventSources;
         x.EventFunctions = dbase.EventFunctions;
         x.EventDetectors = dbase.EventDetectors;
@@ -81,7 +87,7 @@ function dbase = cj_add_Han_segments(dbase,bWash)
     
     % define gestures
     gestures = {'allogrooming', 'general_movement', 'headbob','kissing',...
-        'selfgrooming','tapping','wingflap','containsWarb','containsCall','loud'};
+        'selfgrooming','tapping','wingflap','containsWarb','containsCall','loud','bBehav'};
     
     %CLEAR OUT ThoSE OLD MF STUPID ASS BOOLS cuz WE BOOLIN!!
     [dbase.Properties.Names{:}] = deal(gestures);
@@ -92,7 +98,7 @@ function dbase = cj_add_Han_segments(dbase,bWash)
     dealboi(:) = deal(2);
     [dbase.Properties.Types{:}] = deal(dealboi);
     
-    for i = 1:length(gestures)-2 %-2 cuz don't want to do containsWarb or containsCall
+    for i = 1:length(gestures)-4 %-2 cuz don't want to do containsWarb or containsCall
         fullpath = [datepath '\' gestures{i}];
         if isdir(fullpath) && exist([fullpath '\' 'segmentations_cleaned.mat'],'file')
             segs = load([fullpath '\' 'segmentations_cleaned.mat']);
@@ -166,7 +172,12 @@ function dbase = cj_add_Han_segments(dbase,bWash)
         % add this info to the dbase
         dbase.vsegs = vsegs;
         for k = 1:length(vidnums)
-            filenum = find(d_num==vidnums(k));
+            cl = class(vidnums{k});
+            if strcmp(cl,'cell')
+                filenum = find(d_num==vidnums{k});
+            else
+                filenum = find(d_num==vidnums{k});
+            end
             if length(vsegs.call_onsets{k}) ~= length(vsegs.call_offsets{k})
                 disp('MISMATCH')
                 mismatch = 1;
@@ -180,7 +191,7 @@ function dbase = cj_add_Han_segments(dbase,bWash)
             dbase.SegmentIsSelected{1,filenum} = vsegs.call_identity{k}';
             % populate containscall bool
             if numcalls>0
-                dbase.Properties.Values{1,filenum}{1,length(gestures)-1} = 1;%MINUS one of length of gestures(hard coded index)
+                dbase.Properties.Values{1,filenum}{1,length(gestures)-2} = 1;%MINUS two of length of gestures(hard coded index)
                for w = 1:numcalls
                     if vsegs.call_identity{k}(w) == 1
                         dbase.SegmentTitles{1,filenum}{1,w} = 'C';
@@ -194,7 +205,7 @@ function dbase = cj_add_Han_segments(dbase,bWash)
         end
         % add warb bool
         for r = 1:length(vsegs.warble)
-            dbase.Properties.Values{1,r}{1,length(gestures)-2} = vsegs.warble(r);%MINUS two hard coded index
+            dbase.Properties.Values{1,r}{1,length(gestures)-3} = vsegs.warble(r);%MINUS three hard coded index
         end
     end
     % here we will loop through all sound files and measure rms
@@ -212,6 +223,12 @@ function dbase = cj_add_Han_segments(dbase,bWash)
     louds = find(e_dat>prctile(e_dat(~isnan(e_dat)),87));
     for i = 1:length(dbase.Properties.Values)
         if any(louds==i)
+            dbase.Properties.Values{1,i}{1,length(gestures)-1} = 1;
+        end
+    end
+    % here going to make new boolean that is 'bBehav'
+    for i = 1:length(soundfiles)
+        if any(concatenate(dbase.Properties.Values{i}))
             dbase.Properties.Values{1,i}{1,length(gestures)} = 1;
         end
     end
