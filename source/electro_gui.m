@@ -1096,6 +1096,18 @@ else
 end
 
 subplot(handles.axes_Sound)
+
+try
+    filePath = fullfile(handles.DefaultRootPath, handles.sound_files(fileNum).name);
+    [handles.sound, handles.fs, dt, label, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, filePath, true);
+catch ME
+    if ~exist(filePath, 'file')
+        error('File not found: %s', filePath);
+    else
+        rethrow(ME);
+    end
+end
+
 handles.DatesAndTimes(fileNum) = dt;
 [handles, numSamples] = eg_GetNumSamples(handles);
 
@@ -1342,25 +1354,32 @@ filenum = getCurrentFileNum(handles);
 val = get(handles.popup_Channels(axnum),'value');
 str = get(handles.popup_Channels(axnum),'string');
 nums = [];
-for c = 1:length(handles.EventTimes);
+for c = 1:length(handles.EventTimes)
     nums(c) = size(handles.EventTimes{c},1);
 end
 if val <= length(str)-sum(nums)
-    % /\/\/\ No idea what this signifies /\/\/\
-
-    if isSound
-        loader = handles.sound_loader;
-        filePath = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
-    else
-        loader = handles.chan_loader{selectedChannelNum};
-        filePath = fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum}(filenum).name);
-    end
-
-    if handles.EnableFileCaching
-        [handles, data] = retrieveFileFromCache(handles, filePath, loader);
-        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = data{:};
-    else
-        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
+    % No idea what this signifies
+    try
+        if isSound
+            loader = handles.sound_loader;
+            filePath = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
+        else
+            loader = handles.chan_loader{selectedChannelNum};
+            filePath = fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum}(filenum).name);
+        end
+    
+        if handles.EnableFileCaching
+            [handles, data] = retrieveFileFromCache(handles, filePath, loader);
+            [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = data{:};
+        else
+            [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
+        end
+    catch ME
+        if ~exist(filePath, 'file')
+            error('File not found: %s', filePath);
+        else
+            rethrow(ME);
+        end
     end
 else
     [handles, numSamples] = eg_GetNumSamples(handles);
@@ -1487,7 +1506,7 @@ switch soundChannel
         % Use channel 0 (the normal sound channel)
         if filtered
             % User requested filtered sound
-            if isempty(handles.filtered_sound);
+            if isempty(handles.filtered_sound)
                 handles = eg_FilterSound(handles);
             end
             sound = handles.filtered_sound;
