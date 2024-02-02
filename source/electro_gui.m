@@ -1172,9 +1172,13 @@ end
 
 % Define callbacks
 % subplot(handles.axes_Sound);
-set(handles.axes_Sonogram, 'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
-ch = get(handles.axes_Sonogram, 'children');
-set(ch,'buttondownfcn', get(handles.axes_Sonogram, 'buttondownfcn'));
+set(handles.axes_Sonogram,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
+ch = get(handles.axes_Sonogram,'children');
+set(ch,'buttondownfcn',get(handles.axes_Sonogram,'buttondownfcn'));
+
+set(handles.axes_Sound,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
+ch = get(handles.axes_Sound,'children');
+set(ch,'buttondownfcn',get(handles.axes_Sound,'buttondownfcn'));
 
 
 % Plot channels
@@ -1851,6 +1855,7 @@ else
     hold off
 end
 xlim(xl);
+disp('hi')
 
 % --------------------------------------------------------------------
 function context_Sonogram_Callback(hObject, ~, handles)
@@ -1941,9 +1946,13 @@ xlim([0, numSamples/handles.fs]);
 hold off
 box on;
 
-set(gca,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
-ch = get(gca,'children');
-set(ch,'buttondownfcn',get(gca,'buttondownfcn'));
+set(handles.axes_Sonogram,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
+ch = get(handles.axes_Sonogram,'children');
+set(ch,'buttondownfcn',get(handles.axes_Sonogram,'buttondownfcn'));
+
+set(handles.axes_Sound,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
+ch = get(handles.axes_Sound,'children');
+set(ch,'buttondownfcn',get(handles.axes_Sound,'buttondownfcn'));
 
 [handles.amplitude labs] = eg_CalculateAmplitude(handles);
 
@@ -1976,10 +1985,16 @@ set(handles.edit_Timescale,'string',num2str(xd(2)-xd(1),4));
 if strcmp(get(handles.menu_AutoCalculate,'checked'),'on')
     handles = eg_PlotSonogram(handles);
 else
-    subplot(handles.axes_Sonogram);
-    xlim(xd(1:2));
-    set(gca,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
-    set(gca,'uicontextmenu',handles.context_Sonogram);
+    xlim(handles.axes_Sonogram, xd(1:2));
+    set(handles.axes_Sonogram,'uicontextmenu',handles.context_Sonogram);
+
+    set(handles.axes_Sonogram,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
+    ch = get(handles.axes_Sonogram,'children');
+    set(ch,'buttondownfcn',get(handles.axes_Sonogram,'buttondownfcn'));
+
+    set(handles.axes_Sound,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
+    ch = get(handles.axes_Sound,'children');
+    set(ch,'buttondownfcn',get(handles.axes_Sound,'buttondownfcn'));
 end
 
 subplot(handles.axes_Amplitude);
@@ -8774,9 +8789,13 @@ xlim([0, numSamples/handles.fs]);
 hold off
 box on;
 
-set(gca,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
-ch = get(gca,'children');
-set(ch,'buttondownfcn',get(gca,'buttondownfcn'));
+set(handles.axes_Sonogram,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
+ch = get(handles.axes_Sonogram,'children');
+set(ch,'buttondownfcn',get(handles.axes_Sonogram,'buttondownfcn'));
+
+set(handles.axes_Sound,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
+ch = get(handles.axes_Sound,'children');
+set(ch,'buttondownfcn',get(handles.axes_Sound,'buttondownfcn'));
 
 
 [handles.amplitude labs] = eg_CalculateAmplitude(handles);
