@@ -82,21 +82,8 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.FileEntryOpenTag = '<HTML><FONT COLOR=000000>';
     handles.FileEntryCloseTag = '</FONT></HTML>';
     
-    % Segment/Marker colors
-    handles.SegmentSelectColor = 'r';
-    handles.SegmentUnSelectColor = [0.7, 0.5, 0.5];
-    handles.MarkerSelectColor = 'b';
-    handles.MarkerUnSelectColor = [0.5, 0.5, 0.7];
-    handles.SegmentActiveColor = 'y';  % Note the GUI depends on this being different from MarkerActiveColor.
-    handles.MarkerActiveColor = 'g';
-    handles.SegmentInactiveColor = 'k';
-    handles.MarkerInactiveColor = 'k';
-    
-    handles.SegmentSelectColors = {handles.SegmentUnSelectColor, handles.SegmentSelectColor};
-    handles.MarkerSelectColors = {handles.MarkerUnSelectColor, handles.MarkerSelectColor};
-    handles.SegmentActiveColors = {handles.SegmentInactiveColor, handles.SegmentActiveColor};
-    handles.MarkerActiveColors = {handles.MarkerInactiveColor, handles.MarkerActiveColor};
-    
+    handles = setSegmentAndMarkerColors(handles);
+
     % File caching settings
     handles.EnableFileCaching = true;
     handles.BackwardFileCacheSize = 1;
@@ -186,58 +173,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     
     handles.menu_EditFigureTemplate.UserData = handles.template;
     
-    sz = get(handles.figure_Main,'papersize');
-    if strcmp(handles.WorksheetOrientation,'portrait')
-        handles.menu_Portrait.Checked = 'on';
-    else
-        handles.WorksheetOrientation = 'landscape';
-        handles.menu_Landscape.Checked = 'on';
-    end
-    if ~strcmp(handles.WorksheetOrientation,get(handles.figure_Main,'paperorientation'))
-        handles.WorksheetHeight = sz(1);
-        handles.WorksheetWidth = sz(2);
-    else
-        handles.WorksheetHeight = sz(2);
-        handles.WorksheetWidth = sz(1);
-    end
-    
-    subplot(handles.axes_Worksheet);
-    patch([0 handles.WorksheetWidth handles.WorksheetWidth 0],[0 0 handles.WorksheetHeight handles.WorksheetHeight],'w');
-    axis equal;
-    axis tight;
-    axis off;
-    
-    handles.WorksheetTitle = 'Untitled';
-    
-    handles.WorksheetXLims = {};
-    handles.WorksheetYLims = {};
-    handles.WorksheetXs = {};
-    handles.WorksheetYs = {};
-    handles.WorksheetMs = {};
-    handles.WorksheetClim = {};
-    handles.WorksheetColormap = {};
-    handles.WorksheetSounds = {};
-    handles.WorksheetFs = [];
-    handles.WorksheetTimes = [];
-    
-    handles.WorksheetCurrentPage = 1;
-    
-    if handles.WorksheetIncludeTitle == 1
-        handles.menu_IncludeTitle.Checked = 'on';
-    end
-    if handles.WorksheetChronological == 1
-        handles.menu_SortChronologically.Checked = 'on';
-    end
-    if handles.WorksheetOnePerLine == 1
-        handles.menu_OnePerLine.Checked = 'on';
-    end
-    
-    
-    handles.WorksheetHandles = [];
-    handles.WorksheetList = [];
-    handles.WorksheetUsed = [];
-    handles.WorksheetWidths = [];
-    
+    handles = setUpWorksheet(handles);
     
     if handles.ExportReplotSonogram == 1
         handles.menu_CustomResolution.Checked = 'on';
@@ -279,7 +215,74 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     
     % UIWAIT makes electro_gui wait for user response (see UIRESUME)
     % uiwait(handles.figure_Main);
+
+function handles = setUpWorksheet(handles)
+    sz = get(handles.figure_Main,'papersize');
+    if strcmp(handles.WorksheetOrientation,'portrait')
+        handles.menu_Portrait.Checked = 'on';
+    else
+        handles.WorksheetOrientation = 'landscape';
+        handles.menu_Landscape.Checked = 'on';
+    end
+    if ~strcmp(handles.WorksheetOrientation,get(handles.figure_Main,'paperorientation'))
+        handles.WorksheetHeight = sz(1);
+        handles.WorksheetWidth = sz(2);
+    else
+        handles.WorksheetHeight = sz(2);
+        handles.WorksheetWidth = sz(1);
+    end
     
+    patch(handles.axes_Worksheet, [0, handles.WorksheetWidth, handles.WorksheetWidth, 0], [0, 0, handles.WorksheetHeight, handles.WorksheetHeight], 'w');
+    axis(handles.axes_Worksheet, 'equal');
+    axis(handles.axes_Worksheet, 'tight');
+    axis(handles.axes_Worksheet, 'off');
+    
+    handles.WorksheetTitle = 'Untitled';
+    
+    handles.WorksheetXLims = {};
+    handles.WorksheetYLims = {};
+    handles.WorksheetXs = {};
+    handles.WorksheetYs = {};
+    handles.WorksheetMs = {};
+    handles.WorksheetClim = {};
+    handles.WorksheetColormap = {};
+    handles.WorksheetSounds = {};
+    handles.WorksheetFs = [];
+    handles.WorksheetTimes = [];
+    
+    handles.WorksheetCurrentPage = 1;
+    
+    if handles.WorksheetIncludeTitle == 1
+        handles.menu_IncludeTitle.Checked = 'on';
+    end
+    if handles.WorksheetChronological == 1
+        handles.menu_SortChronologically.Checked = 'on';
+    end
+    if handles.WorksheetOnePerLine == 1
+        handles.menu_OnePerLine.Checked = 'on';
+    end    
+    
+    handles.WorksheetHandles = [];
+    handles.WorksheetList = [];
+    handles.WorksheetUsed = [];
+    handles.WorksheetWidths = [];
+
+function handles = setSegmentAndMarkerColors(handles)
+    % Segment/Marker colors
+    handles.SegmentSelectColor = 'r';
+    handles.SegmentUnSelectColor = [0.7, 0.5, 0.5];
+    handles.MarkerSelectColor = 'b';
+    handles.MarkerUnSelectColor = [0.5, 0.5, 0.7];
+    handles.SegmentActiveColor = 'y';  % Note the GUI depends on this being different from MarkerActiveColor.
+    handles.MarkerActiveColor = 'g';
+    handles.SegmentInactiveColor = 'k';
+    handles.MarkerInactiveColor = 'k';
+    
+    handles.SegmentSelectColors = {handles.SegmentUnSelectColor, handles.SegmentSelectColor};
+    handles.MarkerSelectColors = {handles.MarkerUnSelectColor, handles.MarkerSelectColor};
+    handles.SegmentActiveColors = {handles.SegmentInactiveColor, handles.SegmentActiveColor};
+    handles.MarkerActiveColors = {handles.MarkerInactiveColor, handles.MarkerActiveColor};
+
 function [handles, isNewUser] = ensureDefaultsFileExists(handles, user)
     % Check if a defaults file exists for the given user. If not, create
     % one for the user using the settings in eg_Get_Defaults file.
