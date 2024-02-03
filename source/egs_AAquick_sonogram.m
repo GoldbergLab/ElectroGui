@@ -54,6 +54,6 @@ f = linspace(freqRange(1),freqRange(2),size(p,1));
 set(ax,'units',bck);
 
 xl = xlim;
-imagesc(linspace(xl(1),xl(2),size(p,2)),f,p);
+imagesc(ax, linspace(xl(1),xl(2),size(p,2)),f,p);
 
 ispower = 1;

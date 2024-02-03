@@ -589,7 +589,6 @@ function handles = gatherPlugins(handles)
     handles.plugins.eventFeatures = findPlugins('ega_');
     % Find all loaders
     handles.plugins.loaders= findPlugins('egl_');
-    
 
 function edit_FileNumber_Callback(hObject, ~, handles)
     % hObject    handle to edit_FileNumber (see GCBO)
@@ -615,33 +614,36 @@ function edit_FileNumber_CreateFcn(hObject, ~, handles)
     if ispc && isequal(hObject.BackgroundColor, get(0,'defaultUicontrolBackgroundColor'))
         hObject.BackgroundColor = 'white';
     end
-    
-% --- Executes on button press in push_PreviousFile.
-function push_PreviousFile_Callback(hObject, ~, handles)
-    % hObject    handle to push_PreviousFile (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
+
+function handles = changeFile(handles, delta)
+    % Switch file number by delta
     filenum = getCurrentFileNum(handles);
     if ~handles.check_Shuffle.Value
         % Decrement file number
-        filenum = filenum - 1;
-        if filenum == 0
-            filenum = handles.TotalFileNumber;
+        filenum = filenum + delta;
+        if filenum < 1 || filenum > handles.TotalFileNumber
+            filenum = mod(filenum-1, handles.TotalFileNumber)+1;
         end
     else
         % Decrement file number in shuffled order
         shufflenum = find(handles.ShuffleOrder==filenum);
-        shufflenum = shufflenum-1;
-        if shufflenum == 0
-            shufflenum = handles.TotalFileNumber;
+        shufflenum = shufflenum + delta;
+        if shufflenum < 1 || shufflenum > handles.TotalFileNumber
+            shufflenum = mod(shufflenum-1, handles.TotalFileNumber)+1;
         end
         filenum = handles.ShuffleOrder(shufflenum);
     end
     handles.edit_FileNumber.String = num2str(filenum);
     
     handles = eg_LoadFile(handles);
+
+% --- Executes on button press in push_PreviousFile.
+function push_PreviousFile_Callback(hObject, ~, handles)
+    % hObject    handle to push_PreviousFile (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
     
+    handles = changeFile(handles, -1);
     guidata(hObject, handles);
     
 % --- Executes on button press in push_NextFile.
@@ -650,26 +652,7 @@ function push_NextFile_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
 
-    % Increment file number
-    filenum = getCurrentFileNum(handles);
-    if handles.check_Shuffle.Value==0
-        filenum = filenum+1;
-        if filenum > handles.TotalFileNumber
-            filenum = 1;
-        end
-    else
-        % Increment file number in shuffled order
-        shufflenum = find(handles.ShuffleOrder==filenum);
-        shufflenum = shufflenum+1;
-        if shufflenum > handles.TotalFileNumber
-            shufflenum = 1;
-        end
-        filenum = handles.ShuffleOrder(shufflenum);
-    end
-    handles.edit_FileNumber.String = num2str(filenum);
-    
-    handles = eg_LoadFile(handles);
-    
+    handles = changeFile(handles, 1);
     guidata(hObject, handles);
     
 % --- Executes on selection change in list_Files.
@@ -682,6 +665,7 @@ function list_Files_Callback(hObject, ~, handles)
     %        contents{hObject.Value} returns selected item from list_Files
     
     if strcmp(handles.figure_Main.SelectionType, 'open')
+        % Double click
         handles.edit_FileNumber.String = num2str(handles.list_Files.Value);
     else
         return
@@ -776,22 +760,25 @@ function push_Play_Callback(hObject, ~, handles)
     
     
 function progress_play(handles,wav)
-    xd = handles.axes_Sonogram.XLim;
-    xd = round(xd*handles.fs);
-    xd(1) = xd(1)+1;
-    xd(2) = xd(2)-1;
-    if xd(1)<1
-        xd(1) = 1;
+    % Get time limits for visible sonogram
+    timeLimits = handles.axes_Sonogram.XLim;
+    % Get audio sample limits for the visible sonogram
+    sampleLimits = round(timeLimits*handles.fs);
+    % Ensure sample number is in range
+    sampleLimits(1) = sampleLimits(1)+1;
+    sampleLimits(2) = sampleLimits(2)-1;
+    if sampleLimits(1)<1
+        sampleLimits(1) = 1;
     end
     [handles, numSamples] = eg_GetNumSamples(handles);
-    
-    if xd(2) > numSamples
-        xd(2) = numSamples;
+    if sampleLimits(2) > numSamples
+        sampleLimits(2) = numSamples;
     end
-    if xd(2)<=xd(1)
+    if sampleLimits(2)<=sampleLimits(1)
         return
     end
-    
+
+
     axs = [handles.axes_Channel2 handles.axes_Channel1 handles.axes_Amplitude handles.axes_Segments handles.axes_Sonogram handles.axes_Sound];
     ch = handles.menu_ProgressBar.Children;
     indx = [];
@@ -814,9 +801,9 @@ function progress_play(handles,wav)
         for c = 1:length(axs)
             hold(axs(c), 'on')
             if ~handles.menu_PlayReverse.Checked
-                h(c) = plot(axs(c), [xd(1) xd(1)]/handles.fs,ylim,'Color',handles.ProgressBarColor,'LineWidth',2);
+                h(c) = plot(axs(c), [sampleLimits(1) sampleLimits(1)]/handles.fs,ylim,'Color',handles.ProgressBarColor,'LineWidth',2);
             else
-                h(c) = plot(axs(c), [xd(2) xd(2)]/handles.fs,ylim,'Color',handles.ProgressBarColor,'LineWidth',2);
+                h(c) = plot(axs(c), [sampleLimits(2) sampleLimits(2)]/handles.fs,ylim,'Color',handles.ProgressBarColor,'LineWidth',2);
             end
         end
         y = audioplayer(wav,fs);
@@ -825,9 +812,9 @@ function progress_play(handles,wav)
             pos = y.CurrentSample;
             for c = 1:length(h)
                 if ~handles.menu_PlayReverse.Checked
-                    h(c).XData = ([pos pos]+xd(1)-1)/handles.fs;
+                    h(c).XData = ([pos pos]+sampleLimits(1)-1)/handles.fs;
                 else
-                    h(c).XData = (xd(2)-[pos pos]+1)/handles.fs;
+                    h(c).XData = (sampleLimits(2)-[pos pos]+1)/handles.fs;
                 end
             end
             drawnow;
@@ -860,7 +847,7 @@ function push_TimescaleRight_Callback(hObject, ~, handles)
     elseif mult > 5
         tscale = 5 * ord;
     end
-    set(handles.edit_Timescale,'string',num2str(tscale,4));
+    handles.edit_Timescale.String  = num2str(tscale,4);
     electro_gui('edit_Timescale_Callback',gcbo,[],guidata(gcbo));
     
     guidata(hObject, handles);
@@ -871,7 +858,7 @@ function push_TimescaleLeft_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
+    if ~isempty(findobj('Parent', handles.axes_Sonogram, 'type', 'text'))
         return
     end
     
@@ -885,7 +872,7 @@ function push_TimescaleLeft_Callback(hObject, ~, handles)
     elseif mult >= 1 && mult < 2
         tscale = 2 * ord;
     end
-    set(handles.edit_Timescale,'string',num2str(tscale,4));
+    handles.edit_Timescale.String = num2str(tscale,4);
     electro_gui('edit_Timescale_Callback',gcbo,[],guidata(gcbo));
     
     guidata(hObject, handles);
@@ -1053,15 +1040,15 @@ function handles = eg_LoadFile(handles)
     
     fileNum = getCurrentFileNum(handles);
     handles.list_Files.Value = fileNum;
-    str = handles.list_Files.String;
+    fileList = handles.list_Files.String;
     
     % Remove unread file marker from filename
-    if isFileUnread(handles, str{fileNum})
-        str{fileNum} = removeUnreadFileMarker(handles, str{fileNum});
-        handles.list_Files.String = str;
+    if isFileUnread(handles, fileList{fileNum})
+        fileList{fileNum} = removeUnreadFileMarker(handles, fileList{fileNum});
+        handles.list_Files.String = fileList;
     end
     
-%    curr = pwd;
+    curr = pwd();
     cd(handles.DefaultRootPath);
     
     % Label
@@ -1111,24 +1098,24 @@ function handles = eg_LoadFile(handles)
     handles.axes_Sound.Color = [0 0 0];
     axis(handles.axes_Sound, 'tight');
     yl = max(abs(ylim(handles.axes_Sound)));
-    ylim(handles.axes_Sound, [-yl*1.2 yl*1.2]);
+    ylim(handles.axes_Sound, [-yl*1.2, yl*1.2]);
     
     % Set limits
     yl = ylim(handles.axes_Sound);
     xmax = numSamples/handles.fs;
     hold(handles.axes_Sound, 'on');
     handles.xlimbox = plot(handles.axes_Sound, [0, xmax, xmax, 0, 0],[yl(1), yl(1), yl(2), yl(2), yl(1)]*.93,':y', 'LineWidth', 2);
-    xlim(handles.axes_Sound, [0 xmax]);
+    xlim(handles.axes_Sound, [0, xmax]);
     hold(handles.axes_Sound, 'off');
     box(handles.axes_Sound, 'on');
     
     handles = clearAxes(handles);
         
     % Set xlimits
-    handles.axes_Sonogram.XLim = [0 xmax];
-    handles.axes_Amplitude.XLim = [0 xmax];
-    handles.axes_Channel1.XLim = [0 xmax];
-    handles.axes_Channel2.XLim = [0 xmax];
+    handles.axes_Sonogram.XLim = [0, xmax];
+    handles.axes_Amplitude.XLim = [0, xmax];
+    handles.axes_Channel1.XLim = [0, xmax];
+    handles.axes_Channel2.XLim = [0, xmax];
     
     % If file too long
     if numSamples > handles.TooLong
@@ -1137,7 +1124,7 @@ function handles = eg_LoadFile(handles)
         set(txt, 'ButtonDownFcn', 'electro_gui(''click_loadfile'',gcbo,[],guidata(gcbo))');
         cd(curr);
     
-        set(handles.edit_Timescale,'string',num2str(numSamples/handles.fs,4));
+        handles.edit_Timescale.String = num2str(numSamples/handles.fs,4);
     
         handles = PlotSegments(handles);
     
@@ -1170,7 +1157,6 @@ function handles = eg_LoadFile(handles)
         handles = EventSetThreshold(handles,1);
     end
     
-    
     % Plot amplitude
     [handles.amplitude, labs] = eg_CalculateAmplitude(handles);
     
@@ -1202,7 +1188,6 @@ function handles = eg_LoadFile(handles)
         handles.SegmentLabelHandles = [];
         handles = SetThreshold(handles);
     end
-    
     
     handles = eg_EditTimescale(handles);
     
@@ -1655,7 +1640,7 @@ function handles = SetThreshold(handles)
         xl = xlim(ax);
         % Create new threshold line
         [handles, numSamples] = eg_GetNumSamples(handles);
-        plot([0, numSamples/handles.fs],[handles.CurrentThreshold handles.CurrentThreshold],':',...
+        plot(ax, [0, numSamples/handles.fs],[handles.CurrentThreshold handles.CurrentThreshold],':',...
             'Color',handles.AmplitudeThresholdColor);
         xlim(ax, xl);
         hold(ax, 'off');
@@ -1706,7 +1691,7 @@ function handles = SegmentSounds(handles)
     
     handles = PlotSegments(handles);
     
-function [markerHandles, labelHandles] = CreateMarkers(handles, times, titles, selects, selectColor, unselectColor, activeColor, inactiveColor, yExtent)
+function [markerHandles, labelHandles] = CreateMarkers(handles, ax, times, titles, selects, selectColor, unselectColor, activeColor, inactiveColor, yExtent)
     % Create the markers for a set of timed segments (used for plotting both
     % "segments" and "markers")
     
@@ -1718,8 +1703,8 @@ function [markerHandles, labelHandles] = CreateMarkers(handles, times, titles, s
     y1 = yExtent(1) + (yExtent(2) - yExtent(1))*0.3;
     % y2 = yExtent(2);
     
-    markerHandles = [];
-    labelHandles = [];
+    markerHandles = gobjects().empty;
+    labelHandles = gobjects().empty;
     
     % Loop over stored segment start/end times pairs
     for c = 1:size(times,1)
@@ -1732,15 +1717,16 @@ function [markerHandles, labelHandles] = CreateMarkers(handles, times, titles, s
             faceColor = unselectColor;
         end
         % Create a rectangle to represent the segment
-        markerHandles(c) = patch([x1 x2 x2 x1],[y0 y0 y1 y1],faceColor);
+        markerHandles(c) = patch(ax, [x1 x2 x2 x1], [y0 y0 y1 y1], faceColor);
         % Create a text graphics object right above the middle of the segment
         % rectangle
-        labelHandles(c) = text((x1+x2)/2,y1,titles(c), 'VerticalAlignment', 'bottom');
+        labelHandles(c) = text(ax, (x1+x2)/2,y1,titles(c), 'VerticalAlignment', 'bottom');
     %     if c==1
     %         % Set the first segment to be the selected one
     %         set(markerHandles(c), 'edgecolor', activeColor, 'LineWidth', 2);
     %     else
-            set(markerHandles(c), 'edgecolor', inactiveColor, 'LineWidth', 1);
+            markerHandles(c).EdgeColor = inactiveColor;
+            markerHandles(c).LineWidth = 1;
     %     end
     end
     % Attach click handler "click_segment" to segment rectangle
@@ -1779,6 +1765,7 @@ function handles = PlotSegments(handles, activeSegmentNum, activeMarkerNum)
     filenum = getCurrentFileNum(handles);
     
     [handles.SegmentHandles, handles.SegmentLabelHandles] = CreateMarkers(handles, ...
+        handles.axes_Segments, ...
         handles.SegmentTimes{filenum}, ...
         handles.SegmentTitles{filenum}, ...
         handles.SegmentSelection{filenum}, ...
@@ -1786,6 +1773,7 @@ function handles = PlotSegments(handles, activeSegmentNum, activeMarkerNum)
         handles.SegmentActiveColor, handles.SegmentInactiveColor, [-1, 1]);
     
     [handles.MarkerHandles, handles.MarkerLabelHandles] = CreateMarkers(handles, ...
+        handles.axes_Segments, ...
         handles.MarkerTimes{filenum}, ...
         handles.MarkerTitles{filenum}, ...
         handles.MarkerSelection{filenum}, ...
@@ -1991,12 +1979,12 @@ function handles = eg_EditTimescale(handles)
     xlim(handles.axes_Segments, xd(1:2));
     
     for axnum = 1:2
-        yl = ylim(handles.axes_Channels(axnum));
-        xlim(handles.axes_Channels(axnum), xd(1:2));
+        yl = ylim(handles.axes_Channel(axnum));
+        xlim(handles.axes_Channel(axnum), xd(1:2));
         if handles.menu_PeakDetects(axnum).Checked
             handles = eg_PlotChannel(handles, axnum);
         end
-        ylim(handles.axes_Channels(axnum), yl);
+        ylim(handles.axes_Channel(axnum), yl);
     end
     
     handles.slider_Time.Min = 0;
@@ -2078,7 +2066,7 @@ function click_sound(hObject, ~, handles)
     
     current_axes = gca();
     
-    if strcmp(handles.figure_Main.SelectionType', 'normal')
+    if strcmp(handles.figure_Main.SelectionType, 'normal')
         % Normal left mouse button click
         %   Zoom in (either with a box if it's a
         %   click/drag, or just shift the zoom box over to click location if
@@ -4065,7 +4053,7 @@ function click_Channel(hObject, ~, handles)
                 end
             end
     
-            if strcmp(handles.axes_Channels(3-axnum).Visible', 'on') && handles.EventCurrentIndex(1)==handles.EventCurrentIndex(2)
+            if strcmp(handles.axes_Channel(3-axnum).Visible', 'on') && handles.EventCurrentIndex(1)==handles.EventCurrentIndex(2)
                 handles = DisplayEvents(handles,3-axnum);
             end
     
@@ -4134,9 +4122,9 @@ function handles = AllowYZoom(handles, axnum)
             if yl(1)==yl(2)
                 yl = [yl(1)-1 yl(2)+1];
             end
-            ylim(handles.axes_Channels(axnum), [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
+            ylim(handles.axes_Channel(axnum), [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
         else
-            ylim(handles.axes_Channels(axnum), handles.ChanLimits1);
+            ylim(handles.axes_Channel(axnum), handles.ChanLimits1);
         end
         handles = eg_Overlay(handles);
     else
@@ -4168,7 +4156,7 @@ function menu_AllowYZoom2_Callback(hObject, ~, handles)
 function handles = menu_AutoLimits_Callback(handles, axnum)
     if handles.menu_AutoLimits(axnum).Checked
         handles.menu_AutoLimits(axnum).Checked = 'off';
-        handles.ChanLimits(axnum, :) = ylim(handles.axes_Channels(axnum));
+        handles.ChanLimits(axnum, :) = ylim(handles.axes_Channel(axnum));
     else
         handles.menu_AutoLimits(axnum).Checked = 'on';
         yl = [min(handles.loadedChannelData{axnum}), ...
@@ -4176,7 +4164,7 @@ function handles = menu_AutoLimits_Callback(handles, axnum)
         if yl(1)==yl(2)
             yl = [yl(1)-1 yl(2)+1];
         end
-        ylim(handles.axes_Channels(axnum), [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
+        ylim(handles.axes_Channel(axnum), [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
         handles = eg_Overlay(handles);
     end
 
@@ -5485,11 +5473,11 @@ function handles = SelectEvent(handles,i)
 
     h = [];
     for axnum = 1:2
-        if handles.axes_Channels(axnum).Visible
+        if handles.axes_Channel(axnum).Visible
             ys = handles.loadedChannelData{axnum};
-            hold(handles.axes_Channels(axnum), 'on');
-            h(end+1) = plot(handles.axes_Channels(axnum), xs(tm(i)),ys(tm(i)),'-.o','LineWidth',2,'markersize',5,'markerfacecolor','r','markeredgecolor','r');
-            hold(handles.axes_Channels(axnum), 'off');
+            hold(handles.axes_Channel(axnum), 'on');
+            h(end+1) = plot(handles.axes_Channel(axnum), xs(tm(i)),ys(tm(i)),'-.o','LineWidth',2,'markersize',5,'markerfacecolor','r','markeredgecolor','r');
+            hold(handles.axes_Channel(axnum), 'off');
         end
     end
     [h.ButtonDownFcn] = deal('electro_gui(''unselect_event'',gcbo,[],guidata(gcbo))');
@@ -8131,8 +8119,10 @@ function handles = eg_Overlay(handles)
         end
     end
     
-    [handles.axes_Sonogram.Children.UIContextMenu] = deal(handles.axes_Sonogram.UIContextMenu);
-    [handles.axes_Sonogram.Children.ButtonDownFcn] = deal(handles.axes_Sonogram.ButtonDownFcn);
+    for child = handles.axes_Sonogram.Children
+        child.UIContextMenu = handles.axes_Sonogram.UIContextMenu;
+        child.ButtonDownFcn = handles.axes_Sonogram.ButtonDownFcn;
+    end
     
     hold(handles.axes_Sonogram, 'off');
     xlim(handles.axes_Sonogram, xl);
