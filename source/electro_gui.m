@@ -799,7 +799,7 @@ function progress_play(handles,wav)
     ch = handles.menu_ProgressBar.Children;
     indx = [];
     for c = 1:length(ch)
-        if strcmp(ch(c).Checked,'on') && strcmp(axs(c).Visible,'on')
+        if ch(c).Checked && axs(c).Visible
             indx = [indx c];
         end
     end
@@ -816,7 +816,7 @@ function progress_play(handles,wav)
         end
         for c = 1:length(axs)
             hold(axs(c), 'on')
-            if strcmp(handles.menu_PlayReverse.Checked,'off')
+            if ~handles.menu_PlayReverse.Checked
                 h(c) = plot(axs(c), [xd(1) xd(1)]/handles.fs,ylim,'Color',handles.ProgressBarColor,'linewidth',2);
             else
                 h(c) = plot(axs(c), [xd(2) xd(2)]/handles.fs,ylim,'Color',handles.ProgressBarColor,'linewidth',2);
@@ -827,10 +827,10 @@ function progress_play(handles,wav)
         while isplaying(y)
             pos = y.currentsample;
             for c = 1:length(h)
-                if strcmp(handles.menu_PlayReverse.Checked,'off')
-                    set(h(c),'xdata',([pos pos]+xd(1)-1)/handles.fs);
+                if ~handles.menu_PlayReverse.Checked
+                    h(c).XData = ([pos pos]+xd(1)-1)/handles.fs;
                 else
-                    set(h(c),'xdata',(xd(2)-[pos pos]+1)/handles.fs);
+                    h(c).XData = (xd(2)-[pos pos]+1)/handles.fs;
                 end
             end
             drawnow;
@@ -838,7 +838,7 @@ function progress_play(handles,wav)
         stop(y);
         clear y;
         delete(h);
-        hold off;
+        hold(handles.axes_Sonogram, 'off');
     end
     
 % --- Executes on button press in push_TimescaleRight.
@@ -1134,7 +1134,6 @@ function handles = eg_LoadFile(handles)
     handles.axes_Channel2.XLim = [0 xmax];
     
     % If file too long
-    % subplot(handles.axes_Sonogram)
     if numSamples > handles.TooLong
         txt = text(mean(xlim),mean(ylim), 'Long file. Click to load.',...
             'horizontalalignment', 'center', 'Color', 'r', 'fontsize', 14, 'Parent', handles.axes_Sonogram);
@@ -1149,7 +1148,6 @@ function handles = eg_LoadFile(handles)
     end
     
     % Define callbacks
-    % subplot(handles.axes_Sound);
     handles.axes_Sonogram.ButtonDownFcn = 'electro_gui(''click_sound'',gcbo,[],guidata(gcbo))';
     for child = handles.axes_Sonogram.Children'
         child.ButtonDownFcn = handles.axes_Sonogram.ButtonDownFcn;
@@ -1180,7 +1178,6 @@ function handles = eg_LoadFile(handles)
     [handles.amplitude, labs] = eg_CalculateAmplitude(handles);
     
     if ~isempty(handles.amplitude)
-    %     subplot(handles.axes_Amplitude);
         [handles, numSamples] = eg_GetNumSamples(handles);
     
         plot(handles.axes_Amplitude, linspace(0, numSamples/handles.fs, numSamples),handles.amplitude,'Color',handles.AmplitudeColor);
@@ -1198,7 +1195,7 @@ function handles = eg_LoadFile(handles)
         end
     
         if handles.SoundThresholds(fileNum)==inf
-            if strcmp(handles.menu_AutoThreshold.Checked,'on')
+            if handles.menu_AutoThreshold.Checked
                 handles.CurrentThreshold = eg_AutoThreshold(handles.amplitude);
             end
             handles.SoundThresholds(fileNum) = handles.CurrentThreshold;
@@ -1474,16 +1471,15 @@ function handles = eg_LoadChannel(handles,axnum)
     
     handles = eg_PlotChannel(handles,axnum);
     
-    subplot(handles.axes_Channel(axnum));
-    if strcmp(get(handles.(['menu_AutoLimits' num2str(axnum)]),'checked'),'on')
-        yl = [min(handles.loadedChannelData{axnum}) max(handles.loadedChannelData{axnum})];
+    if handles.menu_AutoLimits(axnum).Checked
+        yl = [min(handles.loadedChannelData{axnum}), max(handles.loadedChannelData{axnum})];
         if yl(1)==yl(2)
             yl = [yl(1)-1 yl(2)+1];
         end
-        ylim([mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
-        handles.(['ChanLimits' num2str(axnum)]) = ylim;
+        ylim(handles.axes_Channel(axnum), [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
+        handles.ChanLimits(axnum, :) = ylim(handles.axes_Channel(axnum));
     else
-        ylim(handles.(['ChanLimits' num2str(axnum)]));
+        ylim(handles.axes_Channel(axnum), handles.ChanLimits(axnum, :));
     end
     
     handles = eg_Overlay(handles);
@@ -1670,7 +1666,7 @@ function handles = SetThreshold(handles)
         % Check if there are any segment times recorded
         if size(handles.SegmentTimes{getCurrentFileNum(handles)},2)==0
             % No segment times found
-            if strcmp(handles.menu_AutoSegment.Checked,'on')
+            if handles.menu_AutoSegment.Checked
                 % User has requested auto-segmentation. Auto segment!
                 handles = SegmentSounds(handles);
             end
@@ -1682,7 +1678,7 @@ function handles = SetThreshold(handles)
     else
         % Threshold line already exists, just update its Y position
         thr.YData = [handles.CurrentThreshold handles.CurrentThreshold];
-        if strcmp(handles.menu_AutoSegment.Checked,'on')
+        if handles.menu_AutoSegment.Checked
             % User has requested auto-segmentation. Auto-segment!
             handles = SegmentSounds(handles);
         end
@@ -1772,7 +1768,7 @@ function handles = PlotSegments(handles, activeSegmentNum, activeMarkerNum)
     end
     
     % Get segment axes
-    ax = subplot(handles.axes_Segments);
+    ax = handles.axes_Segments;
     % Clear segment axes
     cla(ax);
     hold(ax, 'on');
@@ -1877,7 +1873,7 @@ function menu_AutoCalculate_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if strcmp(handles.menu_AutoCalculate.Checked,'on')
+    if handles.menu_AutoCalculate.Checked
         handles.menu_AutoCalculate.Checked = 'off';
     else
         handles.menu_AutoCalculate.Checked = 'on';
@@ -1926,12 +1922,11 @@ function FilterMenuClick(hObject, ~, handles)
     
     handles = eg_FilterSound(handles);
     
-    subplot(handles.axes_Sound)
     xd = handles.xlimbox.XData;
     cla(handles.axes_Sound);
     [handles, filtered_sound] = eg_GetSound(handles, true);
     [handles, numSamples] = eg_GetNumSamples(handles);
-    h = eg_peak_detect(gca,linspace(0, numSamples/handles.fs, numSamples), filtered_sound);
+    h = eg_peak_detect(handles.axes_Sound, linspace(0, numSamples/handles.fs, numSamples), filtered_sound);
     [h.Color] = deal('c');
     set(handles.axes_Sound,'XTick',[],'YTick',[]);
     set(handles.axes_Sound,'Color',[0 0 0]);
@@ -1956,7 +1951,7 @@ function FilterMenuClick(hObject, ~, handles)
     
     [handles.amplitude, ~] = eg_CalculateAmplitude(handles);
     
-    plt = findobj('Parent',handles.axes_Amplitude,'LineStyle','-');
+    plt = findobj('Parent', handles.axes_Amplitude, 'LineStyle', '-');
     plt.YData = handles.amplitude;
     
     handles = SetThreshold(handles);
@@ -1980,7 +1975,7 @@ function handles = eg_EditTimescale(handles)
     
     handles.edit_Timescale.String = num2str(xd(2)-xd(1),4);
     
-    if strcmp(handles.menu_AutoCalculate.Checked,'on')
+    if handles.menu_AutoCalculate.Checked
         handles = eg_PlotSonogram(handles);
     else
         xlim(handles.axes_Sonogram, xd(1:2));
@@ -2049,7 +2044,7 @@ function handles = eg_PlotSonogram(handles)
     
     cla(handles.axes_Sonogram);
     xlim(handles.axes_Sonogram, xl);
-    if strcmp(handles.menu_FrequencyZoom.Checked,'on')
+    if handles.menu_FrequencyZoom.Checked
         ylim(handles.axes_Sonogram, handles.CustomFreqLim);
     else
         ylim(handles.axes_Sonogram, handles.FreqLim);
@@ -2124,7 +2119,7 @@ function click_sound(hObject, ~, handles)
             shift = rect(1)-xd(1);
             xd = xd+shift;
         else
-            if strcmp(handles.menu_FrequencyZoom.Checked,'on') && (hObject==handles.axes_Sonogram || hObject.Parent==handles.axes_Sonogram)
+            if handles.menu_FrequencyZoom.Checked && (hObject==handles.axes_Sonogram || hObject.Parent==handles.axes_Sonogram)
                 % We're zooming along the y-axis (frequency) as well as x
                 rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
                 rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
@@ -2158,7 +2153,7 @@ function click_sound(hObject, ~, handles)
         xd = [0 numSamples/handles.fs numSamples/handles.fs 0 0];
         % Update zoom box in top plot
         handles.xlimbox.XData = xd;
-        if strcmp(handles.menu_FrequencyZoom.Checked,'on')
+        if handles.menu_FrequencyZoom.Checked
             % We're resetting y-axis (frequency) zoom too
             handles.CustomFreqLim = handles.FreqLim;
         end
@@ -2875,7 +2870,7 @@ function menu_AutoThreshold_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if strcmp(handles.menu_AutoThreshold.Checked,'off')
+    if ~handles.menu_AutoThreshold.Checked
         handles.menu_AutoThreshold.Checked = 'on';
         handles.CurrentThreshold = eg_AutoThreshold(handles.amplitude);
         handles.SoundThresholds(getCurrentFileNum(handles)) = handles.CurrentThreshold;
@@ -3222,7 +3217,7 @@ function menu_AutoSegment_Callback(hObject, ~, handles)
     % handles    structure with handles and user data (see GUIDATA)
     
     
-    if strcmp(handles.menu_AutoSegment.Checked,'off')
+    if ~handles.menu_AutoSegment.Checked
         handles.menu_AutoSegment.Checked = 'on';
         handles = SegmentSounds(handles);
     else
@@ -3857,7 +3852,7 @@ function menu_PeakDetect1_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if strcmp(handles.menu_PeakDetect1.Checked,'on')
+    if handles.menu_PeakDetect1.Checked
         handles.menu_PeakDetect1.Checked = 'off';
     else
         handles.menu_PeakDetect1.Checked = 'on';
@@ -3881,7 +3876,7 @@ function menu_PeakDetect2_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if strcmp(handles.menu_PeakDetect2.Checked,'on')
+    if handles.menu_PeakDetect2.Checked
         handles.menu_PeakDetect2.Checked = 'off';
     else
         handles.menu_PeakDetect2.Checked = 'on';
@@ -3992,7 +3987,7 @@ function click_Channel(hObject, ~, handles)
                         if strcmp(get(handles.(['menu_EventAutoDetect' num2str(axn)]),'checked'),'on') && strcmp(get(handles.(['push_Detect' num2str(axn)]),'enable'),'on')
                             handles = DetectEvents(handles,axn);
     
-                            if strcmp(handles.menu_AutoDisplayEvents.Checked,'on')
+                            if handles.menu_AutoDisplayEvents.Checked
                                 handles = UpdateEventBrowser(handles);
                             end
     
@@ -4077,7 +4072,7 @@ function click_Channel(hObject, ~, handles)
                 handles = DisplayEvents(handles,3-axnum);
             end
     
-            if strcmp(handles.menu_AutoDisplayEvents.Checked,'on')
+            if handles.menu_AutoDisplayEvents.Checked
                 handles = UpdateEventBrowser(handles);
             end
         end
@@ -4097,7 +4092,7 @@ function handles = EventSetThreshold(handles,axnum)
     obj = findobj('Parent', handles.axes_Channel(axnum), 'LineStyle', ':');
     if handles.EventCurrentIndex(axnum) == 0
         delete(obj);
-        if strcmp(handles.menu_AutoDisplayEvents.Checked,'on')
+        if handles.menu_AutoDisplayEvents.Checked
             handles = UpdateEventBrowser(handles);
         end
         return
@@ -4108,14 +4103,14 @@ function handles = EventSetThreshold(handles,axnum)
     if handles.EventThresholds(indx,getCurrentFileNum(handles)) < inf
         handles.EventCurrentThresholds(indx) = handles.EventThresholds(indx,getCurrentFileNum(handles));
         handles = DisplayEvents(handles,axnum);
-        if strcmp(handles.menu_AutoDisplayEvents.Checked,'on')
+        if handles.menu_AutoDisplayEvents.Checked
             handles = UpdateEventBrowser(handles);
         end
     else
         handles.EventThresholds(indx,getCurrentFileNum(handles)) = handles.EventCurrentThresholds(indx);
         if strcmp(get(handles.(['menu_EventAutoDetect' num2str(axnum)]),'checked'),'on') && strcmp(get(handles.(['push_Detect' num2str(axnum)]),'enable'),'on')
             handles = DetectEvents(handles,axnum);
-            if strcmp(handles.menu_AutoDisplayEvents.Checked,'on')
+            if handles.menu_AutoDisplayEvents.Checked
                 handles = UpdateEventBrowser(handles);
             end
         end
@@ -4417,12 +4412,12 @@ function menu_EventAutoDetect1_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if strcmp(handles.menu_EventAutoDetect1.Checked,'on')
+    if handles.menu_EventAutoDetect1.Checked
         handles.menu_EventAutoDetect1.Checked = 'off';
     else
         handles.menu_EventAutoDetect1.Checked = 'on';
         handles = DetectEvents(handles,1);
-        if strcmp(handles.menu_AutoDisplayEvents.Checked,'on')
+        if handles.menu_AutoDisplayEvents.Checked
             handles = UpdateEventBrowser(handles);
         end
     
@@ -4477,12 +4472,12 @@ function menu_EventAutoDetect2_Callback(hObject, ~, handles)
     % handles    structure with handles and user data (see GUIDATA)
     
     
-    if strcmp(handles.menu_EventAutoDetect2.Checked,'on')
+    if handles.menu_EventAutoDetect2.Checked
         handles.menu_EventAutoDetect2.Checked = 'off';
     else
         handles.menu_EventAutoDetect2.Checked = 'on';
         handles = DetectEvents(handles,2);
-        if strcmp(handles.menu_AutoDisplayEvents.Checked,'on')
+        if handles.menu_AutoDisplayEvents.Checked
             handles = UpdateEventBrowser(handles);
         end
     
@@ -4538,7 +4533,7 @@ function handles = SetManualThreshold(handles,axnum)
             handles = EventSetThreshold(handles,axn);
             if strcmp(get(handles.(['menu_EventAutoDetect' num2str(axn)]),'checked'),'on') && strcmp(get(handles.(['push_Detect' num2str(axn)]),'enable'),'on')
                 handles = DetectEvents(handles,axn);
-                if strcmp(handles.menu_AutoDisplayEvents.Checked,'on')
+                if handles.menu_AutoDisplayEvents.Checked
                     handles = UpdateEventBrowser(handles);
                 end
     
@@ -4569,7 +4564,7 @@ function push_Detect1_Callback(hObject, ~, handles)
     
     handles = DetectEvents(handles,1);
     
-    if strcmp(handles.menu_AutoDisplayEvents.Checked,'on')
+    if handles.menu_AutoDisplayEvents.Checked
         handles = UpdateEventBrowser(handles);
     end
     
@@ -4599,7 +4594,7 @@ function push_Detect2_Callback(hObject, ~, handles)
     
     handles = DetectEvents(handles,2);
     
-    if strcmp(handles.menu_AutoDisplayEvents.Checked,'on')
+    if handles.menu_AutoDisplayEvents.Checked
         handles = UpdateEventBrowser(handles);
     end
     
@@ -4652,10 +4647,9 @@ function handles = DisplayEvents(handles,axnum)
     if indx == 0
         return
     end
-    subplot(handles.axes_Channel(axnum));
-    obj = findobj('Parent',gca,'LineStyle','none');
+    obj = findobj('Parent', handles.axes_Channel(axnum), 'LineStyle', 'none');
     delete(obj);
-    hold on
+    hold(handles.axes_Channel(axnum), 'on');
     ev = {};
     sel = {};
     handles.EventHandles{axnum} = {};
@@ -4670,12 +4664,12 @@ function handles = DisplayEvents(handles,axnum)
     
     xs = linspace(0, numSamples/handles.fs, numSamples);
     for c = 1:length(ev)
-        if strcmp(h(c).Checked,'on')
+        if h(c).Checked
             for i = 1:length(ev{c})
                 if sel{c}(i)==1
-                    handles.EventHandles{axnum}{c}(i) = plot(xs(ev{c}(i)),chan(ev{c}(i)),'o','LineStyle','none','markeredgecolor','k','markerfacecolor','k','markersize',5);
+                    handles.EventHandles{axnum}{c}(i) = plot(handles.axes_Channel(axnum), xs(ev{c}(i)),chan(ev{c}(i)),'o','LineStyle','none','markeredgecolor','k','markerfacecolor','k','markersize',5);
                 else
-                    handles.EventHandles{axnum}{c}(i) = plot(xs(ev{c}(i)),chan(ev{c}(i)),'o','LineStyle','none','markeredgecolor','k','markerfacecolor','w','markersize',5);
+                    handles.EventHandles{axnum}{c}(i) = plot(handles.axes_Channel(axnum), xs(ev{c}(i)),chan(ev{c}(i)),'o','LineStyle','none','markeredgecolor','k','markerfacecolor','w','markersize',5);
                 end
             end
         else
@@ -4683,12 +4677,9 @@ function handles = DisplayEvents(handles,axnum)
         end
     end
     
-    subplot(handles.axes_Channel(axnum));
-    
-    
     for c = 1:length(handles.EventHandles{axnum})
         for i = 1:length(handles.EventHandles{axnum}{c})
-            set(handles.EventHandles{axnum}{c}(i),'ButtonDownFcn','electro_gui(''ClickEventSymbol'',gcbo,[],guidata(gcbo))')
+            handles.EventHandles{axnum}{c}(i).ButtonDownFcn = 'electro_gui(''ClickEventSymbol'',gcbo,[],guidata(gcbo))';
         end
     end
     
@@ -4742,7 +4733,7 @@ function ClickEventSymbol(hObject, ~, handles)
             handles = DisplayEvents(handles,3-axnum);
         end
     
-        if strcmp(handles.menu_AutoDisplayEvents.Checked,'on')
+        if handles.menu_AutoDisplayEvents.Checked
             handles = UpdateEventBrowser(handles);
         end
     
@@ -5302,12 +5293,10 @@ function popup_EventList_Callback(hObject, ~, handles)
     
     
 function handles = UpdateEventBrowser(handles)
+    cla(handles.axes_Events);
+    hold(handles.axes_Events, 'on');
     
-    subplot(handles.axes_Events);
-    cla
-    hold on
-    
-    delete(findobj('LineStyle','-.'));
+    delete(findobj('LineStyle', '-.'));
     
     if handles.popup_EventList.Value==1
         handles.push_DisplayEvents.Enable = 'off';
@@ -5316,8 +5305,8 @@ function handles = UpdateEventBrowser(handles)
         handles.push_DisplayEvents.Enable = 'on';
     end
     
-    if strcmp(handles.menu_AnalyzeTop.Checked,'on')
-        if strcmp(handles.axes_Channel1.Visible,'on')
+    if handles.menu_AnalyzeTop.Checked
+        if handles.axes_Channel1.Visible
             chan = handles.loadedChannelData{1};
             ystr = (handles.axes_Channel1.ylabel.String);
         else
@@ -5350,28 +5339,27 @@ function handles = UpdateEventBrowser(handles)
     tm = handles.EventTimes{f}{g,filenum};
     sel = handles.EventSelected{f}{g,filenum};
     
-    
-    if strcmp(handles.menu_DisplayValues.Checked,'on')
+    if handles.menu_DisplayValues.Checked
         handles.EventWaveHandles = [];
         if ~isempty(chan)
             for c = 1:length(tm)
                 mn = max([1 tm(c)-round(handles.EventLims(handles.popup_EventList.Value,1)*handles.fs)]);
                 mx = min([length(chan) tm(c)+round(handles.EventLims(handles.popup_EventList.Value,2)*handles.fs)]);
                 if sel(c)==1
-                    h = plot(((mn:mx)-tm(c))/handles.fs*1000,chan(mn:mx),'Color','k');
+                    h = plot(handles.axes_Events, ((mn:mx)-tm(c))/handles.fs*1000,chan(mn:mx),'Color','k');
                     handles.EventWaveHandles = [handles.EventWaveHandles h];
                 end
             end
-            xlabel('Time (ms)');
-            ylabel(ystr);
-            xlim([-handles.EventLims(handles.popup_EventList.Value,1) handles.EventLims(handles.popup_EventList.Value,2)]*1000);
-            axis tight
-            yl = ylim;
-            ylim([mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
+            xlabel(handles.axes_Events, 'Time (ms)');
+            ylabel(handles.axes_Events, ystr);
+            xlim(handles.axes_Events, [-handles.EventLims(handles.popup_EventList.Value,1) handles.EventLims(handles.popup_EventList.Value,2)]*1000);
+            axis(handles.axes_Events, 'tight');
+            yl = ylim(handles.axes_Events);
+            ylim(handles.axes_Events, [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
         else
-            ylabel('');
+            ylabel(handles.axes_Events, '');
         end
-        set(handles.EventWaveHandles,'ButtonDownFcn','electro_gui(''click_eventwave'',gcbo,[],guidata(gcbo))');
+        handles.EventWaveHandles.ButtonDownFcn = 'electro_gui(''click_eventwave'',gcbo,[],guidata(gcbo))';
     else
         handles.EventWaveHandles = [];
         if ~isempty(chan)
@@ -5388,18 +5376,18 @@ function handles = UpdateEventBrowser(handles)
     
             for c = 1:length(feature1)
                 if sel(c)==1
-                    h = plot(feature1(c),feature2(c),'o','markerfacecolor','k','markeredgecolor','k','markersize',2);
+                    h = plot(handles.axes_Events, feature1(c),feature2(c),'o','markerfacecolor','k','markeredgecolor','k','markersize',2);
                     handles.EventWaveHandles = [handles.EventWaveHandles h];
                 end
             end
-            xlabel(name1);
-            ylabel(name2);
+            xlabel(handles.axes_Events, name1);
+            ylabel(handles.axes_Events, name2);
     
-            axis tight
-            xl = xlim;
-            xlim([mean(xl)+(xl(1)-mean(xl))*1.1 mean(xl)+(xl(2)-mean(xl))*1.1]);
-            yl = ylim;
-            ylim([mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
+            axis(handles.axes_Events, 'tight');
+            xl = xlim(handles.axes_Events);
+            xlim(handles.axes_Events, [mean(xl)+(xl(1)-mean(xl))*1.1 mean(xl)+(xl(2)-mean(xl))*1.1]);
+            yl = ylim(handles.axes_Events);
+            ylim(handles.axes_Events, [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
         else
             xlabel('');
             ylabel('');
@@ -5407,21 +5395,21 @@ function handles = UpdateEventBrowser(handles)
         set(handles.EventWaveHandles,'ButtonDownFcn','electro_gui(''click_eventwave'',gcbo,[],guidata(gcbo))');
     end
     
-    set(gca,'UIContextMenu',handles.context_EventViewer);
-    set(gca,'ButtonDownFcn','electro_gui(''click_eventaxes'',gcbo,[],guidata(gcbo))');
-    set(get(gca,'children'),'UIContextMenu',get(gca,'UIContextMenu'));
+    set(handles.axes_Events,'UIContextMenu',handles.context_EventViewer);
+    set(handles.axes_Events,'ButtonDownFcn','electro_gui(''click_eventaxes'',gcbo,[],guidata(gcbo))');
+    set(get(handles.axes_Events,'children'),'UIContextMenu',get(handles.axes_Events,'UIContextMenu'));
     
     if ~isempty(handles.SelectedEvent)
         i = handles.SelectedEvent;
         handles = SelectEvent(handles,i);
     end
     
-    if strcmp(handles.menu_AutoApplyYLim.Checked,'on')
-        if strcmp(handles.menu_DisplayValues.Checked,'on')
-            if strcmp(handles.menu_AnalyzeTop.Checked,'on') && strcmp(handles.menu_AutoLimits1.Checked,'on')
-                handles.axes_Channel1.ylim = handles.axes_Events.YLim;
-            elseif strcmp(handles.menu_AutoLimits2.Checked,'on')
-                handles.axes_Channel2.ylim = handles.axes_Events.YLim;
+    if handles.menu_AutoApplyYLim.Checked
+        if handles.menu_DisplayValues.Checked
+            if handles.menu_AnalyzeTop.Checked && handles.menu_AutoLimits1.Checked
+                handles.axes_Channel1.YLim = handles.axes_Events.YLim;
+            elseif handles.menu_AutoLimits2.Checked
+                handles.axes_Channel2.YLim = handles.axes_Events.YLim;
             end
         end
     end
@@ -5560,16 +5548,16 @@ function click_eventaxes(hObject, ~, handles)
         axis tight
         yl = ylim;
         ylim([mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
-        if strcmp(handles.menu_DisplayFeatures.Checked,'on')
+        if handles.menu_DisplayFeatures.Checked
             xl = xlim;
             xlim([mean(xl)+(xl(1)-mean(xl))*1.1 mean(xl)+(xl(2)-mean(xl))*1.1]);
         end
-        if strcmp(handles.menu_AutoApplyYLim.Checked,'on')
-            if strcmp(handles.menu_DisplayValues.Checked,'on')
-                if strcmp(handles.menu_AnalyzeTop.Checked,'on') && strcmp(handles.menu_AutoLimits1.Checked,'on')
-                    handles.axes_Channel1.ylim = handles.axes_Events.YLim;
-                elseif strcmp(handles.menu_AutoLimits2.Checked,'on')
-                    handles.axes_Channel2.ylim = handles.axes_Events.YLim;
+        if handles.menu_AutoApplyYLim.Checked
+            if handles.menu_DisplayValues.Checked
+                if handles.menu_AnalyzeTop.Checked && handles.menu_AutoLimits1.Checked
+                    handles.axes_Channel1.YLim = handles.axes_Events.YLim;
+                elseif handles.menu_AutoLimits2.Checked
+                    handles.axes_Channel2.YLim = handles.axes_Events.YLim;
                 end
             end
         end
@@ -5640,7 +5628,7 @@ function handles = DeleteEvents(handles,todel)
     
     handles.EventSelected{f}{g,filenum}(alr(todel)) = 0;
     
-    if ~isempty(todel) && strcmp(handles.menu_DisplayValues.Checked,'on')
+    if ~isempty(todel) && handles.menu_DisplayValues.Checked
         axis tight
         yl = ylim;
         ylim([mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
@@ -5791,7 +5779,7 @@ function menu_AutoDisplayEvents_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if strcmp(handles.menu_AutoDisplayEvents.Checked,'on')
+    if handles.menu_AutoDisplayEvents.Checked
         handles.menu_AutoDisplayEvents.Checked = 'off';
     else
         handles.menu_AutoDisplayEvents.Checked = 'on';
@@ -6245,7 +6233,7 @@ function push_Export_Callback(hObject, ~, handles)
                     me = ch(c).MarkerEdgeColor;
                     plot(x,y,'Color',col,'LineStyle',ls,'linewidth',lw,'marker',ma,'markersize',ms,'markerfacecolor',mf,'markeredgecolor',me);
                     hold on
-                    if strcmp(handles.menu_DisplayFeatures.Checked,'on') && sum(col==[1 0 0])~=3
+                    if handles.menu_DisplayFeatures.Checked && sum(col==[1 0 0])~=3
                         xs = [xs x];
                         ys = [ys y];
                     end
@@ -6256,7 +6244,7 @@ function push_Export_Callback(hObject, ~, handles)
                 xlab = handles.axes_Events.xlabel.String;
                 ylab = handles.axes_Events.ylabel.String;
                 str = {};
-                if strcmp(handles.menu_DisplayFeatures.Checked,'on')
+                if handles.menu_DisplayFeatures.Checked
                     xs = xs(xs>=xl(1) & xs<=xl(2));
                     ys = ys(ys>=yl(1) & ys<=yl(2));
                     str{1} = ['N = ' num2str(length(xs))];
@@ -6274,7 +6262,7 @@ function push_Export_Callback(hObject, ~, handles)
                 ylim(yl);
                 box off
             elseif handles.radio_Clipboard.Value==1
-                if strcmp(handles.menu_DisplayFeatures.Checked,'on')
+                if handles.menu_DisplayFeatures.Checked
                     ch = handles.axes_Events.Children;
                     xs = [];
                     ys = [];
@@ -7047,7 +7035,7 @@ function push_Export_Callback(hObject, ~, handles)
                             crd(:,2) = -crd(:,2)*ycoord(end,4)/op.PageSetup.SlideHeight;
                             crd = sortrows(crd);
     
-                            if strcmp(handles.menu_PlayReverse.Checked,'on')
+                            if handles.menu_PlayReverse.Checked
                                 crd(:,1) = flipud(crd(:,1))-crd(end,1);
                                 crd(:,2) = flipud(crd(:,2));
                             end
@@ -7146,7 +7134,7 @@ function push_Export_Callback(hObject, ~, handles)
     
                     if ~strcmp(animopt,'None')
                         for c = 1:size(ycoord,1)
-                            if strcmp(handles.menu_PlayReverse.Checked,'on')
+                            if handles.menu_PlayReverse.Checked
                                 ycoord(c,1) = ycoord(c,1)+ycoord(c,3);
                                 ycoord(c,3) = -ycoord(c,3);
                             end
@@ -7589,7 +7577,7 @@ function menu_FrequencyZoom_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if strcmp(handles.menu_FrequencyZoom.Checked,'on')
+    if handles.menu_FrequencyZoom.Checked
         handles.menu_FrequencyZoom.Checked = 'off';
     else
         handles.menu_FrequencyZoom.Checked = 'on';
@@ -7633,7 +7621,7 @@ function menu_SortChronologically_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if strcmp(handles.menu_SortChronologically.Checked,'on')
+    if handles.menu_SortChronologically.Checked
         handles.menu_SortChronologically.Checked = 'off';
         handles.WorksheetChronological = 0;
     else
@@ -7659,7 +7647,7 @@ function menu_OnePerLine_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if strcmp(handles.menu_OnePerLine.Checked,'on')
+    if handles.menu_OnePerLine.Checked
         handles.menu_OnePerLine.Checked = 'off';
         handles.WorksheetOnePerLine = 0;
     else
@@ -7678,7 +7666,7 @@ function menu_IncludeTitle_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if strcmp(handles.menu_IncludeTitle.Checked,'on')
+    if handles.menu_IncludeTitle.Checked
         handles.menu_IncludeTitle.Checked = 'off';
         handles.WorksheetIncludeTitle = 0;
     else
@@ -7889,7 +7877,7 @@ function menu_IncludeTimestamp_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if strcmp(handles.menu_IncludeTimestamp.Checked,'on')
+    if handles.menu_IncludeTimestamp.Checked
         handles.menu_IncludeTimestamp.Checked = 'off';
         handles.ExportSonogramIncludeLabel = 0;
     else
@@ -7906,7 +7894,7 @@ function menu_Portrait_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if strcmp(handles.menu_Portrait.Checked,'off')
+    if ~handles.menu_Portrait.Checked
         handles.menu_Portrait.Checked = 'on';
         handles.menu_Landscape.Checked = 'off';
         handles.WorksheetOrientation = 'portrait';
@@ -7932,7 +7920,7 @@ function menu_Landscape_Callback(hObject, ~, handles)
     % handles    structure with handles and user data (see GUIDATA)
     
     
-    if strcmp(handles.menu_Landscape.Checked,'off')
+    if ~handles.menu_Landscape.Checked
         handles.menu_Portrait.Checked = 'off';
         handles.menu_Landscape.Checked = 'on';
         handles.WorksheetOrientation = 'landscape';
@@ -8094,7 +8082,7 @@ function menu_OverlayTop_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if strcmp(handles.menu_OverlayTop.Checked,'off')
+    if ~handles.menu_OverlayTop.Checked
         handles.menu_OverlayTop.Checked = 'on';
     else
         handles.menu_OverlayTop.Checked = 'off';
@@ -8118,7 +8106,7 @@ function menu_OverlayBottom_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if strcmp(handles.menu_OverlayBottom.Checked,'off')
+    if ~handles.menu_OverlayBottom.Checked
         handles.menu_OverlayBottom.Checked = 'on';
     else
         handles.menu_OverlayBottom.Checked = 'off';
@@ -8133,10 +8121,10 @@ function menu_OverlayBottom_Callback(hObject, ~, handles)
 function handles = eg_Overlay(handles)
     
     da = [];
-    if strcmp(handles.menu_OverlayTop.Checked,'on')
+    if handles.menu_OverlayTop.Checked
         da = [da 1];
     end
-    if strcmp(handles.menu_OverlayBottom.Checked,'on')
+    if handles.menu_OverlayBottom.Checked
         da = [da 2];
     end
     
@@ -8433,17 +8421,17 @@ function [amp, labels] = eg_CalculateAmplitude(handles)
     [handles, sound] = eg_GetSound(handles);
     
     wind = round(handles.SmoothWindow*handles.fs);
-    if strcmp(handles.menu_DontPlot.Checked,'on')
+    if handles.menu_DontPlot.Checked
         amp = zeros(size(sound));
         labels = '';
     else
-        if strcmp(handles.menu_SourceSoundAmplitude.Checked,'on')
+        if handles.menu_SourceSoundAmplitude.Checked
             [handles, filtered_sound] = eg_GetSound(handles, true);
             amp = smooth(10*log10(filtered_sound.^2+eps),wind);
             amp = amp-min(amp(wind:length(amp)-wind));
             amp(amp<0)=0;
             labels = 'Loudness (dB)';
-        elseif strcmp(handles.menu_SourceTopPlot.Checked,'on')
+        elseif handles.menu_SourceTopPlot.Checked
             if strcmp(handles.axes_Channel1.Visible,'on')
                 amp = smooth(handles.loadedChannelData{1},wind);
                 labels = handles.axes_Channel1.ylabel.String;
@@ -8451,7 +8439,7 @@ function [amp, labels] = eg_CalculateAmplitude(handles)
                 amp = zeros(size(sound));
                 labels = '';
             end
-        elseif strcmp(handles.menu_SourceBottomPlot.Checked,'on')
+        elseif handles.menu_SourceBottomPlot.Checked
             if strcmp(handles.axes_Channel2.Visible,'on')
                 amp = smooth(handles.loadedChannelData{2},wind);
                 labels = handles.axes_Channel2.ylabel.String;
@@ -8514,7 +8502,7 @@ function menu_DontPlot_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if strcmp(handles.menu_DontPlot.Checked,'off')
+    if ~handles.menu_DontPlot.Checked
         handles.menu_DontPlot.Checked = 'on';
     else
         handles.menu_DontPlot.Checked = 'off';
@@ -8575,7 +8563,7 @@ function snd = GenerateSound(handles,sound_type)
     
     snd = zeros(size(sound));
     if handles.check_Sound.Value==1 || strcmp(sound_type,'snd')
-        if strcmp(handles.menu_FilterSound.Checked,'on')
+        if handles.menu_FilterSound.Checked
             snd = snd + filtered_sound * handles.SoundWeights(1);
         else
             snd = snd + sound * handles.SoundWeights(1);
@@ -8617,7 +8605,7 @@ function snd = GenerateSound(handles,sound_type)
     end
     snd = snd(xd(1):xd(2));
     
-    if strcmp(handles.menu_PlayReverse.Checked,'on')
+    if handles.menu_PlayReverse.Checked
         snd = snd(end:-1:1);
     end
     
@@ -8629,7 +8617,7 @@ function menu_PlayReverse_Callback(hObject, ~, handles)
     % handles    structure with handles and user data (see GUIDATA)
     
     
-    if strcmp(handles.menu_PlayReverse.Checked,'off')
+    if ~handles.menu_PlayReverse.Checked
         handles.menu_PlayReverse.Checked = 'on';
     else
         handles.menu_PlayReverse.Checked = 'off';
@@ -8949,7 +8937,7 @@ function menu_FilterSound_Callback(hObject, ~, handles)
     % handles    structure with handles and user data (see GUIDATA)
     
     
-    if strcmp(handles.menu_FilterSound.Checked,'on')
+    if handles.menu_FilterSound.Checked
         handles.menu_FilterSound.Checked = 'off';
     else
         handles.menu_FilterSound.Checked = 'on';
@@ -9910,16 +9898,16 @@ function menu_AutoApplyYLim_Callback(hObject, ~, handles)
     % handles    structure with handles and user data (see GUIDATA)
     
     
-    if strcmp(handles.menu_AutoApplyYLim.Checked,'on')
+    if handles.menu_AutoApplyYLim.Checked
         handles.menu_AutoApplyYLim.Checked = 'off';
     else
         handles.menu_AutoApplyYLim.Checked = 'on';
-        if strcmp(handles.menu_AutoApplyYLim.Checked,'on')
-            if strcmp(handles.menu_DisplayValues.Checked,'on')
-                if strcmp(handles.menu_AnalyzeTop.Checked,'on') && strcmp(handles.menu_AutoLimits1.Checked,'on')
-                    handles.axes_Channel1.ylim = handles.axes_Events.YLim;
-                elseif strcmp(handles.menu_AutoLimits2.Checked,'on')
-                    handles.axes_Channel2.ylim = handles.axes_Events.YLim;
+        if handles.menu_AutoApplyYLim.Checked
+            if handles.menu_DisplayValues.Checked
+                if handles.menu_AnalyzeTop.Checked && handles.menu_AutoLimits1.Checked
+                    handles.axes_Channel1.YLim = handles.axes_Events.YLim;
+                elseif handles.menu_AutoLimits2.Checked
+                    handles.axes_Channel2.YLim = handles.axes_Events.YLim;
                 end
             end
         end
