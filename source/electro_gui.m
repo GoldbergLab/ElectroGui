@@ -776,9 +776,6 @@ function push_Play_Callback(hObject, ~, handles)
     
     
 function progress_play(handles,wav)
-    
-    subplot(handles.axes_Sonogram);
-    
     xd = handles.axes_Sonogram.XLim;
     xd = round(xd*handles.fs);
     xd(1) = xd(1)+1;
@@ -800,7 +797,7 @@ function progress_play(handles,wav)
     indx = [];
     for c = 1:length(ch)
         if ch(c).Checked && axs(c).Visible
-            indx = [indx c];
+            indx = [indx, c];
         end
     end
     axs = axs(indx);
@@ -817,15 +814,15 @@ function progress_play(handles,wav)
         for c = 1:length(axs)
             hold(axs(c), 'on')
             if ~handles.menu_PlayReverse.Checked
-                h(c) = plot(axs(c), [xd(1) xd(1)]/handles.fs,ylim,'Color',handles.ProgressBarColor,'linewidth',2);
+                h(c) = plot(axs(c), [xd(1) xd(1)]/handles.fs,ylim,'Color',handles.ProgressBarColor,'LineWidth',2);
             else
-                h(c) = plot(axs(c), [xd(2) xd(2)]/handles.fs,ylim,'Color',handles.ProgressBarColor,'linewidth',2);
+                h(c) = plot(axs(c), [xd(2) xd(2)]/handles.fs,ylim,'Color',handles.ProgressBarColor,'LineWidth',2);
             end
         end
         y = audioplayer(wav,fs);
         play(y);
         while isplaying(y)
-            pos = y.currentsample;
+            pos = y.CurrentSample;
             for c = 1:length(h)
                 if ~handles.menu_PlayReverse.Checked
                     h(c).XData = ([pos pos]+xd(1)-1)/handles.fs;
@@ -836,7 +833,7 @@ function progress_play(handles,wav)
             drawnow;
         end
         stop(y);
-        clear y;
+        clear(y);
         delete(h);
         hold(handles.axes_Sonogram, 'off');
     end
@@ -1120,7 +1117,7 @@ function handles = eg_LoadFile(handles)
     yl = ylim(handles.axes_Sound);
     xmax = numSamples/handles.fs;
     hold(handles.axes_Sound, 'on');
-    handles.xlimbox = plot(handles.axes_Sound, [0, xmax, xmax, 0, 0],[yl(1), yl(1), yl(2), yl(2), yl(1)]*.93,':y', 'linewidth', 2);
+    handles.xlimbox = plot(handles.axes_Sound, [0, xmax, xmax, 0, 0],[yl(1), yl(1), yl(2), yl(2), yl(1)]*.93,':y', 'LineWidth', 2);
     xlim(handles.axes_Sound, [0 xmax]);
     hold(handles.axes_Sound, 'off');
     box(handles.axes_Sound, 'on');
@@ -1741,9 +1738,9 @@ function [markerHandles, labelHandles] = CreateMarkers(handles, times, titles, s
         labelHandles(c) = text((x1+x2)/2,y1,titles(c), 'VerticalAlignment', 'bottom');
     %     if c==1
     %         % Set the first segment to be the selected one
-    %         set(markerHandles(c), 'edgecolor', activeColor, 'linewidth', 2);
+    %         set(markerHandles(c), 'edgecolor', activeColor, 'LineWidth', 2);
     %     else
-            set(markerHandles(c), 'edgecolor', inactiveColor, 'linewidth', 1);
+            set(markerHandles(c), 'edgecolor', inactiveColor, 'LineWidth', 1);
     %     end
     end
     % Attach click handler "click_segment" to segment rectangle
@@ -1936,7 +1933,7 @@ function FilterMenuClick(hObject, ~, handles)
     
     yl = ylim(handles.axes_Sound);
     hold(handles.axes_Sound, 'on');
-    handles.xlimbox = plot(handles.axes_Sound, [xd(1) xd(2) xd(2) xd(1) xd(1)],[yl(1) yl(1) yl(2) yl(2) yl(1)]*.93,':y','linewidth',2);
+    handles.xlimbox = plot(handles.axes_Sound, [xd(1) xd(2) xd(2) xd(1) xd(1)],[yl(1) yl(1) yl(2) yl(2) yl(1)]*.93,':y','LineWidth',2);
     xlim(handles.axes_Sound, [0, numSamples/handles.fs]);
     hold(handles.axes_Sound, 'off');
     box(handles.axes_Sound, 'on');
@@ -2229,13 +2226,13 @@ function [handles, order] = SortMarkers(handles, filenum)
     
 function handles = SetActiveMarker(handles, markerNum)
     % Inactivate all markers
-    set(handles.MarkerHandles, 'edgecolor', handles.MarkerInactiveColor, 'linewidth', 1);
+    set(handles.MarkerHandles, 'edgecolor', handles.MarkerInactiveColor, 'LineWidth', 1);
     % Inactivate all segments
-    set(handles.SegmentHandles, 'edgecolor', handles.SegmentInactiveColor, 'linewidth', 1);
+    set(handles.SegmentHandles, 'edgecolor', handles.SegmentInactiveColor, 'LineWidth', 1);
     % Activate requested marker
     if ~isempty(handles.MarkerHandles)
         markerNum = coerceToRange(markerNum, [1, length(handles.MarkerHandles)]);
-        set(handles.MarkerHandles(markerNum), 'edgecolor', handles.MarkerActiveColor, 'linewidth', 2);
+        set(handles.MarkerHandles(markerNum), 'edgecolor', handles.MarkerActiveColor, 'LineWidth', 2);
     else
         % No markers? Set active segment instead.
         handles = SetActiveSegment(handles, 1);
@@ -2243,13 +2240,13 @@ function handles = SetActiveMarker(handles, markerNum)
     
 function handles = SetActiveSegment(handles, segmentNum)
     % Inactivate all segments
-    set(handles.SegmentHandles, 'edgecolor', handles.SegmentInactiveColor, 'linewidth', 1);
+    set(handles.SegmentHandles, 'edgecolor', handles.SegmentInactiveColor, 'LineWidth', 1);
     % Inactivate all markers
-    set(handles.MarkerHandles, 'edgecolor', handles.MarkerInactiveColor, 'linewidth', 1);
+    set(handles.MarkerHandles, 'edgecolor', handles.MarkerInactiveColor, 'LineWidth', 1);
     % Activate requested segment
     if ~isempty(handles.SegmentHandles)
         segmentNum = coerceToRange(segmentNum, [1, length(handles.SegmentHandles)]);
-        set(handles.SegmentHandles(segmentNum), 'edgecolor', handles.SegmentActiveColor, 'linewidth', 2);
+        set(handles.SegmentHandles(segmentNum), 'edgecolor', handles.SegmentActiveColor, 'LineWidth', 2);
     end
     
 function value = coerceToRange(value, valueRange)
@@ -3308,8 +3305,8 @@ function click_segment(hObject, ~, handles)
                 case 'marker'
                     handles = SetActiveMarker(handles, activeSegNum);
             end
-    %         set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
-    %         set(hObject,'edgecolor',handles.SegmentActiveColor,'linewidth',2);
+    %         set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'LineWidth',1);
+    %         set(hObject,'edgecolor',handles.SegmentActiveColor,'LineWidth',2);
             handles.figure_Main.KeyPressFcn = 'electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))';
         case 'extend'
             switch elementType
@@ -3330,9 +3327,9 @@ function click_segment(hObject, ~, handles)
                         handles.SegmentSelection{filenum}(activeSegNum+1) = [];
                         handles = PlotSegments(handles);
                         hObject = handles.SegmentHandles(activeSegNum);
-                        set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
+                        set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'LineWidth',1);
                         handles = SetActiveSegment(handles, activeSegNum);
-    %                     set(hObject,'edgecolor',handles.SegmentActiveColor,'linewidth',2);
+    %                     set(hObject,'edgecolor',handles.SegmentActiveColor,'LineWidth',2);
                         handles.figure_Main.KeyPressFcn = 'electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))';
                     end
                 case 'marker'
@@ -3631,9 +3628,9 @@ function labelsegment(hObject, ~, handles)
     end
     
     % % Update previously active segment to not active
-    % set(handles.SegmentHandles(segnum),'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
+    % set(handles.SegmentHandles(segnum),'edgecolor',handles.SegmentInactiveColor,'LineWidth',1);
     % % Mark new active segment as active
-    % set(handles.SegmentHandles(newseg),'edgecolor',handles.SegmentActiveColor,'linewidth',2);
+    % set(handles.SegmentHandles(newseg),'edgecolor',handles.SegmentActiveColor,'LineWidth',2);
     
     guidata(hObject, handles);
     
@@ -4038,7 +4035,7 @@ function click_Channel(hObject, ~, handles)
                 objin.MarkerFaceColor = 'w';
             else
                 for c = 1:length(objin)
-                    set(objin(c),'markerfacecolor',objin(c).markeredgecolor);
+                    set(objin(c),'markerfacecolor',objin(c).MarkerEdgeColor);
                 end
             end
     
@@ -4697,7 +4694,7 @@ function ClickEventSymbol(hObject, ~, handles)
         delete(findobj('LineStyle','-.'));
     
         if sum(hObject.MarkerFaceColor==[1 1 1])==3
-            hObject.MarkerFaceColor = hObject.markeredgecolor;
+            hObject.MarkerFaceColor = hObject.MarkerEdgeColor;
         else
             hObject.MarkerFaceColor = 'w';
         end
@@ -5252,9 +5249,9 @@ function popup_EventList_Callback(hObject, ~, handles)
         handles.axes_Events.Visible = 'on';
         handles.push_DisplayEvents.Enable = 'on';
     
-        if strcmp(handles.axes_Channel2.Visible,'off')
+        if ~handles.axes_Channel2.Visible
             plt = 1;
-        elseif strcmp(handles.axes_Channel1.Visible,'off')
+        elseif ~handles.axes_Channel1.Visible
             plt = 2;
         else
             if handles.EventWhichPlot(handles.popup_EventList.Value)==0
@@ -5313,7 +5310,7 @@ function handles = UpdateEventBrowser(handles)
             chan = [];
         end
     else
-        if strcmp(handles.axes_Channel2.Visible,'on')
+        if handles.axes_Channel2.Visible
             chan = handles.loadedChannelData{2};
             ystr = (handles.axes_Channel2.ylabel.String);
         else
@@ -5436,32 +5433,31 @@ function handles = SelectEvent(handles,i)
     if isempty(i)
         return
     end
-    delete(findobj('Parent',handles.axes_Events,'linewidth',2));
+    delete(findobj('Parent',handles.axes_Events,'LineWidth',2));
     delete(findobj('LineStyle','-.'));
     handles.SelectedEvent = i;
     
     if i<=length(handles.EventWaveHandles)
-        subplot(handles.axes_Events);
-        hold on
-        xl = xlim;
-        yl = ylim;
+        hold(handles.axes_Events, 'on');
+        xl = xlim(handles.axes_Events);
+        yl = ylim(handles.axes_Events);
         x = handles.EventWaveHandles(i).XData;
         y = handles.EventWaveHandles(i).YData;
-        m = handles.EventWaveHandles(i).marker;
+        m = handles.EventWaveHandles(i).Marker;
         if strcmp(m,'none')
-            h = plot(x,y,'r','linewidth',2);
+            h = plot(handles.axes_Events, x,y,'r','LineWidth',2);
         else
-            ms = handles.EventWaveHandles(i).markersize;
-            h = plot(x,y,'linewidth',2,'marker',m,'markersize',ms,'markerfacecolor','r','markeredgecolor','r');
+            ms = handles.EventWaveHandles(i).MarkerSize;
+            h = plot(handles.axes_Events, x,y,'LineWidth',2,'marker',m,'markersize',ms,'markerfacecolor','r','markeredgecolor','r');
         end
         set(h,'ButtonDownFcn','electro_gui(''unselect_event'',gcbo,[],guidata(gcbo))');
-        xlim(xl);
-        ylim(yl);
-        hold off
+        xlim(handles.axes_Events, xl);
+        ylim(handles.axes_Events, yl);
+        hold(handles.axes_Events, 'off');
     end
     
     
-    set(handles.EventWaveHandles,'ButtonDownFcn','electro_gui(''click_eventwave'',gcbo,[],guidata(gcbo))');
+    handles.EventWaveHandles.ButtonDownFcn = 'electro_gui(''click_eventwave'',gcbo,[],guidata(gcbo))';
     
     filenum = getCurrentFileNum(handles);
     nums = [];
@@ -5483,29 +5479,20 @@ function handles = SelectEvent(handles,i)
     [handles, numSamples] = eg_GetNumSamples(handles);
     
     xs = linspace(0, numSamples/handles.fs, numSamples);
-    subplot(handles.axes_Sound);
-    hold on;
-    plot([xs(tm(i)) xs(tm(i))],ylim,'-.','linewidth',2,'Color','r');
-    hold off;
+    hold(handles.axes_Sound, 'on');
+    plot(handles.axes_Sound, [xs(tm(i)) xs(tm(i))], ylim(handles.axes_Sound),'-.','LineWidth',2,'Color','r');
+    hold(handles.axes_Sound, 'off');
+
     h = [];
-    if strcmp(handles.axes_Channel1.Visible,'on')
-        ys = handles.loadedChannelData{1};
-        subplot(handles.axes_Channel1);
-        hold on
-    %     yl = ylim;
-        h(end+1) = plot(xs(tm(i)),ys(tm(i)),'-.o','linewidth',2,'markersize',5,'markerfacecolor','r','markeredgecolor','r');
-        hold off;
+    for axnum = 1:2
+        if handles.axes_Channels(axnum).Visible
+            ys = handles.loadedChannelData{axnum};
+            hold(handles.axes_Channels(axnum), 'on');
+            h(end+1) = plot(handles.axes_Channels(axnum), xs(tm(i)),ys(tm(i)),'-.o','LineWidth',2,'markersize',5,'markerfacecolor','r','markeredgecolor','r');
+            hold(handles.axes_Channels(axnum), 'off');
+        end
     end
-    if strcmp(handles.axes_Channel2.Visible,'on')
-        ys = handles.loadedChannelData{2};
-        subplot(handles.axes_Channel2);
-        hold on;
-    %     yl = ylim;
-        h(end+1) = plot(xs(tm(i)),ys(tm(i)),'-.o','linewidth',2,'markersize',5,'markerfacecolor','r','markeredgecolor','r');
-        hold off;
-    end
-    set(h,'ButtonDownFcn','electro_gui(''unselect_event'',gcbo,[],guidata(gcbo))');
-    
+    [h.ButtonDownFcn] = deal('electro_gui(''unselect_event'',gcbo,[],guidata(gcbo))');
     
 function unselect_event(hObject, ~, handles)
     
@@ -5513,7 +5500,7 @@ function unselect_event(hObject, ~, handles)
     guidata(hObject, handles);
     
     delete(findobj('LineStyle','-.'));
-    delete(findobj('Parent',handles.axes_Events,'linewidth',2));
+    delete(findobj('Parent',handles.axes_Events,'LineWidth',2));
     
     
     
@@ -5564,7 +5551,7 @@ function click_eventaxes(hObject, ~, handles)
     
     
     elseif strcmp(handles.figure_Main.SelectionType,'extend')
-        delete(findobj('Parent',handles.axes_Event,'linewidth',2));
+        delete(findobj('Parent',handles.axes_Event,'LineWidth',2));
         handles.SelectedEvent = [];
         delete(findobj('LineStyle','-.'));
     
@@ -6039,8 +6026,7 @@ function push_Export_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    subplot(handles.axes_Sonogram)
-    txtexp = text(mean(xlim),mean(ylim),'Exporting...',...
+    txtexp = text(mean(xlim(handles.axes_Sonogram)),mean(ylim(handles.axes_Sonogram)),'Exporting...',...
         'horizontalalignment','center','Color','r','backgroundcolor',[1 1 1],'fontsize',14);
     drawnow
     
@@ -6065,30 +6051,30 @@ function push_Export_Callback(hObject, ~, handles)
             filenum = getCurrentFileNum(handles);
     
             if isfield(handles,'DefaultLabels')
-                labs = handles.DefaultLabels;
+                labels = handles.DefaultLabels;
             else
-                labs = [];
+                labels = [];
                 for c = 1:length(handles.SegmentTitles{filenum})
-                    labs = [labs handles.SegmentTitles{filenum}{c}];
+                    labels = [labels handles.SegmentTitles{filenum}{c}];
                 end
-                if ~isempty(labs)
-                    labs = unique(labs);
+                if ~isempty(labels)
+                    labels = unique(labels);
                 end
-                labs = ['''''' labs];
+                labels = ['''''' labels];
             end
     
-            answer = inputdlg({'List of labels to export (leave empty for all segments, '''' = unlabeled)','File format'},'Export segments',1,{labs,handles.SegmentFileFormat});
+            answer = inputdlg({'List of labels to export (leave empty for all segments, '''' = unlabeled)','File format'},'Export segments',1,{labels,handles.SegmentFileFormat});
             if isempty(answer)
                 delete(txtexp)
                 return
             end
-            newlab = answer{1};
+            newLabel = answer{1};
             handles.SegmentFileFormat = answer{2};
     
-            if ~strcmp(labs,newlab)
-                handles.DefaultLabels = newlab;
+            if ~strcmp(labels,newLabel)
+                handles.DefaultLabels = newLabel;
             end
-            if isempty(newlab)
+            if isempty(newLabel)
                 handles = rmfield(handles,'DefaultLabels');
             end
     
@@ -6098,7 +6084,7 @@ function push_Export_Callback(hObject, ~, handles)
             [~,name,~] = fileparts(handles.text_FileName.String);
             sf = name;
             for c = 1:length(handles.SegmentTitles{filenum})
-                if ~isempty(strfind(newlab,handles.SegmentTitles{filenum}{c})) || isempty(newlab) || (isempty(handles.SegmentTitles{filenum}{c}) && contains(newlab,''''''))
+                if ~isempty(strfind(newLabel,handles.SegmentTitles{filenum}{c})) || isempty(newLabel) || (isempty(handles.SegmentTitles{filenum}{c}) && contains(newLabel,''''''))
                     str = handles.SegmentFileFormat;
                     f = strfind(str,'\d');
                     for j = f
@@ -6142,8 +6128,6 @@ function push_Export_Callback(hObject, ~, handles)
                     audiowrite(fullfile(path, [str, '.wav']), wav, handles.fs, 'BitsPerSample', 16);
                 end
             end
-    
-    
         case 'Sonogram'
             if handles.radio_Files.Value==1
                 [~, name, ~] = fileparts(handles.text_FileName.String);
@@ -6231,7 +6215,7 @@ function push_Export_Callback(hObject, ~, handles)
                     ms = ch(c).MarkerSize;
                     mf = ch(c).MarkerFaceColor;
                     me = ch(c).MarkerEdgeColor;
-                    plot(x,y,'Color',col,'LineStyle',ls,'linewidth',lw,'marker',ma,'markersize',ms,'markerfacecolor',mf,'markeredgecolor',me);
+                    plot(x,y,'Color',col,'LineStyle',ls,'LineWidth',lw,'marker',ma,'markersize',ms,'markerfacecolor',mf,'markeredgecolor',me);
                     hold on
                     if handles.menu_DisplayFeatures.Checked && sum(col==[1 0 0])~=3
                         xs = [xs x];
@@ -7077,7 +7061,7 @@ function push_Export_Callback(hObject, ~, handles)
                                 if strcmp(ug.Item(j).Type,'msoAutoShape')
                                     invoke(ug.Item(j),'Delete');
                                 else
-                                    if exist('linewidth', 'var')
+                                    if exist('LineWidth', 'var')
                                         set(ug.Item(j).Line,'Weight',linewidth);
                                     end
                                 end
@@ -8128,7 +8112,6 @@ function handles = eg_Overlay(handles)
         da = [da 2];
     end
     
-    subplot(handles.axes_Sonogram);
     xl = xlim(handles.axes_Sonogram);
     yl = ylim(handles.axes_Sonogram);
     hold(handles.axes_Sonogram, 'on');
@@ -8148,12 +8131,12 @@ function handles = eg_Overlay(handles)
         end
     end
     
-    set(get(gca,'children'),'UIContextMenu',get(gca,'UIContextMenu'));
-    set(get(gca,'children'),'ButtonDownFcn',get(gca,'ButtonDownFcn'));
+    [handles.axes_Sonogram.Children.UIContextMenu] = deal(handles.axes_Sonogram.UIContextMenu);
+    [handles.axes_Sonogram.Children.ButtonDownFcn] = deal(handles.axes_Sonogram.ButtonDownFcn);
     
-    hold off;
-    xlim(xl);
-    ylim(yl);
+    hold(handles.axes_Sonogram, 'off');
+    xlim(handles.axes_Sonogram, xl);
+    ylim(handles.axes_Sonogram, yl);
     
     
 % --------------------------------------------------------------------
@@ -8363,8 +8346,7 @@ function menu_SourceSoundAmplitude_Callback(hObject, ~, handles)
     
     plt = findobj('Parent',handles.axes_Amplitude,'LineStyle','-');
     plt.YData = handles.amplitude;
-    subplot(handles.axes_Amplitude)
-    ylabel(labels);
+    ylabel(handles.axes_Amplitude, labels);
     
     handles = SetThreshold(handles);
     
@@ -8385,8 +8367,7 @@ function menu_SourceTopPlot_Callback(hObject, ~, handles)
     
     plt = findobj('Parent',handles.axes_Amplitude,'LineStyle','-');
     plt.YData = handles.amplitude;
-    subplot(handles.axes_Amplitude)
-    ylabel(labels);
+    ylabel(handles.axes_Amplitude, labels);
     
     handles = SetThreshold(handles);
     
@@ -8404,12 +8385,11 @@ function menu_SourceBottomPlot_Callback(hObject, ~, handles)
     handles.menu_SourceTopPlot.Checked = 'off';
     handles.menu_SourceBottomPlot.Checked = 'on';
     
-    [handles.amplitude labs] = eg_CalculateAmplitude(handles);
+    [handles.amplitude, labels] = eg_CalculateAmplitude(handles);
     
-    plt = findobj('Parent',handles.axes_Amplitude,'LineStyle','-');
+    plt = findobj('Parent', handles.axes_Amplitude, 'LineStyle', '-');
     plt.YData = handles.amplitude;
-    subplot(handles.axes_Amplitude)
-    ylabel(labs);
+    ylabel(handles.axes_Amplitude, labels);
     
     handles = SetThreshold(handles);
     
@@ -8432,7 +8412,7 @@ function [amp, labels] = eg_CalculateAmplitude(handles)
             amp(amp<0)=0;
             labels = 'Loudness (dB)';
         elseif handles.menu_SourceTopPlot.Checked
-            if strcmp(handles.axes_Channel1.Visible,'on')
+            if handles.axes_Channel1.Visible
                 amp = smooth(handles.loadedChannelData{1},wind);
                 labels = handles.axes_Channel1.ylabel.String;
             else
@@ -8440,7 +8420,7 @@ function [amp, labels] = eg_CalculateAmplitude(handles)
                 labels = '';
             end
         elseif handles.menu_SourceBottomPlot.Checked
-            if strcmp(handles.axes_Channel2.Visible,'on')
+            if handles.axes_Channel2.Visible
                 amp = smooth(handles.loadedChannelData{2},wind);
                 labels = handles.axes_Channel2.ylabel.String;
             else
@@ -8489,8 +8469,8 @@ function menu_Concatenate_Callback(hObject, ~, handles)
     handles = PlotSegments(handles);
     
     handles = SetActiveSegment(handles, min(f));
-    % set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
-    % set(handles.SegmentHandles(min(f)),'edgecolor',handles.SegmentActiveColor,'linewidth',2);
+    % set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'LineWidth',1);
+    % set(handles.SegmentHandles(min(f)),'edgecolor',handles.SegmentActiveColor,'LineWidth',2);
     set(gcf,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
     
     guidata(hObject, handles);
@@ -8571,7 +8551,7 @@ function snd = GenerateSound(handles,sound_type)
     end
     
     if strcmp(sound_type,'mix')
-        if strcmp(handles.axes_Channel1.Visible,'on') && handles.check_TopPlot.Value==1
+        if handles.axes_Channel1.Visible && handles.check_TopPlot.Value==1
             addval = handles.loadedChannelData{1};
             addval(abs(addval) < handles.SoundClippers(1)) = 0;
             addval = addval * handles.SoundWeights(2);
@@ -8580,7 +8560,7 @@ function snd = GenerateSound(handles,sound_type)
             end
             snd = snd + addval;
         end
-        if strcmp(handles.axes_Channel2.Visible,'on') && handles.check_BottomPlot.Value==1
+        if handles.axes_Channel2.Visible && handles.check_BottomPlot.Value==1
             addval = handles.loadedChannelData{2};
             addval(abs(addval) < handles.SoundClippers(2)) = 0;
             addval = addval * handles.SoundWeights(3);
@@ -8590,8 +8570,6 @@ function snd = GenerateSound(handles,sound_type)
             snd = snd + addval;
         end
     end
-    
-    subplot(handles.axes_Sonogram);
     
     xd = handles.axes_Sonogram.XLim;
     xd = round(xd*handles.fs);
@@ -8662,38 +8640,37 @@ function menu_FilterParameters_Callback(hObject, ~, handles)
     
     [handles, filtered_sound] = eg_GetSound(handles, true);
     
-    subplot(handles.axes_Sound)
     xd = handles.xlimbox.XData;
-    cla
+    cla(handles.axes_Sound);
     [handles, numSamples] = eg_GetNumSamples(handles);
     
-    h = eg_peak_detect(gca, linspace(0, numSamples/handles.fs, numSamples), filtered_sound);
+    h = eg_peak_detect(handles.axes_Sound, linspace(0, numSamples/handles.fs, numSamples), filtered_sound);
     h.Color = 'c';
-    set(gca,'XTick',[],'YTick',[]);
-    set(gca,'Color',[0 0 0]);
-    axis tight;
-    yl = max(abs(ylim));
-    ylim([-yl*1.2 yl*1.2]);
+    handles.axes_Sound.XTick = [];
+    handles.axes_Sound.YTick = [];
+    handles.axes_Sound.Color = [0 0 0];
+    axis(handles.axes_Sound, 'tight');
+    yl = max(abs(handles.axes_Sound.YLim));
+    handles.axes_Sound.YLim = [-yl*1.2 yl*1.2];
     
-    yl = ylim;
-    hold on
-    handles.xlimbox = plot([xd(1) xd(2) xd(2) xd(1) xd(1)],[yl(1) yl(1) yl(2) yl(2) yl(1)]*.93,':y','linewidth',2);
-    xlim([0, numSamples/handles.fs]);
-    hold off
-    box on;
+    yl = handles.axes_Sound.YLim;
+    hold(handles.axes_Sound, 'on');
+    handles.xlimbox = plot(handles.axes_Sound, [xd(1) xd(2) xd(2) xd(1) xd(1)],[yl(1) yl(1) yl(2) yl(2) yl(1)]*.93,':y','LineWidth',2);
+    handles.axes_Sound.XLim = [0, numSamples/handles.fs];
+    hold(handles.axes_Sound, 'off');
+    box(handles.axes_Sound, 'on');
     
     set(handles.axes_Sonogram,'ButtonDownFcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
     ch = handles.axes_Sonogram.Children;
-    ch.ButtonDownFcn = handles.axes_Sonogram.ButtonDownFcn;
+    [ch.ButtonDownFcn] = deal(handles.axes_Sonogram.ButtonDownFcn);
     
     set(handles.axes_Sound,'ButtonDownFcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
     ch = handles.axes_Sound.Children;
-    ch.ButtonDownFcn = handles.axes_Sound.ButtonDownFcn;
-    
-    
+    [ch.ButtonDownFcn] = deal(handles.axes_Sound.ButtonDownFcn);
+        
     [handles.amplitude, ~] = eg_CalculateAmplitude(handles);
     
-    plt = findobj('Parent',handles.axes_Amplitude,'LineStyle','-');
+    plt = findobj('Parent', handles.axes_Amplitude, 'LineStyle', '-');
     plt.YData = handles.amplitude;
     
     handles = SetThreshold(handles);
