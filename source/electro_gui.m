@@ -73,11 +73,6 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % Gather all electro_gui plugins
     handles = gatherPlugins(handles);
     
-    lic = license('inuse');
-    user = lic(1).user;
-    f = regexpi(user,'[A-Z1-9]');
-    user = user(f);
-    
     % Default sound to display is the designated sound channel
     handles.SoundChannel = 0;
     handles.SoundExpression = '';
@@ -108,65 +103,29 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.ForwardFileCacheSize = 3;
     handles = resetFileCache(handles);
     
-    handles.userfile = ['defaults_' user '.m'];
-    mt = dir(handles.userfile);
-    if isempty(mt)
-        fid1 = fopen('eg_Get_Defaults.m','r');
-        fid2 = fopen(handles.userfile,'w');
-        fgetl(fid1);
-        str = ['function handles = ' handles.userfile(1:end-2) '(handles)'];
-        while ischar(str)
-            f = strfind(str,'\');
-            for d = length(f):-1:1
-                str = [str(1:f(d)-1) '\\' str(f(d)+1:end)];
-            end
-            f = strfind(str,'%');
-            for d = length(f):-1:1
-                str = [str(1:f(d)-1) '%%' str(f(d)+1:end)];
-            end
-            fprintf(fid2,[str '\n']);
-            str = fgetl(fid1);
-        end
-        fclose(fid1);
-        fclose(fid2);
-        isnewuser = 1;
-    else
-        isnewuser = 0;
-    end
+    % Get current logged in username
+    lic = license('inuse');
+    user = lic(1).user;
+    f = regexpi(user,'[A-Z1-9]');
+    user = user(f);
     
+    % Ensure a defaults file exists for the user
+    handles = ensureDefaultsFileExists(handles, user);
     
-    lst = {'(Default)'};
-    mt = dir('defaults_*.m');
-    indx = 1;
-    for c = 1:length(mt)
-        lst{end+1} = mt(c).name(10:end-2);
-        if strcmp(handles.userfile,mt(c).name)
-            indx = c+1;
-        end
-    end
-    
-    [val,ok] = listdlg('ListString',lst,'Name','Defaults','PromptString','Select default settings','SelectionMode','single','InitialValue',indx);
-    if ok == 0
-        val = 1;
-    end
-    
-    handles = eg_Get_Defaults(handles);
-    if val == 1 || (val == indx && isnewuser == 1)
-        %
-    else
-        handles = eval(['defaults_' lst{val} '(handles)']);
-    end
-    
+    % Prompt user to choose a defaults file, then load it.
+    handles = chooseAndLoadDefaultsFile(handles);
+
+    % If user has QuoteFile defined in their defaults, serve them up a
+    % welcome message and a nice quote
     if isfield(handles, 'QuoteFile')
         quote = getQuote(handles.QuoteFile);
         fprintf('Welcome to electro_gui.\n\nRandom quote of the moment:\n\n%s\n\nTo stop getting quotes, remove the ''handles.QuoteFile'' parameter from your defaults file.\n\n', quote);
     end
     
     dr = dir([mfilename('fullpath') '*m']);
-    handles.figure_Main.Name = ['ElectroGui v. ' datestr(datenum(dr.date),'yy.mm.dd.HH.MM')];
+    handles.figure_Main.Name = ['ElectroGui v. ', dr.date];
     
-    % Set up axes-indexed lists of GUI elements, to make code more extensible
-    
+    %% Set up axes-indexed lists of GUI elements, to make code more extensible    
     % handles.popup_Channels are dropdown menus for the channel axes to select a channel of data to display.
     handles.popup_Channels = [handles.popup_Channel1, handles.popup_Channel2];
     % handles.popup_Function are dropdown menus for the channel axes to select a filter function.
@@ -192,10 +151,190 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.menu_Events = [handles.menu_Events1, handles.menu_Events2];
     handles.push_Detects = [handles.push_Detect1, handles.push_Detect2];
     
-    
     handles.ChanLimits1 = handles.ChanLimits(1,:);
     handles.ChanLimits2 = handles.ChanLimits(2,:);
     
+    % Set values of various GUI controls based on default values
+    handles = setGUIValues(handles);
+
+    % Populate various GUI menus with available plugins found in the
+    % electro_gui directory
+    handles = populatePluginMenus(handles);
+
+    %colormap('default');
+    handles.Colormap = colormap();
+    handles.Colormap(1,:) = handles.BackgroundColors(1,:);    
+    
+    % Position figure
+    handles.figure_Main.Position = [.025 0.075 0.95 0.85];
+    
+    % Set initial parameter values
+    handles.SegmenterParams.Names = {};
+    handles.SegmenterParams.Values = {};
+    handles.SonogramParams.Names = {};
+    handles.SonogramParams.Values = {};
+    handles.EventParams{1}.Names = {};
+    handles.EventParams{1}.Values = {};
+    handles.EventParams{2}.Names = {};
+    handles.EventParams{2}.Values = {};
+    handles.FunctionParams{1}.Names = {};
+    handles.FunctionParams{1}.Values = {};
+    handles.FunctionParams{2}.Names = {};
+    handles.FunctionParams{2}.Values = {};
+    handles.FilterParams.Names = {};
+    handles.FilterParams.Values = {};
+    
+    handles.menu_EditFigureTemplate.UserData = handles.template;
+    
+    sz = get(handles.figure_Main,'papersize');
+    if strcmp(handles.WorksheetOrientation,'portrait')
+        handles.menu_Portrait.Checked = 'on';
+    else
+        handles.WorksheetOrientation = 'landscape';
+        handles.menu_Landscape.Checked = 'on';
+    end
+    if ~strcmp(handles.WorksheetOrientation,get(handles.figure_Main,'paperorientation'))
+        handles.WorksheetHeight = sz(1);
+        handles.WorksheetWidth = sz(2);
+    else
+        handles.WorksheetHeight = sz(2);
+        handles.WorksheetWidth = sz(1);
+    end
+    
+    subplot(handles.axes_Worksheet);
+    patch([0 handles.WorksheetWidth handles.WorksheetWidth 0],[0 0 handles.WorksheetHeight handles.WorksheetHeight],'w');
+    axis equal;
+    axis tight;
+    axis off;
+    
+    handles.WorksheetTitle = 'Untitled';
+    
+    handles.WorksheetXLims = {};
+    handles.WorksheetYLims = {};
+    handles.WorksheetXs = {};
+    handles.WorksheetYs = {};
+    handles.WorksheetMs = {};
+    handles.WorksheetClim = {};
+    handles.WorksheetColormap = {};
+    handles.WorksheetSounds = {};
+    handles.WorksheetFs = [];
+    handles.WorksheetTimes = [];
+    
+    handles.WorksheetCurrentPage = 1;
+    
+    if handles.WorksheetIncludeTitle == 1
+        handles.menu_IncludeTitle.Checked = 'on';
+    end
+    if handles.WorksheetChronological == 1
+        handles.menu_SortChronologically.Checked = 'on';
+    end
+    if handles.WorksheetOnePerLine == 1
+        handles.menu_OnePerLine.Checked = 'on';
+    end
+    
+    
+    handles.WorksheetHandles = [];
+    handles.WorksheetList = [];
+    handles.WorksheetUsed = [];
+    handles.WorksheetWidths = [];
+    
+    
+    if handles.ExportReplotSonogram == 1
+        handles.menu_CustomResolution.Checked = 'on';
+    else
+        handles.menu_ScreenResolution.Checked = 'on';
+    end
+    switch handles.ExportSonogramIncludeClip
+        case 0
+            handles.menu_IncludeSoundNone.Checked = 'on';
+        case 1
+            handles.menu_IncludeSoundOnly.Checked = 'on';
+        case 2
+            handles.menu_IncludeSoundMix.Checked = 'on';
+    end
+    if handles.ExportSonogramIncludeLabel == 1
+        handles.menu_IncludeTimestamp.Checked = 'on';
+    else
+        handles.menu_IncludeTimestamp.Checked = 'off';
+    end
+    
+    handles.ScalebarPresets = [0.001 0.002 0.005 0.01 0.02 0.025 0.05 0.1 0.2 0.25 0.5 1 2 5 10 20 30 60];
+    handles.ScalebarLabels =  {'1 ms','2 ms','5 ms','10 ms','20 ms','25 ms','50 ms','100 ms','200 ms','250 ms','500 ms','1 s','2 s','5 s','10 s','20 s','30 s','1 min'};
+    
+    % Choose default command line output for electro_gui
+    handles.output = hObject;
+    
+    if handles.EnableFileCaching
+        try
+            % Start up parallel pool for caching purposes
+            gcp();
+        catch
+            warning('Failed to start parallel pool - maybe the parallel computing toolbox is not installed? Disabling file caching.');
+            handles.EnableFileCaching = false;
+        end
+    end
+    
+    % Update handles structure
+    guidata(hObject, handles);
+    
+    % UIWAIT makes electro_gui wait for user response (see UIRESUME)
+    % uiwait(handles.figure_Main);
+    
+function [handles, isNewUser] = ensureDefaultsFileExists(handles, user)
+    % Check if a defaults file exists for the given user. If not, create
+    % one for the user using the settings in eg_Get_Defaults file.
+
+    % Determine correct defaults filename for user
+    handles.userfile = ['defaults_' user '.m'];
+    % Check if defaults filename for current user exists
+    isNewUser = isempty(dir(handles.userfile));
+
+    if isNewUser
+        % No defaults file exists - create a new one and copy defaults into
+        % it
+
+        % Open default defaults file
+        fid1 = fopen('eg_Get_Defaults.m','r');
+        % Create new defaults file for user
+        fid2 = fopen(handles.userfile,'w');
+        fgetl(fid1);
+        str = ['function handles = ' handles.userfile(1:end-2) '(handles)'];
+        while ischar(str)
+            f = strfind(str,'\');
+            for d = length(f):-1:1
+                str = [str(1:f(d)-1) '\\' str(f(d)+1:end)];
+            end
+            f = strfind(str,'%');
+            for d = length(f):-1:1
+                str = [str(1:f(d)-1) '%%' str(f(d)+1:end)];
+            end
+            fprintf(fid2,[str '\n']);
+            str = fgetl(fid1);
+        end
+        fclose(fid1);
+        fclose(fid2);
+    end
+
+function handles = chooseAndLoadDefaultsFile(handles)
+    % Prompt user to choose a defaults file, then load it.
+
+    % Populate list of defaults files for user to choose from
+    userList = {'(Default)'};
+    defaultsFileList = dir('defaults_*.m');
+    for c = 1:length(defaultsFileList)
+        userList(end+1) = regexp(defaultsFileList(c).name, '(?<=defaults_).*(?=\.m)', 'match');
+    end
+    currentUserDefaultIndex = find(strcmp(handles.userfile, {defaultsFileList.name}));
+    
+    [chosenDefaultIndex, ok] = listdlg('ListString', userList, 'Name', 'Defaults', 'PromptString', 'Select default settings', 'SelectionMode', 'single', 'InitialValue', currentUserDefaultIndex);
+    if ok || chosenDefaultIndex == 1
+        handles = eg_Get_Defaults(handles);
+    else
+        handles = eval(['defaults_' userList{val} '(handles)']);
+    end
+
+function handles = setGUIValues(handles)
+    % Set values of various GUI controls based on default values
     if handles.EventsDisplayMode == 1
         handles.menu_DisplayValues.Checked = 'on';
     else
@@ -279,262 +418,109 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     end
     
     ch = handles.menu_Animation.Children;
-    ischeck = 0;
+    ischeck = false;
     for c = 1:length(ch)
         if strcmp(ch(c).Label,handles.AnimationType)
             set(ch(c),'checked','on');
-            ischeck = 1;
+            ischeck = true;
         end
     end
-    if ischeck == 0
+    if ~ischeck
         handles.menu_AnimationProgressBar.Checked = 'on';
     end
     
     handles.check_Sound.Value = handles.DefaultMix(1);
     handles.check_TopPlot.Value = handles.DefaultMix(2);
-    handles.check_BottomPlot.Value = handles.DefaultMix(3);
-    
-    % Find all spectrum algorithms
-    mt = dir('egs_*.m');
-    ischeck = 0;
-    for c = 1:length(mt)
-        handles.menu_Algorithm(c) = uimenu(handles.menu_AlgorithmList,'label',mt(c).name(5:end-2),...
-            'callback','electro_gui(''AlgorithmMenuClick'',gcbo,[],guidata(gcbo))');
-        if strcmp(handles.menu_Algorithm(c).Label,handles.DefaultSonogramPlotter)
-            ischeck = 1;
-            set(handles.menu_Algorithm(c),'checked','on');
-        end
+    handles.check_BottomPlot.Value = handles.DefaultMix(3);    
+
+function [pluginNames, pluginTypes] = getPluginNamesFromFilenames(pluginFilenames)
+    % Extract the plain names and types of electro_gui plugin from a list of their filenames
+    pluginNames = cell(size(pluginFilenames));
+    pluginTypes = cell(size(pluginFilenames));
+    for k = 1:length(pluginFilenames)
+        [pluginNames{k}, pluginTypes{k}] = getPluginNameFromFilename(pluginFilenames{k});
     end
-    if ischeck == 0
-        set(handles.menu_Algorithm(1),'checked','on');
-    end
+
+function [pluginName, pluginType] = getPluginNameFromFilename(pluginFilename)
+    % Extract the plain name and type of an electro_gui plugin from its filename
+    pluginNamePattern = '(.*?)_(.*)\.m';
+    tokens = regexp(pluginFilename, pluginNamePattern, 'tokens');
+    pluginName = tokens{1}{2};
+    pluginType = tokens{1}{1};
+
+function handles = populatePluginMenus(handles)
+    % Populate various GUI menus with available plugins found in the
+    % electro_gui directory
+
+    % Populate sonogram algorithm plugin menu
+    [handles, handles.menu_Algorithm] = populatePluginMenuList(handles, 'egs', handles.DefaultSonogramPlotter, handles.menu_AlgorithmList, 'electro_gui(''AlgorithmMenuClick'',gcbo,[],guidata(gcbo))');
     
-    % Find all segmenting algorithms
-    mt = dir('egg_*.m');
-    ischeck = 0;
-    for c = 1:length(mt)
-        handles.menu_Segmenter(c) = uimenu(handles.menu_SegmenterList,'label',mt(c).name(5:end-2),...
-            'callback','electro_gui(''SegmenterMenuClick'',gcbo,[],guidata(gcbo))');
-        if strcmp(handles.menu_Segmenter(c).Label,handles.DefaultSegmenter)
-            ischeck = 1;
-            set(handles.menu_Segmenter(c),'checked','on');
-        end
-    end
-    if ischeck == 0
-        set(handles.menu_Segmenter(1),'checked','on');
-    end
-    
-    % Find all filters
-    mt = dir('egf_*.m');
-    ischeck = 0;
-    for c = 1:length(mt)
-        handles.menu_Filter(c) = uimenu(handles.menu_FilterList,'label',mt(c).name(5:end-2),...
-            'callback','electro_gui(''FilterMenuClick'',gcbo,[],guidata(gcbo))');
-        if strcmp(handles.menu_Filter(c).Label,handles.DefaultFilter)
-            ischeck = 1;
-            set(handles.menu_Filter(c),'checked','on');
-        end
-    end
-    if ischeck == 0
-        set(handles.menu_Filter(1),'checked','on');
-    end
-    
-    % Find all colormaps
-    mt = dir('egc_*.m');
-    handles.menu_ColormapList(1) = uimenu(handles.menu_Colormap,'label','(Default)',...
-        'callback','electro_gui(''ColormapClick'',gcbo,[],guidata(gcbo))');
-    for c = 1:length(mt)
-        handles.menu_ColormapList(c+1) = uimenu(handles.menu_Colormap,'label',mt(c).name(5:end-2),...
-            'callback','electro_gui(''ColormapClick'',gcbo,[],guidata(gcbo))');
-    end
-    
-    %colormap('default');
-    handles.Colormap = colormap;
-    handles.Colormap(1,:) = handles.BackgroundColors(1,:);
-    
-    
+    % Populate segmenting algorithm plugin menu
+    [handles, handles.menu_Segmenter] = populatePluginMenuList(handles, 'egg', handles.DefaultSegmenter, handles.menu_SegmenterList, 'electro_gui(''SegmenterMenuClick'',gcbo,[],guidata(gcbo))');
+
+    % Populate filter algorithm plugin menu
+    [handles, handles.menu_Filter] = populatePluginMenuList(handles, 'egf', handles.DefaultFilter, handles.menu_FilterList, 'electro_gui(''FilterMenuClick'',gcbo,[],guidata(gcbo))');
+
+    % Populate colormap plugin menu
+    handles.menu_ColormapList(1) = uimenu(handles.menu_Colormap, 'Label', '(Default)', 'callback','electro_gui(''ColormapClick'', gcbo,[],guidata(gcbo))');
+    [handles, handles.menu_ColormapList] = populatePluginMenuList(handles, 'egc', '(Default)', handles.menu_Colormap, 'electro_gui(''ColormapClick'',gcbo,[],guidata(gcbo))');
+
+    % Populate macro plugin menu
+    [handles, handles.menu_Macros] = populatePluginMenuList(handles, 'egm', [], handles.context_Macros, 'electro_gui(''MacrosMenuclick'',gcbo,[],guidata(gcbo))');
+
+    % Populate x-axis event feature algorithm plugin menu
+    [handles, handles.menu_XAxis_List] = populatePluginMenuList(handles, 'ega', handles.DefaultEventFeatureX, handles.menu_XAxis, 'electro_gui(''XAxisMenuClick'',gcbo,[],guidata(gcbo))');
+    % Populate y-axis event feature algorithm plugin menu
+    [handles, handles.menu_YAxis_List] = populatePluginMenuList(handles, 'ega', handles.DefaultEventFeatureY, handles.menu_YAxis, 'electro_gui(''YAxisMenuClick'',gcbo,[],guidata(gcbo))');
+
     % Find all function algorithms
-    mt = dir('egf_*.m');
+    pluginList = dir('egf_*.m');
+    pluginNames = getPluginNamesFromFilenames({pluginList.name});
     str = {'(Raw)'};
-    for c = 1:length(mt)
-        str{end+1} = mt(c).name(5:end-2);
+    for pluginIdx = 1:length(pluginNames)
+        str{end+1} = pluginNames{pluginIdx};
     end
     handles.popup_Function1.String = str;
     handles.popup_Function1.UserData = cell(1,length(str));
     handles.popup_Function2.String = str;
     handles.popup_Function2.UserData = cell(1,length(str));
     
-    % Find all macros
-    mt = dir('egm_*.m');
-    for c = 1:length(mt)
-        handles.menu_Macros(c) = uimenu(handles.context_Macros,'label',mt(c).name(5:end-2),...
-            'callback','electro_gui(''MacrosMenuclick'',gcbo,[],guidata(gcbo))');
-    end
-    
-    
     % Find all event detector algorithms
-    mt = dir('ege_*.m');
+    pluginList = dir('ege_*.m');
+    pluginNames = getPluginNamesFromFilenames({pluginList.name});
     str = {'(None)'};
-    for c = 1:length(mt)
-        str{end+1} = mt(c).name(5:end-2);
+    for pluginIdx = 1:length(pluginNames)
+        str{end+1} = pluginNames{pluginIdx};
     end
     handles.popup_EventDetector1.String = str;
     handles.popup_EventDetector1.UserData = cell(1,length(str));
     handles.popup_EventDetector2.String = str;
     handles.popup_EventDetector2.UserData = cell(1,length(str));
     
-    % Find all event feature algorithms
-    mt = dir('ega_*.m');
-    str = {};
-    for c = 1:length(mt)
-        handles.menu_XAxis_List(c) = uimenu(handles.menu_XAxis,'label',mt(c).name(5:end-2),...
-            'callback','electro_gui(''XAxisMenuClick'',gcbo,[],guidata(gcbo))');
-        handles.menu_YAxis_List(c) = uimenu(handles.menu_YAxis,'label',mt(c).name(5:end-2),...
-            'callback','electro_gui(''YAxisMenuClick'',gcbo,[],guidata(gcbo))');
+function [handles, menus] = populatePluginMenuList(handles, pluginPrefix, defaultPluginName, menuList, callback)
+    % Populate a dropdown menu for selecting plugins
+
+    % Find all plugin files of the desired type
+    pluginList = dir([pluginPrefix, '_*.m']);
+    % Get plugin names
+    pluginNames = getPluginNamesFromFilenames({pluginList.name});
+    % Create a menu item for each plugin
+    menus = gobjects().empty;
+    for pluginIdx = 1:length(pluginNames)
+        menus(end+1) = uimenu(menuList, 'Label', pluginNames{pluginIdx}, 'callback', callback);
     end
-    
-    ischeck = 0;
-    for c = 1:length(handles.menu_XAxis_List)
-        if strcmp(handles.menu_XAxis_List(c).Label,handles.DefaultEventFeatureX)
-            set(handles.menu_XAxis_List(c),'checked','on');
-            ischeck = 1;
+    if ~isempty(defaultPluginName)
+        % Identify where the default plugin is in the list
+        defaultPluginIdx = find(strcmp(defaultPluginName, pluginNames), 1);
+        if isempty(defaultPluginIdx)
+            % Default plugin did not match any available plugins
+            defaultPluginIdx = 1;
         end
+        % Check the default plugin if it's in the list, otherwise the first one
+        menus(defaultPluginIdx).Checked = 'on';
     end
-    if ischeck == 0
-        set(handles.menu_XAxis_List(1),'checked','on');
-    end
-    ischeck = 0;
-    for c = 1:length(handles.menu_YAxis_List)
-        if strcmp(handles.menu_YAxis_List(c).Label,handles.DefaultEventFeatureY)
-            set(handles.menu_YAxis_List(c),'checked','on');
-            ischeck = 1;
-        end
-    end
-    if ischeck == 0
-        handles.menu_YAxis_List(2).Checked = 'on';
-    end
-    
-    
-    % Position figure
-    handles.figure_Main.Position = [.025 0.075 0.95 0.85];
-    
-    
-    % Set initial parameter values
-    handles.SegmenterParams.Names = {};
-    handles.SegmenterParams.Values = {};
-    handles.SonogramParams.Names = {};
-    handles.SonogramParams.Values = {};
-    handles.EventParams{1}.Names = {};
-    handles.EventParams{1}.Values = {};
-    handles.EventParams{2}.Names = {};
-    handles.EventParams{2}.Values = {};
-    handles.FunctionParams{1}.Names = {};
-    handles.FunctionParams{1}.Values = {};
-    handles.FunctionParams{2}.Names = {};
-    handles.FunctionParams{2}.Values = {};
-    handles.FilterParams.Names = {};
-    handles.FilterParams.Values = {};
-    
-    
-    handles.menu_EditFigureTemplate.UserData = handles.template;
-    
-    sz = get(gcf,'papersize');
-    if strcmp(handles.WorksheetOrientation,'portrait')
-        handles.menu_Portrait.Checked = 'on';
-    else
-        handles.WorksheetOrientation = 'landscape';
-        handles.menu_Landscape.Checked = 'on';
-    end
-    if ~strcmp(handles.WorksheetOrientation,get(gcf,'paperorientation'))
-        handles.WorksheetHeight = sz(1);
-        handles.WorksheetWidth = sz(2);
-    else
-        handles.WorksheetHeight = sz(2);
-        handles.WorksheetWidth = sz(1);
-    end
-    
-    subplot(handles.axes_Worksheet);
-    patch([0 handles.WorksheetWidth handles.WorksheetWidth 0],[0 0 handles.WorksheetHeight handles.WorksheetHeight],'w');
-    axis equal;
-    axis tight;
-    axis off;
-    
-    handles.WorksheetTitle = 'Untitled';
-    
-    handles.WorksheetXLims = {};
-    handles.WorksheetYLims = {};
-    handles.WorksheetXs = {};
-    handles.WorksheetYs = {};
-    handles.WorksheetMs = {};
-    handles.WorksheetClim = {};
-    handles.WorksheetColormap = {};
-    handles.WorksheetSounds = {};
-    handles.WorksheetFs = [];
-    handles.WorksheetTimes = [];
-    
-    handles.WorksheetCurrentPage = 1;
-    
-    if handles.WorksheetIncludeTitle == 1
-        handles.menu_IncludeTitle.Checked = 'on';
-    end
-    if handles.WorksheetChronological == 1
-        handles.menu_SortChronologically.Checked = 'on';
-    end
-    if handles.WorksheetOnePerLine == 1
-        handles.menu_OnePerLine.Checked = 'on';
-    end
-    
-    
-    handles.WorksheetHandles = [];
-    handles.WorksheetList = [];
-    handles.WorksheetUsed = [];
-    handles.WorksheetWidths = [];
-    
-    
-    if handles.ExportReplotSonogram == 1
-        handles.menu_CustomResolution.Checked = 'on';
-    else
-        handles.menu_ScreenResolution.Checked = 'on';
-    end
-    switch handles.ExportSonogramIncludeClip
-        case 0
-            handles.menu_IncludeSoundNone.Checked = 'on';
-        case 1
-            handles.menu_IncludeSoundOnly.Checked = 'on';
-        case 2
-            handles.menu_IncludeSoundMix.Checked = 'on';
-    end
-    if handles.ExportSonogramIncludeLabel == 1
-        handles.menu_IncludeTimestamp.Checked = 'on';
-    else
-        handles.menu_IncludeTimestamp.Checked = 'off';
-    end
-    
-    
-    
-    handles.ScalebarPresets = [0.001 0.002 0.005 0.01 0.02 0.025 0.05 0.1 0.2 0.25 0.5 1 2 5 10 20 30 60];
-    handles.ScalebarLabels =  {'1 ms','2 ms','5 ms','10 ms','20 ms','25 ms','50 ms','100 ms','200 ms','250 ms','500 ms','1 s','2 s','5 s','10 s','20 s','30 s','1 min'};
-    
-    % Choose default command line output for electro_gui
-    handles.output = hObject;
-    
-    if handles.EnableFileCaching
-        try
-            % Start up parallel pool for caching purposes
-            gcp();
-        catch
-            warning('Failed to start parallel pool - maybe the parallel computing toolbox is not installed? Disabling file caching.');
-            handles.EnableFileCaching = false;
-        end
-    end
-    
-    % Update handles structure
-    guidata(hObject, handles);
-    
-    % UIWAIT makes electro_gui wait for user response (see UIRESUME)
-    % uiwait(handles.figure_Main);
-    
-    
+
+
 % --- Outputs from this function are returned to the command line.
 function varargout = electro_gui_OutputFcn(hObject, ~, handles)
     % varargout  cell array for returning output args (see VARARGOUT);
@@ -689,7 +675,7 @@ function list_Files_Callback(hObject, ~, handles)
     %        contents{hObject.Value} returns selected item from list_Files
     
     
-    if strcmp(get(gcf,'selectiontype'),'open')
+    if strcmp(get(handles.figure_Main,'SelectionType'),'open')
         handles.edit_FileNumber.String = num2str(handles.list_Files.Value);
     else
         return
@@ -1819,7 +1805,7 @@ function handles = PlotSegments(handles, activeSegmentNum, activeMarkerNum)
     % Set y-scale of axes
     ylim(ax, [-2 3.5]);
     % Get figure background color
-    bg = get(gcf,'color');
+    bg = handles.figure_Main.Color;
     % Set segment axes background & axis colors to the figure background color, I guess to hide them
     set(ax,'xcolor',bg,'ycolor',bg,'color',bg);
     % Assign context menu and click listener to segment axes
@@ -1829,7 +1815,7 @@ function handles = PlotSegments(handles, activeSegmentNum, activeMarkerNum)
         child.UIContextMenu = ax.UIContextMenu;
     end
     % Assign key press function to figure (labelsegment) for labeling segments
-    set(gcf,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
+    handles.figure_Main.KeyPressFcn = 'electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))';
     
     switch activeType
         case 'segment'
@@ -2046,8 +2032,6 @@ function handles = eg_EditTimescale(handles)
     
     handles = eg_Overlay(handles);
     
-    
-    
 function handles = eg_PlotSonogram(handles)
     [handles, sound] = eg_GetSound(handles);
     
@@ -2109,7 +2093,7 @@ function click_sound(hObject, ~, handles)
     
     current_axes = gca();
     
-    if strcmp(get(gcf,'selectiontype'),'normal')
+    if strcmp(get(handles.figure_Main,'selectiontype'),'normal')
         % Normal left mouse button click
         %   Zoom in (either with a box if it's a
         %   click/drag, or just shift the zoom box over to click location if
@@ -2161,7 +2145,7 @@ function click_sound(hObject, ~, handles)
         handles.xlimbox.XData = xd;
         % Update spectrogram scales
         handles = eg_EditTimescale(handles);
-    elseif strcmp(get(gcf,'selectiontype'),'extend')
+    elseif strcmp(get(handles.figure_Main,'selectiontype'),'extend')
         % Shift-click
         %   Shift zoom box so the right side aligns with click location
         pos = current_axes.CurrentPoint;
@@ -2187,7 +2171,7 @@ function click_sound(hObject, ~, handles)
         end
         % Update spectrogram scales
         handles = eg_EditTimescale(handles);
-    elseif strcmp(get(gcf, 'selectiontype'), 'alt') && ~isempty(get(gcf, 'CurrentModifier')) && strcmp(get(gcf, 'CurrentModifier'), 'control')
+    elseif strcmp(get(handles.figure_Main, 'selectiontype'), 'alt') && ~isempty(get(handles.figure_Main, 'CurrentModifier')) && strcmp(get(handles.figure_Main, 'CurrentModifier'), 'control')
         % User control-clicked on axes_Spectrogram
     
         % Switch the axes back to normalized units
@@ -3053,13 +3037,13 @@ function menu_SmoothingWindow_Callback(hObject, ~, handles)
     
 function click_Amplitude(hObject, ~, handles)
     
-    if strcmp(get(gcf,'selectiontype'),'open')
+    if strcmp(get(handles.figure_Main,'selectiontype'),'open')
         [handles, numSamples] = eg_GetNumSamples(handles);
         xd = [0 numSamples/handles.fs numSamples/handles.fs 0 0];
         handles.xlimbox.XData = xd;
         handles = eg_EditTimescale(handles);
     
-    elseif strcmp(get(gcf,'selectiontype'),'normal')
+    elseif strcmp(get(handles.figure_Main,'selectiontype'),'normal')
         handles.axes_Amplitude.Units = 'pixels';
         handles.axes_Amplitude.Parent.Units = 'pixels';
         rect = rbbox;
@@ -3082,7 +3066,7 @@ function click_Amplitude(hObject, ~, handles)
         end
         handles.xlimbox.XData = xd;
         handles = eg_EditTimescale(handles);
-    elseif strcmp(get(gcf,'selectiontype'),'extend')
+    elseif strcmp(get(handles.figure_Main,'selectiontype'),'extend')
         pos = handles.axes_Amplitude.CurrentPoint;
         handles.CurrentThreshold = pos(1,2);
         handles.SoundThresholds(getCurrentFileNum(handles)) = handles.CurrentThreshold;
@@ -3177,7 +3161,7 @@ function click_segmentaxes(hObject, ~, handles)
     
     filenum = getCurrentFileNum(handles);
     
-    if strcmp(get(gcf,'selectiontype'),'normal')
+    if strcmp(get(handles.figure_Main,'selectiontype'),'normal')
         % This code takes a selection of segments and toggles their selection
         %   status. Note that it used to set the selection status to unselected
         %   if less than half of the selected segments were selected. Which
@@ -3209,13 +3193,13 @@ function click_segmentaxes(hObject, ~, handles)
     
         handles.SegmentHandles.FaceColor = handles.SegmentSelectColor;
         set(handles.SegmentHandles(find(handles.SegmentSelection{filenum}==0)),'facecolor',handles.SegmentUnSelectColor);
-    elseif strcmp(get(gcf,'selectiontype'),'open')
+    elseif strcmp(get(handles.figure_Main,'selectiontype'),'open')
         [handles, numSamples] = eg_GetNumSamples(handles);
     
         xd = [0, numSamples/handles.fs, numSamples/handles.fs, 0, 0];
         handles.xlimbox.XData = xd;
         handles = eg_EditTimescale(handles);
-    elseif strcmp(get(gcf,'selectiontype'),'extend')
+    elseif strcmp(get(handles.figure_Main,'selectiontype'),'extend')
         if sum(handles.SegmentSelection{filenum})==length(handles.SegmentSelection{filenum})
             handles.SegmentSelection{filenum} = zeros(size(handles.SegmentSelection{filenum}));
             handles.SegmentHandles.FaceColor = handles.SegmentUnSelectColor;
@@ -3330,7 +3314,7 @@ function click_segment(hObject, ~, handles)
     end
     
     filenum = getCurrentFileNum(handles);
-    switch get(gcf,'selectiontype')
+    switch get(handles.figure_Main,'selectiontype')
         case 'normal'
             switch elementType
                 case 'segment'
@@ -3340,7 +3324,7 @@ function click_segment(hObject, ~, handles)
             end
     %         set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
     %         set(hObject,'edgecolor',handles.SegmentActiveColor,'linewidth',2);
-            set(gcf,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
+            set(handles.figure_Main,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
         case 'extend'
             switch elementType
                 case 'segment'
@@ -3363,7 +3347,7 @@ function click_segment(hObject, ~, handles)
                         set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'linewidth',1);
                         handles = SetActiveSegment(handles, activeSegNum);
     %                     set(hObject,'edgecolor',handles.SegmentActiveColor,'linewidth',2);
-                        set(gcf,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
+                        set(handles.figure_Main,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
                     end
                 case 'marker'
                     % Nah, doubt we need to implement concatenating adjacent
@@ -3405,7 +3389,7 @@ function handles = JoinSegmentWithNext(handles, filenum, segmentNum)
         handles.SegmentSelection{filenum}(segmentNum+1) = [];
         handles = PlotSegments(handles);
         handles = SetActiveSegment(handles, segmentNum);
-        set(gcf,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
+        set(handles.figure_Main,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
     end
     
 function labelsegment(hObject, ~, handles)
@@ -3415,7 +3399,7 @@ function labelsegment(hObject, ~, handles)
     % Get currently loaded file num
     filenum = getCurrentFileNum(handles);
     % Get the last key press captured by the figure
-    ch = get(gcf,'currentcharacter');
+    ch = get(handles.figure_Main,'currentcharacter');
     % I think this is an awkward way of converting the character to a numeric ASCII code?
     chn = sum(ch);
     
@@ -3933,7 +3917,7 @@ function click_Channel(hObject, ~, handles)
     end
     
     
-    if strcmp(get(gcf,'selectiontype'),'open')
+    if strcmp(get(handles.figure_Main,'selectiontype'),'open')
         [handles, numSamples] = eg_GetNumSamples(handles);
     
         xd = [0, numSamples/handles.fs numSamples/handles.fs 0 0];
@@ -3954,7 +3938,7 @@ function click_Channel(hObject, ~, handles)
         end
         handles = eg_EditTimescale(handles);
     
-    elseif strcmp(get(gcf,'selectiontype'),'normal')
+    elseif strcmp(get(handles.figure_Main,'selectiontype'),'normal')
         set(gca,'units','pixels');
         set(get(gca,'parent'),'units','pixels');
         rect = rbbox;
@@ -3984,7 +3968,7 @@ function click_Channel(hObject, ~, handles)
         handles.xlimbox.XData = xd;
         handles = eg_EditTimescale(handles);
     
-    elseif strcmp(get(gcf,'selectiontype'),'extend')
+    elseif strcmp(get(handles.figure_Main,'selectiontype'),'extend')
         handles.SelectedEvent = [];
         delete(findobj('linestyle','-.'));
     
@@ -4771,7 +4755,7 @@ function ClickEventSymbol(hObject, ~, handles)
         axnum = 2;
     end
     
-    if strcmp(get(gcf,'selectiontype'),'extend')
+    if strcmp(get(handles.figure_Main,'selectiontype'),'extend')
         handles.SelectedEvent = [];
         delete(findobj('linestyle','-.'));
     
@@ -4817,7 +4801,7 @@ function ClickEventSymbol(hObject, ~, handles)
         end
     
     
-    elseif strcmp(get(gcf,'selectiontype'),'normal') && sum(hObject.MarkerFaceColor==[1 1 1])~=3
+    elseif strcmp(get(handles.figure_Main,'selectiontype'),'normal') && sum(hObject.MarkerFaceColor==[1 1 1])~=3
         indx = handles.popup_EventList.Value-1;
         if indx==0
             return
@@ -5500,10 +5484,10 @@ function handles = UpdateEventBrowser(handles)
 function click_eventwave(hObject, ~, handles)
     
     i = find(handles.EventWaveHandles==hObject);
-    if strcmp(get(gcf,'selectiontype'),'normal')
+    if strcmp(get(handles.figure_Main,'selectiontype'),'normal')
         handles = SelectEvent(handles,i);
         guidata(hObject, handles);
-    elseif strcmp(get(gcf,'selectiontype'),'extend')
+    elseif strcmp(get(handles.figure_Main,'selectiontype'),'extend')
         set(hObject,'xdata',[],'ydata',[]);
         hold on
         handles.EventWaveHandles(i) = plot(mean(xlim),mean(ylim),'w.');
@@ -5601,7 +5585,7 @@ function unselect_event(hObject, ~, handles)
     
 function click_eventaxes(hObject, ~, handles)
     
-    if strcmp(get(gcf,'selectiontype'),'normal')
+    if strcmp(get(handles.figure_Main,'selectiontype'),'normal')
         handles.axes_Event.Units = 'pixels';
         handles.axes_Event.Parent.Units = 'pixels';
         handles.figure_Main.Units = 'pixels';
@@ -5645,7 +5629,7 @@ function click_eventaxes(hObject, ~, handles)
         end
     
     
-    elseif strcmp(get(gcf,'selectiontype'),'extend')
+    elseif strcmp(get(handles.figure_Main,'selectiontype'),'extend')
         delete(findobj('parent',handles.axes_Event,'linewidth',2));
         handles.SelectedEvent = [];
         delete(findobj('linestyle','-.'));
@@ -6238,9 +6222,9 @@ function push_Export_Callback(hObject, ~, handles)
             end
             xl = handles.axes_Sonogram.XLim;
             yl = handles.axes_Sonogram.YLim;
-            fig = figure;
+            fig = figure();
             set(fig,'visible','off','units','pixels');
-            pos = get(gcf,'position');
+            pos = get(fig,'position');
             pos(3) = handles.ExportSonogramResolution*handles.ExportSonogramWidth*(xl(2)-xl(1));
             pos(4) = handles.ExportSonogramResolution*handles.ExportSonogramHeight;
             fig.Position = pos;
@@ -6283,8 +6267,8 @@ function push_Export_Callback(hObject, ~, handles)
             end
             cl = handles.axes_Sonogram.CLim;
             handles.axes_Sonogram.CLim = cl;
-            col = handles.figure_Main.ColorMap;
-            set(gcf,'colormap',col);
+            col = handles.figure_Main.Colormap;
+            set(handles.figure_Main,'colormap',col);
             axis tight;
             axis off;
     
@@ -6428,7 +6412,7 @@ function push_Export_Callback(hObject, ~, handles)
                                     p = cat(3,p1,p2,p3);
                                 else
                                     set(gca,'clim',handles.WorksheetClim{lst{indx}(d)});
-                                    set(gcf,'colormap',handles.WorksheetColormap{lst{indx}(d)});
+                                    fig.Colormap = handles.WorksheetColormap{lst{indx}(d)};
                                 end
                                 im = imagesc(handles.WorksheetXs{lst{indx}(d)}{i},handles.WorksheetYs{lst{indx}(d)}{i},p);
                                 if handles.ExportSonogramIncludeClip > 0
@@ -6439,7 +6423,7 @@ function push_Export_Callback(hObject, ~, handles)
                             ylim(handles.WorksheetYLims{lst{indx}(d)});
                             axis off
                             if handles.ExportSonogramIncludeLabel == 1
-                                set(gcf,'currentaxes',bcg);
+                                fig.CurrentAxes = bcg;
                                 txt = text((x+wd/2)/handles.WorksheetWidth,(y+handles.ExportSonogramHeight)/handles.WorksheetHeight,datestr(handles.WorksheetTimes(lst{indx}(d))));text
                                 set(txt,'HorizontalAlignment','center','VerticalAlignment','bottom');
                             end
@@ -6461,7 +6445,7 @@ function push_Export_Callback(hObject, ~, handles)
     
     elseif handles.radio_Clipboard.Value==1
         fig.Units = 'inches';
-        pos = get(gcf,'position');
+        pos = get(fig,'position');
         pos(3) = handles.ExportSonogramWidth*(xl(2)-xl(1));
         pos(4) = handles.ExportSonogramHeight;
         fig.Position = pos;
@@ -6477,8 +6461,8 @@ function push_Export_Callback(hObject, ~, handles)
                 pos = fig.Position;
                 pos(3) = handles.ExportSonogramWidth*(xl(2)-xl(1));
                 pos(4) = handles.ExportSonogramHeight;
-                set(gcf,'position',pos);
-                set(gcf, 'PaperPositionMode', 'auto');
+                fig.Position = pos;
+                fig.PaperPositionMode = 'auto';
     
                 print('-djpeg',['-f' num2str(fig)],[path file],['-r' num2str(handles.ExportSonogramResolution)]);
     
@@ -6657,7 +6641,7 @@ function push_Export_Callback(hObject, ~, handles)
                                 p = handles.WorksheetMs{lst{indx}(d)}{i};
                                 imagesc(handles.WorksheetXs{lst{indx}(d)}{i},handles.WorksheetYs{lst{indx}(d)}{i},p);
                                 set(gca,'clim',handles.WorksheetClim{lst{indx}(d)});
-                                fig.ColorMap = handles.WorksheetColormap{lst{indx}(d)};
+                                fig.Colormap = handles.WorksheetColormap{lst{indx}(d)};
                             end
                             xlim(handles.WorksheetXLims{lst{indx}(d)});
                             ylim(handles.WorksheetYLims{lst{indx}(d)});
@@ -6779,8 +6763,8 @@ function push_Export_Callback(hObject, ~, handles)
                             end
                             cl = handles.axes_Sonogram.CLim;
                             set(gca,'clim',cl);
-                            col = handles.figure_Main.ColorMap;
-                            set(gcf,'colormap',col);
+                            col = handles.figure_Main.Colormap;
+                            fig.Colormap = col;
                             axis tight;
                             axis off;
     
@@ -7403,7 +7387,7 @@ function push_WorksheetAppend_Callback(hObject, ~, handles)
     yl = handles.axes_Sonogram.YLim;
     fig = figure;
     set(fig,'visible','off','units','pixels');
-    pos = get(gcf,'position');
+    pos = get(fig,'position');
     pos(3) = handles.ExportSonogramResolution*handles.ExportSonogramWidth*(xl(2)-xl(1));
     pos(4) = handles.ExportSonogramResolution*handles.ExportSonogramHeight;
     fig.Position = pos;
@@ -7470,7 +7454,7 @@ function push_WorksheetAppend_Callback(hObject, ~, handles)
     handles.WorksheetYs{end+1} = ys;
     handles.WorksheetMs{end+1} = ms;
     handles.WorksheetClim{end+1} = handles.axes_Sonogram.CLim;
-    handles.WorksheetColormap{end+1} = handles.figure_Main.ColorMap;
+    handles.WorksheetColormap{end+1} = handles.figure_Main.Colormap;
     handles.WorksheetSounds{end+1} = wav;
     handles.WorksheetFs(end+1) = fs;
     dt = datevec(handles.text_DateAndTime.String);
@@ -7587,7 +7571,7 @@ function click_Worksheet(hObject, ~, handles)
     end
     hObject.FaceColor = 'r';
     
-    if strcmp(get(gcf,'selectiontype'),'open')
+    if strcmp(get(handles.figure_Main,'selectiontype'),'open')
         ViewWorksheet(handles);
     end
     
@@ -7907,7 +7891,7 @@ function ViewWorksheet(handles)
         imagesc(handles.WorksheetXs{f}{c},handles.WorksheetYs{f}{c},handles.WorksheetMs{f}{c});
     end
     set(gca,'clim',handles.WorksheetClim{f});
-    set(gcf,'colormap',handles.WorksheetColormap{f});
+    fig.Colormap = handles.WorksheetColormap{f};
     axis tight;
     axis off;
     fig.Visible = 'on';
