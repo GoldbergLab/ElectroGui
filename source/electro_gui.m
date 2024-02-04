@@ -523,7 +523,6 @@ function [handles, menus] = populatePluginMenuList(handles, pluginPrefix, defaul
         menus(defaultPluginIdx).Checked = 'on';
     end
 
-
 % --- Outputs from this function are returned to the command line.
 function varargout = electro_gui_OutputFcn(hObject, ~, handles)
     % varargout  cell array for returning output args (see VARARGOUT);
@@ -601,8 +600,7 @@ function edit_FileNumber_Callback(hObject, ~, handles)
     handles = eg_LoadFile(handles);
     
     guidata(hObject, handles);
-    
-    
+        
 % --- Executes during object creation, after setting all properties.
 function edit_FileNumber_CreateFcn(hObject, ~, handles)
     % hObject    handle to edit_FileNumber (see GCBO)
@@ -738,16 +736,12 @@ function slider_Time_CreateFcn(hObject, ~, handles)
     if isequal(hObject.BackgroundColor, get(0,'defaultUicontrolBackgroundColor'))
         hObject.BackgroundColor = [.5 .5 .5];
     end
-    
-    
+
 % --------------------------------------------------------------------
 function menu_Experiment_Callback(hObject, ~, handles)
     % hObject    handle to menu_Experiment (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
-    
-    
-    
     
 % --- Executes on button press in push_Play.
 function push_Play_Callback(hObject, ~, handles)
@@ -757,8 +751,7 @@ function push_Play_Callback(hObject, ~, handles)
     
     snd = GenerateSound(handles,'snd');
     progress_play(handles,snd);
-    
-    
+
 function progress_play(handles,wav)
     % Get time limits for visible sonogram
     timeLimits = handles.axes_Sonogram.XLim;
@@ -1264,6 +1257,7 @@ function handles = setSelectedEventFunction(handles, axnum, eventFunction)
     set(handles.popup_Functions(axnum), 'value', newIndex);
     
 function [handles, isValidEventDetector] = updateEventDetectorInfo(handles, channelNum, newEventDetector)
+    % This appears to be unused? Kinda confused.
     % Update stored event detector info
     isValidEventDetector = isValidPlugin(handles.plugins.eventDetectors, newEventDetector);
     if isnan(channelNum)
@@ -1279,6 +1273,7 @@ function [handles, isValidEventDetector] = updateEventDetectorInfo(handles, chan
         else
             handles.EventParams{fileNum, channelNum} = [];
         end
+        % This function appears to not exist? Kinda confused.
         handles = setEventDetector(handles, fileNum, channelNum, newEventDetector);
     end
     % Get labels for current detector
@@ -1292,6 +1287,7 @@ function [handles, isValidEventDetector] = updateEventDetectorInfo(handles, chan
     handles.EventSelected = [];
     
 function [handles, isValidEventFunction] = updateEventFunctionInfo(handles, channelNum, newEventFunction)
+    % This appears to be unused? Kinda confused.
     isValidEventFunction = isValidPlugin(handles.plugins.filters, newEventFunction);
     if isnan(channelNum)
         % Not a valid channel
@@ -1306,6 +1302,7 @@ function [handles, isValidEventFunction] = updateEventFunctionInfo(handles, chan
         else
             handles.EventFunctionParams{fileNum, channelNum} = [];
         end
+        % This function appears to not exist? Kinda confused.
         handles = setEventFunction(handles, fileNum, channelNum, newEventFunction);
     end
     
