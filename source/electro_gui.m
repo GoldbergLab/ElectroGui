@@ -1572,7 +1572,7 @@ function [handles, sound] = eg_GetSound(handles, filtered, soundChannel)
     
 function handles = eg_FilterSound(handles)
     for c = 1:length(handles.menu_Filter)
-        if strcmp(handles.menu_Filter(c).Checked,'on')
+        if handles.menu_Filter(c).Checked
             alg = handles.menu_Filter(c).Label;
         end
     end
@@ -1676,7 +1676,7 @@ function handles = SegmentSounds(handles)
     end
     
     for c = 1:length(handles.menu_Segmenter)
-        if strcmp(handles.menu_Segmenter(c).Checked,'on')
+        if handles.menu_Segmenter(c).Checked
             alg = handles.menu_Segmenter(c).Label;
         end
     end
@@ -2022,7 +2022,7 @@ function handles = eg_PlotSonogram(handles)
     if xlp(2)>numSamples; xlp(2) = numSamples; end
     
     for c = 1:length(handles.menu_Algorithm)
-        if strcmp(handles.menu_Algorithm(c).Checked,'on')
+        if handles.menu_Algorithm(c).Checked
             alg = handles.menu_Algorithm(c).Label;
         end
     end
@@ -2451,7 +2451,7 @@ function push_New_Callback(hObject, ~, handles)
     
     % get segmenter parameters
     for c = 1:length(handles.menu_Segmenter)
-        if strcmp(handles.menu_Segmenter(c).Checked,'on')
+        if handles.menu_Segmenter(c).Checked
             h = handles.menu_Segmenter(c);
             alg = handles.menu_Segmenter(c).Label;
         end
@@ -2465,7 +2465,7 @@ function push_New_Callback(hObject, ~, handles)
     
     % get sonogram parameters
     for c = 1:length(handles.menu_Algorithm)
-        if strcmp(handles.menu_Algorithm(c).Checked,'on')
+        if handles.menu_Algorithm(c).Checked
             h = handles.menu_Algorithm(c);
             alg = handles.menu_Algorithm(c).Label;
         end
@@ -2479,7 +2479,7 @@ function push_New_Callback(hObject, ~, handles)
     
     % get filter parameters
     for c = 1:length(handles.menu_Filter)
-        if strcmp(handles.menu_Filter(c).Checked,'on')
+        if handles.menu_Filter(c).Checked
             h = handles.menu_Filter(c);
             alg = handles.menu_Filter(c).Label;
         end
@@ -2743,7 +2743,7 @@ function push_Open_Callback(hObject, ~, handles)
     
     % get segmenter parameters
     for c = 1:length(handles.menu_Segmenter)
-        if strcmp(handles.menu_Segmenter(c).Checked,'on')
+        if handles.menu_Segmenter(c).Checked
             h = handles.menu_Segmenter(c);
             alg = handles.menu_Segmenter(c).Label;
         end
@@ -2757,7 +2757,7 @@ function push_Open_Callback(hObject, ~, handles)
     
     % get sonogram parameters
     for c = 1:length(handles.menu_Algorithm)
-        if strcmp(handles.menu_Algorithm(c).Checked,'on')
+        if handles.menu_Algorithm(c).Checked
             h = handles.menu_Algorithm(c);
             alg = handles.menu_Algorithm(c).Label;
         end
@@ -3231,7 +3231,7 @@ function menu_SegmentParameters_Callback(hObject, ~, handles)
     handles.SegmenterParams.Values = answer;
     
     for c = 1:length(handles.menu_Segmenter)
-        if strcmp(handles.menu_Segmenter(c).Checked,'on')
+        if handles.menu_Segmenter(c).Checked
             h = handles.menu_Segmenter(c);
             h.UserData = handles.SegmenterParams;
         end
@@ -3409,7 +3409,7 @@ function labelsegment(hObject, ~, handles)
         % Determine how many channels are visible
         numChannels = 0;
         for c = 1:length(handles.axes_Channel)
-            if strcmp(handles.axes_Channel(c).Visible, 'on')
+            if handles.axes_Channel(c).Visible
                 numChannels = numChannels + 1;
             end
         end
@@ -3442,7 +3442,7 @@ function labelsegment(hObject, ~, handles)
         % Loop over any channels that are currently visible, and copy them
         chan = 0;
         for c = 1:length(handles.axes_Channel)
-            if strcmp(handles.axes_Channel(c).Visible, 'on')
+            if handles.axes_Channel(c).Visible
                 chan = chan + 1;
                 channel_export = subplot(numChannels+1, 1, 1+chan, 'Parent', f_export);
                 channel_children = handles.axes_Channel(c).Children;
@@ -3653,7 +3653,7 @@ function handles = popup_Functions_Callback(handles, axnum)
         set(handles.popup_EventDetectors(axnum),'enable','on');
     end
     
-    if strcmp(handles.menu_SourcePlots(axnum).Checked,'on')
+    if handles.menu_SourcePlots(axnum).Checked
         [handles.amplitude, labels] = eg_CalculateAmplitude(handles);
     
         plt = findobj('Parent',handles.axes_Amplitude,'LineStyle','-');
@@ -3736,7 +3736,7 @@ function handles = popup_Channels_Callback(handles, axnum)
     
     handles.BackupTitle = cell(1,2);
     
-    if strcmp(handles.menu_SourcePlots(axnum).Checked,'on')
+    if handles.menu_SourcePlots(axnum).Checked
         [handles.amplitude, labels] = eg_CalculateAmplitude(handles);
     
         plt = findobj('Parent',handles.axes_Amplitude,'LineStyle','-');
@@ -3893,7 +3893,7 @@ function click_Channel(hObject, ~, handles)
         handles.xlimbox.XData = xd;
     
         for axn = 1:2
-            if strcmp(handles.axes_Channel(axn).Visible,'on')
+            if handles.axes_Channel(axn).Visible
                 if strcmp(get(handles.(['menu_AutoLimits' num2str(axn)]),'checked'),'on')
                     yl = [min(handles.loadedChannelData{axn}) max(handles.loadedChannelData{axn})];
                     if yl(1)==yl(2)
@@ -3967,7 +3967,7 @@ function click_Channel(hObject, ~, handles)
                 handles.EventCurrentThresholds(indx) = pos(1,2);
                 handles.EventThresholds(indx,getCurrentFileNum(handles)) = pos(1,2);
                 for axn = 1:2
-                    if strcmp(handles.axes_Channel(axn).Visible,'on') && handles.EventCurrentIndex(axn)==indx
+                    if handles.axes_Channel(axn).Visible && handles.EventCurrentIndex(axn)==indx
                         handles = EventSetThreshold(handles,axn);
                         if strcmp(get(handles.(['menu_EventAutoDetect' num2str(axn)]),'checked'),'on') && strcmp(get(handles.(['push_Detect' num2str(axn)]),'enable'),'on')
                             handles = DetectEvents(handles,axn);
@@ -4294,7 +4294,7 @@ function handles = eg_clickEventDetector(handles,axnum)
         handles.EventParams{axnum} = ud{v};
     end
     
-    if strcmp(handles.axes_Channel(axnum).Visible,'off')
+    if ~handles.axes_Channel(axnum).Visible
         return
     end
     str = handles.popup_Channels(axnum).String;
@@ -4514,7 +4514,7 @@ function handles = SetManualThreshold(handles,axnum)
     handles.EventCurrentThresholds(indx) = str2double(answer{1});
     handles.EventThresholds(indx,getCurrentFileNum(handles)) = str2double(answer{1});
     for axn = 1:2
-        if strcmp(handles.axes_Channel(axn).Visible,'on') && handles.EventCurrentIndex(axn)==indx
+        if handles.axes_Channel(axn).Visible && handles.EventCurrentIndex(axn)==indx
             handles = EventSetThreshold(handles,axn);
             if strcmp(get(handles.(['menu_EventAutoDetect' num2str(axn)]),'checked'),'on') && strcmp(get(handles.(['push_Detect' num2str(axn)]),'enable'),'on')
                 handles = DetectEvents(handles,axn);
@@ -5613,7 +5613,7 @@ function handles = DeleteEvents(handles,todel)
         indx = handles.popup_EventList.Value-1;
         cs = cumsum(nums);
         f = length(find(cs<indx))+1;
-        if handles.EventCurrentIndex(axn) == f && strcmp(handles.axes_Channel(axn).Visible,'on')
+        if handles.EventCurrentIndex(axn) == f && handles.axes_Channel(axn).Visible
             handles = DisplayEvents(handles,axn);
         end
     
@@ -6066,9 +6066,11 @@ function push_Export_Callback(hObject, ~, handles)
                 handles = rmfield(handles,'DefaultLabels');
             end
     
-            dtm = datenum(handles.text_DateAndTime.String);
-            sd = datestr(dtm,'yyyymmdd');
-            st = datestr(dtm,'HHMMSS');
+            dtm = datetime(handles.text_DateAndTime.String);
+            dtm.Format = 'yyyymmdd';
+            sd = string(dtm);
+            dtm.Format = 'HHMMSS';
+            st = string(dtm);
             [~,name,~] = fileparts(handles.text_FileName.String);
             sf = name;
             for c = 1:length(handles.SegmentTitles{filenum})
@@ -6160,7 +6162,7 @@ function push_Export_Callback(hObject, ~, handles)
                     xlp(2) = numSamples;
                 end
                 for c = 1:length(handles.menu_Algorithm)
-                    if strcmp(handles.menu_Algorithm(c).Checked,'on')
+                    if handles.menu_Algorithm(c).Checked
                         alg = handles.menu_Algorithm(c).Label;
                     end
                 end
@@ -6189,7 +6191,8 @@ function push_Export_Callback(hObject, ~, handles)
     
         case 'Events'
             if handles.radio_Matlab.Value==1
-                fig = figure;
+                fig = figure();
+                ax = axes(fig);
                 ch = handles.axes_Events.Children;
                 xs = [];
                 ys = [];
@@ -6203,8 +6206,8 @@ function push_Export_Callback(hObject, ~, handles)
                     ms = ch(c).MarkerSize;
                     mf = ch(c).MarkerFaceColor;
                     me = ch(c).MarkerEdgeColor;
-                    plot(x,y,'Color',col,'LineStyle',ls,'LineWidth',lw,'marker',ma,'markersize',ms,'markerfacecolor',mf,'markeredgecolor',me);
-                    hold on
+                    plot(ax, x,y,'Color',col,'LineStyle',ls,'LineWidth',lw,'marker',ma,'markersize',ms,'markerfacecolor',mf,'markeredgecolor',me);
+                    hold(ax, 'on');
                     if handles.menu_DisplayFeatures.Checked && sum(col==[1 0 0])~=3
                         xs = [xs x];
                         ys = [ys y];
@@ -6213,26 +6216,27 @@ function push_Export_Callback(hObject, ~, handles)
     
                 xl = handles.axes_Events.XLim;
                 yl = handles.axes_Events.YLim;
-                xlab = handles.axes_Events.xlabel.String;
-                ylab = handles.axes_Events.ylabel.String;
+                xlabel = handles.axes_Events.xlabel.String;
+                ylabel = handles.axes_Events.ylabel.String;
                 str = {};
                 if handles.menu_DisplayFeatures.Checked
                     xs = xs(xs>=xl(1) & xs<=xl(2));
                     ys = ys(ys>=yl(1) & ys<=yl(2));
                     str{1} = ['N = ' num2str(length(xs))];
-                    str{2} = ['Mean ' xlab ' = ' num2str(mean(xs))];
-                    str{3} = ['Stdev ' xlab ' = ' num2str(std(xs))];
-                    str{4} = ['Mean ' ylab ' = ' num2str(mean(ys))];
-                    str{5} = ['Stdev ' ylab ' = ' num2str(std(ys))];
+                    str{2} = ['Mean ' xlabel ' = ' num2str(mean(xs))];
+                    str{3} = ['Stdev ' xlabel ' = ' num2str(std(xs))];
+                    str{4} = ['Mean ' ylabel ' = ' num2str(mean(ys))];
+                    str{5} = ['Stdev ' ylabel ' = ' num2str(std(ys))];
                     txt = text(xl(1),yl(2),str);
-                    set(txt,'HorizontalAlignment','left','VerticalAlignment','top','FontSize',8);
+                    txt.HorizontalAlignment = 'Left';
+                    txt.VerticalAlignment = 'top';
+                    txt.FontSize = 8;
                 end
-    
-                xlabel(xlab);
-                ylabel(ylab);
-                xlim(xl);
-                ylim(yl);
-                box off
+                xlabel(ax, xlabel);
+                ylabel(ax, ylabel);
+                xlim(ax, xl);
+                ylim(ax, yl);
+                box(ax, 'off');
             elseif handles.radio_Clipboard.Value==1
                 if handles.menu_DisplayFeatures.Checked
                     ch = handles.axes_Events.Children;
@@ -6330,7 +6334,7 @@ function push_Export_Callback(hObject, ~, handles)
                             axis off
                             if handles.ExportSonogramIncludeLabel == 1
                                 fig.CurrentAxes = bcg;
-                                txt = text((x+wd/2)/handles.WorksheetWidth,(y+handles.ExportSonogramHeight)/handles.WorksheetHeight,datestr(handles.WorksheetTimes(lst{indx}(d))));text
+                                txt = text((x+wd/2)/handles.WorksheetWidth,(y+handles.ExportSonogramHeight)/handles.WorksheetHeight,string(datetime(handles.WorksheetTimes(lst{indx}(d)))));
                                 set(txt,'HorizontalAlignment','center','VerticalAlignment','bottom');
                             end
                         end
@@ -6355,7 +6359,7 @@ function push_Export_Callback(hObject, ~, handles)
         pos(3) = handles.ExportSonogramWidth*(xl(2)-xl(1));
         pos(4) = handles.ExportSonogramHeight;
         fig.Position = pos;
-        set(fig,'PaperPositionMode','manual','Renderer','painters')
+        set(fig,'PaperPositionMode','manual','Renderer','painters') %#ok<*FGREN> 
     
         print('-dmeta',['-f' num2str(fig)],['-r' num2str(handles.ExportSonogramResolution)]);
         delete(fig)
@@ -6561,7 +6565,7 @@ function push_Export_Callback(hObject, ~, handles)
     
                             if handles.ExportSonogramIncludeLabel == 1
                                 txt = invoke(newslide.Shapes,'AddTextBox',1,0,0,0,0);
-                                txt.TextFrame.TextRange.Text = datestr(handles.WorksheetTimes(lst{indx}(d)));
+                                txt.TextFrame.TextRange.Text = string(datetime(handles.WorksheetTimes(lst{indx}(d))));
                                 set(txt.TextFrame,'VerticalAnchor','msoAnchorBottom','HorizontalAnchor','msoAnchorCenter',...
                                     'WordWrap','msoFalse','MarginLeft',0,'MarginRight',0,'MarginTop',0,'MarginBottom',0);
                                 txt.TextFrame.TextRange.Font.Size = 10;
@@ -6655,7 +6659,7 @@ function push_Export_Callback(hObject, ~, handles)
     
                                 if xlp(2)>numSamples; xlp(2) = numSamples; end
                                 for j = 1:length(handles.menu_Algorithm)
-                                    if strcmp(handles.menu_Algorithm(j).Checked,'on')
+                                    if handles.menu_Algorithm(j).Checked
                                         alg = handles.menu_Algorithm(j).Label;
                                     end
                                 end
@@ -7062,7 +7066,7 @@ function push_Export_Callback(hObject, ~, handles)
                     dt = datevec(handles.text_DateAndTime.String);
                     dt(6) = dt(6)+xl(1);
                     txt = invoke(newslide.Shapes,'AddTextBox',1,0,0,0,0);
-                    txt.TextFrame.TextRange.Text = datestr(dt);
+                    txt.TextFrame.TextRange.Text = string(datetime(dt));
                     set(txt.TextFrame,'VerticalAnchor','msoAnchorBottom','HorizontalAnchor','msoAnchorCenter',...
                         'WordWrap','msoFalse','MarginLeft',0,'MarginRight',0,'MarginTop',0,'MarginBottom',0);
                     txt.TextFrame.TextRange.Font.Size = 10;
@@ -7292,13 +7296,14 @@ function push_WorksheetAppend_Callback(hObject, ~, handles)
     xl = handles.axes_Sonogram.XLim;
     yl = handles.axes_Sonogram.YLim;
     fig = figure;
-    set(fig,'visible','off','units','pixels');
-    pos = get(fig,'position');
+    fig.Visible = 'off';
+    fig.Units = 'pixels';
+    pos = fig.Position;
     pos(3) = handles.ExportSonogramResolution*handles.ExportSonogramWidth*(xl(2)-xl(1));
     pos(4) = handles.ExportSonogramResolution*handles.ExportSonogramHeight;
     fig.Position = pos;
-    subplot('position',[0 0 1 1]);
-    hold on
+    ax = subplot('Position',[0 0 1 1]);
+    hold(ax, 'on');
     xs = {};
     ys = {};
     ms = {};
@@ -7315,28 +7320,28 @@ function push_WorksheetAppend_Callback(hObject, ~, handles)
             ms{end+1} = m(g,f);
         end
     else
-        xlim(xl);
-        ylim(yl);
+        xlim(ax, xl);
+        ylim(ax, yl);
         xlp = round(xl*handles.fs);
         if xlp(1)<1; xlp(1) = 1; end
         [handles, numSamples] = eg_GetNumSamples(handles);
     
         if xlp(2)>numSamples; xlp(2) = numSamples; end
         for c = 1:length(handles.menu_Algorithm)
-            if strcmp(handles.menu_Algorithm(c).Checked,'on')
+            if handles.menu_Algorithm(c).Checked
                 alg = handles.menu_Algorithm(c).Label;
             end
         end
     
         [handles, sound] = eg_GetSound(handles);
     
-        pow = eg_runPlugin(handles.plugins.spectrums, alg, gca, ...
+        eg_runPlugin(handles.plugins.spectrums, alg, ax, ...
             sound(xlp(1):xlp(2)), handles.fs, handles.SonogramParams);
-        set(gca,'ydir','normal');
+        ax.YDir = 'normal';
         handles.NewSlope = handles.DerivativeSlope;
         handles.DerivativeSlope = 0;
         handles = SetSonogramColors(handles);
-        ch = get(gca,'children');
+        ch = ax.Children;
         for c = 1:length(ch)
             x = ch(c).XData;
             y = ch(c).YData;
@@ -7363,10 +7368,10 @@ function push_WorksheetAppend_Callback(hObject, ~, handles)
     handles.WorksheetColormap{end+1} = handles.figure_Main.Colormap;
     handles.WorksheetSounds{end+1} = wav;
     handles.WorksheetFs(end+1) = fs;
-    dt = datevec(handles.text_DateAndTime.String);
+    dt = datetime(handles.text_DateAndTime.String);
     xd = handles.axes_Sonogram.XLim;
-    dt(6) = dt(6)+xd(1);
-    handles.WorksheetTimes(end+1) = datenum(dt);
+    dt = dt + seconds(xd(1));
+    handles.WorksheetTimes(end+1) = dt;
     
     handles = UpdateWorksheet(handles);
     
@@ -7383,7 +7388,6 @@ function push_WorksheetAppend_Callback(hObject, ~, handles)
     end
     
     guidata(hObject, handles);
-    
     
     
 function handles = UpdateWorksheet(handles)
@@ -8148,7 +8152,7 @@ function menu_SonogramParameters_Callback(hObject, ~, handles)
     handles.SonogramParams.Values = answer;
     
     for c = 1:length(handles.menu_Algorithm)
-        if strcmp(handles.menu_Algorithm(c).Checked,'on')
+        if handles.menu_Algorithm(c).Checked
             h = handles.menu_Algorithm(c);
             h.UserData = handles.SonogramParams;
         end
@@ -8283,7 +8287,7 @@ function menu_Split_Callback(hObject, ~, handles)
     rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
     
     for c = 1:length(handles.menu_Segmenter)
-        if strcmp(handles.menu_Segmenter(c).Checked,'on')
+        if handles.menu_Segmenter(c).Checked
             alg = handles.menu_Segmenter(c).Label;
         end
     end
@@ -8396,7 +8400,7 @@ function [amp, labels] = eg_CalculateAmplitude(handles)
         labels = '';
     else
         if handles.menu_SourceSoundAmplitude.Checked
-            [handles, filtered_sound] = eg_GetSound(handles, true);
+            [~, filtered_sound] = eg_GetSound(handles, true);
             amp = smooth(10*log10(filtered_sound.^2+eps),wind);
             amp = amp-min(amp(wind:length(amp)-wind));
             amp(amp<0)=0;
@@ -8620,7 +8624,7 @@ function menu_FilterParameters_Callback(hObject, ~, handles)
     handles.FilterParams.Values = answer;
     
     for c = 1:length(handles.menu_Filter)
-        if strcmp(handles.menu_Filter(c).Checked,'on')
+        if handles.menu_Filter(c).Checked
             h = handles.menu_Filter(c);
             h.UserData = handles.FilterParams;
         end
@@ -9303,7 +9307,7 @@ function menu_RenameProperty_Callback(hObject, ~, handles)
         return
     end
     
-    answer = inputdlg({['New name to replace "' handles.PropertyNames{indx} '"']},'Rename property',1,{handles.PropertyNames{indx}});
+    answer = inputdlg({['New name to replace "' handles.PropertyNames{indx} '"']},'Rename property',1,handles.PropertyNames(indx));
     if isempty(answer)
         return
     end
