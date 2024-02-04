@@ -1625,7 +1625,7 @@ function handles = eg_PlotChannel(handles, axnum)
     handles.axes_Channel(axnum).UIContextMenu = handles.context_Channels(axnum);
     handles.axes_Channel(axnum).ButtonDownFcn = 'electro_gui(''click_Channel'',gcbo,[],guidata(gcbo))';
     set(handles.axes_Channel(axnum).Children, 'UIContextMenu', handles.axes_Channel(axnum).UIContextMenu);
-    set(handles.axes_Channel(axnum),Children, 'ButtonDownFcn', handles.axes_Channel(axnum).ButtonDownFcn);
+    set(handles.axes_Channel(axnum).Children, 'ButtonDownFcn', handles.axes_Channel(axnum).ButtonDownFcn);
     
 function handles = SetThreshold(handles)
     % Clear segments axes
