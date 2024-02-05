@@ -1145,37 +1145,7 @@ function handles = eg_LoadFile(handles)
         handles = EventSetThreshold(handles,1);
     end
     
-    % Plot amplitude
-    [handles.amplitude, labs] = eg_CalculateAmplitude(handles);
-    
-    if ~isempty(handles.amplitude)
-        [handles, numSamples] = eg_GetNumSamples(handles);
-    
-        plot(handles.axes_Amplitude, linspace(0, numSamples/handles.fs, numSamples),handles.amplitude,'Color',handles.AmplitudeColor);
-        handles.axes_Amplitude.XTickLabel  = [];
-        ylim(handles.axes_Amplitude, handles.AmplitudeLims);
-        box(handles.axes_Amplitude, 'off');
-        ylabel(handles.axes_Amplitude, labs);
-        handles.axes_Amplitude.UIContextMenu = handles.context_Amplitude;
-        handles.axes_Amplitude.ButtonDownFcn = 'electro_gui(''click_Amplitude'',gcbo,[],guidata(gcbo))';
-        for child = handles.axes_Amplitude.Children'
-            child.UIContextMenu = handles.axes_Amplitude.UIContextMenu;
-        end
-        for child = handles.axes_Amplitude.Children'
-            child.ButtonDownFcn = handles.axes_Amplitude.ButtonDownFcn;
-        end
-    
-        if handles.SoundThresholds(fileNum)==inf
-            if handles.menu_AutoThreshold.Checked
-                handles.CurrentThreshold = eg_AutoThreshold(handles.amplitude);
-            end
-            handles.SoundThresholds(fileNum) = handles.CurrentThreshold;
-        else
-            handles.CurrentThreshold = handles.SoundThresholds(fileNum);
-        end
-        handles.SegmentLabelHandles = gobjects().empty;
-        handles = SetThreshold(handles);
-    end
+    handles = updateAmplitude(handles, true, true);
     
     handles = eg_EditTimescale(handles);
     
@@ -1936,13 +1906,8 @@ function FilterMenuClick(hObject, ~, handles)
     handles = setClickSoundCallback(handles, handles.axes_Sonogram);
     handles = setClickSoundCallback(handles, handles.axes_Sound);
 
-    [handles.amplitude, ~] = eg_CalculateAmplitude(handles);
-    
-    plt = findobj('Parent', handles.axes_Amplitude, 'LineStyle', '-');
-    plt.YData = handles.amplitude;
-    
-    handles = SetThreshold(handles);
-    
+    handles = updateAmplitude(handles);
+
     guidata(hObject, handles);
     
 function handles = eg_EditTimescale(handles)
@@ -2991,12 +2956,7 @@ function menu_SmoothingWindow_Callback(hObject, ~, handles)
     end
     handles.SmoothWindow = str2double(answer{1})/1000;
     
-    [handles.amplitude, ~] = eg_CalculateAmplitude(handles);
-    
-    plt = findobj('Parent',handles.axes_Amplitude,'LineStyle','-');
-    plt.YData = handles.amplitude;
-    
-    handles = SetThreshold(handles);
+    handles = updateAmplitude(handles);
     
     guidata(hObject, handles);
     
@@ -3695,13 +3655,7 @@ function handles = popup_Functions_Callback(handles, axnum)
     end
     
     if handles.menu_SourcePlots(axnum).Checked
-        [handles.amplitude, labels] = eg_CalculateAmplitude(handles);
-    
-        plt = findobj('Parent',handles.axes_Amplitude,'LineStyle','-');
-        plt.YData = handles.amplitude;
-        ylabel(handles.axes_Amplitude, labels);
-    
-        handles = SetThreshold(handles);
+        handles = updateAmplitude(handles);
     end
     
 % --- Executes on selection change in popup_Function1.
@@ -3778,13 +3732,7 @@ function handles = popup_Channels_Callback(handles, axnum)
     handles.BackupTitle = cell(1,2);
     
     if handles.menu_SourcePlots(axnum).Checked
-        [handles.amplitude, labels] = eg_CalculateAmplitude(handles);
-    
-        plt = findobj('Parent',handles.axes_Amplitude,'LineStyle','-');
-        plt.YData = handles.amplitude;
-        ylabel(handles.axes_Amplitude, labels);
-    
-        handles = SetThreshold(handles);
+        handles = updateAmplitude(handles);
     end
     
     %If available, use the default channel filter (from defaults file)
@@ -8311,14 +8259,8 @@ function menu_SourceSoundAmplitude_Callback(hObject, ~, handles)
     handles.menu_SourceTopPlot.Checked = 'off';
     handles.menu_SourceBottomPlot.Checked = 'off';
     
-    [handles.amplitude, labels] = eg_CalculateAmplitude(handles);
-    
-    plt = findobj('Parent',handles.axes_Amplitude,'LineStyle','-');
-    plt.YData = handles.amplitude;
-    ylabel(handles.axes_Amplitude, labels);
-    
-    handles = SetThreshold(handles);
-    
+    handles = updateAmplitude(handles);
+
     guidata(hObject, handles);
     
     
@@ -8332,13 +8274,7 @@ function menu_SourceTopPlot_Callback(hObject, ~, handles)
     handles.menu_SourceTopPlot.Checked = 'on';
     handles.menu_SourceBottomPlot.Checked = 'off';
     
-    [handles.amplitude, labels] = eg_CalculateAmplitude(handles);
-    
-    plt = findobj('Parent',handles.axes_Amplitude,'LineStyle','-');
-    plt.YData = handles.amplitude;
-    ylabel(handles.axes_Amplitude, labels);
-    
-    handles = SetThreshold(handles);
+    handles = updateAmplitude(handles);
     
     guidata(hObject, handles);
     
@@ -8354,17 +8290,57 @@ function menu_SourceBottomPlot_Callback(hObject, ~, handles)
     handles.menu_SourceTopPlot.Checked = 'off';
     handles.menu_SourceBottomPlot.Checked = 'on';
     
-    [handles.amplitude, labels] = eg_CalculateAmplitude(handles);
-    
-    plt = findobj('Parent', handles.axes_Amplitude, 'LineStyle', '-');
-    plt.YData = handles.amplitude;
-    ylabel(handles.axes_Amplitude, labels);
-    
-    handles = SetThreshold(handles);
+    handles = updateAmplitude(handles);
     
     guidata(hObject, handles);
     
+function handles = updateAmplitude(handles, forceRedraw)
+    % Update amplitude axes according to data in handles.amplitude
+
+    if ~exist('forceRedraw', 'var') || isempty(forceRedraw)
+        forceRedraw = false;
+    end
+
+    % Check if amplitude plot already exists
+    plt = findobj('Parent', handles.axes_Amplitude, 'LineStyle', '-');
+
+    % Recalculate amplitude data
+    [handles.amplitude, labels] = eg_CalculateAmplitude(handles);
+
+    if (isempty(plt) || forceRedraw) && ~isempty(handles.amplitude)
+        [handles, numSamples] = eg_GetNumSamples(handles);
     
+        plot(handles.axes_Amplitude, linspace(0, numSamples/handles.fs, numSamples),handles.amplitude,'Color',handles.AmplitudeColor);
+        handles.axes_Amplitude.XTickLabel  = [];
+        ylim(handles.axes_Amplitude, handles.AmplitudeLims);
+        box(handles.axes_Amplitude, 'off');
+        ylabel(handles.axes_Amplitude, labels);
+        handles.axes_Amplitude.UIContextMenu = handles.context_Amplitude;
+        handles.axes_Amplitude.ButtonDownFcn = 'electro_gui(''click_Amplitude'',gcbo,[],guidata(gcbo))';
+        for child = handles.axes_Amplitude.Children'
+            child.UIContextMenu = handles.axes_Amplitude.UIContextMenu;
+        end
+        for child = handles.axes_Amplitude.Children'
+            child.ButtonDownFcn = handles.axes_Amplitude.ButtonDownFcn;
+        end
+    
+        if handles.SoundThresholds(fileNum)==inf
+            if handles.menu_AutoThreshold.Checked
+                handles.CurrentThreshold = eg_AutoThreshold(handles.amplitude);
+            end
+            handles.SoundThresholds(fileNum) = handles.CurrentThreshold;
+        else
+            handles.CurrentThreshold = handles.SoundThresholds(fileNum);
+        end
+        handles.SegmentLabelHandles = gobjects().empty;
+        handles = SetThreshold(handles);
+    else
+        % Just update y values
+        plt.YData = handles.amplitude;
+        ylabel(handles.axes_Amplitude, labels);
+    end
+
+
 function [amp, labels] = eg_CalculateAmplitude(handles)
     
     [handles, sound] = eg_GetSound(handles);
@@ -8632,12 +8608,7 @@ function menu_FilterParameters_Callback(hObject, ~, handles)
     handles = setClickSoundCallback(handles, handles.axes_Sonogram);
     handles = setClickSoundCallback(handles, handles.axes_Sound);
         
-    [handles.amplitude, ~] = eg_CalculateAmplitude(handles);
-    
-    plt = findobj('Parent', handles.axes_Amplitude, 'LineStyle', '-');
-    plt.YData = handles.amplitude;
-    
-    handles = SetThreshold(handles);
+    handles = updateAmplitude(handles);
     
     guidata(hObject, handles);
     
