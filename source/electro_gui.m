@@ -401,7 +401,7 @@ function handles = setGUIValues(handles)
     end
     
     ch = handles.menu_AmplitudeSource.Children;
-    set(ch(3-handles.AmplitudeSource),'checked','on');
+    set(ch(3-handles.AmplitudeSource),'Checked','on');
     
     handles.CustomFreqLim = handles.FreqLim;
     
@@ -416,7 +416,7 @@ function handles = setGUIValues(handles)
     ch = handles.menu_ProgressBar.Children;
     for c = 1:length(ch)
         if handles.AnimationPlots(c) == 1
-            set(ch(c),'checked','on');
+            ch(c).Checked = 'on';
         end
     end
     
@@ -424,7 +424,7 @@ function handles = setGUIValues(handles)
     ischeck = false;
     for c = 1:length(ch)
         if strcmp(ch(c).Label,handles.AnimationType)
-            set(ch(c),'checked','on');
+            ch(c).Checked = 'on';
             ischeck = true;
         end
     end
@@ -1231,7 +1231,7 @@ function handles = setSelectedEventDetector(handles, axnum, eventDetector)
     if isempty(newIndex)
         error('Error: Could not set selected event detector to ''%s'', as it is not in the option list.', eventDetector);
     end
-    set(handles.popup_EventDetectors(axnum), 'value', newIndex);
+    handles.popup_EventDetectors(axnum).Value = newIndex;
 function channelName = channelNumToName(channelNum)
     channelName = ['Channel ', num2str(channelNum)];
 function channelNum = channelNameToNum(channelName)
@@ -1254,7 +1254,7 @@ function handles = setSelectedEventFunction(handles, axnum, eventFunction)
     if isempty(newIndex)
         error('Error: Could not set selected event function to ''%s'', as it is not in the option list.', eventFunction);
     end
-    set(handles.popup_Functions(axnum), 'value', newIndex);
+    handles.popup_Functions(axnum).Value = newIndex;
     
 function [handles, isValidEventDetector] = updateEventDetectorInfo(handles, channelNum, newEventDetector)
     % This appears to be unused? Kinda confused.
@@ -1312,18 +1312,18 @@ function handles = eg_LoadChannel(handles,axnum)
     if handles.popup_Channels(axnum).Value==1
         % This is "(None)" channel selection, so disable everything
         cla(handles.axes_Channel(axnum));
-        set(handles.axes_Channel(axnum),'visible','off');
-        set(handles.popup_Functions(axnum),'enable','off');
-        set(handles.popup_EventDetectors(axnum),'enable','off');
-        set(handles.(['push_Detect',num2str(axnum)]),'enable','off');
+        handles.axes_Channel(axnum).Visible = 'off';
+        handles.popup_Functions(axnum).Enable = 'off';
+        handles.popup_EventDetectors(axnum).Enable = 'off';
+        set(handles.(['push_Detect',num2str(axnum)]),'Enable','off');
         handles.SelectedEvent = [];
         handles = UpdateEventBrowser(handles);
         return
     else
         % This is an actual channel selection, enable the axes and function
         % menu.
-        set(handles.axes_Channel(axnum),'visible','on');
-        set(handles.popup_Functions(axnum),'enable','on');
+        handles.axes_Channel(axnum).Visible = 'on';
+        handles.popup_Functions(axnum).Enable = 'on';
     end
     
     filenum = getCurrentFileNum(handles);
@@ -1414,8 +1414,8 @@ function handles = eg_LoadChannel(handles,axnum)
                         udn2{end+1} = ud2{c};
                     end
                 end
-                set(handles.popup_Function1,'string',str2,'userdata',udn1);
-                set(handles.popup_Function2,'string',str2,'userdata',udn2);
+                set(handles.popup_Function1,'String',str2,'UserData',udn1);
+                set(handles.popup_Function2,'String',str2,'UserData',udn2);
             else
                 handles.Labels{axnum} = lab;
                 handles.loadedChannelData{axnum} = chan;
@@ -1778,7 +1778,7 @@ function handles = PlotSegments(handles, activeSegmentNum, activeMarkerNum)
         handles.MarkerActiveColor, handles.MarkerInactiveColor, [1, 3]);
     
     % Set any unselected segments to have a gray face color
-    set(handles.SegmentHandles(find(handles.SegmentSelection{filenum}==0)),'facecolor',handles.SegmentUnSelectColor);
+    set(handles.SegmentHandles(find(handles.SegmentSelection{filenum}==0)),'FaceColor',handles.SegmentUnSelectColor);
     % Center-justify segment label text
     set(handles.SegmentLabelHandles,'horizontalalignment','center','verticalalignment','bottom');
     % Get current time-zoom state of audio data
@@ -1911,7 +1911,7 @@ function FilterMenuClick(hObject, ~, handles)
     h = eg_peak_detect(handles.axes_Sound, linspace(0, numSamples/handles.fs, numSamples), filtered_sound);
     [h.Color] = deal('c');
     set(handles.axes_Sound,'XTick',[],'YTick',[]);
-    set(handles.axes_Sound,'Color',[0 0 0]);
+    handles.axes_Sound.Color = [0 0 0];
     axis(handles.axes_Sound, 'tight');
     yl = max(abs(ylim(handles.axes_Sound)));
     ylim(handles.axes_Sound, [-yl*1.2 yl*1.2]);
@@ -2048,13 +2048,13 @@ function handles = eg_PlotSonogram(handles)
     
     ch = handles.axes_Sonogram.Children;
     for c = 1:length(ch)
-        set(ch(c),'UIContextMenu',handles.axes_Sonogram.UIContextMenu);
+        ch(c).UIContextMenu = handles.axes_Sonogram.UIContextMenu;
     end
     
     set(handles.axes_Sonogram,'ButtonDownFcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
     ch = handles.axes_Sonogram.Children;
     for c = 1:length(ch)
-        set(ch(c),'ButtonDownFcn',handles.axes_Sonogram.ButtonDownFcn);
+        ch(c).ButtonDownFcn = handles.axes_Sonogram.ButtonDownFcn;
     end
     
     
@@ -2168,7 +2168,7 @@ function click_sound(hObject, ~, handles)
         handles = CreateNewMarker(handles, x);
     end
     
-    guidata(gca, handles);
+    guidata(hObject, handles);
     
 function handles = CreateNewMarker(handles, x)
     % Create a new marker from time x(1) to time x(2)
@@ -2346,7 +2346,7 @@ function handles = SetSonogramColors(handles)
         indx = indx(indx>0 & indx<202);
         cl(indx,:) = repmat(handles.BackgroundColors(2,:),length(indx),1);
         colormap(handles.axes_Sonogram, cl);
-        set(handles.axes_Sonogram,'CLim',[-pi/2 pi/2]);
+        handles.axes_Sonogram.CLim = [-pi/2 pi/2];
     end
     
     
@@ -2490,14 +2490,14 @@ function push_New_Callback(hObject, ~, handles)
     
     % get event parameters
     for axnum = 1:2
-        v = get(handles.(['popup_EventDetector' num2str(axnum)]),'value');
-        ud = get(handles.(['popup_EventDetector' num2str(axnum)]),'userdata');
+        v = get(handles.(['popup_EventDetector' num2str(axnum)]),'Value');
+        ud = get(handles.(['popup_EventDetector' num2str(axnum)]),'UserData');
         if isempty(ud{v}) && v>1
-            str = get(handles.(['popup_EventDetector' num2str(axnum)]),'string');
+            str = get(handles.(['popup_EventDetector' num2str(axnum)]),'String');
             dtr = str{v};
             [handles.EventParams{axnum}, ~] = eg_runPlugin(handles.plugins.eventDetectors, dtr, 'params');
             ud{v} = handles.EventParams{axnum};
-            set(handles.(['popup_EventDetector' num2str(axnum)]),'userdata',ud);
+            set(handles.(['popup_EventDetector' num2str(axnum)]),'UserData',ud);
         else
             handles.EventParams{axnum} = ud{v};
         end
@@ -2512,7 +2512,7 @@ function push_New_Callback(hObject, ~, handles)
             dtr = str{v};
             [handles.FunctionParams{axnum}, ~] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
             ud{v} = handles.FunctionParams{axnum};
-            set(handles.popup_Functions(axnum),'userdata',ud);
+            handles.popup_Functions(axnum).UserData = ud;
         else
             handles.FunctionParams{axnum} = ud{v};
         end
@@ -2768,14 +2768,14 @@ function push_Open_Callback(hObject, ~, handles)
     
     % get event parameters
     for axnum = 1:2
-        v = get(handles.(['popup_EventDetector' num2str(axnum)]),'value');
-        ud = get(handles.(['popup_EventDetector' num2str(axnum)]),'userdata');
+        v = get(handles.(['popup_EventDetector' num2str(axnum)]),'Value');
+        ud = get(handles.(['popup_EventDetector' num2str(axnum)]),'UserData');
         if isempty(ud{v}) && v>1
-            str = get(handles.(['popup_EventDetector' num2str(axnum)]),'string');
+            str = get(handles.(['popup_EventDetector' num2str(axnum)]),'String');
             dtr = str{v};
             [handles.EventParams{axnum}, ~] = eg_runPlugin(handles.plugins.eventDetectors, dtr, 'params');
             ud{v} = handles.EventParams{axnum};
-            set(handles.(['popup_EventDetector' num2str(axnum)]),'userdata',ud);
+            set(handles.(['popup_EventDetector' num2str(axnum)]),'UserData',ud);
         else
             handles.EventParams{axnum} = ud{v};
         end
@@ -2790,7 +2790,7 @@ function push_Open_Callback(hObject, ~, handles)
             dtr = str{v};
             [handles.FunctionParams{axnum}, ~] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
             ud{v} = handles.FunctionParams{axnum};
-            set(handles.popup_Functions(axnum),'userdata',ud);
+            handles.popup_Functions(axnum).UserData = ud;
         else
             handles.FunctionParams{axnum} = ud{v};
         end
@@ -3160,7 +3160,7 @@ function click_segmentaxes(hObject, ~, handles)
         handles.SegmentSelection{filenum}(f) = ~handles.SegmentSelection{filenum}(f); %sum(handles.SegmentSelection{filenum}(f))<=length(f)/2;
     
         handles.SegmentHandles.FaceColor = handles.SegmentSelectColor;
-        set(handles.SegmentHandles(find(handles.SegmentSelection{filenum}==0)),'facecolor',handles.SegmentUnSelectColor);
+        set(handles.SegmentHandles(find(handles.SegmentSelection{filenum}==0)),'FaceColor',handles.SegmentUnSelectColor);
     elseif strcmp(handles.figure_Main.SelectionType,'open')
         [handles, numSamples] = eg_GetNumSamples(handles);
     
@@ -3327,11 +3327,11 @@ function click_segment(hObject, ~, handles)
     
 function handles = ToggleSegmentSelect(handles, filenum, segmentNum)
     handles.SegmentSelection{filenum}(segmentNum) = ~handles.SegmentSelection{filenum}(segmentNum);
-    set(handles.SegmentHandles(segmentNum),'facecolor',handles.SegmentSelectColors{handles.SegmentSelection{filenum}(segmentNum)+1});
+    handles.SegmentHandles(segmentNum).FaceColor = handles.SegmentSelectColors{handles.SegmentSelection{filenum}(segmentNum)+1};
     
 function handles = ToggleMarkerSelect(handles, filenum, markerNum)
     handles.MarkerSelection{filenum}(markerNum) = ~handles.MarkerSelection{filenum}(markerNum);
-    set(handles.MarkerHandles(markerNum),'facecolor',handles.MarkerSelectColors{handles.MarkerSelection{filenum}(markerNum)+1});
+    handles.MarkerHandles(markerNum).FaceColor = handles.MarkerSelectColors{handles.MarkerSelection{filenum}(markerNum)+1};
     
 function markerNum = FindActiveMarker(handles)
     marker = findobj('Parent',handles.axes_Segments,'edgecolor',handles.MarkerActiveColor);
@@ -3482,13 +3482,13 @@ function labelsegment(hObject, ~, handles)
                 % Set the currently active segment title to the pressed key
                 handles.SegmentTitles{filenum}{segmentNum} = ch;
                 % Update the segment label to reflect the new segment title
-                set(handles.SegmentLabelHandles(segmentNum),'string',ch);
+                handles.SegmentLabelHandles(segmentNum).String = ch;
                 newSegmentNum = segmentNum + 1;
             case 'marker'
                 % Set the currently active marker title to the pressed key
                 handles.MarkerTitles{filenum}{markerNum} = ch;
                 % Update the segment label to reflect the new segment title
-                set(handles.MarkerLabelHandles(markerNum),'string',ch);
+                handles.MarkerLabelHandles(markerNum).String = ch;
                 newMarkerNum = markerNum + 1;
         end
     elseif chn==8
@@ -3497,13 +3497,13 @@ function labelsegment(hObject, ~, handles)
                 % User pressed "backspace" - clear segment title
                 handles.SegmentTitles{filenum}{segmentNum} = '';
                 % Clear segment label
-                set(handles.SegmentLabelHandles(segmentNum),'string','');
+                handles.SegmentLabelHandles(segmentNum).String = '';
                 newSegmentNum = segmentNum + 1;
             case 'marker'
                 % User pressed "backspace" - clear marker title
                 handles.MarkerTitles{filenum}{markerNum} = '';
                 % Clear segment label
-                set(handles.MarkerLabelHandles(markerNum),'string','');
+                handles.MarkerLabelHandles(markerNum).String = '';
                 newMarkerNum = markerNum + 1;
         end
     elseif chn==28
@@ -3632,22 +3632,22 @@ function handles = popup_Functions_Callback(handles, axnum)
             [handles.FunctionParams{axnum}, ~] = eg_runPlugin(handles.plugins.filters, dtr(1:f-1), 'params');
         end
         ud{v} = handles.FunctionParams{axnum};
-        set(handles.popup_Functions(axnum),'userdata',ud);
+        handles.popup_Functions(axnum).UserData = ud;
     else
         handles.FunctionParams{axnum} = ud{v};
     end
     
     if isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
-        set(handles.popup_EventDetectors(axnum),'value', 1);
+        handles.popup_EventDetectors(axnum).Value = 1;
         handles = eg_LoadChannel(handles, axnum);
         handles = eg_clickEventDetector(handles, axnum);
     end
     str = handles.popup_Channels(axnum).String;
     str = str{handles.popup_Channels(axnum).Value};
     if contains(str,' - ') || strcmp(str,'(None)')
-        set(handles.popup_EventDetectors(axnum),'enable','off');
+        handles.popup_EventDetectors(axnum).Enable = 'off';
     else
-        set(handles.popup_EventDetectors(axnum),'enable','on');
+        handles.popup_EventDetectors(axnum).Enable = 'on';
     end
     
     if handles.menu_SourcePlots(axnum).Checked
@@ -3718,17 +3718,17 @@ function handles = popup_Channels_Callback(handles, axnum)
     % Handle change in value of either channel source menu
     
     if isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
-        set(handles.popup_Functions(axnum),'value',1);
-        set(handles.popup_EventDetectors(axnum),'value',1);
+        handles.popup_Functions(axnum).Value = 1;
+        handles.popup_EventDetectors(axnum).Value = 1;
         handles = eg_LoadChannel(handles, axnum);
         handles = eg_clickEventDetector(handles, axnum);
     end
     str = handles.popup_Channels(axnum).String;
     str = str{handles.popup_Channels(axnum).Value};
     if contains(str,' - ') || strcmp(str,'(None)')
-        set(handles.popup_EventDetectors(axnum),'enable','off');
+        handles.popup_EventDetectors(axnum).Enable = 'off';
     else
-        set(handles.popup_EventDetectors(axnum),'enable','on');
+        handles.popup_EventDetectors(axnum).Enable = 'on';
     end
     
     handles.BackupTitle = cell(1,2);
@@ -3753,7 +3753,7 @@ function handles = popup_Channels_Callback(handles, axnum)
             currentChannelFunctionIdx = handles.popup_Functions(axnum).Value;
             if currentChannelFunctionIdx ~= defaultChannelFunctionIdx
                 % Default channel function does not match currently selected function. Switch it!
-                set(handles.popup_Functions(axnum), 'value', defaultChannelFunctionIdx);
+                handles.popup_Functions(axnum).Value = defaultChannelFunctionIdx;
                 % Trigger callback for changed channel function
                 handles = popup_Functions_Callback(handles, axnum);
             end
@@ -3881,7 +3881,8 @@ function click_Channel(hObject, ~, handles)
     else
         axnum = 2;
     end
-    
+
+    ax = handles.axes_Channel(axnum);
     
     if strcmp(handles.figure_Main.SelectionType,'open')
         [handles, numSamples] = eg_GetNumSamples(handles);
@@ -3891,7 +3892,7 @@ function click_Channel(hObject, ~, handles)
     
         for axn = 1:2
             if handles.axes_Channel(axn).Visible
-                if strcmp(get(handles.(['menu_AutoLimits' num2str(axn)]),'checked'),'on')
+                if strcmp(get(handles.(['menu_AutoLimits' num2str(axn)]),'Checked'),'on')
                     yl = [min(handles.loadedChannelData{axn}) max(handles.loadedChannelData{axn})];
                     if yl(1)==yl(2)
                         yl = [yl(1)-1 yl(2)+1];
@@ -3905,15 +3906,15 @@ function click_Channel(hObject, ~, handles)
         handles = eg_EditTimescale(handles);
     
     elseif strcmp(handles.figure_Main.SelectionType,'normal')
-        set(gca,'units','pixels');
-        set(get(gca,'parent'),'units','pixels');
-        rect = rbbox;
+        ax.Units = 'pixels';
+        ax.Parent.Units = pixels';
+        rect = rbbox();
     
-        pos = get(gca,'position');
-        set(get(gca,'parent'),'units','normalized');
-        set(gca,'units','normalized');
-        xl = xlim;
-        yl = ylim;
+        pos = ax.Position;
+        ax.Parent.Units = 'normalized';
+        ax.Units = 'normalized';
+        xl = xlim(ax);
+        yl = ylim(ax);
     
         rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
         rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
@@ -3927,7 +3928,7 @@ function click_Channel(hObject, ~, handles)
         else
             xd([1 4:5]) = rect(1);
             xd(2:3) = rect(1)+rect(3);
-            if strcmp(get(handles.(['menu_AllowYZoom' num2str(axnum)]),'checked'),'on')
+            if handles.menu_AllowYZooms(axnum).Checked
                 ylim([rect(2) rect(4)+rect(2)]);
             end
         end
@@ -3942,15 +3943,15 @@ function click_Channel(hObject, ~, handles)
             return
         end
     
-        set(gca,'units','pixels');
-        set(get(gca,'parent'),'units','pixels');
-        rect = rbbox;
+        ax.Units = 'pixels';
+        ax.Parent.Units = 'pixels';
+        rect = rbbox();
     
-        pos = get(gca,'position');
-        set(get(gca,'parent'),'units','normalized');
-        set(gca,'units','normalized');
-        xl = xlim;
-        yl = ylim;
+        pos = ax.Position;
+        ax.Parent.Units = 'normalized';
+        ax.Units = 'normalized';
+        xl = xlim(ax);
+        yl = ylim(ax);
     
         rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
         rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
@@ -3958,7 +3959,7 @@ function click_Channel(hObject, ~, handles)
         rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
     
         if rect(3) == 0
-            pos = get(gca,'currentpoint');
+            pos = ax.CurrentPoint;
             indx = handles.EventCurrentIndex(axnum);
             if indx > 0
                 handles.EventCurrentThresholds(indx) = pos(1,2);
@@ -3966,15 +3967,15 @@ function click_Channel(hObject, ~, handles)
                 for axn = 1:2
                     if handles.axes_Channel(axn).Visible && handles.EventCurrentIndex(axn)==indx
                         handles = EventSetThreshold(handles,axn);
-                        if strcmp(get(handles.(['menu_EventAutoDetect' num2str(axn)]),'checked'),'on') && strcmp(get(handles.(['push_Detect' num2str(axn)]),'enable'),'on')
+                        if strcmp(get(handles.(['menu_EventAutoDetect' num2str(axn)]),'Checked'),'on') && strcmp(get(handles.(['push_Detect' num2str(axn)]),'Enable'),'on')
                             handles = DetectEvents(handles,axn);
     
                             if handles.menu_AutoDisplayEvents.Checked
                                 handles = UpdateEventBrowser(handles);
                             end
     
-                            val = get(handles.popup_Channels(3-axn),'value');
-                            str = get(handles.popup_Channels(3-axn),'string');
+                            val = get(handles.popup_Channels(3-axn),'Value');
+                            str = get(handles.popup_Channels(3-axn),'String');
                             nums = [];
                             for c = 1:length(handles.EventTimes)
                                 nums(c) = size(handles.EventTimes{c},1);
@@ -4020,7 +4021,7 @@ function click_Channel(hObject, ~, handles)
                 objin.MarkerFaceColor = 'w';
             else
                 for c = 1:length(objin)
-                    set(objin(c),'markerfacecolor',objin(c).MarkerEdgeColor);
+                    objin(c).markerfacecolor = objin(c).MarkerEdgeColor;
                 end
             end
     
@@ -4035,8 +4036,8 @@ function click_Channel(hObject, ~, handles)
                 end
             end
     
-            val = get(handles.popup_Channels(3-axnum),'value');
-            str = get(handles.popup_Channels(3-axnum),'string');
+            val = get(handles.popup_Channels(3-axnum),'Value');
+            str = get(handles.popup_Channels(3-axnum),'String');
             nums = [];
             for c = 1:length(handles.EventTimes)
                 nums(c) = size(handles.EventTimes{c},1);
@@ -4090,7 +4091,7 @@ function handles = EventSetThreshold(handles,axnum)
         end
     else
         handles.EventThresholds(indx,getCurrentFileNum(handles)) = handles.EventCurrentThresholds(indx);
-        if strcmp(get(handles.(['menu_EventAutoDetect' num2str(axnum)]),'checked'),'on') && strcmp(get(handles.(['push_Detect' num2str(axnum)]),'enable'),'on')
+        if strcmp(get(handles.(['menu_EventAutoDetect' num2str(axnum)]),'Checked'),'on') && strcmp(get(handles.(['push_Detect' num2str(axnum)]),'Enable'),'on')
             handles = DetectEvents(handles,axnum);
             if handles.menu_AutoDisplayEvents.Checked
                 handles = UpdateEventBrowser(handles);
@@ -4279,14 +4280,14 @@ function popup_EventDetector2_CreateFcn(hObject, ~, handles)
     
 function handles = eg_clickEventDetector(handles,axnum)
     
-    v = get(handles.(['popup_EventDetector' num2str(axnum)]),'value');
-    ud = get(handles.(['popup_EventDetector' num2str(axnum)]),'userdata');
+    v = get(handles.(['popup_EventDetector' num2str(axnum)]),'Value');
+    ud = get(handles.(['popup_EventDetector' num2str(axnum)]),'UserData');
     if isempty(ud{v}) && v>1
-        str = get(handles.(['popup_EventDetector' num2str(axnum)]),'string');
+        str = get(handles.(['popup_EventDetector' num2str(axnum)]),'String');
         dtr = str{v};
         [handles.EventParams{axnum}, ~] = eg_runPlugin(handles.plugins.eventDetectors, dtr, 'params');
         ud{v} = handles.EventParams{axnum};
-        set(handles.(['popup_EventDetector' num2str(axnum)]),'userdata',ud);
+        set(handles.(['popup_EventDetector' num2str(axnum)]),'UserData',ud);
     else
         handles.EventParams{axnum} = ud{v};
     end
@@ -4296,18 +4297,18 @@ function handles = eg_clickEventDetector(handles,axnum)
     end
     str = handles.popup_Channels(axnum).String;
     src = str{handles.popup_Channels(axnum).Value};
-    if get(handles.(['popup_EventDetector' num2str(axnum)]),'value')==1 || contains(src,' - ')
-        set(handles.(['menu_Events' num2str(axnum)]),'enable','off');
-        set(handles.(['push_Detect' num2str(axnum)]),'enable','off');
+    if get(handles.(['popup_EventDetector' num2str(axnum)]),'Value')==1 || contains(src,' - ')
+        set(handles.(['menu_Events' num2str(axnum)]),'Enable','off');
+        set(handles.(['push_Detect' num2str(axnum)]),'Enable','off');
         handles.EventCurrentIndex(axnum) = 0;
     else
-        set(handles.(['menu_Events' num2str(axnum)]),'enable','on');
-        set(handles.(['push_Detect' num2str(axnum)]),'enable','on');
+        set(handles.(['menu_Events' num2str(axnum)]),'Enable','on');
+        set(handles.(['push_Detect' num2str(axnum)]),'Enable','on');
     
         str = handles.popup_Functions(axnum).String;
         fun = str{handles.popup_Functions(axnum).Value};
-        str = get(handles.(['popup_EventDetector' num2str(axnum)]),'string');
-        dtr = str{get(handles.(['popup_EventDetector' num2str(axnum)]),'value')};
+        str = get(handles.(['popup_EventDetector' num2str(axnum)]),'String');
+        dtr = str{get(handles.(['popup_EventDetector' num2str(axnum)]),'Value')};
         mtch = 0;
         for c = 1:length(handles.EventSources)
             cnt = [0 0 0];
@@ -4374,7 +4375,7 @@ function handles = eg_clickEventDetector(handles,axnum)
             f = strfind(lab,' - ');
             lab = lab(f(end)+3:end);
             handles.menu_EventsDisplayList{axnum}(c) = uimenu(handles.(['menu_EventsDisplay',num2str(axnum)]),...
-                'label',lab,'callback','electro_gui(''EventsDisplayClick'',gcbo,[],guidata(gcbo))','checked','on');
+                'label',lab,'callback','electro_gui(''EventsDisplayClick'',gcbo,[],guidata(gcbo))','Checked','on');
         end
     end
     
@@ -4513,14 +4514,14 @@ function handles = SetManualThreshold(handles,axnum)
     for axn = 1:2
         if handles.axes_Channel(axn).Visible && handles.EventCurrentIndex(axn)==indx
             handles = EventSetThreshold(handles,axn);
-            if strcmp(get(handles.(['menu_EventAutoDetect' num2str(axn)]),'checked'),'on') && strcmp(get(handles.(['push_Detect' num2str(axn)]),'enable'),'on')
+            if strcmp(get(handles.(['menu_EventAutoDetect' num2str(axn)]),'Checked'),'on') && strcmp(get(handles.(['push_Detect' num2str(axn)]),'Enable'),'on')
                 handles = DetectEvents(handles,axn);
                 if handles.menu_AutoDisplayEvents.Checked
                     handles = UpdateEventBrowser(handles);
                 end
     
-                val = get(handles.popup_Channels(3-axn),'value');
-                str = get(handles.popup_Channels(3-axn),'string');
+                val = get(handles.popup_Channels(3-axn),'Value');
+                str = get(handles.popup_Channels(3-axn),'String');
                 nums = [];
                 for c = 1:length(handles.EventTimes)
                     nums(c) = size(handles.EventTimes{c},1);
@@ -4607,8 +4608,8 @@ function handles = DetectEvents(handles,axnum)
     indx = handles.EventCurrentIndex(axnum);
     thres = handles.EventThresholds(indx,getCurrentFileNum(handles));
     
-    str = get(handles.(['popup_EventDetector' num2str(axnum)]),'string');
-    dtr = str{get(handles.(['popup_EventDetector' num2str(axnum)]),'value')};
+    str = get(handles.(['popup_EventDetector' num2str(axnum)]),'String');
+    dtr = str{get(handles.(['popup_EventDetector' num2str(axnum)]),'Value')};
     
     if strcmp(dtr,'(None)')
         return
@@ -4696,8 +4697,8 @@ function ClickEventSymbol(hObject, ~, handles)
             end
         end
     
-        val = get(handles.popup_Channels(3-axnum),'value');
-        str = get(handles.popup_Channels(3-axnum),'string');
+        val = get(handles.popup_Channels(3-axnum),'Value');
+        str = get(handles.popup_Channels(3-axnum),'String');
         nums = [];
         for c = 1:length(handles.EventTimes)
             nums(c) = size(handles.EventTimes{c},1);
@@ -5345,12 +5346,12 @@ function handles = UpdateEventBrowser(handles)
     else
         handles.EventWaveHandles = [];
         if ~isempty(chan)
-            f = findobj('Parent',handles.menu_XAxis,'checked','on');
+            f = findobj('Parent',handles.menu_XAxis,'Checked','on');
             str = f.Label;
             [feature1, name1] = eg_runPlugin(handles.plugins.eventFeatures, ...
                 str, chan, handles.fs, tmall, g, ...
                 round(handles.EventLims(handles.popup_EventList.Value,:)*handles.fs));
-            f = findobj('Parent',handles.menu_YAxis,'checked','on');
+            f = findobj('Parent',handles.menu_YAxis,'Checked','on');
             str = f.Label;
             [feature2, name2] = eg_runPlugin(handles.plugins.eventFeatures, ...
                 str, chan, handles.fs, tmall, g, ...
@@ -5377,7 +5378,7 @@ function handles = UpdateEventBrowser(handles)
         set(handles.EventWaveHandles,'ButtonDownFcn','electro_gui(''click_eventwave'',gcbo,[],guidata(gcbo))');
     end
     
-    set(handles.axes_Events,'UIContextMenu',handles.context_EventViewer);
+    handles.axes_Events.UIContextMenu = handles.context_EventViewer;
     set(handles.axes_Events,'ButtonDownFcn','electro_gui(''click_eventaxes'',gcbo,[],guidata(gcbo))');
     set(get(handles.axes_Events,'children'),'UIContextMenu',get(handles.axes_Events,'UIContextMenu'));
     
@@ -5614,8 +5615,8 @@ function handles = DeleteEvents(handles,todel)
             handles = DisplayEvents(handles,axn);
         end
     
-        val = get(handles.popup_Channels(3-axn),'value');
-        str = get(handles.popup_Channels(3-axn),'string');
+        val = get(handles.popup_Channels(3-axn),'Value');
+        str = get(handles.popup_Channels(3-axn),'String');
         nums = [];
         for c = 1:length(handles.EventTimes)
             nums(c) = size(handles.EventTimes{c},1);
@@ -5979,13 +5980,13 @@ function popup_Export_Callback(hObject, ~, handles)
     
     states = {'off','on'};
     for c = 1:length(radiohands)
-        set(radiohands(c),'enable',states{1+val(c)});
+        radiohands(c).enable = states{1+val(c)};
     end
     for c = 1:length(radiohands)
         if strcmp(radiohands(c).Enable,'off') && radiohands(c).Value==1
             for d = 1:length(radiohands)
                 if strcmp(radiohands(d).Enable,'on')
-                    set(radiohands(d),'value',1);
+                    radiohands(d).Value = 1;
                 end
             end
         end
@@ -6128,12 +6129,12 @@ function push_Export_Callback(hObject, ~, handles)
             xl = handles.axes_Sonogram.XLim;
             yl = handles.axes_Sonogram.YLim;
             fig = figure();
-            set(fig,'visible','off','units','pixels');
-            pos = get(fig,'position');
+            set(fig,'Visible','off','Units','pixels');
+            pos = get(fig,'Position');
             pos(3) = handles.ExportSonogramResolution*handles.ExportSonogramWidth*(xl(2)-xl(1));
             pos(4) = handles.ExportSonogramResolution*handles.ExportSonogramHeight;
             fig.Position = pos;
-            subplot('position',[0 0 1 1]);
+            subplot('Position',[0 0 1 1]);
             hold on
             if handles.ExportReplotSonogram == 0
                 ch = findobj('Parent',handles.axes_Sonogram,'type',image);
@@ -6279,19 +6280,23 @@ function push_Export_Callback(hObject, ~, handles)
                 pagenum = fix((0:length(lst)-1)/perpage)+1;
     
                 for j = 1:max(pagenum)
-                    fig = figure('units','inches');
+                    fig = figure('Units','inches');
                     ud.Sounds = {};
                     ud.Fs = [];
-                    bcg = axes('position',[0 0 1 1],'visible','off');
+                    bcg = axes('Position',[0 0 1 1],'Visible','off');
                     ps = fig.Position;
                     ps(3) = handles.WorksheetWidth;
                     ps(4) = handles.WorksheetHeight;
                     fig.Position = ps;
                     if handles.WorksheetIncludeTitle == 1
-                        txt = text(handles.WorksheetMargin/handles.WorksheetWidth,(handles.WorksheetHeight-handles.WorksheetMargin)/handles.WorksheetHeight,handles.WorksheetTitle);
-                        set(txt,'HorizontalAlignment','left','VerticalAlignment','top','fontsize',14);
-                        txt = text((handles.WorksheetWidth-handles.WorksheetMargin)/handles.WorksheetWidth,(handles.WorksheetHeight-handles.WorksheetMargin)/handles.WorksheetHeight,['Page ' num2str(j) '/' num2str(max(pagenum))]);
-                        set(txt,'HorizontalAlignment','right','VerticalAlignment','top','fontsize',14);
+                        txt = text(bcg, handles.WorksheetMargin/handles.WorksheetWidth,(handles.WorksheetHeight-handles.WorksheetMargin)/handles.WorksheetHeight,handles.WorksheetTitle);
+                        txt.HorizontalAlignment = 'left';
+                        txt.VerticalAlignment = 'top';
+                        txt.FontSize = 14;
+                        txt = text(bcg, (handles.WorksheetWidth-handles.WorksheetMargin)/handles.WorksheetWidth,(handles.WorksheetHeight-handles.WorksheetMargin)/handles.WorksheetHeight,['Page ' num2str(j) '/' num2str(max(pagenum))]);
+                        txt.HorizontalAlignment = 'right';
+                        txt.VerticalAlignment = 'top';
+                        txt.FontSize = 14;
                     end
                     f = find(pagenum==j);
                     for c = 1:length(f)
@@ -6303,8 +6308,8 @@ function push_Export_Callback(hObject, ~, handles)
                             x = (handles.WorksheetWidth-used(indx))/2 + sum(widths(lst{indx}(1:d-1))) + handles.WorksheetHorizontalInterval*(d-1);
                             wd = widths(lst{indx}(d));
                             y = handles.WorksheetHeight - handles.WorksheetMargin - handles.WorksheetIncludeTitle*handles.WorksheetTitleHeight - handles.WorksheetVerticalInterval*c - handles.ExportSonogramHeight*c;
-                            axes('position',[x/handles.WorksheetWidth y/handles.WorksheetHeight wd/handles.WorksheetWidth handles.ExportSonogramHeight/handles.WorksheetHeight]);
-                            hold on
+                            ax = axes('Position',[x/handles.WorksheetWidth y/handles.WorksheetHeight wd/handles.WorksheetWidth handles.ExportSonogramHeight/handles.WorksheetHeight]);
+                            hold(ax, 'on');
                             for i = 1:length(handles.WorksheetMs{lst{indx}(d)})
                                 p = handles.WorksheetMs{lst{indx}(d)}{i};
                                 if size(p,3) == 1
@@ -6318,21 +6323,22 @@ function push_Export_Callback(hObject, ~, handles)
                                     p3 = reshape(handles.WorksheetColormap{lst{indx}(d)}(p,3),size(p));
                                     p = cat(3,p1,p2,p3);
                                 else
-                                    set(gca,'CLim',handles.WorksheetClim{lst{indx}(d)});
+                                    ax.CLim = handles.WorksheetClim{lst{indx}(d)};
                                     fig.Colormap = handles.WorksheetColormap{lst{indx}(d)};
                                 end
-                                im = imagesc(handles.WorksheetXs{lst{indx}(d)}{i},handles.WorksheetYs{lst{indx}(d)}{i},p);
+                                im = imagesc(ax, handles.WorksheetXs{lst{indx}(d)}{i},handles.WorksheetYs{lst{indx}(d)}{i},p);
                                 if handles.ExportSonogramIncludeClip > 0
-                                    set(im,'ButtonDownFcn',['ud=get(gcf,''userdata''); sound(ud.Sounds{' num2str(length(ud.Sounds)) '},ud.Fs(' num2str(length(ud.Fs)) '))']);
+                                    im.ButtonDownFcn = ['ud=get(gcf,''UserData''); sound(ud.Sounds{' num2str(length(ud.Sounds)) '},ud.Fs(' num2str(length(ud.Fs)) '))'];
                                 end
                             end
-                            xlim(handles.WorksheetXLims{lst{indx}(d)});
-                            ylim(handles.WorksheetYLims{lst{indx}(d)});
-                            axis off
+                            xlim(ax, handles.WorksheetXLims{lst{indx}(d)});
+                            ylim(ax, handles.WorksheetYLims{lst{indx}(d)});
+                            axis(ax, 'off');
                             if handles.ExportSonogramIncludeLabel == 1
                                 fig.CurrentAxes = bcg;
-                                txt = text((x+wd/2)/handles.WorksheetWidth,(y+handles.ExportSonogramHeight)/handles.WorksheetHeight,string(datetime(handles.WorksheetTimes(lst{indx}(d)))));
-                                set(txt,'HorizontalAlignment','center','VerticalAlignment','bottom');
+                                txt = text(ax (x+wd/2)/handles.WorksheetWidth,(y+handles.ExportSonogramHeight)/handles.WorksheetHeight,string(datetime(handles.WorksheetTimes(lst{indx}(d)))));
+                                txt.HorizontalAlignment = 'center';
+                                txt.VerticalAlignment = 'bottom';
                             end
                         end
                     end
@@ -6352,11 +6358,12 @@ function push_Export_Callback(hObject, ~, handles)
     
     elseif handles.radio_Clipboard.Value==1
         fig.Units = 'inches';
-        pos = get(fig,'position');
+        pos = fig.Position;
         pos(3) = handles.ExportSonogramWidth*(xl(2)-xl(1));
         pos(4) = handles.ExportSonogramHeight;
         fig.Position = pos;
-        set(fig,'PaperPositionMode','manual','Renderer','painters') %#ok<*FGREN> 
+        fig.PaperPositionMode = 'manual';
+        fig.Renderer = 'painters'; %#ok<*FGREN> 
     
         print('-dmeta',['-f' num2str(fig)],['-r' num2str(handles.ExportSonogramResolution)]);
         delete(fig)
@@ -6497,10 +6504,10 @@ function push_Export_Callback(hObject, ~, handles)
                 pagenum = fix((0:length(lst)-1)/perpage)+1;
     
     
-                fig = figure('visible','off','units','pixels');
+                fig = figure('Visible','off','Units','pixels');
                 set(fig,'PaperPositionMode','manual','Renderer','painters');
-                subplot('position',[0 0 1 1]);
-                axis off;
+                ax = subplot('Position',[0 0 1 1]);
+                axis(ax, 'off');
                 for j = 1:max(pagenum)
                     if j > 1
                         slide_count = op.Slides.Count;
@@ -6533,8 +6540,8 @@ function push_Export_Callback(hObject, ~, handles)
                         indx = f(c);
     
                         for d = 1:length(lst{indx})
-                            cla
-                            hold on
+                            cla(ax);
+                            hold(ax, 'on');
                             ps = fig.Position;
                             ps(3) = handles.ExportSonogramResolution*handles.ExportSonogramWidth*(handles.WorksheetXLims{lst{indx}(d)}(2)-handles.WorksheetXLims{lst{indx}(d)}(1));
                             ps(4) = handles.ExportSonogramResolution*handles.ExportSonogramHeight;
@@ -6546,19 +6553,21 @@ function push_Export_Callback(hObject, ~, handles)
     
                             for i = 1:length(handles.WorksheetMs{lst{indx}(d)})
                                 p = handles.WorksheetMs{lst{indx}(d)}{i};
-                                imagesc(handles.WorksheetXs{lst{indx}(d)}{i},handles.WorksheetYs{lst{indx}(d)}{i},p);
-                                set(gca,'CLim',handles.WorksheetClim{lst{indx}(d)});
+                                imagesc(ax, handles.WorksheetXs{lst{indx}(d)}{i},handles.WorksheetYs{lst{indx}(d)}{i},p);
+                                ax.CLim = handles.WorksheetClim{lst{indx}(d)};
                                 fig.Colormap = handles.WorksheetColormap{lst{indx}(d)};
                             end
-                            xlim(handles.WorksheetXLims{lst{indx}(d)});
-                            ylim(handles.WorksheetYLims{lst{indx}(d)});
+                            xlim(ax, handles.WorksheetXLims{lst{indx}(d)});
+                            ylim(ax, handles.WorksheetYLims{lst{indx}(d)});
     
                             print('-dmeta',['-f' num2str(fig)]);
                             pic = invoke(newslide.Shapes,'PasteSpecial',2);
                             ug = invoke(pic,'Ungroup');
                             ug.Fill.Visible = 'msoFalse';
-                            set(ug,'Height',72*handles.ExportSonogramHeight,'Width',72*handles.ExportSonogramWidth*(handles.WorksheetXLims{lst{indx}(d)}(2)-handles.WorksheetXLims{lst{indx}(d)}(1)));
-                            set(ug,'Left',72*x+offx,'Top',72*(y+handles.WorksheetVerticalInterval)+offy);
+                            ug.Height = 72*handles.ExportSonogramHeight;
+                            ug.Width = 72*handles.ExportSonogramWidth*(handles.WorksheetXLims{lst{indx}(d)}(2)-handles.WorksheetXLims{lst{indx}(d)}(1));
+                            ug.Left = 72*x+offx;
+                            ug.Top = 72*(y+handles.WorksheetVerticalInterval)+offy;
     
                             if handles.ExportSonogramIncludeLabel == 1
                                 txt = invoke(newslide.Shapes,'AddTextBox',1,0,0,0,0);
@@ -6593,9 +6602,10 @@ function push_Export_Callback(hObject, ~, handles)
                 ppt = actxserver('PowerPoint.Application');
                 op = ppt.ActivePresentation;
     
-                fig = figure('visible','off','units','pixels');
-                set(fig,'PaperPositionMode','manual','Renderer','painters');
-                subplot('position',[0 0 1 1]);
+                fig = figure('Visible','off','Units','pixels');
+                fig.PaperPositionMode = 'manual';
+                fig.Renderer = 'painters';
+                ax = subplot('Position',[0 0 1 1]);
     
                 xl = handles.axes_Sonogram.XLim;
     
@@ -6608,7 +6618,7 @@ function push_Export_Callback(hObject, ~, handles)
                 progbar = [];
                 axs = [handles.axes_Channel2 handles.axes_Channel1 handles.axes_Amplitude handles.axes_Segments handles.axes_Sonogram handles.axes_Sound];
                 for c = 1:length(ch)
-                    if strcmp(ch(c).Checked,'on') && strcmp(axs(c).Visible,'on')
+                    if ch(c).Checked && axs(c).Visible
                         progbar = [progbar c];
                     end
                 end
@@ -6621,7 +6631,7 @@ function push_Export_Callback(hObject, ~, handles)
                     ps(4) = handles.ExportSonogramResolution*handles.template.Height(c);
                     fig.Position = ps;
     
-                    cla
+                    cla(ax);
     
                     include_progbar = 0;
     
@@ -6634,7 +6644,7 @@ function push_Export_Callback(hObject, ~, handles)
     
                             yl = handles.axes_Sonogram.YLim;
     
-                            hold on
+                            hold(ax, 'on');
                             if handles.ExportReplotSonogram == 0
                                 ch = findobj('Parent',handles.axes_Sonogram,'type','image');
                                 for j = 1:length(ch)
@@ -6644,12 +6654,12 @@ function push_Export_Callback(hObject, ~, handles)
                                         m = ch(j).CData;
                                         f = find(x>=xl(1) & x<=xl(2));
                                         g = find(y>=yl(1) & y<=yl(2));
-                                        imagesc(x(f),y(g),m(g,f));
+                                        imagesc(ax, x(f),y(g),m(g,f));
                                     end
                                 end
                             else
-                                xlim(xl);
-                                ylim(yl);
+                                xlim(ax, xl);
+                                ylim(ax, yl);
                                 xlp = round(xl*handles.fs);
                                 if xlp(1)<1; xlp(1) = 1; end
                                 [handles, numSamples] = eg_GetNumSamples(handles);
@@ -6661,21 +6671,19 @@ function push_Export_Callback(hObject, ~, handles)
                                     end
                                 end
                                 eg_runPlugin(handles.plugins.spectrums, ...
-                                    alg, gca, sound(xlp(1):xlp(2)), ...
+                                    alg, ax, sound(xlp(1):xlp(2)), ...
                                     handles.fs, handles.SonogramParams);
-                                set(gca,'ydir','normal');
+                                ax.YDir = 'normal';
                                 handles.NewSlope = handles.DerivativeSlope;
                                 handles.DerivativeSlope = 0;
                                 handles = SetSonogramColors(handles);
                             end
                             cl = handles.axes_Sonogram.CLim;
-                            set(gca,'CLim',cl);
+                            ax.CLim = cl;
                             col = handles.figure_Main.Colormap;
                             fig.Colormap = col;
-                            axis tight;
-                            axis off;
-    
-    
+                            axis(ax, 'tight');
+                            axis(ax, 'off');
     
                         case 'Segments'
                             if ~isempty(find(progbar==4, 1))
@@ -6689,7 +6697,7 @@ function push_Export_Callback(hObject, ~, handles)
                             h = find(st(:,1)<xl(1)*handles.fs & st(:,2)>xl(2)*handles.fs);
                             f = unique([f; g; h]);
     
-                            hold on
+                            hold(ax, 'on');
                             [handles, numSamples] = eg_GetNumSamples(handles);
     
                             xs = linspace(0, numSamples/handles.fs, numSamples);
@@ -6699,9 +6707,8 @@ function push_Export_Callback(hObject, ~, handles)
                                 end
                             end
     
-                            ylim([0 1]);
-                            axis off
-    
+                            ylim(ax, [0, 1]);
+                            axis(ax, 'off');
     
                         case 'Segment labels'
                             st = handles.SegmentTimes{getCurrentFileNum(handles)};
@@ -6712,7 +6719,7 @@ function push_Export_Callback(hObject, ~, handles)
                             h = find(st(:,1)<xl(1)*handles.fs & st(:,2)>xl(2)*handles.fs);
                             f = unique([f; g; h]);
     
-                            hold on
+                            hold(ax, 'on');
                             [handles, numSamples] = eg_GetNumSamples(handles);
     
                             xs = linspace(0, numSamples/handles.fs, numSamples);
@@ -6732,8 +6739,7 @@ function push_Export_Callback(hObject, ~, handles)
                                 end
                             end
     
-                            axis off
-    
+                            axis(ax, 'off');
     
                         case 'Amplitude'
                             if ~isempty(find(progbar==3, 1))
@@ -6905,13 +6911,13 @@ function push_Export_Callback(hObject, ~, handles)
     
                             case 2 % axis
                                 invoke(newslide.Shapes,'AddLine',offx,ug.Top,offx,ug.Top+ug.Height);
-                                fig_yscale = figure('visible','off','units','inches');
+                                fig_yscale = figure('Visible','off','Units','inches');
                                 ps = fig_yscale.Position;
                                 ps(4) = handles.template.Height(c);
                                 fig_yscale.Position = ps;
-                                subplot('position',[0 0 1 1]);
-                                ylim([yl(1) yl(2)]);
-                                ytick = get(gca,'YTick');
+                                ax = subplot('Position',[0 0 1 1]);
+                                ylim(ax, [yl(1) yl(2)]);
+                                ytick = ax.YTick;
                                 delete(fig_yscale);
     
                                 switch handles.template.Plot{c}
@@ -7051,7 +7057,7 @@ function push_Export_Callback(hObject, ~, handles)
                                     invoke(ug.Item(j),'Delete');
                                 else
                                     if exist('LineWidth', 'var')
-                                        set(ug.Item(j).Line,'Weight',linewidth);
+                                        ug.Item(j).Line.Weight = linewidth;
                                     end
                                 end
                             end
@@ -7102,7 +7108,7 @@ function push_Export_Callback(hObject, ~, handles)
                     seq = invoke(seq,'Item',1);
                     itm(1) = invoke(seq,'Item',1);
     
-                    animopt = findobj('Parent',handles.menu_Animation,'checked','on');
+                    animopt = findobj('Parent',handles.menu_Animation,'Checked','on');
                     animopt = animopt.Label;
     
                     if ~strcmp(animopt,'None')
@@ -7141,13 +7147,13 @@ function push_Export_Callback(hObject, ~, handles)
     
     
                             itm(end+1) = invoke(newslide.TimeLine.MainSequence,'AddEffect',animline,'msoAnimEffectAppear');
-                            set(itm(end).Timing,'TriggerType','msoAnimTriggerWithPrevious');
+                            itm(end).Timing.TriggerType = 'msoAnimTriggerWithPrevious';
                             invoke(itm(end),'MoveAfter',itm(end-1));
     
                             itm(end+1) = invoke(newslide.TimeLine.MainSequence,'AddEffect',animline,'msoAnimEffectPathRight');
-                            set(itm(end).Timing,'TriggerType','msoAnimTriggerWithPrevious');
+                            itm(end).Timing.TriggerType = 'msoAnimTriggerWithPrevious';
                             set(itm(end).Timing,'SmoothStart','msoFalse','SmoothEnd','msoFalse');
-                            set(itm(end).Timing,'Duration',length(wav)/fs);
+                            itm(end).Timing.Duration = length(wav)/fs;
     
                             beh = itm(end).Behaviors;
                             beh = invoke(beh,'Item',1);
@@ -7168,9 +7174,9 @@ function push_Export_Callback(hObject, ~, handles)
                             invoke(itm(end),'MoveAfter',itm(end-1));
     
                             itm(end+1) = invoke(newslide.TimeLine.MainSequence,'AddEffect',animline,'msoAnimEffectFade');
-                            set(itm(end),'Exit','msoTrue');
+                            itm(end).Exit = 'msoTrue';
                             set(itm(end).Timing,'TriggerDelayTime',length(wav)/fs,'Duration',0.01)
-                            set(itm(end).Timing,'TriggerType','msoAnimTriggerWithPrevious');
+                            itm(end).Timing.TriggerType = 'msoAnimTriggerWithPrevious';
                             invoke(itm(end),'MoveAfter',itm(end-1));
                         end
                     end
@@ -7380,7 +7386,7 @@ function push_WorksheetAppend_Callback(hObject, ~, handles)
     
     if length(handles.WorksheetHandles)>=length(handles.WorksheetMs)
         if ishandle(handles.WorksheetHandles(length(handles.WorksheetMs)))
-            set(handles.WorksheetHandles(length(handles.WorksheetMs)), 'FaceColor', 'r');
+            handles.WorksheetHandles(length(handles.WorksheetMs)).FaceColor = 'r';
         end
     end
     
@@ -7471,7 +7477,7 @@ function click_Worksheet(hObject, ~, handles)
     ch = handles.axes_Worksheet.Children;
     for c = 1:length(ch)
         if sum(ch(c).FaceColor==[1 1 1])<3
-            set(ch(c),'facecolor',[.5 .5 .5]);
+            ch(c).FaceColor = [.5 .5 .5];
         end
     end
     hObject.FaceColor = 'r';
@@ -7570,7 +7576,7 @@ function menu_WorksheetDelete_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    f = find(handles.WorksheetHandles==findobj('Parent',handles.axes_Worksheet,'facecolor','r'));
+    f = find(handles.WorksheetHandles==findobj('Parent',handles.axes_Worksheet,'FaceColor','r'));
     
     handles.WorksheetXLims(f) = [];
     handles.WorksheetYLims(f) = [];
@@ -7781,7 +7787,7 @@ function menu_WorksheetView_Callback(hObject, ~, handles)
     
 function ViewWorksheet(handles)
     
-    f = find(handles.WorksheetHandles==findobj('Parent',handles.axes_Worksheet,'facecolor','r'));
+    f = find(handles.WorksheetHandles==findobj('Parent',handles.axes_Worksheet,'FaceColor','r'));
     
     fig = figure;
     fig.Visible = 'off';
@@ -7790,15 +7796,15 @@ function ViewWorksheet(handles)
     pos(3) = handles.ExportSonogramWidth*(handles.WorksheetXLims{f}(2)-handles.WorksheetXLims{f}(1));
     pos(4) = handles.ExportSonogramHeight;
     fig.Position = pos;
-    subplot('position',[0 0 1 1]);
-    hold on
+    ax = subplot('Position',[0 0 1 1]);
+    hold(ax, 'on');
     for c = 1:length(handles.WorksheetMs{f})
-        imagesc(handles.WorksheetXs{f}{c},handles.WorksheetYs{f}{c},handles.WorksheetMs{f}{c});
+        imagesc(ax, handles.WorksheetXs{f}{c},handles.WorksheetYs{f}{c},handles.WorksheetMs{f}{c});
     end
-    set(gca,'CLim',handles.WorksheetClim{f});
+    ax.CLim = handles.WorksheetClim{f};
     fig.Colormap = handles.WorksheetColormap{f};
-    axis tight;
-    axis off;
+    axis(ax, 'tight');
+    axis(ax, 'off');
     fig.Visible = 'on';
     
     
@@ -8201,10 +8207,10 @@ function handles = menu_EventParams(handles,axnum)
     
     handles.EventParams{axnum} = pr;
     
-    v = get(handles.(['popup_EventDetector' num2str(axnum)]),'value');
-    ud = get(handles.(['popup_EventDetector' num2str(axnum)]),'userdata');
+    v = get(handles.(['popup_EventDetector' num2str(axnum)]),'Value');
+    ud = get(handles.(['popup_EventDetector' num2str(axnum)]),'UserData');
     ud{v} = handles.EventParams{axnum};
-    set(handles.(['popup_EventDetector' num2str(axnum)]),'userdata',ud);
+    set(handles.(['popup_EventDetector' num2str(axnum)]),'UserData',ud);
     
     handles = DetectEvents(handles,axnum);
     
@@ -8251,7 +8257,7 @@ function handles = menu_FunctionParams(handles,axnum)
     v = handles.popup_Functions(axnum).Value;
     ud = handles.popup_Functions(axnum).UserData;
     ud{v} = handles.FunctionParams{axnum};
-    set(handles.popup_Functions(axnum),'userdata',ud);
+    handles.popup_Functions(axnum).UserData = ud;
     
     if isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
         handles = eg_LoadChannel(handles,axnum);
@@ -8271,12 +8277,12 @@ function menu_Split_Callback(hObject, ~, handles)
     
     % ginput(1);
     myginput(1); %mod by VG
-    set(gca,'units','pixels');
-    set(get(gca,'parent'),'units','pixels');
+    set(gca,'Units','pixels');
+    set(get(gca,'Parent'),'Units','pixels');
     rect = rbbox;
-    pos = get(gca,'position');
-    set(get(gca,'parent'),'units','normalized');
-    set(gca,'units','normalized');
+    pos = get(gca,'Position');
+    set(get(gca,'Parent'),'Units','normalized');
+    set(gca,'Units','normalized');
     xl = xlim;
     yl = ylim;
     rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
@@ -8431,14 +8437,14 @@ function menu_Concatenate_Callback(hObject, ~, handles)
     
     filenum = getCurrentFileNum(handles);
     
-    set(gca,'units','pixels');
-    set(get(gca,'parent'),'units','pixels');
+    set(gca,'Units','pixels');
+    set(get(gca,'Parent'),'Units','pixels');
     ginput(1);
     rect = rbbox;
     
-    pos = get(gca,'position');
-    set(get(gca,'parent'),'units','normalized');
-    set(gca,'units','normalized');
+    pos = get(gca,'Position');
+    set(get(gca,'Parent'),'Units','normalized');
+    set(gca,'Units','normalized');
     xl = xlim;
     
     rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
@@ -8755,14 +8761,14 @@ function handles = eg_RestartProperties(handles)
         switch handles.PropertyTypes(c)
             case 1 % string
                 handles.PropertyObjectHandles(c) = uicontrol(handles.panel_Properties,'Style','edit',...
-                    'units','normalized','string','','position',[x 0.1 wd 0.55],...
+                    'Units','normalized','String','','Position',[x 0.1 wd 0.55],...
                     'FontSize',10,'horizontalalignment','left','backgroundcolor',[1 1 1]);
                 handles.DefaultPropertyValues{c} = '';
             case 2 % boolean
                 handles.PropertyObjectHandles(c) = uicontrol(handles.panel_Properties,'Style','checkbox',...
-                    'units','normalized','string','a','position',[x 0.1 wd/2 0.55],'FontSize',8);
+                    'Units','normalized','String','a','Position',[x 0.1 wd/2 0.55],'FontSize',8);
                 ext = handles.PropertyObjectHandles(c).Extent;
-                set(handles.PropertyObjectHandles(c),'string','','position',[x+wd/2-ext(4)/2 0.1 ext(4) 0.55]);
+                set(handles.PropertyObjectHandles(c),'String','','Position',[x+wd/2-ext(4)/2 0.1 ext(4) 0.55]);
                 handles.DefaultPropertyValues{c} = 0;
             case 3 % list
                 str = values(indx==c);
@@ -8781,13 +8787,13 @@ function handles = eg_RestartProperties(handles)
                 str = unique(str);
                 str{end+1} = 'New value...';
                 handles.PropertyObjectHandles(c) = uicontrol(handles.panel_Properties,'Style','popupmenu',...
-                    'units','normalized','string',str,'position',[x 0.1 wd 0.55],...
+                    'Units','normalized','String',str,'Position',[x 0.1 wd 0.55],...
                     'FontSize',10,'horizontalalignment','center','backgroundcolor',[1 1 1]);
                 handles.DefaultPropertyValues{c} = str{1};
         end
     
         handles.PropertyTextHandles(c) = uicontrol(handles.panel_Properties,'Style','text',...
-            'units','normalized','string',handles.PropertyNames{c},'position',[x 0.65 wd 0.3],...
+            'Units','normalized','String',handles.PropertyNames{c},'Position',[x 0.65 wd 0.3],...
             'FontSize',8,'horizontalalignment','center');
     end
     
@@ -8833,10 +8839,10 @@ function ChangeProperty(hObject, ~, handles)
                 str{end+1} = handles.Properties.Values{filenum}{indx};
                 str = unique(str);
                 str{end+1} = 'New value...';
-                set(handles.PropertyObjectHandles(f),'value',1,'string',str);
+                set(handles.PropertyObjectHandles(f),'Value',1,'String',str);
                 for c = 1:length(str)
                     if strcmp(str{c},handles.Properties.Values{filenum}{indx})
-                        set(handles.PropertyObjectHandles(f),'value',c);
+                        handles.PropertyObjectHandles(f).Value = c;
                     end
                 end
             else
@@ -8876,21 +8882,21 @@ function handles = eg_LoadProperties(handles)
             end
         end
         if isempty(indx)
-            set(handles.PropertyTextHandles(c),'enable','off')
-            set(handles.PropertyObjectHandles(c),'visible','off')
+            set(handles.PropertyTextHandles(c),'Enable','off')
+            set(handles.PropertyObjectHandles(c),'Visible','off')
         else
-            set(handles.PropertyTextHandles(c),'enable','on')
-            set(handles.PropertyObjectHandles(c),'visible','on')
+            set(handles.PropertyTextHandles(c),'Enable','on')
+            set(handles.PropertyObjectHandles(c),'Visible','on')
             switch handles.PropertyObjectHandles(c).Style
                 case 'edit'
-                    set(handles.PropertyObjectHandles(c),'string',handles.Properties.Values{filenum}{indx});
+                    handles.PropertyObjectHandles(c).String = handles.Properties.Values{filenum}{indx};
                 case 'checkbox'
-                    set(handles.PropertyObjectHandles(c),'value',handles.Properties.Values{filenum}{indx});
+                    handles.PropertyObjectHandles(c).Value = handles.Properties.Values{filenum}{indx};
                 case 'popupmenu'
                     str = handles.PropertyObjectHandles(c).String;
                     for d = 1:length(str)
                         if strcmp(str{d},handles.Properties.Values{filenum}{indx})
-                            set(handles.PropertyObjectHandles(c),'value',d);
+                            handles.PropertyObjectHandles(c).Value = d;
                         end
                     end
             end
@@ -8965,7 +8971,7 @@ function handles = eg_AddProperty(handles,type)
     
     filenum = getCurrentFileNum(handles);
     
-    typestr = {'string','boolean','list'};
+    typestr = {'String','boolean','list'};
     button = questdlg(['Add a new ' typestr{type} ' property to'],'Add property','Current file','Some files...','All files','All files');
     switch button
         case ''
@@ -9033,7 +9039,7 @@ function handles = eg_AddProperty(handles,type)
             str{end+1} = 'Dummy';
             handles.PropertyNames{end+1} = name;
             handles.PropertyObjectHandles(end+1) = uicontrol(handles.panel_Properties,'Style','popupmenu',...
-                'units','normalized','string',str,'position',[0 0 .1 .1],'visible','off',...
+                'Units','normalized','String',str,'Position',[0 0 .1 .1],'Visible','off',...
                 'FontSize',10,'horizontalalignment','center','backgroundcolor',[1 1 1]);
             handles.DefaultPropertyValues{end+1} = str{1};
     end
@@ -9318,7 +9324,7 @@ function menu_RenameProperty_Callback(hObject, ~, handles)
     end
     
     handles.PropertyNames{indx} = answer{1};
-    set(handles.PropertyTextHandles(indx),'string',answer{1});
+    handles.PropertyTextHandles(indx).String = answer{1};
     
     handles = eg_RestartProperties(handles);
     handles = eg_LoadProperties(handles);
@@ -9394,7 +9400,7 @@ function menu_FillProperty_Callback(hObject, ~, handles)
                 str = str(1:end-1);
                 str{end+1} = fill;
                 str{end+1} = 'New value...';
-                set(handles.PropertyObjectHandles(indx),'string',str);
+                handles.PropertyObjectHandles(indx).String = str;
             else
                 fill = str{val};
             end
@@ -9501,7 +9507,7 @@ function menu_DefaultPropertyValue_Callback(hObject, ~, handles)
                 str = str(1:end-1);
                 str{end+1} = defval;
                 str{end+1} = 'New value...';
-                set(handles.PropertyObjectHandles(indx),'string',str);
+                handles.PropertyObjectHandles(indx).String = str;
             else
                 defval = str{val};
             end
@@ -9545,7 +9551,7 @@ function menu_CleanUpList_Callback(hObject, ~, handles)
     for c = 1:length(indx)
         str = handles.PropertyObjectHandles(f(indx(c))).String;
         str(1:end-1) = [];
-        set(handles.PropertyObjectHandles(f(indx(c))),'string',str);
+        handles.PropertyObjectHandles(f(indx(c))).String = str;
     end
     
     handles = eg_RestartProperties(handles);
@@ -9609,7 +9615,7 @@ function handles = ClickAnimation(handles, hObject)
     
     ch = handles.menu_Animation.Children;
     for c = 1:length(ch)
-        set(ch(c),'checked','off');
+        ch(c).Checked = 'off';
     end
     hObject.Checked = 'on';
     
