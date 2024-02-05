@@ -76,6 +76,12 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % Default sound to display is the designated sound channel
     handles.SoundChannel = 0;
     handles.SoundExpression = '';
+    
+    % Min and max time to display on axes
+    handles.TLim = [0, 1];
+
+    % Handle for box showing time viewing window
+    handles.xlimbox = gobjects().empty;
 
     % Unread file marker:
     handles.UnreadFileMarker = '> ';
@@ -720,10 +726,8 @@ function slider_Time_Callback(hObject, ~, handles)
         % No xlimbox yet, probably nothing to slide.
         return;
     end
-    xd = handles.xlimbox.XData;
-    shift = handles.slider_Time.Value-xd(1);
-    xd = xd+shift;
-    handles.xlimbox.XData = xd;
+    shift = handles.slider_Time.Value - handles.TLim(1);
+    handles.TLim = handles.TLim + shift;
     handles = eg_EditTimescale(handles);
     
     guidata(hObject, handles);
@@ -883,27 +887,15 @@ function edit_Timescale_Callback(hObject, ~, handles)
     if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
         return
     end
-    
-    tmin = getTimescale(handles);
+
     tscale = str2double(handles.edit_Timescale.String);
-    handles = setTimescale(handles, tmin, tmin+tscale);
+    handles.TLim = [handles.TLim(1), handles.TLim(1) + tscale];
     
     guidata(hObject, handles);
     
-function [tmin, tmax] = getTimescale(handles)
-    xd = handles.xlimbox.XData;
-    tmin = xd(1);
-    tmax = xd(2);
-    
-function handles = setTimescale(handles, minTime, maxTime)
-    xd = handles.xlimbox.XData;
-    xd([1, 4, 5]) = minTime;
-    xd([2, 3]) = maxTime;
-    handles.xlimbox.XData = xd;
-    handles = eg_EditTimescale(handles);
-    
 function handles = centerTimescale(handles, centerTime, radiusTime)
-    handles = setTimescale(handles, centerTime - radiusTime, centerTime + radiusTime);
+    handles.TLim = [centerTime - radiusTime, centerTime + radiusTime];
+    handles = eg_EditTimescale(handles);
     
 % --- Executes during object creation, after setting all properties.
 function edit_Timescale_CreateFcn(hObject, ~, handles)
@@ -1095,31 +1087,19 @@ function handles = eg_LoadFile(handles)
     yl = max(abs(ylim(handles.axes_Sound)));
     ylim(handles.axes_Sound, [-yl*1.2, yl*1.2]);
     
-    % Set limits
-    yl = ylim(handles.axes_Sound);
-    xmax = numSamples/handles.fs;
-    hold(handles.axes_Sound, 'on');
-    handles.xlimbox = plot(handles.axes_Sound, [0, xmax, xmax, 0, 0],[yl(1), yl(1), yl(2), yl(2), yl(1)]*.93,':y', 'LineWidth', 2);
-    xlim(handles.axes_Sound, [0, xmax]);
-    hold(handles.axes_Sound, 'off');
     box(handles.axes_Sound, 'on');
     
     handles = clearAxes(handles);
-        
-    % Set xlimits
-    handles.axes_Sonogram.XLim = [0, xmax];
-    handles.axes_Amplitude.XLim = [0, xmax];
-    handles.axes_Channel1.XLim = [0, xmax];
-    handles.axes_Channel2.XLim = [0, xmax];
-    
+
+    tmax = numSamples/handles.fs;
+    handles.TLim = [0, tmax];
+
     % If file too long
     if numSamples > handles.TooLong
         txt = text(mean(xlim),mean(ylim), 'Long file. Click to load.',...
             'horizontalalignment', 'center', 'Color', 'r', 'fontsize', 14, 'Parent', handles.axes_Sonogram);
         set(txt, 'ButtonDownFcn', 'electro_gui(''click_loadfile'',gcbo,[],guidata(gcbo))');
         cd(curr);
-    
-        handles.edit_Timescale.String = num2str(numSamples/handles.fs,4);
     
         handles = PlotSegments(handles);
     
@@ -1145,7 +1125,7 @@ function handles = eg_LoadFile(handles)
         handles = EventSetThreshold(handles,1);
     end
     
-    handles = updateAmplitude(handles, true, true);
+    handles = updateAmplitude(handles, true);
     
     handles = eg_EditTimescale(handles);
     
@@ -1758,10 +1738,8 @@ function handles = PlotSegments(handles, activeSegmentNum, activeMarkerNum)
         segment.HorizontalAlignment = 'center';
         segment.VerticalAlignment = 'bottom';
     end
-    % Get current time-zoom state of audio data
-    xd = handles.xlimbox.XData;
     % Set time-zoom state of segment axes to match audio axes
-    xlim(ax, xd(1:2));
+    xlim(ax, handles.TLim);
     % Set y-scale of axes
     ylim(ax, [-2 3.5]);
     % Get figure background color
@@ -1884,7 +1862,6 @@ function FilterMenuClick(hObject, ~, handles)
     
     handles = eg_FilterSound(handles);
     
-    xd = handles.xlimbox.XData;
     cla(handles.axes_Sound);
     [handles, filtered_sound] = eg_GetSound(handles, true);
     [handles, numSamples] = eg_GetNumSamples(handles);
@@ -1896,11 +1873,8 @@ function FilterMenuClick(hObject, ~, handles)
     yl = max(abs(ylim(handles.axes_Sound)));
     ylim(handles.axes_Sound, [-yl*1.2 yl*1.2]);
     
-    yl = ylim(handles.axes_Sound);
-    hold(handles.axes_Sound, 'on');
-    handles.xlimbox = plot(handles.axes_Sound, [xd(1) xd(2) xd(2) xd(1) xd(1)],[yl(1) yl(1) yl(2) yl(2) yl(1)]*.93,':y','LineWidth',2);
-    xlim(handles.axes_Sound, [0, numSamples/handles.fs]);
-    hold(handles.axes_Sound, 'off');
+    handles.updateXLimbox(handles);
+
     box(handles.axes_Sound, 'on');
     
     handles = setClickSoundCallback(handles, handles.axes_Sonogram);
@@ -1910,40 +1884,67 @@ function FilterMenuClick(hObject, ~, handles)
 
     guidata(hObject, handles);
     
+function handles = updateXLimBox(handles)
+    % Update the yellow dotted line box on the sound axes that shows what 
+    % the zoomed in view is
+    yl = ylim(handles.axes_Sound);
+
+    % Calculate updated position of box
+    xdata = [handles.TLim(1), handles.TLim(2), handles.TLim(2), handles.TLim(1), handles.TLim(1)];
+    ydata = [yl(1), yl(1), yl(2), yl(2), yl(1)]*0.93;
+
+    if ~isfield(handles, 'xlimbox') || isempty(handles.xlimbox) || ~isvalid(handles.xlimbox)
+        % No xlimbox currently, create a new one
+        hold(handles.axes_Sound, 'on');
+        handles.xlimbox = plot(handles.axes_Sound, ...
+            xdata, ydata, ':y', 'LineWidth', 2);
+        hold(handles.axes_Sound, 'off');
+    else
+        % xlimbox already exists, just update position
+        handles.xlimbox.XData = xdata;
+        handles.xlimbox.YData = ydata;
+    end
+
 function handles = eg_EditTimescale(handles)
     % Function that handles updating all the axes to show the appropriate
-    % timescale together
-    xd = handles.xlimbox.XData;
-    if xd(1) < 0
-        xd([1 4:5]) = 0;
-    end
+    % timescale together, based on the value in handles.TLim
     
     [handles, numSamples] = eg_GetNumSamples(handles);
-    
-    if xd(2) > numSamples/handles.fs
-        xd(2:3) = numSamples/handles.fs;
+
+    % Adjust view time limits if they exceed the boundaries of the data
+    if handles.TLim(1) < 0
+        handles.TLim(1) = 0;
     end
+    if handles.TLim(2) > numSamples/handles.fs
+        handles.TLim(2) = numSamples/handles.fs;
+    end
+
+    xlim(handles.axes_Sound, [0, numSamples / handles.fs]);
+
+    % Update xlimbox
+    handles = updateXLimBox(handles);
     
-    handles.xlimbox.XData = xd;
-    
-    handles.edit_Timescale.String = num2str(xd(2)-xd(1),4);
+    % Update string that shows the amount of time visible I guess?
+    handles.edit_Timescale.String = num2str(diff(handles.TLim),4);
     
     if handles.menu_AutoCalculate.Checked
         handles = eg_PlotSonogram(handles);
     else
-        xlim(handles.axes_Sonogram, xd(1:2));
+        xlim(handles.axes_Sonogram, handles.TLim);
         handles.axes_Sonogram.UIContextMenu = handles.context_Sonogram;
     
         handles = setClickSoundCallback(handles, handles.axes_Sonogram);
         handles = setClickSoundCallback(handles, handles.axes_Sound);
     end
     
-    xlim(handles.axes_Amplitude, xd(1:2));
-    xlim(handles.axes_Segments, xd(1:2));
+    % Set amplitude axes time limits to match
+    xlim(handles.axes_Amplitude, handles.TLim);
+    % Set segments axes limits to match
+    xlim(handles.axes_Segments, handles.TLim);
     
     for axnum = 1:2
         yl = ylim(handles.axes_Channel(axnum));
-        xlim(handles.axes_Channel(axnum), xd(1:2));
+        xlim(handles.axes_Channel(axnum), handles.TLim);
         if handles.menu_PeakDetects(axnum).Checked
             handles = eg_PlotChannel(handles, axnum);
         end
@@ -1951,15 +1952,17 @@ function handles = eg_EditTimescale(handles)
     end
     
     handles.slider_Time.Min = 0;
-    handles.slider_Time.Max = numSamples/handles.fs-(xd(2)-xd(1))+eps;
-    handles.slider_Time.Value = xd(1);
-    stp = min([1 (xd(2)-xd(1))/((numSamples/handles.fs-(xd(2)-xd(1)))+eps)]);
+    handles.slider_Time.Max = numSamples/handles.fs - diff(handles.TLim) + eps;
+    handles.slider_Time.Value = handles.TLim(1);
+    stp = min([1 diff(handles.TLim)/((numSamples/handles.fs-diff(handles.TLim))+eps)]);
     handles.slider_Time.SliderStep = [0.1*stp 0.5*stp];
     
+    % Make out-of-bounds segments invisible...not sure why this is
+    % necessary
     for c = 1:length(handles.SegmentLabelHandles)
         if ishandle(handles.SegmentLabelHandles(c))
             pos = get(handles.SegmentLabelHandles(c), 'Extent');
-            if pos(1)<xd(1) || pos(1)+pos(3)>xd(2)
+            if pos(1) < handles.TLim(1) || pos(1) + pos(3) > handles.TLim(2)
                 handles.SegmentLabelHandles(c).Visible = 'off';
             else
                 handles.SegmentLabelHandles(c).Visible = 'on';
@@ -1972,33 +1975,33 @@ function handles = eg_EditTimescale(handles)
 function handles = eg_PlotSonogram(handles)
     [handles, sound] = eg_GetSound(handles);
     
-    xd = handles.xlimbox.XData;
-    xl = xd(1:2);
-    if xl(1)>=xl(2)
-        xl(1) = xl(2)-1;
-    end
-    xlp = round(xl*handles.fs);
-    if xlp(1)<1; xlp(1) = 1; end
-    
+    sampleLims = round(handles.TLim * handles.fs);
+    % Ensure sample numbers are in range
     [handles, numSamples] = eg_GetNumSamples(handles);
-    
-    if xlp(2)>numSamples; xlp(2) = numSamples; end
-    
+    if sampleLims(1) < 1
+        sampleLims(1) = 1;
+    end
+    if sampleLims(2) > numSamples
+        sampleLims(2) = numSamples;
+    end
+
+    % Determine current spectrogram algorithm?
     for c = 1:length(handles.menu_Algorithm)
         if handles.menu_Algorithm(c).Checked
             alg = handles.menu_Algorithm(c).Label;
+            break;
         end
     end
     
     cla(handles.axes_Sonogram);
-    xlim(handles.axes_Sonogram, xl);
+    xlim(handles.axes_Sonogram, handles.TLim);
     if handles.menu_FrequencyZoom.Checked
         ylim(handles.axes_Sonogram, handles.CustomFreqLim);
     else
         ylim(handles.axes_Sonogram, handles.FreqLim);
     end
     handles.ispower = eg_runPlugin(handles.plugins.spectrums, alg, ...
-        handles.axes_Sonogram, sound(xlp(1):xlp(2)), handles.fs, ...
+        handles.axes_Sonogram, sound(sampleLims(1):sampleLims(2)), handles.fs, ...
         handles.SonogramParams);
     handles.axes_Sonogram.Units = 'normalized';
     handles.axes_Sonogram.YDir = 'normal';
@@ -2055,14 +2058,11 @@ function click_sound(clicked_axes)
         rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
         rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
     
-        % Get x bounds of zoom box in top plot
-        xd = handles.xlimbox.XData;
-    
         if rect(3) == 0
             % Click/drag box has zero width, so we're going to shift the zoom
             % box so the left size aligns with the cllick location
-            shift = rect(1)-xd(1);
-            xd = xd+shift;
+            shift = rect(1) - handles.TLim(1);
+            handles.TLim = handles.TLim + shift;
         else
             if handles.menu_FrequencyZoom.Checked && (clicked_axes==handles.axes_Sonogram || clicked_axes.Parent==handles.axes_Sonogram)
                 % We're zooming along the y-axis (frequency) as well as x
@@ -2071,23 +2071,18 @@ function click_sound(clicked_axes)
                 handles.CustomFreqLim = [rect(2) rect(2)+rect(4)];
                 ylim([rect(2) rect(2)+rect(4)]);
             end
-            xd([1 4:5]) = rect(1);
-            xd(2:3) = rect(1)+rect(3);
+            handles.TLim = [rect(1), rect(1)+rect(3)];
         end
-        % Update zoom box in top plot
-        handles.xlimbox.XData = xd;
         % Update spectrogram scales
         handles = eg_EditTimescale(handles);
     elseif strcmp(handles.figure_Main.SelectionType, 'extend')
         % Shift-click
         %   Shift zoom box so the right side aligns with click location
         pos = current_axes.CurrentPoint;
-        xd = handles.xlimbox.XData;
-        if pos(1,1) < xd(1)
+        if pos(1,1) < handles.TLim(1)
             return
         end
-        xd(2:3) = pos(1,1);
-        handles.xlimbox.XData = xd;
+        handles.TLim(2) = pos(1,1);
         % Update spectrogram scales
         handles = eg_EditTimescale(handles);
     elseif strcmp(handles.figure_Main.SelectionType,'open')
@@ -2095,9 +2090,8 @@ function click_sound(clicked_axes)
         %   Reset zoom
         [handles, numSamples] = eg_GetNumSamples(handles);
     
-        xd = [0 numSamples/handles.fs numSamples/handles.fs 0 0];
-        % Update zoom box in top plot
-        handles.xlimbox.XData = xd;
+        handles.TLim = [0, numSamples/handles.fs];
+
         if handles.menu_FrequencyZoom.Checked
             % We're resetting y-axis (frequency) zoom too
             handles.CustomFreqLim = handles.FreqLim;
@@ -2965,8 +2959,7 @@ function click_Amplitude(hObject, ~, handles)
     
     if strcmp(handles.figure_Main.SelectionType,'open')
         [handles, numSamples] = eg_GetNumSamples(handles);
-        xd = [0 numSamples/handles.fs numSamples/handles.fs 0 0];
-        handles.xlimbox.XData = xd;
+        handles.TLim = [0, numSamples/handles.fs];
         handles = eg_EditTimescale(handles);
     
     elseif strcmp(handles.figure_Main.SelectionType,'normal')
@@ -2982,15 +2975,12 @@ function click_Amplitude(hObject, ~, handles)
         rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
         rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
     
-        xd = handles.xlimbox.XData;
         if rect(3) == 0
-            shift = rect(1)-xd(1);
-            xd = xd+shift;
+            shift = rect(1) - handles.TLim(1);
+            handles.TLim = handles.TLim + shift;
         else
-            xd([1 4:5]) = rect(1);
-            xd(2:3) = rect(1)+rect(3);
+            handles.TLim = [rect(1), rect(1)+rect(3)];
         end
-        handles.xlimbox.XData = xd;
         handles = eg_EditTimescale(handles);
     elseif strcmp(handles.figure_Main.SelectionType,'extend')
         pos = handles.axes_Amplitude.CurrentPoint;
@@ -3131,8 +3121,7 @@ function click_segmentaxes(hObject, ~, handles)
     elseif strcmp(handles.figure_Main.SelectionType,'open')
         [handles, numSamples] = eg_GetNumSamples(handles);
     
-        xd = [0, numSamples/handles.fs, numSamples/handles.fs, 0, 0];
-        handles.xlimbox.XData = xd;
+        handles.TLim = [0, numSamples/handles.fs];
         handles = eg_EditTimescale(handles);
     elseif strcmp(handles.figure_Main.SelectionType,'extend')
         if sum(handles.SegmentSelection{filenum})==length(handles.SegmentSelection{filenum})
@@ -3355,7 +3344,7 @@ function scrollHandler(source, event)
     x = xy(1);
     y = xy(2);
     if areCoordinatesIn(x, y, handles.axes_Sonogram)
-        [t, f] = convertFigCoordsToChildAxesCoords(x, y, handles.axes_Sonogram);
+        [t, ~] = convertFigCoordsToChildAxesCoords(x, y, handles.axes_Sonogram);
         handles = zoomSonogram(handles, t, event.VerticalScrollCount);
     end
     guidata(source, handles);
@@ -3879,8 +3868,7 @@ function click_Channel(hObject, ~, handles)
     if strcmp(handles.figure_Main.SelectionType,'open')
         [handles, numSamples] = eg_GetNumSamples(handles);
     
-        xd = [0, numSamples/handles.fs numSamples/handles.fs 0 0];
-        handles.xlimbox.XData = xd;
+        handles.TLim = [0, numSamples/handles.fs];
     
         for axn = 1:2
             if handles.axes_Channel(axn).Visible
@@ -3913,18 +3901,15 @@ function click_Channel(hObject, ~, handles)
         rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
         rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
     
-        xd = handles.xlimbox.XData;
         if rect(3) == 0
-            shift = rect(1)-xd(1);
-            xd = xd+shift;
+            shift = rect(1) - handles.TLim(1);
+            handles.TLim = handles.TLim + shift;
         else
-            xd([1 4:5]) = rect(1);
-            xd(2:3) = rect(1)+rect(3);
+            handles.TLim = [rect(1), rect(1)+rect(3)];
             if handles.menu_AllowYZooms(axnum).Checked
                 ylim([rect(2) rect(4)+rect(2)]);
             end
         end
-        handles.xlimbox.XData = xd;
         handles = eg_EditTimescale(handles);
     
     elseif strcmp(handles.figure_Main.SelectionType,'extend')
@@ -8309,7 +8294,8 @@ function handles = updateAmplitude(handles, forceRedraw)
 
     if (isempty(plt) || forceRedraw) && ~isempty(handles.amplitude)
         [handles, numSamples] = eg_GetNumSamples(handles);
-    
+        fileNum = getCurrentFileNum(handles);
+
         plot(handles.axes_Amplitude, linspace(0, numSamples/handles.fs, numSamples),handles.amplitude,'Color',handles.AmplitudeColor);
         handles.axes_Amplitude.XTickLabel  = [];
         ylim(handles.axes_Amplitude, handles.AmplitudeLims);
@@ -8585,7 +8571,6 @@ function menu_FilterParameters_Callback(hObject, ~, handles)
     
     [handles, filtered_sound] = eg_GetSound(handles, true);
     
-    xd = handles.xlimbox.XData;
     cla(handles.axes_Sound);
     [handles, numSamples] = eg_GetNumSamples(handles);
     
@@ -8598,11 +8583,8 @@ function menu_FilterParameters_Callback(hObject, ~, handles)
     yl = max(abs(handles.axes_Sound.YLim));
     handles.axes_Sound.YLim = [-yl*1.2 yl*1.2];
     
-    yl = handles.axes_Sound.YLim;
-    hold(handles.axes_Sound, 'on');
-    handles.xlimbox = plot(handles.axes_Sound, [xd(1) xd(2) xd(2) xd(1) xd(1)],[yl(1) yl(1) yl(2) yl(2) yl(1)]*.93,':y','LineWidth',2);
-    handles.axes_Sound.XLim = [0, numSamples/handles.fs];
-    hold(handles.axes_Sound, 'off');
+    handles = updateXLimBox(handles);
+
     box(handles.axes_Sound, 'on');
     
     handles = setClickSoundCallback(handles, handles.axes_Sonogram);
