@@ -1744,7 +1744,7 @@ function handles = PlotSegments(handles, activeSegmentNum, activeMarkerNum)
             activeSegmentNum = 1;
         end
     else
-        activeType = 'marker';
+        activeType = 'Marker';
     end
     
     % Get segment axes
@@ -1808,7 +1808,7 @@ function handles = PlotSegments(handles, activeSegmentNum, activeMarkerNum)
     switch activeType
         case 'segment'
             handles = SetActiveSegment(handles, activeSegmentNum);
-        case 'marker'
+        case 'Marker'
             handles = SetActiveMarker(handles, activeMarkerNum);
     end
     
@@ -3276,7 +3276,7 @@ function click_segment(hObject, ~, handles)
     if isempty(activeSegNum)
         % No matching segment found. Must be a marker.
         activeSegNum = find(handles.MarkerHandles==hObject);
-        elementType = 'marker';
+        elementType = 'Marker';
     else
         elementType = 'segment';
     end
@@ -3287,7 +3287,7 @@ function click_segment(hObject, ~, handles)
             switch elementType
                 case 'segment'
                     handles = SetActiveSegment(handles, activeSegNum);
-                case 'marker'
+                case 'Marker'
                     handles = SetActiveMarker(handles, activeSegNum);
             end
     %         set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'LineWidth',1);
@@ -3298,7 +3298,7 @@ function click_segment(hObject, ~, handles)
                 case 'segment'
                     handles.SegmentSelection{filenum}(activeSegNum) = ~handles.SegmentSelection{filenum}(activeSegNum);
                     hObject.FaceColor = handles.SegmentSelectColors{handles.SegmentSelection{filenum}(activeSegNum+1)};
-                case 'marker'
+                case 'Marker'
                     handles.MarkerSelection{filenum}(activeSegNum) = ~handles.MarkerSelection{filenum}(activeSegNum);
                     hObject.FaceColor = handles.MarkerSelectColors{handles.MarkerSelection{filenum}(activeSegNum+1)};
             end
@@ -3317,7 +3317,7 @@ function click_segment(hObject, ~, handles)
     %                     set(hObject,'edgecolor',handles.SegmentActiveColor,'LineWidth',2);
                         handles.figure_Main.KeyPressFcn = 'electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))';
                     end
-                case 'marker'
+                case 'Marker'
                     % Nah, doubt we need to implement concatenating adjacent
                     % markers.
             end
@@ -3471,7 +3471,7 @@ function labelsegment(hObject, ~, handles)
         if ~isempty(segmentNum)
             activeType = 'segment';
         elseif ~isempty(markerNum)
-            activeType = 'marker';
+            activeType = 'Marker';
         end
     end
     if chn>32 && chn<127 && chn~=44 && chn~=46 && chn~=96
@@ -3484,7 +3484,7 @@ function labelsegment(hObject, ~, handles)
                 % Update the segment label to reflect the new segment title
                 handles.SegmentLabelHandles(segmentNum).String = ch;
                 newSegmentNum = segmentNum + 1;
-            case 'marker'
+            case 'Marker'
                 % Set the currently active marker title to the pressed key
                 handles.MarkerTitles{filenum}{markerNum} = ch;
                 % Update the segment label to reflect the new segment title
@@ -3499,7 +3499,7 @@ function labelsegment(hObject, ~, handles)
                 % Clear segment label
                 handles.SegmentLabelHandles(segmentNum).String = '';
                 newSegmentNum = segmentNum + 1;
-            case 'marker'
+            case 'Marker'
                 % User pressed "backspace" - clear marker title
                 handles.MarkerTitles{filenum}{markerNum} = '';
                 % Clear segment label
@@ -3511,7 +3511,7 @@ function labelsegment(hObject, ~, handles)
         switch activeType
             case 'segment'
                 newSegmentNum = segmentNum - 1;
-            case 'marker'
+            case 'Marker'
                 newMarkerNum = markerNum - 1;
         end
     elseif chn==29
@@ -3519,7 +3519,7 @@ function labelsegment(hObject, ~, handles)
         switch activeType
             case 'segment'
                 newSegmentNum = segmentNum + 1;
-            case 'marker'
+            case 'Marker'
                 newMarkerNum = markerNum + 1;
         end
     elseif chn==31
@@ -3528,7 +3528,7 @@ function labelsegment(hObject, ~, handles)
             case 'segment'
                 % This is the bottom row - do nothing
                 return
-            case 'marker'
+            case 'Marker'
                 if isempty(handles.SegmentHandles)
                     % No segments to switch to, do nothing
                     return
@@ -3553,8 +3553,8 @@ function labelsegment(hObject, ~, handles)
                 % Find segment closest in time to the active marker, and switch
                 % to that active segment.
                 [~, newMarkerNum] = min(abs(markerTimes - segmentTime));
-                activeType = 'marker';
-            case 'marker'
+                activeType = 'Marker';
+            case 'Marker'
                 % This is the bottom row - do nothing
                 return
         end
@@ -3564,7 +3564,7 @@ function labelsegment(hObject, ~, handles)
             case 'segment'
                 handles = JoinSegmentWithNext(handles, filenum, segmentNum);
                 newSegmentNum = segmentNum;
-            case 'marker'
+            case 'Marker'
                 % Don't really need to do this with markers
                 return
         end
@@ -3574,7 +3574,7 @@ function labelsegment(hObject, ~, handles)
             case 'segment'
                 handles = ToggleSegmentSelect(handles, filenum, segmentNum);
                 newSegmentNum = segmentNum;
-            case 'marker'
+            case 'Marker'
                 handles = ToggleMarkerSelect(handles, filenum, markerNum);
                 newMarkerNum = markerNum;
         end
@@ -3584,7 +3584,7 @@ function labelsegment(hObject, ~, handles)
             case 'segment'
                 handles = DeleteSegment(handles, filenum, segmentNum);
                 newSegmentNum = segmentNum;
-            case 'marker'
+            case 'Marker'
                 handles = DeleteMarker(handles, filenum, markerNum);
                 newMarkerNum = markerNum;
         end
@@ -3595,8 +3595,8 @@ function labelsegment(hObject, ~, handles)
         switch activeType
             case 'segment'
                 [handles, newMarkerNum] = ConvertSegmentToMarker(handles, filenum, segmentNum);
-                activeType = 'marker';
-            case 'marker'
+                activeType = 'Marker';
+            case 'Marker'
                 [handles, newSegmentNum] = ConvertMarkerToSegment(handles, filenum, markerNum);
                 activeType = 'segment';
         end
@@ -3608,7 +3608,7 @@ function labelsegment(hObject, ~, handles)
     switch activeType
         case 'segment'
             handles = SetActiveSegment(handles, newSegmentNum);
-        case 'marker'
+        case 'Marker'
             handles = SetActiveMarker(handles, newMarkerNum);
     end
     
@@ -4006,7 +4006,7 @@ function click_Channel(hObject, ~, handles)
             objin = [];
             ison = [];
             for c = 1:length(obj)
-                x = obj(c).XData;
+                x = obj(c).XData(1);
                 if ~isempty(find((xs-x>0 & xs-x<handles.SearchBefore(axnum)) | (x-xs>0 & x-xs<handles.SearchAfter(axnum)), 1))
                     objin = [objin obj(c)];
                     if sum(obj(c).MarkerFaceColor==[1 1 1])==3
@@ -4018,17 +4018,17 @@ function click_Channel(hObject, ~, handles)
             end
     
             if ~isempty(ison) && mean(ison)>0.5
-                objin.MarkerFaceColor = 'w';
+                [objin.MarkerFaceColor] = deal('w');
             else
                 for c = 1:length(objin)
-                    objin(c).markerfacecolor = objin(c).MarkerEdgeColor;
+                    objin(c).MarkerFaceColor = objin(c).MarkerEdgeColor;
                 end
             end
     
             indx = handles.EventCurrentIndex(axnum);
             for c = 1:length(handles.EventHandles{axnum})
                 for d = 1:length(handles.EventHandles{axnum}{c})
-                    if sum(get(handles.EventHandles{axnum}{c}(d),'markerfacecolor')==[1 1 1])==3
+                    if all(handles.EventHandles{axnum}{c}(d).MarkerFaceColor==[1 1 1])
                         handles.EventSelected{indx}{c,getCurrentFileNum(handles)}(d) = 0;
                     else
                         handles.EventSelected{indx}{c,getCurrentFileNum(handles)}(d) = 1;
@@ -4648,24 +4648,14 @@ function handles = DisplayEvents(handles,axnum)
     xs = linspace(0, numSamples/handles.fs, numSamples);
     for c = 1:length(ev)
         if h(c).Checked
-            for i = 1:length(ev{c})
-                if sel{c}(i)==1
-                    handles.EventHandles{axnum}{c}(i) = plot(handles.axes_Channel(axnum), xs(ev{c}(i)),chan(ev{c}(i)),'o','LineStyle','none','markeredgecolor','k','markerfacecolor','k','markersize',5);
-                else
-                    handles.EventHandles{axnum}{c}(i) = plot(handles.axes_Channel(axnum), xs(ev{c}(i)),chan(ev{c}(i)),'o','LineStyle','none','markeredgecolor','k','markerfacecolor','w','markersize',5);
-                end
-            end
+            eventXs = vertcat(xs(ev{c}), nan(1, length(ev{c})));
+            eventYs = vertcat(chan(ev{c})', nan(1, length(ev{c})));
+            handles.EventHandles{axnum}{c} = plot(handles.axes_Channel(axnum), eventXs, eventYs, 'o','LineStyle','none','MarkerEdgeColor','k','MarkerFaceColor','k','MarkerSize',5,'ButtonDownFcn','electro_gui(''ClickEventSymbol'',gcbo,[],guidata(gcbo))');
+            [handles.EventHandles{axnum}{c}(sel{c}).MarkerFaceColor] = deal('w');
         else
             handles.EventHandles{axnum}{c} = [];
         end
-    end
-    
-    for c = 1:length(handles.EventHandles{axnum})
-        for i = 1:length(handles.EventHandles{axnum}{c})
-            handles.EventHandles{axnum}{c}(i).ButtonDownFcn = 'electro_gui(''ClickEventSymbol'',gcbo,[],guidata(gcbo))';
-        end
-    end
-    
+    end    
     
 function ClickEventSymbol(hObject, ~, handles)
     
@@ -4689,7 +4679,7 @@ function ClickEventSymbol(hObject, ~, handles)
     
         for c = 1:length(handles.EventHandles{axnum})
             for d = 1:length(handles.EventHandles{axnum}{c})
-                if sum(get(handles.EventHandles{axnum}{c}(d),'markerfacecolor')==[1 1 1])==3
+                if sum(get(handles.EventHandles{axnum}{c}(d),'MarkerFaceColor')==[1 1 1])==3
                     handles.EventSelected{indx}{c,getCurrentFileNum(handles)}(d) = 0;
                 else
                     handles.EventSelected{indx}{c,getCurrentFileNum(handles)}(d) = 1;
@@ -4745,7 +4735,7 @@ function ClickEventSymbol(hObject, ~, handles)
     
         xs = linspace(0, numSamples/handles.fs, numSamples);
         tm = xs(tm(sel==1));
-        xclick = hObject.XData;
+        xclick = hObject.XData(1);
         [~, j] = min(abs(tm-xclick));
         handles = SelectEvent(handles,j);
     
@@ -5358,7 +5348,7 @@ function handles = UpdateEventBrowser(handles)
     
             for c = 1:length(feature1)
                 if sel(c)==1
-                    h = plot(handles.axes_Events, feature1(c),feature2(c),'o','markerfacecolor','k','markeredgecolor','k','markersize',2);
+                    h = plot(handles.axes_Events, feature1(c),feature2(c),'o','MarkerFaceColor','k','MarkerEdgeColor','k','MarkerSize',2);
                     handles.EventWaveHandles = [handles.EventWaveHandles h];
                 end
             end
@@ -5440,7 +5430,7 @@ function handles = SelectEvent(handles,i)
             h = plot(handles.axes_Events, x,y,'r','LineWidth',2);
         else
             ms = handles.EventWaveHandles(i).MarkerSize;
-            h = plot(handles.axes_Events, x,y,'LineWidth',2,'marker',m,'markersize',ms,'markerfacecolor','r','markeredgecolor','r');
+            h = plot(handles.axes_Events, x,y,'LineWidth',2,'Marker',m,'MarkerSize',ms,'MarkerFaceColor','r','MarkerEdgeColor','r');
         end
         h.ButtonDownFcn = 'electro_gui(''unselect_event'',gcbo,[],guidata(gcbo))';
         xlim(handles.axes_Events, xl);
@@ -5476,12 +5466,12 @@ function handles = SelectEvent(handles,i)
     plot(handles.axes_Sound, [xs(tm(i)) xs(tm(i))], ylim(handles.axes_Sound),'-.','LineWidth',2,'Color','r');
     hold(handles.axes_Sound, 'off');
 
-    h = [];
+    h = gobjects().empty;
     for axnum = 1:2
         if handles.axes_Channel(axnum).Visible
             ys = handles.loadedChannelData{axnum};
             hold(handles.axes_Channel(axnum), 'on');
-            h(end+1) = plot(handles.axes_Channel(axnum), xs(tm(i)),ys(tm(i)),'-.o','LineWidth',2,'markersize',5,'markerfacecolor','r','markeredgecolor','r');
+            h(end+1) = plot(handles.axes_Channel(axnum), xs(tm(i)),ys(tm(i)),'-.o','LineWidth',2,'MarkerSize',5,'MarkerFaceColor','r','MarkerEdgeColor','r');
             hold(handles.axes_Channel(axnum), 'off');
         end
     end
@@ -6202,7 +6192,7 @@ function push_Export_Callback(hObject, ~, handles)
                     ms = ch(c).MarkerSize;
                     mf = ch(c).MarkerFaceColor;
                     me = ch(c).MarkerEdgeColor;
-                    plot(ax, x,y,'Color',col,'LineStyle',ls,'LineWidth',lw,'marker',ma,'markersize',ms,'markerfacecolor',mf,'markeredgecolor',me);
+                    plot(ax, x,y,'Color',col,'LineStyle',ls,'LineWidth',lw,'Marker',ma,'MarkerSize',ms,'MarkerFaceColor',mf,'MarkerEdgeColor',me);
                     hold(ax, 'on');
                     if handles.menu_DisplayFeatures.Checked && sum(col==[1 0 0])~=3
                         xs = [xs x];
