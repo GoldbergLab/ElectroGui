@@ -5906,13 +5906,11 @@ function handles = ChangeProgress(handles,obj)
         obj.Checked = 'off';
     end
     
-    
 % --------------------------------------------------------------------
 function menu_XAxis_Callback(hObject, ~, handles)
     % hObject    handle to menu_XAxis (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
-    
     
 % --------------------------------------------------------------------
 function menu_Yaxis_Callback(hObject, ~, handles)
@@ -5920,14 +5918,11 @@ function menu_Yaxis_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    
-    
 % --------------------------------------------------------------------
 function menu_YAxis_Callback(hObject, ~, handles)
     % hObject    handle to menu_YAxis (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
-    
     
 function XAxisMenuClick(hObject, ~, handles)
     
@@ -5938,7 +5933,6 @@ function XAxisMenuClick(hObject, ~, handles)
     
     guidata(hObject, handles);
     
-    
 function YAxisMenuClick(hObject, ~, handles)
     
     handles.menu_YAxis_List.Checked = 'off';
@@ -5947,7 +5941,6 @@ function YAxisMenuClick(hObject, ~, handles)
     handles = UpdateEventBrowser(handles);
     
     guidata(hObject, handles);
-    
     
 % --- Executes on selection change in popup_Export.
 function popup_Export_Callback(hObject, ~, handles)
@@ -5992,7 +5985,6 @@ function popup_Export_Callback(hObject, ~, handles)
         end
     end
     
-    
 % --- Executes during object creation, after setting all properties.
 function popup_Export_CreateFcn(hObject, ~, handles)
     % hObject    handle to popup_Export (see GCBO)
@@ -6004,7 +5996,6 @@ function popup_Export_CreateFcn(hObject, ~, handles)
     if ispc && isequal(hObject.BackgroundColor, get(0,'defaultUicontrolBackgroundColor'))
         hObject.BackgroundColor = 'white';
     end
-    
     
 % --- Executes on button press in push_Export.
 function push_Export_Callback(hObject, ~, handles)
@@ -6433,13 +6424,7 @@ function push_Export_Callback(hObject, ~, handles)
                 end
     
                 if handles.ExportSonogramIncludeLabel == 1
-                    txt = invoke(newslide.Shapes,'AddTextBox',1,0,0,0,0);
-                    txt.TextFrame.TextRange.Text = handles.text_DateAndTime.String;
-                    set(txt.TextFrame,'VerticalAnchor','msoAnchorBottom','HorizontalAnchor','msoAnchorCenter',...
-                        'MarginLeft',0,'MarginRight',0,'MarginTop',0,'MarginBottom',0,'WordWrap','msoFalse');
-                    txt.TextFrame.TextRange.Font.Size = 8;
-                    txt.Height = txt.TextFrame.TextRange.BoundHeight;
-                    txt.Width = txt.TextFrame.TextRange.BoundWidth;
+                    txt = addWorksheetTextBox(handles, newslide, handles.text_DateAndTime.String, 8, [], [], 'msoAnchorCenter', 'msoAnchorBottom');
                     txt.Left = ug.Left+ug.Width/2-txt.Width/2;
                     txt.Top = ug.Top-txt.Height;
                 end
@@ -6467,14 +6452,7 @@ function push_Export_Callback(hObject, ~, handles)
                 delete(mt(1).name);
     
                 if handles.ExportSonogramIncludeLabel == 1
-                    txt = invoke(newslide.Shapes,'AddTextBox',1,0,0,0,0);
-                    txt.TextFrame.TextRange.Text = handles.text_DateAndTime.String;
-                    set(txt.TextFrame,'VerticalAnchor','msoAnchorMiddle','WordWrap','msoFalse',...
-                        'MarginLeft',0,'MarginRight',0,'MarginTop',0,'MarginBottom',0);
-                    txt.TextFrame.TextRange.Font.Size = 8;
-                    txt.Height = txt.TextFrame.TextRange.BoundHeight;
-                    txt.Width = txt.TextFrame.TextRange.BoundWidth;
-                    txt.Left = snd.Left+snd.Width;
+                    txt = addWorksheetTextBox(handles, newslide,  handles.text_DateAndTime.String, 8, snd.Left+snd.Width, [], [], 'msoAnchorMiddle');
                     txt.Top = snd.Top+snd.Height/2-txt.Height/2;
                 end
     
@@ -6514,25 +6492,9 @@ function push_Export_Callback(hObject, ~, handles)
                         newslide = invoke(op.Slides,'Add',slide_count+1,'ppLayoutBlank');
                     end
                     if handles.WorksheetIncludeTitle == 1
-                        txt = invoke(newslide.Shapes,'AddTextBox',1,0,0,0,0);
-                        txt.TextFrame.TextRange.Text = handles.WorksheetTitle;
-                        set(txt.TextFrame,'VerticalAnchor','msoAnchorTop','WordWrap','msoFalse',...
-                            'MarginLeft',0,'MarginRight',0,'MarginTop',0,'MarginBottom',0);
-                        txt.TextFrame.TextRange.Font.Size = 14;
-                        txt.Height = txt.TextFrame.TextRange.BoundHeight;
-                        txt.Width = txt.TextFrame.TextRange.BoundWidth;
-                        txt.Left = 72*handles.WorksheetMargin+offx;
-                        txt.Top = 72*handles.WorksheetMargin+offy;
-    
-                        txt = invoke(newslide.Shapes,'AddTextBox',1,0,0,0,0);
-                        txt.TextFrame.TextRange.Text = ['Page ' num2str(j) '/' num2str(max(pagenum))];
-                        set(txt.TextFrame,'VerticalAnchor','msoAnchorTop','WordWrap','msoFalse',...
-                            'MarginLeft',0,'MarginRight',0,'MarginTop',0,'MarginBottom',0);
-                        txt.TextFrame.TextRange.Font.Size = 14;
-                        txt.Height = txt.TextFrame.TextRange.BoundHeight;
-                        txt.Width = txt.TextFrame.TextRange.BoundWidth;
+                        addWorksheetTextBox(handles, newslide, handles.WorksheetTitle, 14, 72*handles.WorksheetMargin+offx, 72*handles.WorksheetMargin+offy, [], 'msoAnchorTop');
+                        txt = addWorksheetTextBox(handles, newslide, ['Page ' num2str(j) '/' num2str(max(pagenum))], 14, [], 72*handles.WorksheetMargin+offy, [], 'msoAnchorTop');
                         txt.Left = 72*(handles.WorksheetWidth-handles.WorksheetMargin-txt.Width+offx);
-                        txt.Top = 72*handles.WorksheetMargin+offy;
                     end
     
                     f = find(pagenum==j);
@@ -6570,13 +6532,7 @@ function push_Export_Callback(hObject, ~, handles)
                             ug.Top = 72*(y+handles.WorksheetVerticalInterval)+offy;
     
                             if handles.ExportSonogramIncludeLabel == 1
-                                txt = invoke(newslide.Shapes,'AddTextBox',1,0,0,0,0);
-                                txt.TextFrame.TextRange.Text = string(datetime(handles.WorksheetTimes(lst{indx}(d))));
-                                set(txt.TextFrame,'VerticalAnchor','msoAnchorBottom','HorizontalAnchor','msoAnchorCenter',...
-                                    'WordWrap','msoFalse','MarginLeft',0,'MarginRight',0,'MarginTop',0,'MarginBottom',0);
-                                txt.TextFrame.TextRange.Font.Size = 10;
-                                txt.Height = txt.TextFrame.TextRange.BoundHeight;
-                                txt.Width = txt.TextFrame.TextRange.BoundWidth;
+                                txt = addWorksheetTextBox(handles, newslide, string(datetime(handles.WorksheetTimes(lst{indx}(d)))), 10, [], [], 'msoAnchorCenter', 'msoAnchorBottom');
                                 txt.Left = 72*(x+wd/2-txt.Width/2+offx);
                                 txt.Top = 72*(y+handles.WorksheetVerticalInterval-txt.Height+offy);
                             end
@@ -6726,14 +6682,8 @@ function push_Export_Callback(hObject, ~, handles)
                             for j = f'
                                 if sel(j)==1
                                     if ~isempty(lab{j})
-                                        txt = invoke(newslide.Shapes,'AddTextBox',1,0,0,0,0);
-                                        txt.TextFrame.TextRange.Text = lab{j};
-                                        set(txt.TextFrame,'VerticalAnchor','msoAnchorBottom','HorizontalAnchor','msoAnchorCenter',...
-                                            'WordWrap','msoFalse','MarginLeft',0,'MarginRight',0,'MarginTop',0,'MarginBottom',0);
-                                        txt.TextFrame.TextRange.Font.Size = 8;
-                                        txt.Height = txt.TextFrame.TextRange.BoundHeight;
-                                        txt.Width = txt.TextFrame.TextRange.BoundWidth;
-                                        set(txt,'Left',offx+72*handles.ExportSonogramWidth*mean(xs(st(j,:))-xl(1))-txt.Width/2);
+                                        txt = addWorksheetTextBox(handles, newslide, lab{j}, 8, [], [], 'msoAnchorCenter', 'msoAnchorBottom');
+                                        txt.Left = offx+72*handles.ExportSonogramWidth*mean(xs(st(j,:))-xl(1))-txt.Width/2;
                                         txt.Top = offy+72*(sum(handles.template.Interval(1:c-1)+sum(handles.template.Height(1:c-1))));
                                     end
                                 end
@@ -6891,16 +6841,7 @@ function push_Export_Callback(hObject, ~, handles)
                                 end
                                 invoke(newslide.Shapes,'AddLine',sb_posx,sb_posy,sb_posx,sb_posy+sb_height);
     
-                                txt = invoke(newslide.Shapes,'AddTextBox',1,0,0,0,0);
-                                txt.TextFrame.TextRange.Text = [num2str(val) unit];
-                                set(txt.TextFrame,'VerticalAnchor','msoAnchorMiddle','WordWrap','msoFalse',...
-                                    'MarginLeft',0,'MarginRight',0,'MarginTop',0,'MarginBottom',0);
-                                txt.TextFrame.TextRange.Font.Size = 8;
-                                txt.Height = txt.TextFrame.TextRange.BoundHeight;
-                                txt.Width = txt.TextFrame.TextRange.BoundWidth;
-    
-                                txt.Top = ug.Top+0.5*ug.Height-0.5*txt.Height;
-    
+                                txt = addWorksheetTextBox(handles, newslide, [num2str(val) unit], 8, [], [], [], 'msoAnchorMiddle');
                                 if handles.VerticalScalebarPosition <= 0
                                     txt.Left = sb_posx-txt.Width-72*0.05;
                                     txt.TextFrame.TextRange.ParagraphFormat.Alignment = 'ppAlignRight';
@@ -6908,6 +6849,7 @@ function push_Export_Callback(hObject, ~, handles)
                                     txt.Left = sb_posx+72*0.05;
                                     txt.TextFrame.TextRange.ParagraphFormat.Alignment = 'ppAlignLeft';
                                 end
+                                txt.Top = ug.Top+0.5*ug.Height-0.5*txt.Height;
     
                             case 2 % axis
                                 invoke(newslide.Shapes,'AddLine',offx,ug.Top,offx,ug.Top+ug.Height);
@@ -6938,34 +6880,19 @@ function push_Export_Callback(hObject, ~, handles)
                                     tickpos = ug.Top+ug.Height-(ytick(j)-yl(1))/(yl(2)-yl(1))*ug.Height;
                                     invoke(newslide.Shapes,'AddLine',offx,tickpos,offx+72*0.02,tickpos);
     
-                                    txt = invoke(newslide.Shapes,'AddTextBox',1,0,0,0,0);
-                                    txt.TextFrame.TextRange.Text = num2str(ytick(j));
-                                    set(txt.TextFrame,'VerticalAnchor','msoAnchorMiddle','WordWrap','msoFalse',...
-                                        'MarginLeft',0,'MarginRight',0,'MarginTop',0,'MarginBottom',0);
-                                    txt.TextFrame.TextRange.Font.Size = 8;
-                                    txt.Height = txt.TextFrame.TextRange.BoundHeight;
-                                    txt.Width = txt.TextFrame.TextRange.BoundWidth;
-                                    txt.Top = tickpos-0.5*txt.Height;
+                                    txt = addWorksheetTextBox(handles, newslide, num2str(ytick(j)), 8, [], [], [], 'msoAnchorMiddle', 'ppAlignRight');
                                     txt.Left = offx-txt.Width-72*0.02;
-                                    mn = min([mn txt.Left]);
-                                    txt.TextFrame.TextRange.ParagraphFormat.Alignment = 'ppAlignRight';
+                                    txt.Top = tickpos-0.5*txt.Height;
+                                    mn = min([mn, txt.Left]);
                                 end
     
     %                             if strcmp(handles.template.Plot{c},'Sonogram')
     %                                 ytick = ytick/1000;
     %                             end
     
-                                txt = invoke(newslide.Shapes,'AddTextBox',1,0,0,0,0);
-                                txt.TextFrame.TextRange.Text = str;
-                                set(txt.TextFrame,'VerticalAnchor','msoAnchorBottom','HorizontalAnchor','msoAnchorCenter',...
-                                    'WordWrap','msoFalse','MarginLeft',0,'MarginRight',0,'MarginTop',0,'MarginBottom',0);
-                                txt.TextFrame.TextRange.Font.Size = 10;
-                                txt.Height = txt.TextFrame.TextRange.BoundHeight;
-                                txt.Width = txt.TextFrame.TextRange.BoundWidth;
-                                txt.Rotation = 270;
-                                txt.Top = ug.Top+0.5*ug.Height-0.5*txt.Height;
+                                addWorksheetTextBox(handles, newslide, str, 10, [], [], 'msoAnchorCenter', 'msoAnchorBottom', 'ppAlignCenter', 270);
                                 txt.Left = mn-0.5*txt.Width-72*0.15;
-                                txt.TextFrame.TextRange.ParagraphFormat.Alignment = 'ppAlignCenter';
+                                txt.Top = ug.Top+0.5*ug.Height-0.5*txt.Height;
                         end
     
                         if include_progbar == 1
@@ -7068,15 +6995,8 @@ function push_Export_Callback(hObject, ~, handles)
                 if handles.ExportSonogramIncludeLabel == 1
                     dt = datevec(handles.text_DateAndTime.String);
                     dt(6) = dt(6)+xl(1);
-                    txt = invoke(newslide.Shapes,'AddTextBox',1,0,0,0,0);
-                    txt.TextFrame.TextRange.Text = string(datetime(dt));
-                    set(txt.TextFrame,'VerticalAnchor','msoAnchorBottom','HorizontalAnchor','msoAnchorCenter',...
-                        'WordWrap','msoFalse','MarginLeft',0,'MarginRight',0,'MarginTop',0,'MarginBottom',0);
-                    txt.TextFrame.TextRange.Font.Size = 10;
-                    txt.TextFrame.TextRange.ParagraphFormat.Alignment = 'ppAlignCenter';
-                    txt.Height = txt.TextFrame.TextRange.BoundHeight;
-                    txt.Width = txt.TextFrame.TextRange.BoundWidth;
-                    txt.Left = (op.PageSetup.SlideWidth-txt.Width/2);
+                    addWorksheetTextBox(handles, newslide, string(datetime(dt)), 10, [], [], 'msoAnchorCenter', 'msoAnchorBottom', 'ppAlignCenter');
+                    txt.Left = op.PageSetup.SlideWidth-txt.Width/2;
                     txt.Top = offy-txt.Height;
                 end
     
@@ -7193,17 +7113,8 @@ function push_Export_Callback(hObject, ~, handles)
                 x2 = op.PageSetup.SlideWidth-offx;
                 x1 = x2-72*handles.ScalebarPresets(j)*handles.ExportSonogramWidth;
                 invoke(newslide.Shapes,'AddLine',x1,y,x2,y);
-                txt = invoke(newslide.Shapes,'AddTextBox',1,0,0,0,0);
-                txt.TextFrame.TextRange.Text = handles.ScalebarLabels{j};
-                set(txt.TextFrame,'VerticalAnchor','msoAnchorTop','HorizontalAnchor','msoAnchorCenter',...
-                    'WordWrap','msoFalse','MarginLeft',0,'MarginRight',0,'MarginTop',0,'MarginBottom',0);
-                txt.TextFrame.TextRange.Font.Size = 8;
-                txt.TextFrame.TextRange.ParagraphFormat.Alignment = 'ppAlignCenter';
-                txt.Height = txt.TextFrame.TextRange.BoundHeight;
-                txt.Width = txt.TextFrame.TextRange.BoundWidth;
+                txt = addWorksheetTextBox(handles, newslide, handles.ScalebarLabels{j}, 8, [], y, 'msoAnchorCenter', 'msoAnchorTop', 'ppAlignCenter');
                 txt.Left = (x1+x2/2-txt.Width/2);
-                txt.Top = y;
-    
         end
     end
     
@@ -7230,7 +7141,6 @@ function push_ExportOptions_Callback(hObject, ~, handles)
         errordlg('Java is not working properly. You must right-click the button.','Java error');
     end
     
-    
 % --- Executes on button press in radio_Matlab.
 function radio_Matlab_Callback(hObject, ~, handles)
     % hObject    handle to radio_Matlab (see GCBO)
@@ -7238,7 +7148,6 @@ function radio_Matlab_Callback(hObject, ~, handles)
     % handles    structure with handles and user data (see GUIDATA)
     
     % Hint: hObject.Value returns toggle state of radio_Matlab
-    
     
 % --- Executes on button press in radio_PowerPoint.
 function radio_PowerPoint_Callback(hObject, ~, handles)
@@ -7248,7 +7157,6 @@ function radio_PowerPoint_Callback(hObject, ~, handles)
     
     % Hint: hObject.Value returns toggle state of radio_PowerPoint
     
-    
 % --- Executes on button press in radio_Files.
 function radio_Files_Callback(hObject, ~, handles)
     % hObject    handle to radio_Files (see GCBO)
@@ -7257,7 +7165,6 @@ function radio_Files_Callback(hObject, ~, handles)
     
     % Hint: hObject.Value returns toggle state of radio_Files
     
-    
 % --- Executes on button press in radio_Clipboard.
 function radio_Clipboard_Callback(hObject, ~, handles)
     % hObject    handle to radio_Clipboard (see GCBO)
@@ -7265,9 +7172,6 @@ function radio_Clipboard_Callback(hObject, ~, handles)
     % handles    structure with handles and user data (see GUIDATA)
     
     % Hint: hObject.Value returns toggle state of radio_Clipboard
-    
-    
-    
     
 % --- Executes on button press in push_UpdateFileList.
 function push_UpdateFileList_Callback(hObject, ~, handles)
@@ -7289,7 +7193,36 @@ function push_UpdateFileList_Callback(hObject, ~, handles)
         errordlg('Java is not working properly. You must right-click the button.','Java error');
     end
     
-    
+function txt = addWorksheetTextBox(handles, newslide, text, fontSize, x, y, horizontalAnchor, verticalAnchor, paragraphAlignment, rotation)
+    txt = invoke(newslide.Shapes,'AddTextBox',1,0,0,0,0);
+    txt.TextFrame.TextRange.Text = text;
+    if exist('verticalAnchor', 'var') && ~isempty(verticalAnchor)
+        txt.TextFrame.VerticalAnchor = verticalAnchor;
+    end
+    if exist('horizontalAnchor', 'var') && ~isempty(horizontalAnchor)
+        txt.TextFrame.HorizontalAnchor = horizontalAnchor;
+    end
+    txt.TextFrame.WordWrap = 'msoFalse';
+    txt.TextFrame.MarginLeft = 0;
+    txt.TextFrame.MarginRight = 0;
+    txt.TextFrame.MarginTop = 0;
+    txt.TextFrame.MarginBottom = 0;
+    txt.TextFrame.TextRange.Font.Size = fontSize;
+    txt.Height = txt.TextFrame.TextRange.BoundHeight;
+    txt.Width = txt.TextFrame.TextRange.BoundWidth;
+    if exist('x', 'var') && ~isempty(x)
+        txt.Left = x;
+    end
+    if exist('y', 'var') && ~isempty(y)
+        txt.Top = y;
+    end
+    if exist('paragraphAlignment', 'var') && ~isempty(paragraphAlignment)
+        txt.TextFrame.TextRange.ParagraphFormat.Alignment = paragraphAlignment;
+    end
+    if exist('rotation', 'var') && ~isempty(rotation)
+        txt.Rotation = rotation;
+    end
+
 % --- Executes on button press in push_WorksheetAppend.
 function push_WorksheetAppend_Callback(hObject, ~, handles)
     % hObject    handle to push_WorksheetAppend (see GCBO)
@@ -7391,8 +7324,7 @@ function push_WorksheetAppend_Callback(hObject, ~, handles)
     end
     
     guidata(hObject, handles);
-    
-    
+
 function handles = UpdateWorksheet(handles)
     
     max_width = handles.WorksheetWidth - 2*handles.WorksheetMargin;
