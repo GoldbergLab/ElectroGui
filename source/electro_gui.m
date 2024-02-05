@@ -1607,7 +1607,7 @@ function handles = eg_PlotChannel(handles, axnum)
         end
     else
         % Plot plain data
-        h = plot(t, handles.loadedChannelData{axnum});
+        h = plot(handles.axes_Channel(axnum), t, handles.loadedChannelData{axnum});
     end
 
     hold(handles.axes_Channel(axnum), 'off');
@@ -3907,7 +3907,7 @@ function click_Channel(hObject, ~, handles)
     
     elseif strcmp(handles.figure_Main.SelectionType,'normal')
         ax.Units = 'pixels';
-        ax.Parent.Units = pixels';
+        ax.Parent.Units = 'pixels';
         rect = rbbox();
     
         pos = ax.Position;
@@ -4356,7 +4356,7 @@ function handles = eg_clickEventDetector(handles,axnum)
         end
     
         delete(get(handles.(['menu_EventsDisplay',num2str(axnum)]),'children'));
-        handles.menu_EventsDisplayList{axnum} = [];
+        handles.menu_EventsDisplayList{axnum} = gobjects().empty;
     
         indx = 0;
         str = handles.popup_Channel1.String;
@@ -5291,14 +5291,14 @@ function handles = UpdateEventBrowser(handles)
     if handles.menu_AnalyzeTop.Checked
         if handles.axes_Channel1.Visible
             chan = handles.loadedChannelData{1};
-            ystr = (handles.axes_Channel1.ylabel.String);
+            ystr = (handles.axes_Channel1.YLabel.String);
         else
             chan = [];
         end
     else
         if handles.axes_Channel2.Visible
             chan = handles.loadedChannelData{2};
-            ystr = (handles.axes_Channel2.ylabel.String);
+            ystr = (handles.axes_Channel2.YLabel.String);
         else
             chan = [];
         end
@@ -5383,7 +5383,7 @@ function handles = UpdateEventBrowser(handles)
     
     handles.axes_Events.UIContextMenu = handles.context_EventViewer;
     handles.axes_Events.ButtonDownFcn = 'electro_gui(''click_eventaxes'',gcbo,[],guidata(gcbo))';
-    for child = handles.axes_Event.Children'
+    for child = handles.axes_Events.Children'
         child.UIContextMenu = handles.axes_Events.UIContextMenu;
     end
     
@@ -5403,20 +5403,21 @@ function handles = UpdateEventBrowser(handles)
     end
     
     
-function click_eventwave(hObject, ~, handles)
+function click_eventwave(eventWaveHandle, ~, handles)
     
-    i = find(handles.EventWaveHandles==hObject);
+    i = find(handles.EventWaveHandles==eventWaveHandle);
     if strcmp(handles.figure_Main.SelectionType,'normal')
         handles = SelectEvent(handles,i);
-        guidata(hObject, handles);
+        guidata(eventWaveHandle, handles);
     elseif strcmp(handles.figure_Main.SelectionType,'extend')
-        set(hObject,'xdata',[],'ydata',[]);
-        hold on
-        handles.EventWaveHandles(i) = plot(mean(xlim),mean(ylim),'w.');
-        hold off
+        eventWaveHandle.XData = [];
+        eventWaveHandle.YData = [];
+        hold(handles.axes_Events, 'on');
+        handles.EventWaveHandles(i) = plot(handles.axes_Events, mean(xlim),mean(ylim),'w.');
+        hold(handles.axes_Events, 'off');
         handles = DeleteEvents(handles,i);
-        guidata(hObject, handles);
-        delete(hObject);
+        guidata(eventWaveHandle, handles);
+        delete(eventWaveHandle);
     end
     
 function handles = SelectEvent(handles,i)
@@ -5499,14 +5500,14 @@ function unselect_event(hObject, ~, handles)
 function click_eventaxes(hObject, ~, handles)
     
     if strcmp(handles.figure_Main.SelectionType,'normal')
-        handles.axes_Event.Units = 'pixels';
-        handles.axes_Event.Parent.Units = 'pixels';
+        handles.axes_Events.Units = 'pixels';
+        handles.axes_Events.Parent.Units = 'pixels';
         handles.figure_Main.Units = 'pixels';
         rect = rbbox;
     
         if rect(3)>0
-            pos = handles.axes_Event.Position;
-            pospan = handles.axes_Event.Parent.Position;
+            pos = handles.axes_Events.Position;
+            pospan = handles.axes_Events.Parent.Position;
             xl = xlim;
             yl = ylim;
     
@@ -5520,8 +5521,8 @@ function click_eventaxes(hObject, ~, handles)
         end
     
         handles.figure_Main.Units = 'normalized';
-        handles.axes_Event.Parent.Units = 'normalized';
-        handles.axes_Event.Units = 'normalized';
+        handles.axes_Events.Parent.Units = 'normalized';
+        handles.axes_Events.Units = 'normalized';
     
     elseif strcmp(handles.figure_Main.SelectionType,'open')
         axis tight
@@ -5543,20 +5544,20 @@ function click_eventaxes(hObject, ~, handles)
     
     
     elseif strcmp(handles.figure_Main.SelectionType,'extend')
-        delete(findobj('Parent',handles.axes_Event,'LineWidth',2));
+        delete(findobj('Parent',handles.axes_Events,'LineWidth',2));
         handles.SelectedEvent = [];
         delete(findobj('LineStyle','-.'));
     
-        handles.axes_Event.Units = 'pixels';
-        handles.axes_Event.Parent.Units = 'pixels';
+        handles.axes_Events.Units = 'pixels';
+        handles.axes_Events.Parent.Units = 'pixels';
         handles.figure_Main.Units = 'pixels';
         rect = rbbox;
     
-        pos = handles.axes_Event.Position;
-        pospan = handles.axes_Event.Parent.Position;
+        pos = handles.axes_Events.Position;
+        pospan = handles.axes_Events.Parent.Position;
         handles.figure_Main.Units = 'normalized';
-        handles.axes_Event.Parent.Units = 'normalized';
-        handles.axes_Event.Units = 'normalized';
+        handles.axes_Events.Parent.Units = 'normalized';
+        handles.axes_Events.Units = 'normalized';
         xl = xlim;
         yl = ylim;
     
@@ -6211,8 +6212,8 @@ function push_Export_Callback(hObject, ~, handles)
     
                 xl = handles.axes_Events.XLim;
                 yl = handles.axes_Events.YLim;
-                xlabel = handles.axes_Events.xlabel.String;
-                ylabel = handles.axes_Events.ylabel.String;
+                xlabel = handles.axes_Events.XLabel.String;
+                ylabel = handles.axes_Events.YLabel.String;
                 str = {};
                 if handles.menu_DisplayFeatures.Checked
                     xs = xs(xs>=xl(1) & xs<=xl(2));
@@ -6807,7 +6808,7 @@ function push_Export_Callback(hObject, ~, handles)
                                         unit = ' kHz';
                                         val = val/1000;
                                     case 'Amplitude'
-                                        txt = handles.axes_Amplitude.ylabel.String;
+                                        txt = handles.axes_Amplitude.YLabel.String;
                                         fnd2 = strfind(txt,')');
                                         if ~isempty(fnd2)
                                             fnd1 = strfind(txt(1:fnd2(end)),'(');
@@ -6816,7 +6817,7 @@ function push_Export_Callback(hObject, ~, handles)
                                             end
                                         end
                                     case 'Top plot'
-                                        txt = handles.axes_Channel1.ylabel.String;
+                                        txt = handles.axes_Channel1.YLabel.String;
                                         fnd2 = strfind(txt,')');
                                         if ~isempty(fnd2)
                                             fnd1 = strfind(txt(1:fnd2(end)),'(');
@@ -6825,7 +6826,7 @@ function push_Export_Callback(hObject, ~, handles)
                                             end
                                         end
                                     case 'Bottom plot'
-                                        txt = handles.axes_Channel2.ylabel.String;
+                                        txt = handles.axes_Channel2.YLabel.String;
                                         fnd2 = strfind(txt,')');
                                         if ~isempty(fnd2)
                                             fnd1 = strfind(txt(1:fnd2(end)),'(');
@@ -6869,13 +6870,13 @@ function push_Export_Callback(hObject, ~, handles)
     
                                 switch handles.template.Plot{c}
                                     case 'Sonogram'
-                                        str = handles.axes_Sonogram.ylabel.String;
+                                        str = handles.axes_Sonogram.YLabel.String;
                                     case 'Amplitude'
-                                        str = handles.axes_Amplitude.ylabel.String;
+                                        str = handles.axes_Amplitude.YLabel.String;
                                     case 'Top plot'
-                                        str = handles.axes_Channel1.ylabel.String;
+                                        str = handles.axes_Channel1.YLabel.String;
                                     case 'Bottom plot'
-                                        str = handles.axes_Channel2.ylabel.String;
+                                        str = handles.axes_Channel2.YLabel.String;
                                     case 'Sound wave'
                                         str = 'Sound amplitude (ADU)';
                                 end
@@ -8261,7 +8262,7 @@ function menu_Split_Callback(hObject, ~, handles)
     handles.SegmentTitles{filenum} = st;
     handles.SegmentSelection{filenum} = [handles.SegmentSelection{filenum}(1:min(dl)-1) ones(1,size(sg,1)) handles.SegmentSelection{filenum}(max(dl)+1:end)];
     handles = PlotSegments(handles);
-    set(gcf,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
+    handles.figure_Main.KeyPressFcn = 'electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))';
     
     guidata(hObject, handles);
     
@@ -8348,7 +8349,7 @@ function [amp, labels] = eg_CalculateAmplitude(handles)
         elseif handles.menu_SourceTopPlot.Checked
             if handles.axes_Channel1.Visible
                 amp = smooth(handles.loadedChannelData{1},wind);
-                labels = handles.axes_Channel1.ylabel.String;
+                labels = handles.axes_Channel1.YLabel.String;
             else
                 amp = zeros(size(sound));
                 labels = '';
@@ -8356,7 +8357,7 @@ function [amp, labels] = eg_CalculateAmplitude(handles)
         elseif handles.menu_SourceBottomPlot.Checked
             if handles.axes_Channel2.Visible
                 amp = smooth(handles.loadedChannelData{2},wind);
-                labels = handles.axes_Channel2.ylabel.String;
+                labels = handles.axes_Channel2.YLabel.String;
             else
                 amp = zeros(size(sound));
                 labels = '';
@@ -8405,7 +8406,7 @@ function menu_Concatenate_Callback(hObject, ~, handles)
     handles = SetActiveSegment(handles, min(f));
     % set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'LineWidth',1);
     % set(handles.SegmentHandles(min(f)),'edgecolor',handles.SegmentActiveColor,'LineWidth',2);
-    set(gcf,'keypressfcn','electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))');
+    handles.figure_Main.KeyPressFcn = 'electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))';
     
     guidata(hObject, handles);
     
