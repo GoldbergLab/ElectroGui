@@ -1782,8 +1782,10 @@ function handles = PlotSegments(handles, activeSegmentNum, activeMarkerNum)
         handles.SegmentHandles(segmentIdx).FaceColor = handles.SegmentUnSelectColor;
     end
     % Center-justify segment label text
-    handles.SegmentLabelHandles.HorizontalAlignment = 'center';
-    handles.SegmentLabelHandles.Verticalalignment = 'bottom';
+    for segment = handles.SegmentLabelHandles
+        segment.HorizontalAlignment = 'center';
+        segment.VerticalAlignment = 'bottom';
+    end
     % Get current time-zoom state of audio data
     xd = handles.xlimbox.XData;
     % Set time-zoom state of segment axes to match audio axes
@@ -2171,7 +2173,7 @@ function click_sound(hObject, ~, handles)
         handles = CreateNewMarker(handles, x);
     end
     
-    guidata(hObject, handles);
+    guidata(handles.figure_Main, handles);
     
 function handles = CreateNewMarker(handles, x)
     % Create a new marker from time x(1) to time x(2)
@@ -3126,6 +3128,17 @@ function SegmenterMenuClick(hObject, ~, handles)
     
     guidata(hObject, handles);
     
+
+function handles = updateSegmentSelectHighlight(handles)
+    % Set the color of the segment handle depending on whether or not
+    % the segment is selected
+    for segmentNum = 1:length(handles.SegmentHandles)
+        if handles.SegmentSelection{filenum}(segmentNum)
+            handles.SegmentHandles(k).FaceColor = handles.SegmentSelectColor;
+        else
+            handles.SegmentHandles(k).FaceColor = handles.SegmentUnSelectColor;
+        end
+    end
     
     
 function click_segmentaxes(hObject, ~, handles)
@@ -3161,9 +3174,7 @@ function click_segmentaxes(hObject, ~, handles)
         f = unique([f; g; h]);
     
         handles.SegmentSelection{filenum}(f) = ~handles.SegmentSelection{filenum}(f); %sum(handles.SegmentSelection{filenum}(f))<=length(f)/2;
-    
-        handles.SegmentHandles.FaceColor = handles.SegmentSelectColor;
-        set(handles.SegmentHandles(find(handles.SegmentSelection{filenum}==0)),'FaceColor',handles.SegmentUnSelectColor);
+        handles = updateSegmentSelectHighlight(handles);
     elseif strcmp(handles.figure_Main.SelectionType,'open')
         [handles, numSamples] = eg_GetNumSamples(handles);
     
@@ -3173,11 +3184,10 @@ function click_segmentaxes(hObject, ~, handles)
     elseif strcmp(handles.figure_Main.SelectionType,'extend')
         if sum(handles.SegmentSelection{filenum})==length(handles.SegmentSelection{filenum})
             handles.SegmentSelection{filenum} = zeros(size(handles.SegmentSelection{filenum}));
-            handles.SegmentHandles.FaceColor = handles.SegmentUnSelectColor;
         else
             handles.SegmentSelection{filenum} = ones(size(handles.SegmentSelection{filenum}));
-            handles.SegmentHandles.FaceColor = handles.SegmentSelectColor;
         end
+        handles = updateSegmentSelectHighlight(handles);
     end
     
     guidata(hObject, handles);
@@ -3251,7 +3261,7 @@ function menu_DeleteAll_Callback(hObject, ~, handles)
     filenum = getCurrentFileNum(handles);
     handles.SegmentSelection{filenum} = zeros(size(handles.SegmentSelection{filenum}));
     
-    handles.SegmentHandles.FaceColor = handles.SegmentUnSelectColor;
+    handles = updateSegmentSelectHighlight(handles);
     
     guidata(hObject, handles);
     
@@ -3266,7 +3276,7 @@ function menu_UndeleteAll_Callback(hObject, ~, handles)
     filenum = getCurrentFileNum(handles);
     handles.SegmentSelection{filenum} = ones(size(handles.SegmentSelection{filenum}));
     
-    handles.SegmentHandles.FaceColor = handles.SegmentSelectColor;
+    handles = updateSegmentSelectHighlight(handles);
     
     guidata(hObject, handles);
     
@@ -5345,7 +5355,6 @@ function handles = UpdateEventBrowser(handles)
         else
             ylabel(handles.axes_Events, '');
         end
-        handles.EventWaveHandles.ButtonDownFcn = 'electro_gui(''click_eventwave'',gcbo,[],guidata(gcbo))';
     else
         handles.EventWaveHandles = gobjects().empty;
         if ~isempty(chan)
@@ -5378,7 +5387,11 @@ function handles = UpdateEventBrowser(handles)
             xlabel('');
             ylabel('');
         end
-        set(handles.EventWaveHandles,'ButtonDownFcn','electro_gui(''click_eventwave'',gcbo,[],guidata(gcbo))');
+    end
+
+    % Set click handlers for event waves
+    for k = 1:length(handles.EventWaveHandles)
+        handles.EventWaveHandles(k).ButtonDownFcn = 'electro_gui(''click_eventwave'',gcbo,[],guidata(gcbo))';
     end
     
     handles.axes_Events.UIContextMenu = handles.context_EventViewer;
@@ -5439,14 +5452,15 @@ function handles = SelectEvent(handles,i)
             ms = handles.EventWaveHandles(i).MarkerSize;
             h = plot(handles.axes_Events, x,y,'LineWidth',2,'marker',m,'markersize',ms,'markerfacecolor','r','markeredgecolor','r');
         end
-        set(h,'ButtonDownFcn','electro_gui(''unselect_event'',gcbo,[],guidata(gcbo))');
+        h.ButtonDownFcn = 'electro_gui(''unselect_event'',gcbo,[],guidata(gcbo))';
         xlim(handles.axes_Events, xl);
         ylim(handles.axes_Events, yl);
         hold(handles.axes_Events, 'off');
     end
     
-    
-    handles.EventWaveHandles.ButtonDownFcn = 'electro_gui(''click_eventwave'',gcbo,[],guidata(gcbo))';
+    for k = 1:length(handles.EventWaveHandles)
+        handles.EventWaveHandles(k).ButtonDownFcn = 'electro_gui(''click_eventwave'',gcbo,[],guidata(gcbo))';
+    end
     
     filenum = getCurrentFileNum(handles);
     nums = [];
@@ -7398,8 +7412,10 @@ function handles = UpdateWorksheet(handles)
         end
     end
     
-    handles.WorksheetHandles.ButtonDownFcn = 'electro_gui(''click_Worksheet'',gcbo,[],guidata(gcbo))';
-    handles.WorksheetHandles.UIContextMenu = handles.context_Worksheet;
+    for k = 1:length(handles.WorksheetHandles)
+        handles.WorksheetHandles(k).ButtonDownFcn = 'electro_gui(''click_Worksheet'',gcbo,[],guidata(gcbo))';
+        handles.WorksheetHandles(k).UIContextMenu = handles.context_Worksheet;
+    end
     
     axis(handles.axes_Worksheet, 'equal');
     axis(handles.axes_Worksheet, 'tight');
