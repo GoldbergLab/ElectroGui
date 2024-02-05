@@ -1125,15 +1125,8 @@ function handles = eg_LoadFile(handles)
     end
     
     % Define callbacks
-    handles.axes_Sonogram.ButtonDownFcn = 'electro_gui(''click_sound'',gcbo,[],guidata(gcbo))';
-    for child = handles.axes_Sonogram.Children'
-        child.ButtonDownFcn = handles.axes_Sonogram.ButtonDownFcn;
-    end
-    
-    handles.axes_Sound.ButtonDownFcn = 'electro_gui(''click_sound'',gcbo,[],guidata(gcbo))';
-    for child = handles.axes_Sound.Children'
-        child.ButtonDownFcn = handles.axes_Sound.ButtonDownFcn;
-    end
+    handles = setClickSoundCallback(handles, handles.axes_Sonogram);
+    handles = setClickSoundCallback(handles, handles.axes_Sound);
     
     % Plot channels
     val = handles.popup_Channel1.Value;
@@ -1185,6 +1178,13 @@ function handles = eg_LoadFile(handles)
     handles = eg_EditTimescale(handles);
     
     cd(curr);
+
+function handles = setClickSoundCallback(handles, ax)
+    % Set click_sound as button down callback for axes and children
+    ax.ButtonDownFcn = @(~, ~, ~)click_sound(ax);
+    for ch = ax.Children'
+        ch.ButtonDownFcn = ax.ButtonDownFcn;
+    end
 
 function handles = clearAxes(handles)
     % Delete old plots
@@ -1315,7 +1315,7 @@ function handles = eg_LoadChannel(handles,axnum)
         handles.axes_Channel(axnum).Visible = 'off';
         handles.popup_Functions(axnum).Enable = 'off';
         handles.popup_EventDetectors(axnum).Enable = 'off';
-        set(handles.(['push_Detect',num2str(axnum)]),'Enable','off');
+        handles.push_Detects(axnum).Enable = 'off';
         handles.SelectedEvent = [];
         handles = UpdateEventBrowser(handles);
         return
@@ -1928,14 +1928,9 @@ function FilterMenuClick(hObject, ~, handles)
     hold(handles.axes_Sound, 'off');
     box(handles.axes_Sound, 'on');
     
-    set(handles.axes_Sonogram,'ButtonDownFcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
-    ch = handles.axes_Sonogram.Children;
-    [ch.ButtonDownFcn] = deal(handles.axes_Sonogram.ButtonDownFcn);
-    
-    set(handles.axes_Sound,'ButtonDownFcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
-    ch = handles.axes_Sound.Children;
-    [ch.ButtonDownFcn] = deal(handles.axes_Sound.ButtonDownFcn);
-    
+    handles = setClickSoundCallback(handles, handles.axes_Sonogram);
+    handles = setClickSoundCallback(handles, handles.axes_Sound);
+
     [handles.amplitude, ~] = eg_CalculateAmplitude(handles);
     
     plt = findobj('Parent', handles.axes_Amplitude, 'LineStyle', '-');
@@ -1968,13 +1963,8 @@ function handles = eg_EditTimescale(handles)
         xlim(handles.axes_Sonogram, xd(1:2));
         handles.axes_Sonogram.UIContextMenu = handles.context_Sonogram;
     
-        set(handles.axes_Sonogram,'ButtonDownFcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
-        ch = handles.axes_Sonogram.Children;
-        ch.ButtonDownFcn = handles.axes_Sonogram.ButtonDownFcn;
-    
-        set(handles.axes_Sound,'ButtonDownFcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
-        ch = handles.axes_Sound.Children;
-        ch.ButtonDownFcn = handles.axes_Sound.ButtonDownFcn;
+        handles = setClickSoundCallback(handles, handles.axes_Sonogram);
+        handles = setClickSoundCallback(handles, handles.axes_Sound);
     end
     
     xlim(handles.axes_Amplitude, xd(1:2));
@@ -2055,18 +2045,15 @@ function handles = eg_PlotSonogram(handles)
     for c = 1:length(ch)
         ch(c).UIContextMenu = handles.axes_Sonogram.UIContextMenu;
     end
+
+    handles = setClickSoundCallback(handles, handles.axes_Sonogram);
     
-    set(handles.axes_Sonogram,'ButtonDownFcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
-    ch = handles.axes_Sonogram.Children;
-    for c = 1:length(ch)
-        ch(c).ButtonDownFcn = handles.axes_Sonogram.ButtonDownFcn;
-    end
-    
-    
-function click_sound(hObject, ~, handles)
+function click_sound(clicked_axes)
     % Callback for a mouse click on the spectrogram
     
-    current_axes = gca();
+    handles = guidata(clicked_axes);
+
+    current_axes = clicked_axes;
     
     if strcmp(handles.figure_Main.SelectionType, 'normal')
         % Normal left mouse button click
@@ -2106,7 +2093,7 @@ function click_sound(hObject, ~, handles)
             shift = rect(1)-xd(1);
             xd = xd+shift;
         else
-            if handles.menu_FrequencyZoom.Checked && (hObject==handles.axes_Sonogram || hObject.Parent==handles.axes_Sonogram)
+            if handles.menu_FrequencyZoom.Checked && (clicked_axes==handles.axes_Sonogram || clicked_axes.Parent==handles.axes_Sonogram)
                 % We're zooming along the y-axis (frequency) as well as x
                 rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
                 rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
@@ -2173,7 +2160,7 @@ function click_sound(hObject, ~, handles)
         handles = CreateNewMarker(handles, x);
     end
     
-    guidata(handles.figure_Main, handles);
+    guidata(clicked_axes, handles);
     
 function handles = CreateNewMarker(handles, x)
     % Create a new marker from time x(1) to time x(2)
@@ -5395,8 +5382,10 @@ function handles = UpdateEventBrowser(handles)
     end
     
     handles.axes_Events.UIContextMenu = handles.context_EventViewer;
-    set(handles.axes_Events,'ButtonDownFcn','electro_gui(''click_eventaxes'',gcbo,[],guidata(gcbo))');
-    set(get(handles.axes_Events,'children'),'UIContextMenu',get(handles.axes_Events,'UIContextMenu'));
+    handles.axes_Events.ButtonDownFcn = 'electro_gui(''click_eventaxes'',gcbo,[],guidata(gcbo))';
+    for child = handles.axes_Event.Children'
+        child.UIContextMenu = handles.axes_Events.UIContextMenu;
+    end
     
     if ~isempty(handles.SelectedEvent)
         i = handles.SelectedEvent;
@@ -6722,11 +6711,11 @@ function push_Export_Callback(hObject, ~, handles)
                             if sum(col==1)==3
                                 col = col-eps;
                             end
-                            plot(x(f),y(f),'Color',col);
+                            plot(ax, x(f),y(f),'Color',col);
     
-                            ylim(handles.axes_Amplitude.YLim);
-                            set(gca,'ydir','normal');
-                            axis off
+                            ylim(ax, handles.axes_Amplitude.YLim);
+                            ax.YDir = 'normal';
+                            axis(ax, 'off');
     
                         case {'Top plot','Bottom plot'}
                             if ~isempty(find(progbar==1, 1)) && strcmp(handles.template.Plot{c},'Bottom plot')
@@ -6743,7 +6732,7 @@ function push_Export_Callback(hObject, ~, handles)
                             end
     
                             m = findobj('Parent',handles.axes_Channel(axnum),'LineStyle','-');
-                            hold on
+                            hold(ax, 'on')
                             for j = 1:length(m)
                                 x = m(j).XData;
                                 y = m(j).YData;
@@ -6753,12 +6742,12 @@ function push_Export_Callback(hObject, ~, handles)
                                 if sum(col==1)==3
                                     col = col-eps;
                                 end
-                                plot(x(f),y(f),'Color',col);
+                                plot(ax, x(f),y(f),'Color',col);
                             end
     
-                            ylim(handles.axes_Channel(axnum).YLim);
-                            set(gca,'ydir','normal');
-                            axis off
+                            ylim(ax, handles.axes_Channel(axnum).YLim);
+                            ax.YDir = 'normal';
+                            axis(ax, 'off');
     
                         case 'Sound wave'
                             if ~isempty(find(progbar==6, 1))
@@ -6766,19 +6755,18 @@ function push_Export_Callback(hObject, ~, handles)
                             end
     
                             m = findobj('Parent',handles.axes_Sound,'LineStyle','-');
-                            hold on
+                            hold(ax, 'on')
                             for j = 1:length(m)
                                 x = m(j).XData;
                                 y = m(j).YData;
                                 f = find(x>=xl(1) & x<=xl(2));
-                                plot(x(f),y(f),'b');
+                                plot(ax, x(f),y(f),'b');
                             end
                             linewidth = 1;
     
-                            ylim(handles.axes_Sound.YLim);
-                            set(gca,'ydir','normal');
-                            axis off
-    
+                            ylim(ax, handles.axes_Sound.YLim);
+                            ax.YDir = 'normal';
+                            axis(ax, 'off');
                     end
     
                     if handles.template.AutoYLimits(c)==1
@@ -8075,7 +8063,7 @@ function handles = eg_Overlay(handles)
         end
     end
     
-    for child = handles.axes_Sonogram.Children
+    for child = handles.axes_Sonogram.Children'
         child.UIContextMenu = handles.axes_Sonogram.UIContextMenu;
         child.ButtonDownFcn = handles.axes_Sonogram.ButtonDownFcn;
     end
@@ -8606,13 +8594,8 @@ function menu_FilterParameters_Callback(hObject, ~, handles)
     hold(handles.axes_Sound, 'off');
     box(handles.axes_Sound, 'on');
     
-    set(handles.axes_Sonogram,'ButtonDownFcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
-    ch = handles.axes_Sonogram.Children;
-    [ch.ButtonDownFcn] = deal(handles.axes_Sonogram.ButtonDownFcn);
-    
-    set(handles.axes_Sound,'ButtonDownFcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
-    ch = handles.axes_Sound.Children;
-    [ch.ButtonDownFcn] = deal(handles.axes_Sound.ButtonDownFcn);
+    handles = setClickSoundCallback(handles, handles.axes_Sonogram);
+    handles = setClickSoundCallback(handles, handles.axes_Sound);
         
     [handles.amplitude, ~] = eg_CalculateAmplitude(handles);
     
