@@ -76,7 +76,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % Default sound to display is the designated sound channel
     handles.SoundChannel = 0;
     handles.SoundExpression = '';
-    
+
     % Unread file marker:
     handles.UnreadFileMarker = '> ';
     handles.FileEntryOpenTag = '<HTML><FONT COLOR=000000>';
@@ -154,6 +154,8 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     
     % Position figure
     handles.figure_Main.Position = [.025 0.075 0.95 0.85];
+    % Set scroll handler
+    handles.figure_Main.WindowScrollWheelFcn = @scrollHandler;
     
     % Set initial parameter values
     handles.SegmenterParams.Names = {};
@@ -1155,7 +1157,7 @@ function handles = eg_LoadFile(handles)
         box(handles.axes_Amplitude, 'off');
         ylabel(handles.axes_Amplitude, labs);
         handles.axes_Amplitude.UIContextMenu = handles.context_Amplitude;
-        set(handles.axes_Amplitude, 'ButtonDownFcn','electro_gui(''click_Amplitude'',gcbo,[],guidata(gcbo))');
+        handles.axes_Amplitude.ButtonDownFcn = 'electro_gui(''click_Amplitude'',gcbo,[],guidata(gcbo))';
         for child = handles.axes_Amplitude.Children'
             child.UIContextMenu = handles.axes_Amplitude.UIContextMenu;
         end
@@ -1795,15 +1797,18 @@ function handles = PlotSegments(handles, activeSegmentNum, activeMarkerNum)
     % Get figure background color
     bg = handles.figure_Main.Color;
     % Set segment axes background & axis colors to the figure background color, I guess to hide them
-    set(ax,'xcolor',bg,'ycolor',bg,'Color',bg);
+    ax.XColor = bg;
+    ax.YColor = bg;
+    ax.Color = bg;
     % Assign context menu and click listener to segment axes
-    set(ax,'UIContextMenu',handles.context_Segments,'ButtonDownFcn','electro_gui(''click_segmentaxes'',gcbo,[],guidata(gcbo))');
+    ax.ButtonDownFcn = 'electro_gui(''click_segmentaxes'',gcbo,[],guidata(gcbo))';
+    ax.UIContextMenu = handles.context_Segments;
     % Assign context menu to all children of segment axes (segments and labels)
     for child = ax.Children'
         child.UIContextMenu = ax.UIContextMenu;
     end
     % Assign key press function to figure (labelsegment) for labeling segments
-    handles.figure_Main.KeyPressFcn = 'electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))';
+    handles.figure_Main.KeyPressFcn = @(hObject, ~, handles)labelsegment(hObject, handles);
     
     switch activeType
         case 'segment'
@@ -1941,7 +1946,8 @@ function FilterMenuClick(hObject, ~, handles)
     guidata(hObject, handles);
     
 function handles = eg_EditTimescale(handles)
-    
+    % Function that handles updating all the axes to show the appropriate
+    % timescale together
     xd = handles.xlimbox.XData;
     if xd(1) < 0
         xd([1 4:5]) = 0;
@@ -3292,7 +3298,7 @@ function click_segment(hObject, ~, handles)
             end
     %         set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'LineWidth',1);
     %         set(hObject,'edgecolor',handles.SegmentActiveColor,'LineWidth',2);
-            handles.figure_Main.KeyPressFcn = 'electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))';
+            handles.figure_Main.KeyPressFcn = @(hObject, ~, handles)labelsegment(hObject, handles);
         case 'extend'
             switch elementType
                 case 'segment'
@@ -3315,7 +3321,7 @@ function click_segment(hObject, ~, handles)
                         set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'LineWidth',1);
                         handles = SetActiveSegment(handles, activeSegNum);
     %                     set(hObject,'edgecolor',handles.SegmentActiveColor,'LineWidth',2);
-                        handles.figure_Main.KeyPressFcn = 'electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))';
+                        handles.figure_Main.KeyPressFcn = @(hObject, ~, handles)labelsegment(hObject, handles);
                     end
                 case 'Marker'
                     % Nah, doubt we need to implement concatenating adjacent
@@ -3357,9 +3363,47 @@ function handles = JoinSegmentWithNext(handles, filenum, segmentNum)
         handles.SegmentSelection{filenum}(segmentNum+1) = [];
         handles = PlotSegments(handles);
         handles = SetActiveSegment(handles, segmentNum);
-        handles.figure_Main.KeyPressFcn = 'electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))';
+        handles.figure_Main.KeyPressFcn = @(hObject, ~, handles)labelsegment(hObject, handles);
     end
+
+function inside = areCoordinatesIn(x, y, figureChild)
+    if x < figureChild.Position(1)
+        inside = false;
+    elseif x > figureChild.Position(1) + figureChild.Position(3)
+        inside = false;
+    elseif y < figureChild.Position(2)
+        inside = false;
+    elseif y > figureChild.Position(2) + figureChild.Position(4)
+        inside = false;
+    else
+        inside = true;
+    end
+
+function [x, y] = convertFigCoordsToChildAxesCoords(xFig, yFig, childAxes)
+    xAx0 = childAxes.Position(1);
+    yAx0 = childAxes.Position(2);
+    wAx = childAxes.Position(3);
+    hAx = childAxes.Position(4);
+    xAx = (xFig - xAx0)/wAx;
+    yAx = (yFig - yAx0)/hAx;
+    x = childAxes.XLim(1) + diff(childAxes.XLim)*xAx;
+    y = childAxes.YLim(1) + diff(childAxes.YLim)*yAx;
+
+function scrollHandler(source, event)
+    handles = guidata(source);
+    xy = event.Source.CurrentPoint;
+    x = xy(1);
+    y = xy(2);
+    if areCoordinatesIn(x, y, handles.axes_Sonogram)
+        [t, f] = convertFigCoordsToChildAxesCoords(x, y, handles.axes_Sonogram);
+        handles = zoomSonogram(handles, t, event.VerticalScrollCount);
+    end
+    guidata(source, handles);
     
+function handles = zoomSonogram(handles, t_center, zoomLevels)
+    zoomFactor = 2^(zoomLevels/3);
+    
+
 function labelsegment(hObject, ~, handles)
     % Callback to handle a key press labeling the selected segment
     % Ok on closer examination this is a poorly named general keypress handler.
@@ -8252,7 +8296,7 @@ function menu_Split_Callback(hObject, ~, handles)
     handles.SegmentTitles{filenum} = st;
     handles.SegmentSelection{filenum} = [handles.SegmentSelection{filenum}(1:min(dl)-1) ones(1,size(sg,1)) handles.SegmentSelection{filenum}(max(dl)+1:end)];
     handles = PlotSegments(handles);
-    handles.figure_Main.KeyPressFcn = 'electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))';
+    handles.figure_Main.KeyPressFcn = @(hObject, ~, handles)labelsegment(hObject, handles);
     
     guidata(hObject, handles);
     
@@ -8396,7 +8440,7 @@ function menu_Concatenate_Callback(hObject, ~, handles)
     handles = SetActiveSegment(handles, min(f));
     % set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'LineWidth',1);
     % set(handles.SegmentHandles(min(f)),'edgecolor',handles.SegmentActiveColor,'LineWidth',2);
-    handles.figure_Main.KeyPressFcn = 'electro_gui(''labelsegment'',gcbo,[],guidata(gcbo))';
+    handles.figure_Main.KeyPressFcn = @(hObject, ~, handles)labelsegment(hObject, handles);
     
     guidata(hObject, handles);
     
