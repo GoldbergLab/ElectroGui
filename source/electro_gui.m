@@ -262,7 +262,7 @@ function handles = setUpWorksheet(handles)
         handles.menu_OnePerLine.Checked = 'on';
     end    
     
-    handles.WorksheetHandles = [];
+    handles.WorksheetHandles = gobjects().empty();
     handles.WorksheetList = [];
     handles.WorksheetUsed = [];
     handles.WorksheetWidths = [];
@@ -1178,7 +1178,7 @@ function handles = eg_LoadFile(handles)
         else
             handles.CurrentThreshold = handles.SoundThresholds(fileNum);
         end
-        handles.SegmentLabelHandles = [];
+        handles.SegmentLabelHandles = gobjects().empty;
         handles = SetThreshold(handles);
     end
     
@@ -1753,11 +1753,11 @@ function handles = PlotSegments(handles, activeSegmentNum, activeMarkerNum)
     cla(ax);
     hold(ax, 'on');
     % Clear segment handles and segment label handles
-    handles.SegmentHandles = [];
-    handles.SegmentLabelHandles = [];
+    handles.SegmentHandles = gobjects().empty;
+    handles.SegmentLabelHandles = gobjects().empty;
     % Clear marker handles and marker label handles
-    handles.MarkerHandles = [];
-    handles.MarkerLabelHandles = [];
+    handles.MarkerHandles = gobjects().empty;
+    handles.MarkerLabelHandles = gobjects().empty;
     
     filenum = getCurrentFileNum(handles);
     
@@ -1778,9 +1778,12 @@ function handles = PlotSegments(handles, activeSegmentNum, activeMarkerNum)
         handles.MarkerActiveColor, handles.MarkerInactiveColor, [1, 3]);
     
     % Set any unselected segments to have a gray face color
-    set(handles.SegmentHandles(find(handles.SegmentSelection{filenum}==0)),'FaceColor',handles.SegmentUnSelectColor);
+    for segmentIdx = find(handles.SegmentSelection{filenum}==0)
+        handles.SegmentHandles(segmentIdx).FaceColor = handles.SegmentUnSelectColor;
+    end
     % Center-justify segment label text
-    set(handles.SegmentLabelHandles,'horizontalalignment','center','verticalalignment','bottom');
+    handles.SegmentLabelHandles.HorizontalAlignment = 'center';
+    handles.SegmentLabelHandles.Verticalalignment = 'bottom';
     % Get current time-zoom state of audio data
     xd = handles.xlimbox.XData;
     % Set time-zoom state of segment axes to match audio axes
@@ -2591,7 +2594,7 @@ function handles = InitializeVariables(handles)
     handles.EventHandles = {};
     
     handles.EventWhichPlot = 0;
-    handles.EventWaveHandles = [];
+    handles.EventWaveHandles = gobjects().empty;
     
     handles.FileLength = zeros(1,handles.TotalFileNumber);
     
@@ -5323,7 +5326,7 @@ function handles = UpdateEventBrowser(handles)
     sel = handles.EventSelected{f}{g,filenum};
     
     if handles.menu_DisplayValues.Checked
-        handles.EventWaveHandles = [];
+        handles.EventWaveHandles = gobjects().empty;
         if ~isempty(chan)
             for c = 1:length(tm)
                 mn = max([1 tm(c)-round(handles.EventLims(handles.popup_EventList.Value,1)*handles.fs)]);
@@ -5344,7 +5347,7 @@ function handles = UpdateEventBrowser(handles)
         end
         handles.EventWaveHandles.ButtonDownFcn = 'electro_gui(''click_eventwave'',gcbo,[],guidata(gcbo))';
     else
-        handles.EventWaveHandles = [];
+        handles.EventWaveHandles = gobjects().empty;
         if ~isempty(chan)
             f = findobj('Parent',handles.menu_XAxis,'Checked','on');
             str = f.Label;
@@ -7384,7 +7387,7 @@ function handles = UpdateWorksheet(handles)
         handles.WorksheetCurrentPage = max(pagenum);
     end
     f = find(pagenum==handles.WorksheetCurrentPage);
-    handles.WorksheetHandles = [];
+    handles.WorksheetHandles = gobjects().empty;
     for c = 1:length(f)
         indx = f(c);
         for d = 1:length(lst{indx})
@@ -7626,7 +7629,6 @@ function menu_WorksheetDimensions_Callback(hObject, ~, handles)
     
     guidata(hObject, handles);
     
-    
 % --------------------------------------------------------------------
 function menu_ClearWorksheet_Callback(hObject, ~, handles)
     % hObject    handle to menu_ClearWorksheet (see GCBO)
@@ -7652,7 +7654,6 @@ function menu_ClearWorksheet_Callback(hObject, ~, handles)
     handles = UpdateWorksheet(handles);
     
     guidata(hObject, handles);
-    
     
 % --------------------------------------------------------------------
 function context_ExportOptions_Callback(hObject, ~, handles)
@@ -8676,11 +8677,11 @@ function handles = eg_RestartProperties(handles)
     if isfield(handles,'PropertyTextHandles')
         delete(handles.PropertyTextHandles);
     end
-    handles.PropertyTextHandles = [];
+    handles.PropertyTextHandles = gobjects().empty;
     if isfield(handles,'PropertyObjectHandles')
         delete(handles.PropertyObjectHandles);
     end
-    handles.PropertyObjectHandles = [];
+    handles.PropertyObjectHandles = gobjects().empty();
     
     handles.DefaultPropertyValues = {};
     
