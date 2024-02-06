@@ -76,6 +76,10 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.SoundChannel = 0;
     handles.SoundExpression = '';
     
+    % Keep track of whether or not the shift and control keys are down
+    handles.ShiftKeyDown = false;
+    handles.CtrlKeyDown = false;
+
     % Min and max time to display on axes
     handles.TLim = [0, 1];
 
@@ -88,6 +92,10 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.FileEntryCloseTag = '</FONT></HTML>';
     
     handles = setSegmentAndMarkerColors(handles);
+
+    % Create a cell array of valid segment characters
+    validSegmentCharacters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%&*(){}[]_';
+    handles.validSegmentCharacters = num2cell(validSegmentCharacters);
 
     % File caching settings
     handles.EnableFileCaching = true;
@@ -495,25 +503,25 @@ function handles = populatePluginMenus(handles)
     % electro_gui directory
 
     % Populate sonogram algorithm plugin menu
-    [handles, handles.menu_Algorithm] = populatePluginMenuList(handles, 'egs', handles.DefaultSonogramPlotter, handles.menu_AlgorithmList, 'electro_gui(''AlgorithmMenuClick'',gcbo,[],guidata(gcbo))');
+    [handles, handles.menu_Algorithm] = populatePluginMenuList(handles, 'egs', handles.DefaultSonogramPlotter, handles.menu_AlgorithmList, @AlgorithmMenuClick);
     
     % Populate segmenting algorithm plugin menu
-    [handles, handles.menu_Segmenter] = populatePluginMenuList(handles, 'egg', handles.DefaultSegmenter, handles.menu_SegmenterList, 'electro_gui(''SegmenterMenuClick'',gcbo,[],guidata(gcbo))');
+    [handles, handles.menu_Segmenter] = populatePluginMenuList(handles, 'egg', handles.DefaultSegmenter, handles.menu_SegmenterList, @SegmenterMenuClick);
 
     % Populate filter algorithm plugin menu
-    [handles, handles.menu_Filter] = populatePluginMenuList(handles, 'egf', handles.DefaultFilter, handles.menu_FilterList, 'electro_gui(''FilterMenuClick'',gcbo,[],guidata(gcbo))');
+    [handles, handles.menu_Filter] = populatePluginMenuList(handles, 'egf', handles.DefaultFilter, handles.menu_FilterList, @FilterMenuClick);
 
     % Populate colormap plugin menu
-    handles.menu_ColormapList(1) = uimenu(handles.menu_Colormap, 'Label', '(Default)', 'callback','electro_gui(''ColormapClick'', gcbo,[],guidata(gcbo))');
-    [handles, handles.menu_ColormapList] = populatePluginMenuList(handles, 'egc', '(Default)', handles.menu_Colormap, 'electro_gui(''ColormapClick'',gcbo,[],guidata(gcbo))');
+    handles.menu_ColormapList(1) = uimenu(handles.menu_Colormap, 'Label', '(Default)', 'Callback', @ColormapClick);
+    [handles, handles.menu_ColormapList] = populatePluginMenuList(handles, 'egc', '(Default)', handles.menu_Colormap, @ColormapClick);
 
     % Populate macro plugin menu
-    [handles, handles.menu_Macros] = populatePluginMenuList(handles, 'egm', [], handles.context_Macros, 'electro_gui(''MacrosMenuclick'',gcbo,[],guidata(gcbo))');
+    [handles, handles.menu_Macros] = populatePluginMenuList(handles, 'egm', [], handles.context_Macros, @MacrosMenuclick);
 
     % Populate x-axis event feature algorithm plugin menu
-    [handles, handles.menu_XAxis_List] = populatePluginMenuList(handles, 'ega', handles.DefaultEventFeatureX, handles.menu_XAxis, 'electro_gui(''XAxisMenuClick'',gcbo,[],guidata(gcbo))');
+    [handles, handles.menu_XAxis_List] = populatePluginMenuList(handles, 'ega', handles.DefaultEventFeatureX, handles.menu_XAxis, @XAxisMenuClick);
     % Populate y-axis event feature algorithm plugin menu
-    [handles, handles.menu_YAxis_List] = populatePluginMenuList(handles, 'ega', handles.DefaultEventFeatureY, handles.menu_YAxis, 'electro_gui(''YAxisMenuClick'',gcbo,[],guidata(gcbo))');
+    [handles, handles.menu_YAxis_List] = populatePluginMenuList(handles, 'ega', handles.DefaultEventFeatureY, handles.menu_YAxis, @YAxisMenuClick);
 
     % Find all function algorithms
     pluginList = dir('egf_*.m');
@@ -549,7 +557,7 @@ function [handles, menus] = populatePluginMenuList(handles, pluginPrefix, defaul
     % Create a menu item for each plugin
     menus = gobjects().empty;
     for pluginIdx = 1:length(pluginNames)
-        menus(end+1) = uimenu(menuList, 'Label', pluginNames{pluginIdx}, 'callback', callback);
+        menus(end+1) = uimenu(menuList, 'Label', pluginNames{pluginIdx}, 'Callback', callback);
     end
     if ~isempty(defaultPluginName)
         % Identify where the default plugin is in the list
@@ -1128,8 +1136,8 @@ function handles = eg_LoadFile(handles)
     % If file too long
     if numSamples > handles.TooLong
         txt = text(mean(xlim),mean(ylim), 'Long file. Click to load.',...
-            'horizontalalignment', 'center', 'Color', 'r', 'fontsize', 14, 'Parent', handles.axes_Sonogram);
-        set(txt, 'ButtonDownFcn', 'electro_gui(''click_loadfile'',gcbo,[],guidata(gcbo))');
+            'HorizontalAlignment', 'center', 'Color', 'r', 'fontsize', 14, 'Parent', handles.axes_Sonogram);
+        txt.ButtonDownFcn = @click_loadfile;
         cd(curr);
     
         handles = PlotSegments(handles);
@@ -1603,7 +1611,7 @@ function handles = eg_PlotChannel(handles, axnum)
     ylabel(handles.axes_Channel(axnum), handles.Labels{axnum});
     
     handles.axes_Channel(axnum).UIContextMenu = handles.context_Channels(axnum);
-    handles.axes_Channel(axnum).ButtonDownFcn = 'electro_gui(''click_Channel'',gcbo,[],guidata(gcbo))';
+    handles.axes_Channel(axnum).ButtonDownFcn = @click_Channel;
     set(handles.axes_Channel(axnum).Children, 'UIContextMenu', handles.axes_Channel(axnum).UIContextMenu);
     set(handles.axes_Channel(axnum).Children, 'ButtonDownFcn', handles.axes_Channel(axnum).ButtonDownFcn);
     
@@ -1647,7 +1655,8 @@ function handles = SetThreshold(handles)
     end
     
     % Link segment context menu to segment axes
-    set(handles.axes_Segments,'UIContextMenu',handles.context_Segments,'ButtonDownFcn','electro_gui(''click_segmentaxes'',gcbo,[],guidata(gcbo))');
+    handles.axes_Segments.UIContextMenu = handles.context_Segments;
+    handles.axes_Segments.ButtonDownFcn = @click_segmentaxes;
     
 function handles = SegmentSounds(handles)
     
@@ -1710,7 +1719,10 @@ function [markerHandles, labelHandles] = CreateMarkers(handles, ax, times, title
     %     end
     end
     % Attach click handler "click_segment" to segment rectangle
-    set(markerHandles,'ButtonDownFcn','electro_gui(''click_segment'',gcbo,[],guidata(gcbo))');
+    
+    if ~isempty(markerHandles)
+        [markerHandles.ButtonDownFcn] = deal(@click_segment);
+    end
     
 function handles = PlotSegments(handles, activeSegmentNum, activeMarkerNum)
     if ~exist('activeSegmentNum', 'var')
@@ -1780,14 +1792,14 @@ function handles = PlotSegments(handles, activeSegmentNum, activeMarkerNum)
     ax.YColor = bg;
     ax.Color = bg;
     % Assign context menu and click listener to segment axes
-    ax.ButtonDownFcn = 'electro_gui(''click_segmentaxes'',gcbo,[],guidata(gcbo))';
+    ax.ButtonDownFcn = @click_segmentaxes;
     ax.UIContextMenu = handles.context_Segments;
     % Assign context menu to all children of segment axes (segments and labels)
     for child = ax.Children'
         child.UIContextMenu = ax.UIContextMenu;
     end
-    % Assign key press function to figure (labelsegment) for labeling segments
-    handles.figure_Main.KeyPressFcn = @(hObject, ~, handles)labelsegment(hObject, handles);
+    % Assign key press function to figure (keyPressHandler) for labeling segments
+    handles.figure_Main.KeyPressFcn = @keyPressHandler;
     
     switch activeType
         case 'segment'
@@ -2992,7 +3004,7 @@ function menu_SmoothingWindow_Callback(hObject, ~, handles)
     guidata(hObject, handles);
     
     
-function click_Amplitude(hObject, ~, handles)
+function click_Amplitude(hObject, handles)
     
     if strcmp(handles.figure_Main.SelectionType,'open')
         [handles, numSamples] = eg_GetNumSamples(handles);
@@ -3121,7 +3133,8 @@ function handles = updateSegmentSelectHighlight(handles)
     end
     
     
-function click_segmentaxes(hObject, ~, handles)
+function click_segmentaxes(hObject, event)
+    handles = guidata(hObject);
     
     filenum = getCurrentFileNum(handles);
     
@@ -3260,8 +3273,9 @@ function menu_UndeleteAll_Callback(hObject, ~, handles)
     guidata(hObject, handles);
     
     
-function click_segment(hObject, ~, handles)
+function click_segment(hObject, event)
     % Callback for clicking anything on the axes_Segments
+    handles = guidata(hObject);
     
     % Search for clicked item among segments
     activeSegNum = find(handles.SegmentHandles==hObject);
@@ -3284,7 +3298,7 @@ function click_segment(hObject, ~, handles)
             end
     %         set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'LineWidth',1);
     %         set(hObject,'edgecolor',handles.SegmentActiveColor,'LineWidth',2);
-            handles.figure_Main.KeyPressFcn = @(hObject, ~, handles)labelsegment(hObject, handles);
+            handles.figure_Main.KeyPressFcn = @keyPressHandler;
         case 'extend'
             switch elementType
                 case 'segment'
@@ -3307,7 +3321,7 @@ function click_segment(hObject, ~, handles)
                         set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'LineWidth',1);
                         handles = SetActiveSegment(handles, activeSegNum);
     %                     set(hObject,'edgecolor',handles.SegmentActiveColor,'LineWidth',2);
-                        handles.figure_Main.KeyPressFcn = @(hObject, ~, handles)labelsegment(hObject, handles);
+                        handles.figure_Main.KeyPressFcn = @keyPressHandler;
                     end
                 case 'Marker'
                     % Nah, doubt we need to implement concatenating adjacent
@@ -3349,7 +3363,7 @@ function handles = JoinSegmentWithNext(handles, filenum, segmentNum)
         handles.SegmentSelection{filenum}(segmentNum+1) = [];
         handles = PlotSegments(handles);
         handles = SetActiveSegment(handles, segmentNum);
-        handles.figure_Main.KeyPressFcn = @(hObject, ~, handles)labelsegment(hObject, handles);
+        handles.figure_Main.KeyPressFcn = @keyPressHandler;
     end
 
 function inside = areCoordinatesIn(x, y, figureChild)
@@ -3388,6 +3402,8 @@ function scrollHandler(source, event)
     if areCoordinatesIn(x, y, [handles.axes_Sonogram, handles.axes_Sound, handles.axes_Amplitude, handles.axes_Channel])
         [t, ~] = convertFigCoordsToChildAxesCoords(x, y, handles.axes_Sonogram);
         handles = zoomSonogram(handles, t, event.VerticalScrollCount);
+    elseif areCoordinatesIn(x, y, handles.axes_Events)
+        
     end
     guidata(source, handles);
     
@@ -3399,262 +3415,263 @@ function handles = zoomSonogram(handles, tCenter, zoomLevels)
     handles.TLim = [tCenter - tFraction * newTWidth, tCenter + (1-tFraction) * newTWidth];
     handles = eg_EditTimescale(handles);
 
-function labelsegment(hObject, ~, handles)
-    % Callback to handle a key press labeling the selected segment
-    % Ok on closer examination this is a poorly named general keypress handler.
-    
+function exportView(handles)
+    f_export = figure();
+
+    % Determine how many channels are visible
+    numChannels = 0;
+    for c = 1:length(handles.axes_Channel)
+        if handles.axes_Channel(c).Visible
+            numChannels = numChannels + 1;
+        end
+    end
+
+    % Copy sonogram
+    sonogram_export = subplot(numChannels+1, 1, 1, 'Parent', f_export);
+    sonogram_children = handles.axes_Sonogram.Children;
+    for k = 1:length(sonogram_children)
+        copyobj(sonogram_children(k), sonogram_export);
+    end
+    % Match axes limits
+    xlim(sonogram_export, xlim(handles.axes_Sonogram));
+    ylim(sonogram_export, ylim(handles.axes_Sonogram));
+    sonogram_export.CLim = handles.axes_Sonogram.CLim;
+    colormap(sonogram_export, handles.Colormap);
+
+    % Set figure size to match contents
+    sonogram_export.Units = handles.axes_Sonogram.Units;
+%     curr_pos = sonogram_export.Position;
+    son_pos = handles.axes_Sonogram.Position;
+    aspect_ratio = 1.2*(1+numChannels)*son_pos(4) / son_pos(3);
+    f_pos = f_export.Position;
+    f_pos(4) = f_pos(3) * aspect_ratio;
+    f_export.Position = f_pos;
+
+    % Add title to sonogram (file name)
+    currentFileName = getCurrentFileName(handles);
+    title(sonogram_export, currentFileName, 'Interpreter', 'none');
+
+    % Loop over any channels that are currently visible, and copy them
+    chan = 0;
+    for c = 1:length(handles.axes_Channel)
+        if handles.axes_Channel(c).Visible
+            chan = chan + 1;
+            channel_export = subplot(numChannels+1, 1, 1+chan, 'Parent', f_export);
+            channel_children = handles.axes_Channel(c).Children;
+            for k = 1:length(channel_children)
+                copyobj(channel_children(k), channel_export);
+            end
+
+%            [~, selectedChannelName, ~] = getSelectedChannel(handles, c);
+%             title(channel_export, selectedChannelName, 'Interpreter', 'none');
+        end
+    end
+
+function keyPressHandler(hObject, event)
+    % Callback to handle a key press
+
+    handles = guidata(hObject);
+
     % Get currently loaded file num
     filenum = getCurrentFileNum(handles);
-    % Get the last key press captured by the figure
-    ch = handles.figure_Main.CurrentCharacter;
-    % I think this is an awkward way of converting the character to a numeric ASCII code?
-    chn = sum(ch);
-    
-    % Keypress is a "comma" - load previous file
-    if chn==44
-        filenum = getCurrentFileNum(handles);
-        filenum = filenum-1;
-        if filenum == 0
-            filenum = handles.TotalFileNumber;
+
+    if any(strcmp('control', event.Modifier))
+        % User pressed a key with 'control' down
+        switch event.Key
+           case 'e'
+                % User pressed "control-e"
+                % Press control-e to produce a export of the sonogram and any channel
+                % views.
+                exportView(handles);
+                return
         end
-        handles.edit_FileNumber.String = num2str(filenum);
-    
-        handles = eg_LoadFile(handles);
-        guidata(hObject, handles);
-        return
-    end
-    % Keypress is a "period" - load next file
-    if chn==46
-        filenum = getCurrentFileNum(handles);
-        filenum = filenum+1;
-        if filenum > handles.TotalFileNumber
-            filenum = 1;
+    else
+        % User pressed a key without control down
+        switch event.Key
+            case ','
+                % Keypress is a "comma" - load previous file
+                filenum = getCurrentFileNum(handles);
+                filenum = filenum-1;
+                if filenum == 0
+                    filenum = handles.TotalFileNumber;
+                end
+                handles.edit_FileNumber.String = num2str(filenum);
+            
+                handles = eg_LoadFile(handles);
+                guidata(hObject, handles);
+                return
+            case '.'
+                % Keypress is a "period" - load next file
+                filenum = getCurrentFileNum(handles);
+                filenum = filenum+1;
+                if filenum > handles.TotalFileNumber
+                    filenum = 1;
+                end
+                handles.edit_FileNumber.String = num2str(filenum);
+            
+                handles = eg_LoadFile(handles);
+                guidata(hObject, handles);
+                return
         end
-        handles.edit_FileNumber.String = num2str(filenum);
-    
-        handles = eg_LoadFile(handles);
-        guidata(hObject, handles);
-        return
-    end
-    % User pressed "control-e"
-    if chn == 5
-        % Press control-e to produce a export of the sonogram and any channel
-        % views.
-        f_export = figure();
-    
-        % Determine how many channels are visible
-        numChannels = 0;
-        for c = 1:length(handles.axes_Channel)
-            if handles.axes_Channel(c).Visible
-                numChannels = numChannels + 1;
+        % Move on to checking for segment/marker related keypresses
+
+        % Find the handle for the currently active segment
+        segmentNum = FindActiveSegment(handles);
+        markerNum = FindActiveMarker(handles);
+        
+        if isempty(handles.SegmentHandles) && isempty(handles.MarkerHandles)
+            % No segments or markers defined, do nothing
+            return
+        end
+        if isempty(segmentNum) && isempty(markerNum)
+            % No active segment or active marker, do nothing
+            return
+        elseif ~isempty(segmentNum) && ~isempty(markerNum)
+            error('Both a marker and a segment were active. This shouldn''t happen');
+        else
+            if ~isempty(segmentNum)
+                activeType = 'segment';
+            elseif ~isempty(markerNum)
+                activeType = 'marker';
             end
         end
-    
-        % Copy sonogram
-        sonogram_export = subplot(numChannels+1, 1, 1, 'Parent', f_export);
-        sonogram_children = handles.axes_Sonogram.Children;
-        for k = 1:length(sonogram_children)
-            copyobj(sonogram_children(k), sonogram_export);
-        end
-        % Match axes limits
-        xlim(sonogram_export, xlim(handles.axes_Sonogram));
-        ylim(sonogram_export, ylim(handles.axes_Sonogram));
-        sonogram_export.CLim = handles.axes_Sonogram.CLim;
-        colormap(sonogram_export, handles.Colormap);
-    
-        % Set figure size to match contents
-        sonogram_export.Units = handles.axes_Sonogram.Units;
-    %     curr_pos = sonogram_export.Position;
-        son_pos = handles.axes_Sonogram.Position;
-        aspect_ratio = 1.2*(1+numChannels)*son_pos(4) / son_pos(3);
-        f_pos = f_export.Position;
-        f_pos(4) = f_pos(3) * aspect_ratio;
-        f_export.Position = f_pos;
-    
-        % Add title to sonogram (file name)
-        currentFileName = getCurrentFileName(handles);
-        title(sonogram_export, currentFileName, 'Interpreter', 'none');
-    
-        % Loop over any channels that are currently visible, and copy them
-        chan = 0;
-        for c = 1:length(handles.axes_Channel)
-            if handles.axes_Channel(c).Visible
-                chan = chan + 1;
-                channel_export = subplot(numChannels+1, 1, 1+chan, 'Parent', f_export);
-                channel_children = handles.axes_Channel(c).Children;
-                for k = 1:length(channel_children)
-                    copyobj(channel_children(k), channel_export);
+
+        switch event.Key
+            case handles.validSegmentCharacters
+                % Key was in the range of normal printable keyboard characters, but
+                %   isn't a comma or period
+                switch activeType
+                    case 'segment'
+                        % Set the currently active segment title to the pressed key
+                        handles.SegmentTitles{filenum}{segmentNum} = event.Key;
+                        % Update the segment label to reflect the new segment title
+                        handles.SegmentLabelHandles(segmentNum).String = event.Key;
+                        newSegmentNum = segmentNum + 1;
+                    case 'marker'
+                        % Set the currently active marker title to the pressed key
+                        handles.MarkerTitles{filenum}{markerNum} = event.Key;
+                        % Update the segment label to reflect the new segment title
+                        handles.MarkerLabelHandles(markerNum).String = event.Key;
+                        newMarkerNum = markerNum + 1;
                 end
-    
-    %            [~, selectedChannelName, ~] = getSelectedChannel(handles, c);
-    %             title(channel_export, selectedChannelName, 'Interpreter', 'none');
-            end
-        end
-        return
-    end
-    
-    % Find the handle for the currently active segment
-    segmentNum = FindActiveSegment(handles);
-    markerNum = FindActiveMarker(handles);
-    
-    if isempty(handles.SegmentHandles) && isempty(handles.MarkerHandles)
-        % No segments or markers defined, do nothing
-        return
-    end
-    if isempty(segmentNum) && isempty(markerNum)
-        % No active segment or active marker, do nothing
-        return
-    elseif ~isempty(segmentNum) && ~isempty(markerNum)
-        error('Both a marker and a segment were active. This shouldn''t happen');
-    else
-        if ~isempty(segmentNum)
-            activeType = 'segment';
-        elseif ~isempty(markerNum)
-            activeType = 'Marker';
-        end
-    end
-    if chn>32 && chn<127 && chn~=44 && chn~=46 && chn~=96
-        % Key was in the range of normal printable keyboard characters, but
-        %   isn't a comma or period
-        switch activeType
-            case 'segment'
-                % Set the currently active segment title to the pressed key
-                handles.SegmentTitles{filenum}{segmentNum} = ch;
-                % Update the segment label to reflect the new segment title
-                handles.SegmentLabelHandles(segmentNum).String = ch;
-                newSegmentNum = segmentNum + 1;
-            case 'Marker'
-                % Set the currently active marker title to the pressed key
-                handles.MarkerTitles{filenum}{markerNum} = ch;
-                % Update the segment label to reflect the new segment title
-                handles.MarkerLabelHandles(markerNum).String = ch;
-                newMarkerNum = markerNum + 1;
-        end
-    elseif chn==8
-        switch activeType
-            case 'segment'
-                % User pressed "backspace" - clear segment title
-                handles.SegmentTitles{filenum}{segmentNum} = '';
-                % Clear segment label
-                handles.SegmentLabelHandles(segmentNum).String = '';
-                newSegmentNum = segmentNum + 1;
-            case 'Marker'
-                % User pressed "backspace" - clear marker title
-                handles.MarkerTitles{filenum}{markerNum} = '';
-                % Clear segment label
-                handles.MarkerLabelHandles(markerNum).String = '';
-                newMarkerNum = markerNum + 1;
-        end
-    elseif chn==28
-        % User pressed right arrow
-        switch activeType
-            case 'segment'
-                newSegmentNum = segmentNum - 1;
-            case 'Marker'
-                newMarkerNum = markerNum - 1;
-        end
-    elseif chn==29
-        % User pressed left arrow
-        switch activeType
-            case 'segment'
-                newSegmentNum = segmentNum + 1;
-            case 'Marker'
-                newMarkerNum = markerNum + 1;
-        end
-    elseif chn==31
-        % User pressed down arrow
-        switch activeType
-            case 'segment'
-                % This is the bottom row - do nothing
-                return
-            case 'Marker'
-                if isempty(handles.SegmentHandles)
-                    % No segments to switch to, do nothing
-                    return
+            case 'backspace'
+                switch activeType
+                    case 'segment'
+                        % User pressed "backspace" - clear segment title
+                        handles.SegmentTitles{filenum}{segmentNum} = '';
+                        % Clear segment label
+                        handles.SegmentLabelHandles(segmentNum).String = '';
+                        newSegmentNum = segmentNum + 1;
+                    case 'marker'
+                        % User pressed "backspace" - clear marker title
+                        handles.MarkerTitles{filenum}{markerNum} = '';
+                        % Clear segment label
+                        handles.MarkerLabelHandles(markerNum).String = '';
+                        newMarkerNum = markerNum + 1;
                 end
-                markerTime = mean(handles.MarkerTimes{filenum}(markerNum, :));
-                segmentTimes = mean(handles.SegmentTimes{filenum}, 2);
-                % Find segment closest in time to the active marker, and switch
-                % to that active segment.
-                [~, newSegmentNum] = min(abs(segmentTimes - markerTime));
-                activeType = 'segment';
-        end
-    elseif chn==30
-        % User pressed up arrow
-        switch activeType
-            case 'segment'
-                if isempty(handles.MarkerHandles)
-                    % No markers to switch to, do nothing
-                    return
+            case 'rightarrow'
+                % User pressed right arrow
+                switch activeType
+                    case 'segment'
+                        newSegmentNum = segmentNum - 1;
+                    case 'marker'
+                        newMarkerNum = markerNum - 1;
                 end
-                segmentTime = mean(handles.SegmentTimes{filenum}(segmentNum, :));
-                markerTimes = mean(handles.MarkerTimes{filenum}, 2);
-                % Find segment closest in time to the active marker, and switch
-                % to that active segment.
-                [~, newMarkerNum] = min(abs(markerTimes - segmentTime));
-                activeType = 'Marker';
-            case 'Marker'
-                % This is the bottom row - do nothing
-                return
+            case 'leftarrow'
+                % User pressed left arrow
+                switch activeType
+                    case 'segment'
+                        newSegmentNum = segmentNum + 1;
+                    case 'marker'
+                        newMarkerNum = markerNum + 1;
+                end
+            case 'uparrow'
+                % User pressed up arrow
+                switch activeType
+                    case 'segment'
+                        if isempty(handles.MarkerHandles)
+                            % No markers to switch to, do nothing
+                            return
+                        end
+                        segmentTime = mean(handles.SegmentTimes{filenum}(segmentNum, :));
+                        markerTimes = mean(handles.MarkerTimes{filenum}, 2);
+                        % Find segment closest in time to the active marker, and switch
+                        % to that active segment.
+                        [~, newMarkerNum] = min(abs(markerTimes - segmentTime));
+                        activeType = 'marker';
+                    case 'marker'
+                        % This is the bottom row - do nothing
+                        return
+                end
+            case 'downarrow'
+                % User pressed down arrow
+                switch activeType
+                    case 'segment'
+                        % This is the bottom row - do nothing
+                        return
+                    case 'marker'
+                        if isempty(handles.SegmentHandles)
+                            % No segments to switch to, do nothing
+                            return
+                        end
+                        markerTime = mean(handles.MarkerTimes{filenum}(markerNum, :));
+                        segmentTimes = mean(handles.SegmentTimes{filenum}, 2);
+                        % Find segment closest in time to the active marker, and switch
+                        % to that active segment.
+                        [~, newSegmentNum] = min(abs(segmentTimes - markerTime));
+                        activeType = 'segment';
+                end
+            case 'space'
+                % User pressed "space" - join this segment with next segment
+                switch activeType
+                    case 'segment'
+                        handles = JoinSegmentWithNext(handles, filenum, segmentNum);
+                        newSegmentNum = segmentNum;
+                    case 'marker'
+                        % Don't really need to do this with markers
+                        return
+                end
+            case 'return'
+                % User pressed "enter" key - toggle active segment "selection"
+                switch activeType
+                    case 'segment'
+                        handles = ToggleSegmentSelect(handles, filenum, segmentNum);
+                        newSegmentNum = segmentNum;
+                    case 'marker'
+                        handles = ToggleMarkerSelect(handles, filenum, markerNum);
+                        newMarkerNum = markerNum;
+                end
+            case 'delete'
+                % User pressed "delete" - delete selected marker
+                switch activeType
+                    case 'segment'
+                        handles = DeleteSegment(handles, filenum, segmentNum);
+                        newSegmentNum = segmentNum;
+                    case 'marker'
+                        handles = DeleteMarker(handles, filenum, markerNum);
+                        newMarkerNum = markerNum;
+                end
+                handles = PlotSegments(handles);
+            case '`'
+                % User pressed the "`" / "~" button - transform active marker into
+                %   segment or vice versa
+                switch activeType
+                    case 'segment'
+                        [handles, newMarkerNum] = ConvertSegmentToMarker(handles, filenum, segmentNum);
+                        activeType = 'marker';
+                    case 'marker'
+                        [handles, newSegmentNum] = ConvertMarkerToSegment(handles, filenum, markerNum);
+                        activeType = 'segment';
+                end
+                handles = PlotSegments(handles);
         end
-    elseif chn==32
-        % User pressed "space" - join this segment with next segment
         switch activeType
             case 'segment'
-                handles = JoinSegmentWithNext(handles, filenum, segmentNum);
-                newSegmentNum = segmentNum;
-            case 'Marker'
-                % Don't really need to do this with markers
-                return
+                handles = SetActiveSegment(handles, newSegmentNum);
+            case 'marker'
+                handles = SetActiveMarker(handles, newMarkerNum);
         end
-    elseif chn==13
-        % User pressed "enter" key - toggle active segment "selection"
-        switch activeType
-            case 'segment'
-                handles = ToggleSegmentSelect(handles, filenum, segmentNum);
-                newSegmentNum = segmentNum;
-            case 'Marker'
-                handles = ToggleMarkerSelect(handles, filenum, markerNum);
-                newMarkerNum = markerNum;
-        end
-    elseif chn==127
-        % User pressed "delete" - delete selected marker
-        switch activeType
-            case 'segment'
-                handles = DeleteSegment(handles, filenum, segmentNum);
-                newSegmentNum = segmentNum;
-            case 'Marker'
-                handles = DeleteMarker(handles, filenum, markerNum);
-                newMarkerNum = markerNum;
-        end
-        handles = PlotSegments(handles);
-    elseif chn==96
-        % User pressed the "`" / "~" button - transform active marker into
-        %   segment or vice versa
-        switch activeType
-            case 'segment'
-                [handles, newMarkerNum] = ConvertSegmentToMarker(handles, filenum, segmentNum);
-                activeType = 'Marker';
-            case 'Marker'
-                [handles, newSegmentNum] = ConvertMarkerToSegment(handles, filenum, markerNum);
-                activeType = 'segment';
-        end
-        handles = PlotSegments(handles);
-    else
-        return
     end
-    
-    switch activeType
-        case 'segment'
-            handles = SetActiveSegment(handles, newSegmentNum);
-        case 'Marker'
-            handles = SetActiveMarker(handles, newMarkerNum);
-    end
-    
-    % % Update previously active segment to not active
-    % set(handles.SegmentHandles(segnum),'edgecolor',handles.SegmentInactiveColor,'LineWidth',1);
-    % % Mark new active segment as active
-    % set(handles.SegmentHandles(newseg),'edgecolor',handles.SegmentActiveColor,'LineWidth',2);
     
     guidata(hObject, handles);
     
@@ -3897,8 +3914,9 @@ function menu_PeakDetect2_Callback(hObject, ~, handles)
     
     
     
-function click_Channel(hObject, ~, handles)
-    
+function click_Channel(hObject, event)
+    handles = guidata(hObject);
+
     obj = hObject;
     if ~strcmp(obj.Type,'axes')
         obj = obj.Parent;
@@ -4394,11 +4412,13 @@ function handles = eg_clickEventDetector(handles,axnum)
             indx = indx + size(handles.EventTimes{c},1);
         end
         for c = 1:size(handles.EventTimes{handles.EventCurrentIndex(axnum)},1)
-            lab = str{indx+c};
-            f = strfind(lab,' - ');
-            lab = lab(f(end)+3:end);
-            handles.menu_EventsDisplayList{axnum}(c) = uimenu(handles.(['menu_EventsDisplay',num2str(axnum)]),...
-                'label',lab,'callback','electro_gui(''EventsDisplayClick'',gcbo,[],guidata(gcbo))','Checked','on');
+            label = str{indx+c};
+            f = strfind(label,' - ');
+            label = label(f(end)+3:end);
+            handles.menu_EventsDisplayList{axnum}(c) = uimenu(handles.menu_EventsDisplay(axnum),...
+                'Label',label,...
+                'Callback',@EventsDisplayClick, ...
+                'Checked','on');
         end
     end
     
@@ -4673,7 +4693,7 @@ function handles = DisplayEvents(handles,axnum)
         if h(c).Checked
             eventXs = vertcat(xs(ev{c}), nan(1, length(ev{c})));
             eventYs = vertcat(chan(ev{c})', nan(1, length(ev{c})));
-            handles.EventHandles{axnum}{c} = plot(handles.axes_Channel(axnum), eventXs, eventYs, 'o','LineStyle','none','MarkerEdgeColor','k','MarkerFaceColor','k','MarkerSize',5,'ButtonDownFcn','electro_gui(''ClickEventSymbol'',gcbo,[],guidata(gcbo))');
+            handles.EventHandles{axnum}{c} = plot(handles.axes_Channel(axnum), eventXs, eventYs, 'o','LineStyle','none','MarkerEdgeColor','k','MarkerFaceColor','k','MarkerSize',5,'ButtonDownFcn',@ClickEventSymbol);
             [handles.EventHandles{axnum}{c}(sel{c}).MarkerFaceColor] = deal('w');
         else
             handles.EventHandles{axnum}{c} = [];
@@ -5391,11 +5411,11 @@ function handles = UpdateEventBrowser(handles)
 
     % Set click handlers for event waves
     for k = 1:length(handles.EventWaveHandles)
-        handles.EventWaveHandles(k).ButtonDownFcn = 'electro_gui(''click_eventwave'',gcbo,[],guidata(gcbo))';
+        handles.EventWaveHandles(k).ButtonDownFcn = @click_eventwave;
     end
     
     handles.axes_Events.UIContextMenu = handles.context_EventViewer;
-    handles.axes_Events.ButtonDownFcn = 'electro_gui(''click_eventaxes'',gcbo,[],guidata(gcbo))';
+    handles.axes_Events.ButtonDownFcn = @click_eventaxes;
     for child = handles.axes_Events.Children'
         child.UIContextMenu = handles.axes_Events.UIContextMenu;
     end
@@ -5455,14 +5475,14 @@ function handles = SelectEvent(handles,i)
             ms = handles.EventWaveHandles(i).MarkerSize;
             h = plot(handles.axes_Events, x,y,'LineWidth',2,'Marker',m,'MarkerSize',ms,'MarkerFaceColor','r','MarkerEdgeColor','r');
         end
-        h.ButtonDownFcn = 'electro_gui(''unselect_event'',gcbo,[],guidata(gcbo))';
+        h.ButtonDownFcn = @unselect_event;
         xlim(handles.axes_Events, xl);
         ylim(handles.axes_Events, yl);
         hold(handles.axes_Events, 'off');
     end
     
     for k = 1:length(handles.EventWaveHandles)
-        handles.EventWaveHandles(k).ButtonDownFcn = 'electro_gui(''click_eventwave'',gcbo,[],guidata(gcbo))';
+        handles.EventWaveHandles(k).ButtonDownFcn = @click_eventwave;
     end
     
     filenum = getCurrentFileNum(handles);
@@ -5498,7 +5518,7 @@ function handles = SelectEvent(handles,i)
             hold(handles.axes_Channel(axnum), 'off');
         end
     end
-    [h.ButtonDownFcn] = deal('electro_gui(''unselect_event'',gcbo,[],guidata(gcbo))');
+    [h.ButtonDownFcn] = deal(@unselect_event);
     
 function unselect_event(hObject, ~, handles)
     
@@ -5510,7 +5530,7 @@ function unselect_event(hObject, ~, handles)
     
     
     
-function click_eventaxes(hObject, ~, handles)
+function click_eventaxes(hObject, handles)
     
     if strcmp(handles.figure_Main.SelectionType,'normal')
         handles.axes_Events.Units = 'pixels';
@@ -6024,7 +6044,7 @@ function push_Export_Callback(hObject, ~, handles)
     % handles    structure with handles and user data (see GUIDATA)
     
     txtexp = text(mean(xlim(handles.axes_Sonogram)),mean(ylim(handles.axes_Sonogram)),'Exporting...',...
-        'horizontalalignment','center','Color','r','backgroundcolor',[1 1 1],'fontsize',14);
+        'HorizontalAlignment','center','Color','r','backgroundcolor',[1 1 1],'fontsize',14);
     drawnow
     
     tempFilename = 'eg_temp.wav';
@@ -7417,7 +7437,7 @@ function handles = UpdateWorksheet(handles)
     end
     
     for k = 1:length(handles.WorksheetHandles)
-        handles.WorksheetHandles(k).ButtonDownFcn = 'electro_gui(''click_Worksheet'',gcbo,[],guidata(gcbo))';
+        handles.WorksheetHandles(k).ButtonDownFcn = @click_Worksheet;
         handles.WorksheetHandles(k).UIContextMenu = handles.context_Worksheet;
     end
     
@@ -8277,7 +8297,7 @@ function menu_Split_Callback(hObject, ~, handles)
     handles.SegmentTitles{filenum} = st;
     handles.SegmentSelection{filenum} = [handles.SegmentSelection{filenum}(1:min(dl)-1) ones(1,size(sg,1)) handles.SegmentSelection{filenum}(max(dl)+1:end)];
     handles = PlotSegments(handles);
-    handles.figure_Main.KeyPressFcn = @(hObject, ~, handles)labelsegment(hObject, handles);
+    handles.figure_Main.KeyPressFcn = @keyPressHandler;
     
     guidata(hObject, handles);
     
@@ -8350,7 +8370,7 @@ function handles = updateAmplitude(handles, forceRedraw)
         box(handles.axes_Amplitude, 'off');
         ylabel(handles.axes_Amplitude, labels);
         handles.axes_Amplitude.UIContextMenu = handles.context_Amplitude;
-        handles.axes_Amplitude.ButtonDownFcn = 'electro_gui(''click_Amplitude'',gcbo,[],guidata(gcbo))';
+        handles.axes_Amplitude.ButtonDownFcn = @click_Amplitude;
         for child = handles.axes_Amplitude.Children'
             child.UIContextMenu = handles.axes_Amplitude.UIContextMenu;
         end
@@ -8450,7 +8470,7 @@ function menu_Concatenate_Callback(hObject, ~, handles)
     handles = SetActiveSegment(handles, min(f));
     % set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'LineWidth',1);
     % set(handles.SegmentHandles(min(f)),'edgecolor',handles.SegmentActiveColor,'LineWidth',2);
-    handles.figure_Main.KeyPressFcn = @(hObject, ~, handles)labelsegment(hObject, handles);
+    handles.figure_Main.KeyPressFcn = @keyPressHandler;
     
     guidata(hObject, handles);
     
@@ -8730,7 +8750,7 @@ function handles = eg_RestartProperties(handles)
             case 1 % string
                 handles.PropertyObjectHandles(c) = uicontrol(handles.panel_Properties,'Style','edit',...
                     'Units','normalized','String','','Position',[x 0.1 wd 0.55],...
-                    'FontSize',10,'horizontalalignment','left','backgroundcolor',[1 1 1]);
+                    'FontSize',10,'HorizontalAlignment','left','backgroundcolor',[1 1 1]);
                 handles.DefaultPropertyValues{c} = '';
             case 2 % boolean
                 handles.PropertyObjectHandles(c) = uicontrol(handles.panel_Properties,'Style','checkbox',...
@@ -8756,13 +8776,13 @@ function handles = eg_RestartProperties(handles)
                 str{end+1} = 'New value...';
                 handles.PropertyObjectHandles(c) = uicontrol(handles.panel_Properties,'Style','popupmenu',...
                     'Units','normalized','String',str,'Position',[x 0.1 wd 0.55],...
-                    'FontSize',10,'horizontalalignment','center','backgroundcolor',[1 1 1]);
+                    'FontSize',10,'HorizontalAlignment','center','backgroundcolor',[1 1 1]);
                 handles.DefaultPropertyValues{c} = str{1};
         end
     
         handles.PropertyTextHandles(c) = uicontrol(handles.panel_Properties,'Style','text',...
             'Units','normalized','String',handles.PropertyNames{c},'Position',[x 0.65 wd 0.3],...
-            'FontSize',8,'horizontalalignment','center');
+            'FontSize',8,'HorizontalAlignment','center');
     end
     
     for c = 1:length(bck_def)
@@ -8773,9 +8793,12 @@ function handles = eg_RestartProperties(handles)
         end
     end
     
-    set(handles.PropertyObjectHandles,'callback','electro_gui(''ChangeProperty'',gcbo,[],guidata(gcbo))');
-    set(handles.PropertyTextHandles,'ButtonDownFcn','electro_gui(''ClickPropertyText'',gcbo,[],guidata(gcbo))');
-    
+    if ~isempty(handles.PropertyObjectHandles)
+        handles.PropertyObjectHandles.Callback = @ChangeProperty;
+    end
+    if ~isempty(handles.PropertyTextHandles)
+        handles.PropertyTextHandles.ButtonDownFcn = @ClickPropertyText;
+    end
     
 function ChangeProperty(hObject, ~, handles)
     
@@ -9008,7 +9031,7 @@ function handles = eg_AddProperty(handles,type)
             handles.PropertyNames{end+1} = name;
             handles.PropertyObjectHandles(end+1) = uicontrol(handles.panel_Properties,'Style','popupmenu',...
                 'Units','normalized','String',str,'Position',[0 0 .1 .1],'Visible','off',...
-                'FontSize',10,'horizontalalignment','center','backgroundcolor',[1 1 1]);
+                'FontSize',10,'HorizontalAlignment','center','backgroundcolor',[1 1 1]);
             handles.DefaultPropertyValues{end+1} = str{1};
     end
     
