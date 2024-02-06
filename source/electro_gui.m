@@ -69,7 +69,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % Make ElectroGui's directory the current directory
     [pathstr, ~, ~] = fileparts(mfilename('fullpath'));
     cd(pathstr);
-    
+
     % Gather all electro_gui plugins
     handles = gatherPlugins(handles);
     
@@ -107,6 +107,10 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     
     % Prompt user to choose a defaults file, then load it.
     handles = chooseAndLoadDefaultsFile(handles);
+
+    % Load temp file, or use defaults if it doesn't exist
+    handles.tempFile = 'eg_temp.mat';
+    handles = loadTempFile(handles);
 
     % If user has QuoteFile defined in their defaults, serve them up a
     % welcome message and a nice quote
@@ -223,6 +227,34 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     
     % UIWAIT makes electro_gui wait for user response (see UIRESUME)
     % uiwait(handles.figure_Main);
+
+function handles = loadTempFile(handles)
+    % Get temp file
+    tempSettingsFields = {'lastDirectory'};
+    tempSettingsDefaultValues = {handles.DefaultRootPath};
+    if exist(handles.tempFile, 'file')
+        try
+            handles.tempSettings = load(handles.tempFile, tempSettingsFields{:});
+        catch
+            warning('Unable to open temp file, creating new one.');
+        end
+    else
+        % No temp file - use defaults
+        handles.tempSettings = struct();
+    end
+    % Loop over expected temp settings fields and set defaults if they
+    % aren't there
+    for k = 1:length(tempSettingsFields)
+        if ~isfield(handles.tempSettings, tempSettingsFields{k})
+            handles.tempSettings.(tempSettingsFields{k}) = tempSettingsDefaultValues{k};
+        end
+    end
+    updateTempFile(handles);
+
+function updateTempFile(handles)
+    % Update temp file
+    tempSettings = handles.tempSettings;
+    save(handles.tempFile, '-struct', 'tempSettings');
 
 function handles = setUpWorksheet(handles)
     sz = handles.figure_Main.PaperSize;
@@ -2559,10 +2591,13 @@ function push_Open_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    [file, path] = uigetfile(fullfile(handles.DefaultRootPath, '*.mat'),'Load analysis');
+    [file, path] = uigetfile(fullfile(handles.tempSettings.lastDirectory, '*.mat'),'Load analysis');
     if ~ischar(file)
         return
     end
+
+    handles.tempSettings.lastDirectory = path;
+    updateTempFile(handles);
     
     load([path file],'dbase');
     
@@ -2572,11 +2607,14 @@ function push_Open_Callback(hObject, ~, handles)
     
     handles.DefaultRootPath = dbase.PathName;
     if ~isfolder(handles.DefaultRootPath)
-        path2 = uigetdir(pwd,['Directory ''' handles.DefaultRootPath ''' not found. Find the new location.']);
+        path2 = uigetdir(handles.tempSettings.lastDirectory,['Directory ''' handles.DefaultRootPath ''' not found. Find the new location.']);
         if ~ischar(path2)
             return
         end
         handles.DefaultRootPath = path2;
+
+        handles.tempSettings.lastDirectory = path2;
+        updateTempFile(handles);
     end
     
     handles.DefaultFile = [path file];
@@ -3302,7 +3340,7 @@ function segmentNum = FindActiveSegment(handles)
         return;
     end
     segmentNum = find(handles.SegmentHandles == segment);
-    
+
 function handles = JoinSegmentWithNext(handles, filenum, segmentNum)
     if segmentNum < length(handles.SegmentHandles)
         % This is not the last segment in the file
@@ -5992,12 +6030,14 @@ function push_Export_Callback(hObject, ~, handles)
     str = str{val};
     switch str
         case 'Segments'
-            path = uigetdir(handles.DefaultRootPath,'Directory for segments');
+            path = uigetdir(handles.tempSettings.lastDirectory, 'Directory for segments');
             if ~ischar(path)
                 delete(txtexp)
                 return
             end
             handles.DefaultRootPath = path;
+            handles.tempSettings.lastDirectory = path;
+            updateTempFile(handles);
     
             filenum = getCurrentFileNum(handles);
     
