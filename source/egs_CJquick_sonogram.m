@@ -4,11 +4,12 @@ function ispower = egs_CJquick_sonogram(ax,wv,fs,params)
 % makes no sense when it comes to science and the important parameters can be easiliy
 % adjusted below
 
-numFreqpoints = 512; % number of points at which to take a fft on freq axis
-overlapPercent = 50;
-windowSize = 64;
+freqwinSize = 512; % NFFT - controls frequency resolution
+timewindowSize = 64; % window size of time in samples
+overlapPercent = 50; % Overlap percentage for sliding window
+
 windowOverlap = overlapPercent/100;
-windowOverlap = floor(windowOverlap*windowSize);
+windowOverlap = floor(windowOverlap*timewindowSize);
 
 if isstr(ax) & strcmp(ax,'params')
     ispower.Names = {};
@@ -18,7 +19,7 @@ end
 bck = get(ax,'units');
 freqRange = get(ax,'ylim');
 % The spectrogram
-[S,F,t] = specgram(wv, numFreqpoints, fs, windowSize,windowOverlap);
+[S,F,t] = specgram(wv, freqwinSize, fs, timewindowSize,windowOverlap);
 % Old code inherited from AAquick_sonogram
 ndx = find((F>=freqRange(1)) & (F<=freqRange(2)));
 p = 2*log(abs(S(ndx,:))+eps)+20;
