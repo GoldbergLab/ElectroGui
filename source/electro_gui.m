@@ -44,7 +44,6 @@ function varargout = electro_gui(varargin)
     end
     % End initialization code - DO NOT EDIT
     
-    
 % --- Executes just before electro_gui is made visible.
 function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % This function has no output args, see OutputFcn.
@@ -3354,16 +3353,21 @@ function handles = JoinSegmentWithNext(handles, filenum, segmentNum)
     end
 
 function inside = areCoordinatesIn(x, y, figureChild)
-    if x < figureChild.Position(1)
-        inside = false;
-    elseif x > figureChild.Position(1) + figureChild.Position(3)
-        inside = false;
-    elseif y < figureChild.Position(2)
-        inside = false;
-    elseif y > figureChild.Position(2) + figureChild.Position(4)
-        inside = false;
-    else
-        inside = true;
+    % Check if given normalized figure coordinates are inside the borders
+    % of one or more children of that figure.
+    for k = 1:length(figureChild)
+        if x < figureChild(k).Position(1)
+            inside = false;
+        elseif x > figureChild(k).Position(1) + figureChild(k).Position(3)
+            inside = false;
+        elseif y < figureChild(k).Position(2)
+            inside = false;
+        elseif y > figureChild(k).Position(2) + figureChild(k).Position(4)
+            inside = false;
+        else
+            inside = true;
+            return;
+        end
     end
 
 function [x, y] = convertFigCoordsToChildAxesCoords(xFig, yFig, childAxes)
@@ -3381,15 +3385,19 @@ function scrollHandler(source, event)
     xy = event.Source.CurrentPoint;
     x = xy(1);
     y = xy(2);
-    if areCoordinatesIn(x, y, handles.axes_Sonogram)
+    if areCoordinatesIn(x, y, [handles.axes_Sonogram, handles.axes_Sound, handles.axes_Amplitude, handles.axes_Channel])
         [t, ~] = convertFigCoordsToChildAxesCoords(x, y, handles.axes_Sonogram);
         handles = zoomSonogram(handles, t, event.VerticalScrollCount);
     end
     guidata(source, handles);
     
-function handles = zoomSonogram(handles, t_center, zoomLevels)
+function handles = zoomSonogram(handles, tCenter, zoomLevels)
     zoomFactor = 2^(zoomLevels/3);
-    
+    currentTWidth = diff(handles.TLim);
+    tFraction = (tCenter - handles.TLim(1))/currentTWidth;
+    newTWidth = currentTWidth*zoomFactor;
+    handles.TLim = [tCenter - tFraction * newTWidth, tCenter + (1-tFraction) * newTWidth];
+    handles = eg_EditTimescale(handles);
 
 function labelsegment(hObject, ~, handles)
     % Callback to handle a key press labeling the selected segment
