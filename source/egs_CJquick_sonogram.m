@@ -1,0 +1,32 @@
+function ispower = egs_CJquick_sonogram(ax,wv,fs,params)
+% ElectroGui spectrum algorithm
+% Caleb's code that doesn't account for screen resolution because that
+% makes no sense when it comes to science and the important parameters can be easiliy
+% adjusted below
+
+numFreqpoints = 512; % number of points at which to take a fft on freq axis
+overlapPercent = 50;
+windowSize = 64;
+windowOverlap = overlapPercent/100;
+windowOverlap = floor(windowOverlap*windowSize);
+
+if isstr(ax) & strcmp(ax,'params')
+    ispower.Names = {};
+    ispower.Values = {};
+    return
+end
+bck = get(ax,'units');
+freqRange = get(ax,'ylim');
+% The spectrogram
+[S,F,t] = specgram(wv, numFreqpoints, fs, windowSize,windowOverlap);
+% Old code inherited from AAquick_sonogram
+ndx = find((F>=freqRange(1)) & (F<=freqRange(2)));
+p = 2*log(abs(S(ndx,:))+eps)+20;
+f = linspace(freqRange(1),freqRange(2),size(p,1));
+
+set(ax,'units',bck);
+
+xl = xlim;
+imagesc(linspace(xl(1),xl(2),size(p,2)),f,p);
+
+ispower = 1;
