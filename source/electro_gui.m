@@ -1096,6 +1096,18 @@ else
 end
 
 subplot(handles.axes_Sound)
+
+try
+    filePath = fullfile(handles.DefaultRootPath, handles.sound_files(fileNum).name);
+    [handles.sound, handles.fs, dt, label, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, filePath, true);
+catch ME
+    if ~exist(filePath, 'file')
+        error('File not found: %s', filePath);
+    else
+        rethrow(ME);
+    end
+end
+
 handles.DatesAndTimes(fileNum) = dt;
 [handles, numSamples] = eg_GetNumSamples(handles);
 
@@ -1160,9 +1172,13 @@ end
 
 % Define callbacks
 % subplot(handles.axes_Sound);
-set(handles.axes_Sonogram, 'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
-ch = get(handles.axes_Sonogram, 'children');
-set(ch,'buttondownfcn', get(handles.axes_Sonogram, 'buttondownfcn'));
+set(handles.axes_Sonogram,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
+ch = get(handles.axes_Sonogram,'children');
+set(ch,'buttondownfcn',get(handles.axes_Sonogram,'buttondownfcn'));
+
+set(handles.axes_Sound,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
+ch = get(handles.axes_Sound,'children');
+set(ch,'buttondownfcn',get(handles.axes_Sound,'buttondownfcn'));
 
 
 % Plot channels
@@ -1342,25 +1358,32 @@ filenum = getCurrentFileNum(handles);
 val = get(handles.popup_Channels(axnum),'value');
 str = get(handles.popup_Channels(axnum),'string');
 nums = [];
-for c = 1:length(handles.EventTimes);
+for c = 1:length(handles.EventTimes)
     nums(c) = size(handles.EventTimes{c},1);
 end
 if val <= length(str)-sum(nums)
-    % /\/\/\ No idea what this signifies /\/\/\
-
-    if isSound
-        loader = handles.sound_loader;
-        filePath = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
-    else
-        loader = handles.chan_loader{selectedChannelNum};
-        filePath = fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum}(filenum).name);
-    end
-
-    if handles.EnableFileCaching
-        [handles, data] = retrieveFileFromCache(handles, filePath, loader);
-        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = data{:};
-    else
-        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
+    % No idea what this signifies
+    try
+        if isSound
+            loader = handles.sound_loader;
+            filePath = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
+        else
+            loader = handles.chan_loader{selectedChannelNum};
+            filePath = fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum}(filenum).name);
+        end
+    
+        if handles.EnableFileCaching
+            [handles, data] = retrieveFileFromCache(handles, filePath, loader);
+            [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = data{:};
+        else
+            [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
+        end
+    catch ME
+        if ~exist(filePath, 'file')
+            error('File not found: %s', filePath);
+        else
+            rethrow(ME);
+        end
     end
 else
     [handles, numSamples] = eg_GetNumSamples(handles);
@@ -1487,7 +1510,7 @@ switch soundChannel
         % Use channel 0 (the normal sound channel)
         if filtered
             % User requested filtered sound
-            if isempty(handles.filtered_sound);
+            if isempty(handles.filtered_sound)
                 handles = eg_FilterSound(handles);
             end
             sound = handles.filtered_sound;
@@ -1832,6 +1855,7 @@ else
     hold off
 end
 xlim(xl);
+disp('hi')
 
 % --------------------------------------------------------------------
 function context_Sonogram_Callback(hObject, ~, handles)
@@ -1922,9 +1946,13 @@ xlim([0, numSamples/handles.fs]);
 hold off
 box on;
 
-set(gca,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
-ch = get(gca,'children');
-set(ch,'buttondownfcn',get(gca,'buttondownfcn'));
+set(handles.axes_Sonogram,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
+ch = get(handles.axes_Sonogram,'children');
+set(ch,'buttondownfcn',get(handles.axes_Sonogram,'buttondownfcn'));
+
+set(handles.axes_Sound,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
+ch = get(handles.axes_Sound,'children');
+set(ch,'buttondownfcn',get(handles.axes_Sound,'buttondownfcn'));
 
 [handles.amplitude labs] = eg_CalculateAmplitude(handles);
 
@@ -1957,10 +1985,16 @@ set(handles.edit_Timescale,'string',num2str(xd(2)-xd(1),4));
 if strcmp(get(handles.menu_AutoCalculate,'checked'),'on')
     handles = eg_PlotSonogram(handles);
 else
-    subplot(handles.axes_Sonogram);
-    xlim(xd(1:2));
-    set(gca,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
-    set(gca,'uicontextmenu',handles.context_Sonogram);
+    xlim(handles.axes_Sonogram, xd(1:2));
+    set(handles.axes_Sonogram,'uicontextmenu',handles.context_Sonogram);
+
+    set(handles.axes_Sonogram,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
+    ch = get(handles.axes_Sonogram,'children');
+    set(ch,'buttondownfcn',get(handles.axes_Sonogram,'buttondownfcn'));
+
+    set(handles.axes_Sound,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
+    ch = get(handles.axes_Sound,'children');
+    set(ch,'buttondownfcn',get(handles.axes_Sound,'buttondownfcn'));
 end
 
 subplot(handles.axes_Amplitude);
@@ -8755,9 +8789,13 @@ xlim([0, numSamples/handles.fs]);
 hold off
 box on;
 
-set(gca,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
-ch = get(gca,'children');
-set(ch,'buttondownfcn',get(gca,'buttondownfcn'));
+set(handles.axes_Sonogram,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
+ch = get(handles.axes_Sonogram,'children');
+set(ch,'buttondownfcn',get(handles.axes_Sonogram,'buttondownfcn'));
+
+set(handles.axes_Sound,'buttondownfcn','electro_gui(''click_sound'',gcbo,[],guidata(gcbo))');
+ch = get(handles.axes_Sound,'children');
+set(ch,'buttondownfcn',get(handles.axes_Sound,'buttondownfcn'));
 
 
 [handles.amplitude labs] = eg_CalculateAmplitude(handles);
