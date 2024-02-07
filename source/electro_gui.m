@@ -1172,7 +1172,7 @@ function handles = eg_LoadFile(handles)
 
 function handles = setClickSoundCallback(handles, ax)
     % Set click_sound as button down callback for axes and children
-    ax.ButtonDownFcn = @(~, ~, ~)click_sound(ax);
+    ax.ButtonDownFcn = @click_sound;
     for ch = ax.Children'
         ch.ButtonDownFcn = ax.ButtonDownFcn;
     end
@@ -2066,12 +2066,23 @@ function handles = eg_PlotSonogram(handles)
 
     handles = setClickSoundCallback(handles, handles.axes_Sonogram);
     
-function click_sound(clicked_axes)
-    % Callback for a mouse click on the spectrogram
-    
-    handles = guidata(clicked_axes);
+function click_sound(hObject, event)
+    % Callback for a mouse click on any of the sound axes
 
-    current_axes = clicked_axes;
+    % If the direct object clicked on was not an axes, find the axes
+    % ancestor.
+    while ~isa(hObject, 'matlab.graphics.axis.Axes')
+        hObject = hObject.Parent;
+        if isa(hObject, 'matlab.ui.Figure')
+            % Something went wrong, we somehow clicked on something that
+            % does not have an axes as an ancestor
+            error('Error when clicking on one of the sound axes');
+        end
+    end
+
+    handles = guidata(hObject);
+
+    current_axes = hObject;
     
     if strcmp(handles.figure_Main.SelectionType, 'normal')
         % Normal left mouse button click
@@ -2105,10 +2116,11 @@ function click_sound(clicked_axes)
         if rect(3) == 0
             % Click/drag box has zero width, so we're going to shift the zoom
             % box so the left size aligns with the cllick location
-            shift = rect(1) - handles.TLim(1);
-            handles.TLim = handles.TLim + shift;
+            % No we're not, no one likes this
+%             shift = rect(1) - handles.TLim(1);
+%             handles.TLim = handles.TLim + shift;
         else
-            if handles.menu_FrequencyZoom.Checked && (clicked_axes==handles.axes_Sonogram || clicked_axes.Parent==handles.axes_Sonogram)
+            if handles.menu_FrequencyZoom.Checked && (hObject==handles.axes_Sonogram || hObject.Parent==handles.axes_Sonogram)
                 % We're zooming along the y-axis (frequency) as well as x
                 rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
                 rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
@@ -2122,13 +2134,14 @@ function click_sound(clicked_axes)
     elseif strcmp(handles.figure_Main.SelectionType, 'extend')
         % Shift-click
         %   Shift zoom box so the right side aligns with click location
-        pos = current_axes.CurrentPoint;
-        if pos(1,1) < handles.TLim(1)
-            return
-        end
-        handles.TLim(2) = pos(1,1);
-        % Update spectrogram scales
-        handles = eg_EditTimescale(handles);
+        % Nah
+%         pos = current_axes.CurrentPoint;
+%         if pos(1,1) < handles.TLim(1)
+%             return
+%         end
+%         handles.TLim(2) = pos(1,1);
+%         % Update spectrogram scales
+%         handles = eg_EditTimescale(handles);
     elseif strcmp(handles.figure_Main.SelectionType,'open')
         % Double-click
         %   Reset zoom
@@ -2169,7 +2182,7 @@ function click_sound(clicked_axes)
         handles = CreateNewMarker(handles, x);
     end
     
-    guidata(clicked_axes, handles);
+    guidata(hObject, handles);
     
 function handles = CreateNewMarker(handles, x)
     % Create a new marker from time x(1) to time x(2)
