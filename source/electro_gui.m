@@ -1888,10 +1888,11 @@ function AlgorithmMenuClick(hObject, ~, handles)
     guidata(hObject, handles);
     
     
-function FilterMenuClick(hObject, ~, handles)
+function FilterMenuClick(hObject, event)
+    handles = guidata(hObject);
     
     for c = 1:length(handles.menu_Filter)
-        handles.menu_Filter.Checked = 'off';
+        handles.menu_Filter(c).Checked = 'off';
     end
     hObject.Checked = 'on';
     
@@ -1916,7 +1917,7 @@ function FilterMenuClick(hObject, ~, handles)
     yl = max(abs(ylim(handles.axes_Sound)));
     ylim(handles.axes_Sound, [-yl*1.2 yl*1.2]);
     
-    handles.updateXLimbox(handles);
+    handles = updateXLimBox(handles);
 
     box(handles.axes_Sound, 'on');
     
@@ -2222,7 +2223,6 @@ function handles = SetActiveMarker(handles, markerNum)
         % No markers? Set active segment instead.
         handles = SetActiveSegment(handles, 1);
     end
-    
 function handles = SetActiveSegment(handles, segmentNum)
     % Inactivate all segments
     set(handles.SegmentHandles, 'edgecolor', handles.SegmentInactiveColor, 'LineWidth', 1);
@@ -3004,7 +3004,8 @@ function menu_SmoothingWindow_Callback(hObject, ~, handles)
     guidata(hObject, handles);
     
     
-function click_Amplitude(hObject, handles)
+function click_Amplitude(hObject, event)
+    handles = guidata(hObject);
     
     if strcmp(handles.figure_Main.SelectionType,'open')
         [handles, numSamples] = eg_GetNumSamples(handles);
@@ -3104,7 +3105,7 @@ function menu_SegmenterList_Callback(hObject, ~, handles)
 function SegmenterMenuClick(hObject, ~, handles)
     
     for c = 1:length(handles.menu_Segmenter)
-        handles.menu_Segmenter.Checked = 'off';
+        handles.menu_Segmenter(c).Checked = 'off';
     end
     hObject.Checked = 'on';
     
@@ -3330,15 +3331,22 @@ function click_segment(hObject, event)
     end
     
     guidata(hObject, handles);
-    
+
+function handles = ToggleAnnotationSelect(handles, filenum, annotationNum, activeType)
+    switch activeType
+        case 'segment'
+            handles = ToggleSegmentSelect(handles, filenum, annotationNum);
+        case 'marker'
+            handles = ToggleMarkerSelect(handles, filenum, markerNum);
+    end
 function handles = ToggleSegmentSelect(handles, filenum, segmentNum)
     handles.SegmentSelection{filenum}(segmentNum) = ~handles.SegmentSelection{filenum}(segmentNum);
     handles.SegmentHandles(segmentNum).FaceColor = handles.SegmentSelectColors{handles.SegmentSelection{filenum}(segmentNum)+1};
-    
 function handles = ToggleMarkerSelect(handles, filenum, markerNum)
     handles.MarkerSelection{filenum}(markerNum) = ~handles.MarkerSelection{filenum}(markerNum);
     handles.MarkerHandles(markerNum).FaceColor = handles.MarkerSelectColors{handles.MarkerSelection{filenum}(markerNum)+1};
     
+
 function markerNum = FindActiveMarker(handles)
     marker = findobj('Parent',handles.axes_Segments,'edgecolor',handles.MarkerActiveColor);
     if isempty(marker)
@@ -3530,64 +3538,65 @@ function keyPressHandler(hObject, event)
             error('Both a marker and a segment were active. This shouldn''t happen');
         else
             if ~isempty(segmentNum)
-                activeType = 'segment';
+                annotationNum = segmentNum;
+                annotationType = 'segment';
             elseif ~isempty(markerNum)
-                activeType = 'marker';
+                annotationNum = markerNum;
+                annotationType = 'marker';
             end
+            % Initialize ew selected annotation number
+            newAnnotationNum = annotationNum;
         end
 
         switch event.Key
             case handles.validSegmentCharacters
-                % Key was in the range of normal printable keyboard characters, but
-                %   isn't a comma or period
-                switch activeType
+                % Key was a valid character for naming a segment
+                switch annotationType
                     case 'segment'
                         % Set the currently active segment title to the pressed key
-                        handles.SegmentTitles{filenum}{segmentNum} = event.Key;
+                        handles.SegmentTitles{filenum}{annotationNum} = event.Key;
                         % Update the segment label to reflect the new segment title
-                        handles.SegmentLabelHandles(segmentNum).String = event.Key;
-                        newSegmentNum = segmentNum + 1;
+                        handles.SegmentLabelHandles(annotationNum).String = event.Key;
                     case 'marker'
                         % Set the currently active marker title to the pressed key
                         handles.MarkerTitles{filenum}{markerNum} = event.Key;
                         % Update the segment label to reflect the new segment title
                         handles.MarkerLabelHandles(markerNum).String = event.Key;
-                        newMarkerNum = markerNum + 1;
                 end
+                newAnnotationNum = markerNum + 1;
             case 'backspace'
-                switch activeType
+                switch annotationType
                     case 'segment'
                         % User pressed "backspace" - clear segment title
                         handles.SegmentTitles{filenum}{segmentNum} = '';
                         % Clear segment label
                         handles.SegmentLabelHandles(segmentNum).String = '';
-                        newSegmentNum = segmentNum + 1;
                     case 'marker'
                         % User pressed "backspace" - clear marker title
                         handles.MarkerTitles{filenum}{markerNum} = '';
                         % Clear segment label
                         handles.MarkerLabelHandles(markerNum).String = '';
-                        newMarkerNum = markerNum + 1;
                 end
+                newAnnotationNum = markerNum + 1;
             case 'rightarrow'
                 % User pressed right arrow
-                switch activeType
+                switch annotationType
                     case 'segment'
-                        newSegmentNum = segmentNum - 1;
+                        newAnnotationNum = segmentNum - 1;
                     case 'marker'
-                        newMarkerNum = markerNum - 1;
+                        newAnnotationNum = markerNum - 1;
                 end
             case 'leftarrow'
                 % User pressed left arrow
-                switch activeType
+                switch annotationType
                     case 'segment'
-                        newSegmentNum = segmentNum + 1;
+                        newAnnotationNum = segmentNum + 1;
                     case 'marker'
-                        newMarkerNum = markerNum + 1;
+                        newAnnotationNum = markerNum + 1;
                 end
             case 'uparrow'
                 % User pressed up arrow
-                switch activeType
+                switch annotationType
                     case 'segment'
                         if isempty(handles.MarkerHandles)
                             % No markers to switch to, do nothing
@@ -3597,15 +3606,15 @@ function keyPressHandler(hObject, event)
                         markerTimes = mean(handles.MarkerTimes{filenum}, 2);
                         % Find segment closest in time to the active marker, and switch
                         % to that active segment.
-                        [~, newMarkerNum] = min(abs(markerTimes - segmentTime));
-                        activeType = 'marker';
+                        [~, newAnnotationNum] = min(abs(markerTimes - segmentTime));
+                        annotationType = 'marker';
                     case 'marker'
-                        % This is the bottom row - do nothing
+                        % This is the top row - do nothing
                         return
                 end
             case 'downarrow'
                 % User pressed down arrow
-                switch activeType
+                switch annotationType
                     case 'segment'
                         % This is the bottom row - do nothing
                         return
@@ -3618,58 +3627,58 @@ function keyPressHandler(hObject, event)
                         segmentTimes = mean(handles.SegmentTimes{filenum}, 2);
                         % Find segment closest in time to the active marker, and switch
                         % to that active segment.
-                        [~, newSegmentNum] = min(abs(segmentTimes - markerTime));
-                        activeType = 'segment';
+                        [~, newAnnotationNum] = min(abs(segmentTimes - markerTime));
+                        annotationType = 'segment';
                 end
             case 'space'
                 % User pressed "space" - join this segment with next segment
-                switch activeType
+                switch annotationType
                     case 'segment'
                         handles = JoinSegmentWithNext(handles, filenum, segmentNum);
-                        newSegmentNum = segmentNum;
+                        newAnnotationNum = segmentNum;
                     case 'marker'
                         % Don't really need to do this with markers
                         return
                 end
             case 'return'
                 % User pressed "enter" key - toggle active segment "selection"
-                switch activeType
+                switch annotationType
                     case 'segment'
                         handles = ToggleSegmentSelect(handles, filenum, segmentNum);
-                        newSegmentNum = segmentNum;
+                        newAnnotationNum = segmentNum;
                     case 'marker'
                         handles = ToggleMarkerSelect(handles, filenum, markerNum);
-                        newMarkerNum = markerNum;
+                        newAnnotationNum = markerNum;
                 end
             case 'delete'
                 % User pressed "delete" - delete selected marker
-                switch activeType
+                switch annotationType
                     case 'segment'
                         handles = DeleteSegment(handles, filenum, segmentNum);
-                        newSegmentNum = segmentNum;
+                        newAnnotationNum = segmentNum;
                     case 'marker'
                         handles = DeleteMarker(handles, filenum, markerNum);
-                        newMarkerNum = markerNum;
+                        newAnnotationNum = markerNum;
                 end
                 handles = PlotSegments(handles);
             case '`'
                 % User pressed the "`" / "~" button - transform active marker into
                 %   segment or vice versa
-                switch activeType
+                switch annotationType
                     case 'segment'
-                        [handles, newMarkerNum] = ConvertSegmentToMarker(handles, filenum, segmentNum);
-                        activeType = 'marker';
+                        [handles, newAnnotationNum] = ConvertSegmentToMarker(handles, filenum, segmentNum);
+                        annotationType = 'marker';
                     case 'marker'
-                        [handles, newSegmentNum] = ConvertMarkerToSegment(handles, filenum, markerNum);
-                        activeType = 'segment';
+                        [handles, newAnnotationNum] = ConvertMarkerToSegment(handles, filenum, markerNum);
+                        annotationType = 'segment';
                 end
                 handles = PlotSegments(handles);
         end
-        switch activeType
+        switch annotationType
             case 'segment'
-                handles = SetActiveSegment(handles, newSegmentNum);
+                handles = SetActiveSegment(handles, newAnnotationNum);
             case 'marker'
-                handles = SetActiveMarker(handles, newMarkerNum);
+                handles = SetActiveMarker(handles, newAnnotationNum);
         end
     end
     
@@ -4700,7 +4709,8 @@ function handles = DisplayEvents(handles,axnum)
         end
     end    
     
-function ClickEventSymbol(hObject, ~, handles)
+function ClickEventSymbol(hObject, event)
+    handles = guidata(hObject);
     
     if hObject.Parent==handles.axes_Channel1
         axnum = 1;
@@ -10000,7 +10010,6 @@ function suppressStupidCallbackWarnings()
     menu_EventSetThreshold2_Callback;
     push_Detect1_Callback;
     push_Detect2_Callback;
-    ClickEventSymbol;
     EventsDisplayClick;
     menu_ChannelColors1_Callback;
     menu_PlotColor1_Callback;
