@@ -5,8 +5,8 @@ function ispower = egs_CJquick_sonogram(ax,wv,fs,params)
 % adjusted below
 
 freqwinSize = 512; % NFFT - controls frequency resolution
-timewindowSize = 128; % window size of time in samples
-overlapPercent = 75; % Overlap percentage for sliding window
+timewindowSize = 256; % window size of time in samples
+overlapPercent = 50; % Overlap percentage for sliding window
 windowOverlap = overlapPercent/100;
 windowOverlap = floor(windowOverlap*timewindowSize);
 
