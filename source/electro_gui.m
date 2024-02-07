@@ -2001,17 +2001,17 @@ function handles = eg_EditTimescale(handles)
     handles.slider_Time.SliderStep = [0.1*stp 0.5*stp];
     
     % Make out-of-bounds segments invisible...not sure why this is
-    % necessary
-    for c = 1:length(handles.SegmentLabelHandles)
-        if ishandle(handles.SegmentLabelHandles(c))
-            pos = get(handles.SegmentLabelHandles(c), 'Extent');
-            if pos(1) < handles.TLim(1) || pos(1) + pos(3) > handles.TLim(2)
-                handles.SegmentLabelHandles(c).Visible = 'off';
-            else
-                handles.SegmentLabelHandles(c).Visible = 'on';
-            end
-        end
-    end
+    % necessary - I think it's not, commenting it out
+%     for c = 1:length(handles.SegmentLabelHandles)
+%         if ishandle(handles.SegmentLabelHandles(c))
+%             pos = get(handles.SegmentLabelHandles(c), 'Extent');
+%             if pos(1) < handles.TLim(1) || pos(1) + pos(3) > handles.TLim(2)
+%                 handles.SegmentLabelHandles(c).Visible = 'off';
+%             else
+%                 handles.SegmentLabelHandles(c).Visible = 'on';
+%             end
+%         end
+%     end
     
     handles = eg_Overlay(handles);
     
