@@ -91,6 +91,9 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.FileEntryOpenTag = '<HTML><FONT COLOR=000000>';
     handles.FileEntryCloseTag = '</FONT></HTML>';
     
+    handles.SelectedSegmentNum = [];
+    handles.SelectedMarkerNum = [];
+
     handles = setSegmentAndMarkerColors(handles);
 
     % Create a cell array of valid segment characters
@@ -1712,7 +1715,7 @@ function [markerHandles, labelHandles] = CreateMarkers(handles, ax, times, title
         labelHandles(c) = text(ax, (x1+x2)/2,y1,titles(c), 'VerticalAlignment', 'bottom');
     %     if c==1
     %         % Set the first segment to be the selected one
-    %         set(markerHandles(c), 'edgecolor', activeColor, 'LineWidth', 2);
+    %         set(markerHandles(c), 'EdgeColor', activeColor, 'LineWidth', 2);
     %     else
             markerHandles(c).EdgeColor = inactiveColor;
             markerHandles(c).LineWidth = 1;
@@ -2207,8 +2210,8 @@ function click_segment(hObject, event)
                 case 'Marker'
                     handles = SetActiveMarker(handles, activeSegNum);
             end
-    %         set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'LineWidth',1);
-    %         set(hObject,'edgecolor',handles.SegmentActiveColor,'LineWidth',2);
+    %         set(handles.SegmentHandles,'EdgeColor',handles.SegmentInactiveColor,'LineWidth',1);
+    %         set(hObject,'EdgeColor',handles.SegmentActiveColor,'LineWidth',2);
             handles.figure_Main.KeyPressFcn = @keyPressHandler;
         case 'extend'
             switch elementType
@@ -2229,9 +2232,9 @@ function click_segment(hObject, event)
                         handles.SegmentSelection{filenum}(activeSegNum+1) = [];
                         handles = PlotSegments(handles);
                         hObject = handles.SegmentHandles(activeSegNum);
-                        set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'LineWidth',1);
+                        set(handles.SegmentHandles,'EdgeColor',handles.SegmentInactiveColor,'LineWidth',1);
                         handles = SetActiveSegment(handles, activeSegNum);
-    %                     set(hObject,'edgecolor',handles.SegmentActiveColor,'LineWidth',2);
+    %                     set(hObject,'EdgeColor',handles.SegmentActiveColor,'LineWidth',2);
                         handles.figure_Main.KeyPressFcn = @keyPressHandler;
                     end
                 case 'Marker'
@@ -2425,7 +2428,7 @@ function handles = ToggleAnnotationSelect(handles, filenum, annotationNum, activ
         case 'segment'
             handles = ToggleSegmentSelect(handles, filenum, annotationNum);
         case 'marker'
-            handles = ToggleMarkerSelect(handles, filenum, markerNum);
+            handles = ToggleMarkerSelect(handles, filenum, annotationNum);
     end
 function handles = ToggleSegmentSelect(handles, filenum, segmentNum)
     handles.SegmentSelection{filenum}(segmentNum) = ~handles.SegmentSelection{filenum}(segmentNum);
@@ -2434,15 +2437,36 @@ function handles = ToggleMarkerSelect(handles, filenum, markerNum)
     handles.MarkerSelection{filenum}(markerNum) = ~handles.MarkerSelection{filenum}(markerNum);
     handles.MarkerHandles(markerNum).FaceColor = handles.MarkerSelectColors{handles.MarkerSelection{filenum}(markerNum)+1};
 
+function handles = SetSegmentTitle(handles, title, filenum, segmentNum)
+    % Set the title of the specified segment
+    % If segmentNum is not provided, use the currently selected segment
+    % instead
+    if ~exist('segmentNum', 'var') || isempty(segmentNum)
+        segmentNum = FindActiveSegment(handles);
+    end
+    % Set the specified segment title
+    handles.SegmentTitles{filenum}{segmentNum} = title;
+    % Update the segment label to reflect the new segment title
+    handles.SegmentLabelHandles(segmentNum) = title;
+function handles = SetMarkerTitle(handles, title, filenum, markerNum)
+    % Set the title of the specified marker
+    % If markerNum is not provided, use the currently selected marker
+    % instead
+    if ~exist('markerNum', 'var') || isempty(markerNum)
+        markerNum = FindActiveMarker(handles);
+    end
+    handles.MarkerTitles{filenum}{markerNum} = title;
+    handles.MarkerLabelHandles(markerNum) = title;
+
 function markerNum = FindActiveMarker(handles)
-    marker = findobj('Parent',handles.axes_Segments,'edgecolor',handles.MarkerActiveColor);
+    marker = findobj('Parent',handles.axes_Segments,'EdgeColor',handles.MarkerActiveColor);
     if isempty(marker)
         markerNum = [];
         return;
     end
     markerNum = find(handles.MarkerHandles == marker);
 function segmentNum = FindActiveSegment(handles)
-    segment = findobj('Parent',handles.axes_Segments,'edgecolor',handles.SegmentActiveColor);
+    segment = findobj('Parent',handles.axes_Segments,'EdgeColor',handles.SegmentActiveColor);
     if isempty(segment)
         segmentNum = [];
         return;
@@ -2499,29 +2523,29 @@ function [handles, order] = SortMarkers(handles, filenum)
     handles.MarkerSelection{filenum} = handles.MarkerSelection{filenum}(order);
     handles.MarkerTitles{filenum} = handles.MarkerTitles{filenum}(order);
     handles.MarkerHandles = handles.MarkerHandles(order);
-    
+
 function handles = SetActiveMarker(handles, markerNum)
     % Inactivate all markers
-    set(handles.MarkerHandles, 'edgecolor', handles.MarkerInactiveColor, 'LineWidth', 1);
+    set(handles.MarkerHandles, 'EdgeColor', handles.MarkerInactiveColor, 'LineWidth', 1);
     % Inactivate all segments
-    set(handles.SegmentHandles, 'edgecolor', handles.SegmentInactiveColor, 'LineWidth', 1);
+    set(handles.SegmentHandles, 'EdgeColor', handles.SegmentInactiveColor, 'LineWidth', 1);
     % Activate requested marker
     if ~isempty(handles.MarkerHandles)
         markerNum = coerceToRange(markerNum, [1, length(handles.MarkerHandles)]);
-        set(handles.MarkerHandles(markerNum), 'edgecolor', handles.MarkerActiveColor, 'LineWidth', 2);
+        set(handles.MarkerHandles(markerNum), 'EdgeColor', handles.MarkerActiveColor, 'LineWidth', 2);
     else
         % No markers? Set active segment instead.
         handles = SetActiveSegment(handles, 1);
     end
 function handles = SetActiveSegment(handles, segmentNum)
     % Inactivate all segments
-    set(handles.SegmentHandles, 'edgecolor', handles.SegmentInactiveColor, 'LineWidth', 1);
+    set(handles.SegmentHandles, 'EdgeColor', handles.SegmentInactiveColor, 'LineWidth', 1);
     % Inactivate all markers
-    set(handles.MarkerHandles, 'edgecolor', handles.MarkerInactiveColor, 'LineWidth', 1);
+    set(handles.MarkerHandles, 'EdgeColor', handles.MarkerInactiveColor, 'LineWidth', 1);
     % Activate requested segment
     if ~isempty(handles.SegmentHandles)
         segmentNum = coerceToRange(segmentNum, [1, length(handles.SegmentHandles)]);
-        set(handles.SegmentHandles(segmentNum), 'edgecolor', handles.SegmentActiveColor, 'LineWidth', 2);
+        set(handles.SegmentHandles(segmentNum), 'EdgeColor', handles.SegmentActiveColor, 'LineWidth', 2);
     end
     
 function value = coerceToRange(value, valueRange)
@@ -3560,47 +3584,31 @@ function keyPressHandler(hObject, event)
                 % Key was a valid character for naming a segment
                 switch annotationType
                     case 'segment'
-                        % Set the currently active segment title to the pressed key
-                        handles.SegmentTitles{filenum}{annotationNum} = event.Key;
-                        % Update the segment label to reflect the new segment title
-                        handles.SegmentLabelHandles(annotationNum).String = event.Key;
+                        % User pressed a valid segment character - label
+                        % the currently selected segment
+                        handles = SetSegmentTitle(handles, event.Key, filenum, annotationNum);
                     case 'marker'
-                        % Set the currently active marker title to the pressed key
-                        handles.MarkerTitles{filenum}{markerNum} = event.Key;
-                        % Update the segment label to reflect the new segment title
-                        handles.MarkerLabelHandles(markerNum).String = event.Key;
+                        % User pressed a valid marker character - label
+                        % the currently selected marker
+                        handles = SetMarkerTitle(handles, event.Key, filenum, annotationNum);
                 end
-                newAnnotationNum = markerNum + 1;
+                newAnnotationNum = annotationNum + 1;
             case 'backspace'
                 switch annotationType
                     case 'segment'
                         % User pressed "backspace" - clear segment title
-                        handles.SegmentTitles{filenum}{segmentNum} = '';
-                        % Clear segment label
-                        handles.SegmentLabelHandles(segmentNum).String = '';
+                        handles = SetSegmentTitle(handles, '', filenum);
                     case 'marker'
                         % User pressed "backspace" - clear marker title
-                        handles.MarkerTitles{filenum}{markerNum} = '';
-                        % Clear segment label
-                        handles.MarkerLabelHandles(markerNum).String = '';
+                        handles = SetMarkerTitle(handles, '', filenum);
                 end
-                newAnnotationNum = markerNum + 1;
+                newAnnotationNum = annotationNum + 1;
             case 'rightarrow'
                 % User pressed right arrow
-                switch annotationType
-                    case 'segment'
-                        newAnnotationNum = segmentNum + 1;
-                    case 'marker'
-                        newAnnotationNum = markerNum + 1;
-                end
+                newAnnotationNum = annotationNum + 1;
             case 'leftarrow'
                 % User pressed left arrow
-                switch annotationType
-                    case 'segment'
-                        newAnnotationNum = segmentNum - 1;
-                    case 'marker'
-                        newAnnotationNum = markerNum - 1;
-                end
+                newAnnotationNum = annotationNum - 1;
             case 'uparrow'
                 % User pressed up arrow
                 switch annotationType
@@ -3609,7 +3617,7 @@ function keyPressHandler(hObject, event)
                             % No markers to switch to, do nothing
                             return
                         end
-                        segmentTime = mean(handles.SegmentTimes{filenum}(segmentNum, :));
+                        segmentTime = mean(handles.SegmentTimes{filenum}(annotationNum, :));
                         markerTimes = mean(handles.MarkerTimes{filenum}, 2);
                         % Find segment closest in time to the active marker, and switch
                         % to that active segment.
@@ -3630,7 +3638,7 @@ function keyPressHandler(hObject, event)
                             % No segments to switch to, do nothing
                             return
                         end
-                        markerTime = mean(handles.MarkerTimes{filenum}(markerNum, :));
+                        markerTime = mean(handles.MarkerTimes{filenum}(annotationNum, :));
                         segmentTimes = mean(handles.SegmentTimes{filenum}, 2);
                         % Find segment closest in time to the active marker, and switch
                         % to that active segment.
@@ -3641,8 +3649,8 @@ function keyPressHandler(hObject, event)
                 % User pressed "space" - join this segment with next segment
                 switch annotationType
                     case 'segment'
-                        handles = JoinSegmentWithNext(handles, filenum, segmentNum);
-                        newAnnotationNum = segmentNum;
+                        handles = JoinSegmentWithNext(handles, filenum, annotationNum);
+                        newAnnotationNum = annotationNum;
                     case 'marker'
                         % Don't really need to do this with markers
                         return
@@ -3651,21 +3659,21 @@ function keyPressHandler(hObject, event)
                 % User pressed "enter" key - toggle active segment "selection"
                 switch annotationType
                     case 'segment'
-                        handles = ToggleSegmentSelect(handles, filenum, segmentNum);
-                        newAnnotationNum = segmentNum;
+                        handles = ToggleSegmentSelect(handles, filenum, annotationNum);
+                        newAnnotationNum = annotationNum;
                     case 'marker'
-                        handles = ToggleMarkerSelect(handles, filenum, markerNum);
-                        newAnnotationNum = markerNum;
+                        handles = ToggleMarkerSelect(handles, filenum, annotationNum);
+                        newAnnotationNum = annotationNum;
                 end
             case 'delete'
                 % User pressed "delete" - delete selected marker
                 switch annotationType
                     case 'segment'
-                        handles = DeleteSegment(handles, filenum, segmentNum);
-                        newAnnotationNum = segmentNum;
+                        handles = DeleteSegment(handles, filenum, annotationNum);
+                        newAnnotationNum = annotationNum;
                     case 'marker'
-                        handles = DeleteMarker(handles, filenum, markerNum);
-                        newAnnotationNum = markerNum;
+                        handles = DeleteMarker(handles, filenum, annotationNum);
+                        newAnnotationNum = annotationNum;
                 end
                 handles = PlotSegments(handles);
             case '`'
@@ -3673,10 +3681,10 @@ function keyPressHandler(hObject, event)
                 %   segment or vice versa
                 switch annotationType
                     case 'segment'
-                        [handles, newAnnotationNum] = ConvertSegmentToMarker(handles, filenum, segmentNum);
+                        [handles, newAnnotationNum] = ConvertSegmentToMarker(handles, filenum, annotationNum);
                         annotationType = 'marker';
                     case 'marker'
-                        [handles, newAnnotationNum] = ConvertMarkerToSegment(handles, filenum, markerNum);
+                        [handles, newAnnotationNum] = ConvertMarkerToSegment(handles, filenum, annotationNum);
                         annotationType = 'segment';
                 end
                 handles = PlotSegments(handles);
@@ -8509,8 +8517,8 @@ function menu_Concatenate_Callback(hObject, ~, handles)
     handles = PlotSegments(handles);
     
     handles = SetActiveSegment(handles, min(f));
-    % set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'LineWidth',1);
-    % set(handles.SegmentHandles(min(f)),'edgecolor',handles.SegmentActiveColor,'LineWidth',2);
+    % set(handles.SegmentHandles,'EdgeColor',handles.SegmentInactiveColor,'LineWidth',1);
+    % set(handles.SegmentHandles(min(f)),'EdgeColor',handles.SegmentActiveColor,'LineWidth',2);
     handles.figure_Main.KeyPressFcn = @keyPressHandler;
     
     guidata(hObject, handles);
