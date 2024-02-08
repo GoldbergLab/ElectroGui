@@ -3211,8 +3211,6 @@ function threshold = eg_AutoThreshold(amp)
         threshold = -threshold;
     end
     
-    
-    
     % by Aaron Andalman
 function [uNoise, uSound, sdNoise, sdSound] = eg_estimateTwoMeans(audioLogPow)
     
@@ -3591,17 +3589,17 @@ function keyPressHandler(hObject, event)
                 % User pressed right arrow
                 switch annotationType
                     case 'segment'
-                        newAnnotationNum = segmentNum - 1;
+                        newAnnotationNum = segmentNum + 1;
                     case 'marker'
-                        newAnnotationNum = markerNum - 1;
+                        newAnnotationNum = markerNum + 1;
                 end
             case 'leftarrow'
                 % User pressed left arrow
                 switch annotationType
                     case 'segment'
-                        newAnnotationNum = segmentNum + 1;
+                        newAnnotationNum = segmentNum - 1;
                     case 'marker'
-                        newAnnotationNum = markerNum + 1;
+                        newAnnotationNum = markerNum - 1;
                 end
             case 'uparrow'
                 % User pressed up arrow
