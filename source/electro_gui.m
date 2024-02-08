@@ -2183,6 +2183,283 @@ function click_sound(hObject, event)
     end
     
     guidata(hObject, handles);
+
+function click_segment(hObject, event)
+    % Callback for clicking anything on the axes_Segments
+    handles = guidata(hObject);
+    
+    % Search for clicked item among segments
+    activeSegNum = find(handles.SegmentHandles==hObject);
+    if isempty(activeSegNum)
+        % No matching segment found. Must be a marker.
+        activeSegNum = find(handles.MarkerHandles==hObject);
+        elementType = 'Marker';
+    else
+        elementType = 'segment';
+    end
+    
+    filenum = getCurrentFileNum(handles);
+    switch handles.figure_Main.SelectionType
+        case 'normal'
+            switch elementType
+                case 'segment'
+                    handles = SetActiveSegment(handles, activeSegNum);
+                case 'Marker'
+                    handles = SetActiveMarker(handles, activeSegNum);
+            end
+    %         set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'LineWidth',1);
+    %         set(hObject,'edgecolor',handles.SegmentActiveColor,'LineWidth',2);
+            handles.figure_Main.KeyPressFcn = @keyPressHandler;
+        case 'extend'
+            switch elementType
+                case 'segment'
+                    handles.SegmentSelection{filenum}(activeSegNum) = ~handles.SegmentSelection{filenum}(activeSegNum);
+                    hObject.FaceColor = handles.SegmentSelectColors{handles.SegmentSelection{filenum}(activeSegNum+1)};
+                case 'Marker'
+                    handles.MarkerSelection{filenum}(activeSegNum) = ~handles.MarkerSelection{filenum}(activeSegNum);
+                    hObject.FaceColor = handles.MarkerSelectColors{handles.MarkerSelection{filenum}(activeSegNum+1)};
+            end
+        case 'open'
+            switch elementType
+                case 'segment'
+                    if activeSegNum < length(handles.SegmentHandles)
+                        handles.SegmentTimes{filenum}(activeSegNum,2) = handles.SegmentTimes{filenum}(activeSegNum+1,2);
+                        handles.SegmentTimes{filenum}(activeSegNum+1,:) = [];
+                        handles.SegmentTitles{filenum}(activeSegNum+1) = [];
+                        handles.SegmentSelection{filenum}(activeSegNum+1) = [];
+                        handles = PlotSegments(handles);
+                        hObject = handles.SegmentHandles(activeSegNum);
+                        set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'LineWidth',1);
+                        handles = SetActiveSegment(handles, activeSegNum);
+    %                     set(hObject,'edgecolor',handles.SegmentActiveColor,'LineWidth',2);
+                        handles.figure_Main.KeyPressFcn = @keyPressHandler;
+                    end
+                case 'Marker'
+                    % Nah, doubt we need to implement concatenating adjacent
+                    % markers.
+            end
+    end
+    
+    guidata(hObject, handles);
+
+
+% --------------------------------------------------------------------
+function context_Segments_Callback(hObject, ~, handles)
+    % hObject    handle to context_Segments (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    
+% --------------------------------------------------------------------
+function menu_SegmenterList_Callback(hObject, ~, handles)
+    % hObject    handle to menu_SegmenterList (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+
+% --------------------------------------------------------------------
+function menu_DeleteAll_Callback(hObject, ~, handles)
+    % hObject    handle to menu_DeleteAll (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    filenum = getCurrentFileNum(handles);
+    handles.SegmentSelection{filenum} = zeros(size(handles.SegmentSelection{filenum}));
+    
+    handles = updateSegmentSelectHighlight(handles);
+    
+    guidata(hObject, handles);
+
+% --------------------------------------------------------------------
+function menu_UndeleteAll_Callback(hObject, ~, handles)
+    % hObject    handle to menu_UndeleteAll (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    filenum = getCurrentFileNum(handles);
+    handles.SegmentSelection{filenum} = ones(size(handles.SegmentSelection{filenum}));
+    
+    handles = updateSegmentSelectHighlight(handles);
+    
+    guidata(hObject, handles);
+
+% --- Executes on button press in push_Segment.
+function push_Segment_Callback(hObject, ~, handles)
+    % hObject    handle to push_Segment (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    handles = SegmentSounds(handles);
+    
+    guidata(hObject, handles);
+    
+    
+% --------------------------------------------------------------------
+function menu_AutoSegment_Callback(hObject, ~, handles)
+    % hObject    handle to menu_AutoSegment (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    
+    if ~handles.menu_AutoSegment.Checked
+        handles.menu_AutoSegment.Checked = 'on';
+        handles = SegmentSounds(handles);
+    else
+        handles.menu_AutoSegment.Checked = 'off';
+    end
+    
+    guidata(hObject, handles);
+
+% --------------------------------------------------------------------
+function menu_SegmentParameters_Callback(hObject, ~, handles)
+    % hObject    handle to menu_SegmentParameters (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    
+    if isempty(handles.SegmenterParams.Names)
+        errordlg('Current segmenter does not require parameters.','Segmenter error');
+        return
+    end
+    
+    answer = inputdlg(handles.SegmenterParams.Names,'Segmenter parameters',1,handles.SegmenterParams.Values);
+    if isempty(answer)
+        return
+    end
+    handles.SegmenterParams.Values = answer;
+    
+    for c = 1:length(handles.menu_Segmenter)
+        if handles.menu_Segmenter(c).Checked
+            h = handles.menu_Segmenter(c);
+            h.UserData = handles.SegmenterParams;
+        end
+    end
+    
+    handles = SegmentSounds(handles);
+    
+    guidata(hObject, handles);
+    
+function SegmenterMenuClick(hObject, ~, handles)
+    
+    for c = 1:length(handles.menu_Segmenter)
+        handles.menu_Segmenter(c).Checked = 'off';
+    end
+    hObject.Checked = 'on';
+    
+    if isempty(hObject.UserData)
+        alg = hObject.Label;
+        handles.SegmenterParams = eg_runPlugin(handles.plugins.segmenters, alg, 'params');
+        hObject.UserData = handles.SegmenterParams;
+    else
+        handles.SegmenterParams = hObject.UserData;
+    end
+    
+    handles = SetThreshold(handles);
+    
+    guidata(hObject, handles);
+
+function handles = updateSegmentSelectHighlight(handles)
+    % Set the color of the segment handle depending on whether or not
+    % the segment is selected
+    for segmentNum = 1:length(handles.SegmentHandles)
+        if handles.SegmentSelection{filenum}(segmentNum)
+            handles.SegmentHandles(k).FaceColor = handles.SegmentSelectColor;
+        else
+            handles.SegmentHandles(k).FaceColor = handles.SegmentUnSelectColor;
+        end
+    end
+    
+function click_segmentaxes(hObject, event)
+    handles = guidata(hObject);
+    
+    filenum = getCurrentFileNum(handles);
+    
+    if strcmp(handles.figure_Main.SelectionType,'normal')
+        % This code takes a selection of segments and toggles their selection
+        %   status. Note that it used to set the selection status to unselected
+        %   if less than half of the selected segments were selected. Which
+        %   seems...convoluted and weird. So I changed it to just toggling all
+        %   the selection statuses.
+        handles.axes_Segment.Units = 'pixels';
+        handles.axes_Segment.Parent.Units = 'pixels';
+        rect = rbbox;
+    
+        if rect(3) < 10
+        % This was probably not intended to be a click-and-drag - ignore it
+            return
+        end
+    
+        pos = handles.axes_Segment.Position;
+        handles.axes_Segment.Parent.Units = 'normalized';
+        handles.axes_Segment.Units = 'normalized';
+        xl = xlim(handles.axes_Segment);
+    
+        rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
+        rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
+    
+        f = find(handles.SegmentTimes{filenum}(:,1)>rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*handles.fs);
+        g = find(handles.SegmentTimes{filenum}(:,2)>rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*handles.fs);
+        h = find(handles.SegmentTimes{filenum}(:,1)<rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*handles.fs);
+        f = unique([f; g; h]);
+    
+        handles.SegmentSelection{filenum}(f) = ~handles.SegmentSelection{filenum}(f); %sum(handles.SegmentSelection{filenum}(f))<=length(f)/2;
+        handles = updateSegmentSelectHighlight(handles);
+    elseif strcmp(handles.figure_Main.SelectionType,'open')
+        [handles, numSamples] = eg_GetNumSamples(handles);
+    
+        handles.TLim = [0, numSamples/handles.fs];
+        handles = eg_EditTimescale(handles);
+    elseif strcmp(handles.figure_Main.SelectionType,'extend')
+        if sum(handles.SegmentSelection{filenum})==length(handles.SegmentSelection{filenum})
+            handles.SegmentSelection{filenum} = zeros(size(handles.SegmentSelection{filenum}));
+        else
+            handles.SegmentSelection{filenum} = ones(size(handles.SegmentSelection{filenum}));
+        end
+        handles = updateSegmentSelectHighlight(handles);
+    end
+    
+    guidata(hObject, handles);
+
+function handles = ToggleAnnotationSelect(handles, filenum, annotationNum, activeType)
+    switch activeType
+        case 'segment'
+            handles = ToggleSegmentSelect(handles, filenum, annotationNum);
+        case 'marker'
+            handles = ToggleMarkerSelect(handles, filenum, markerNum);
+    end
+function handles = ToggleSegmentSelect(handles, filenum, segmentNum)
+    handles.SegmentSelection{filenum}(segmentNum) = ~handles.SegmentSelection{filenum}(segmentNum);
+    handles.SegmentHandles(segmentNum).FaceColor = handles.SegmentSelectColors{handles.SegmentSelection{filenum}(segmentNum)+1};
+function handles = ToggleMarkerSelect(handles, filenum, markerNum)
+    handles.MarkerSelection{filenum}(markerNum) = ~handles.MarkerSelection{filenum}(markerNum);
+    handles.MarkerHandles(markerNum).FaceColor = handles.MarkerSelectColors{handles.MarkerSelection{filenum}(markerNum)+1};
+
+function markerNum = FindActiveMarker(handles)
+    marker = findobj('Parent',handles.axes_Segments,'edgecolor',handles.MarkerActiveColor);
+    if isempty(marker)
+        markerNum = [];
+        return;
+    end
+    markerNum = find(handles.MarkerHandles == marker);
+function segmentNum = FindActiveSegment(handles)
+    segment = findobj('Parent',handles.axes_Segments,'edgecolor',handles.SegmentActiveColor);
+    if isempty(segment)
+        segmentNum = [];
+        return;
+    end
+    segmentNum = find(handles.SegmentHandles == segment);
+
+function handles = JoinSegmentWithNext(handles, filenum, segmentNum)
+    if segmentNum < length(handles.SegmentHandles)
+        % This is not the last segment in the file
+        handles.SegmentTimes{filenum}(segmentNum,2) = handles.SegmentTimes{filenum}(segmentNum+1,2);
+        handles.SegmentTimes{filenum}(segmentNum+1,:) = [];
+        handles.SegmentTitles{filenum}(segmentNum+1) = [];
+        handles.SegmentSelection{filenum}(segmentNum+1) = [];
+        handles = PlotSegments(handles);
+        handles = SetActiveSegment(handles, segmentNum);
+        handles.figure_Main.KeyPressFcn = @keyPressHandler;
+    end
     
 function handles = CreateNewMarker(handles, x)
     % Create a new marker from time x(1) to time x(2)
@@ -3105,293 +3382,6 @@ function menu_LongFiles_Callback(hObject, ~, handles)
     handles.TooLong = str2double(answer{1});
     
     guidata(hObject, handles);
-    
-    
-% --------------------------------------------------------------------
-function context_Segments_Callback(hObject, ~, handles)
-    % hObject    handle to context_Segments (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    
-% --------------------------------------------------------------------
-function menu_SegmenterList_Callback(hObject, ~, handles)
-    % hObject    handle to menu_SegmenterList (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    
-function SegmenterMenuClick(hObject, ~, handles)
-    
-    for c = 1:length(handles.menu_Segmenter)
-        handles.menu_Segmenter(c).Checked = 'off';
-    end
-    hObject.Checked = 'on';
-    
-    if isempty(hObject.UserData)
-        alg = hObject.Label;
-        handles.SegmenterParams = eg_runPlugin(handles.plugins.segmenters, alg, 'params');
-        hObject.UserData = handles.SegmenterParams;
-    else
-        handles.SegmenterParams = hObject.UserData;
-    end
-    
-    handles = SetThreshold(handles);
-    
-    guidata(hObject, handles);
-    
-
-function handles = updateSegmentSelectHighlight(handles)
-    % Set the color of the segment handle depending on whether or not
-    % the segment is selected
-    for segmentNum = 1:length(handles.SegmentHandles)
-        if handles.SegmentSelection{filenum}(segmentNum)
-            handles.SegmentHandles(k).FaceColor = handles.SegmentSelectColor;
-        else
-            handles.SegmentHandles(k).FaceColor = handles.SegmentUnSelectColor;
-        end
-    end
-    
-    
-function click_segmentaxes(hObject, event)
-    handles = guidata(hObject);
-    
-    filenum = getCurrentFileNum(handles);
-    
-    if strcmp(handles.figure_Main.SelectionType,'normal')
-        % This code takes a selection of segments and toggles their selection
-        %   status. Note that it used to set the selection status to unselected
-        %   if less than half of the selected segments were selected. Which
-        %   seems...convoluted and weird. So I changed it to just toggling all
-        %   the selection statuses.
-        handles.axes_Segment.Units = 'pixels';
-        handles.axes_Segment.Parent.Units = 'pixels';
-        rect = rbbox;
-    
-        if rect(3) < 10
-        % This was probably not intended to be a click-and-drag - ignore it
-            return
-        end
-    
-        pos = handles.axes_Segment.Position;
-        handles.axes_Segment.Parent.Units = 'normalized';
-        handles.axes_Segment.Units = 'normalized';
-        xl = xlim(handles.axes_Segment);
-    
-        rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
-        rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
-    
-        f = find(handles.SegmentTimes{filenum}(:,1)>rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*handles.fs);
-        g = find(handles.SegmentTimes{filenum}(:,2)>rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*handles.fs);
-        h = find(handles.SegmentTimes{filenum}(:,1)<rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*handles.fs);
-        f = unique([f; g; h]);
-    
-        handles.SegmentSelection{filenum}(f) = ~handles.SegmentSelection{filenum}(f); %sum(handles.SegmentSelection{filenum}(f))<=length(f)/2;
-        handles = updateSegmentSelectHighlight(handles);
-    elseif strcmp(handles.figure_Main.SelectionType,'open')
-        [handles, numSamples] = eg_GetNumSamples(handles);
-    
-        handles.TLim = [0, numSamples/handles.fs];
-        handles = eg_EditTimescale(handles);
-    elseif strcmp(handles.figure_Main.SelectionType,'extend')
-        if sum(handles.SegmentSelection{filenum})==length(handles.SegmentSelection{filenum})
-            handles.SegmentSelection{filenum} = zeros(size(handles.SegmentSelection{filenum}));
-        else
-            handles.SegmentSelection{filenum} = ones(size(handles.SegmentSelection{filenum}));
-        end
-        handles = updateSegmentSelectHighlight(handles);
-    end
-    
-    guidata(hObject, handles);
-    
-    
-    
-% --- Executes on button press in push_Segment.
-function push_Segment_Callback(hObject, ~, handles)
-    % hObject    handle to push_Segment (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles = SegmentSounds(handles);
-    
-    guidata(hObject, handles);
-    
-    
-% --------------------------------------------------------------------
-function menu_AutoSegment_Callback(hObject, ~, handles)
-    % hObject    handle to menu_AutoSegment (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    
-    if ~handles.menu_AutoSegment.Checked
-        handles.menu_AutoSegment.Checked = 'on';
-        handles = SegmentSounds(handles);
-    else
-        handles.menu_AutoSegment.Checked = 'off';
-    end
-    
-    guidata(hObject, handles);
-    
-    
-% --------------------------------------------------------------------
-function menu_SegmentParameters_Callback(hObject, ~, handles)
-    % hObject    handle to menu_SegmentParameters (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    
-    if isempty(handles.SegmenterParams.Names)
-        errordlg('Current segmenter does not require parameters.','Segmenter error');
-        return
-    end
-    
-    answer = inputdlg(handles.SegmenterParams.Names,'Segmenter parameters',1,handles.SegmenterParams.Values);
-    if isempty(answer)
-        return
-    end
-    handles.SegmenterParams.Values = answer;
-    
-    for c = 1:length(handles.menu_Segmenter)
-        if handles.menu_Segmenter(c).Checked
-            h = handles.menu_Segmenter(c);
-            h.UserData = handles.SegmenterParams;
-        end
-    end
-    
-    handles = SegmentSounds(handles);
-    
-    guidata(hObject, handles);
-    
-    
-% --------------------------------------------------------------------
-function menu_DeleteAll_Callback(hObject, ~, handles)
-    % hObject    handle to menu_DeleteAll (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    filenum = getCurrentFileNum(handles);
-    handles.SegmentSelection{filenum} = zeros(size(handles.SegmentSelection{filenum}));
-    
-    handles = updateSegmentSelectHighlight(handles);
-    
-    guidata(hObject, handles);
-    
-    
-% --------------------------------------------------------------------
-function menu_UndeleteAll_Callback(hObject, ~, handles)
-    % hObject    handle to menu_UndeleteAll (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    
-    filenum = getCurrentFileNum(handles);
-    handles.SegmentSelection{filenum} = ones(size(handles.SegmentSelection{filenum}));
-    
-    handles = updateSegmentSelectHighlight(handles);
-    
-    guidata(hObject, handles);
-    
-    
-function click_segment(hObject, event)
-    % Callback for clicking anything on the axes_Segments
-    handles = guidata(hObject);
-    
-    % Search for clicked item among segments
-    activeSegNum = find(handles.SegmentHandles==hObject);
-    if isempty(activeSegNum)
-        % No matching segment found. Must be a marker.
-        activeSegNum = find(handles.MarkerHandles==hObject);
-        elementType = 'Marker';
-    else
-        elementType = 'segment';
-    end
-    
-    filenum = getCurrentFileNum(handles);
-    switch handles.figure_Main.SelectionType
-        case 'normal'
-            switch elementType
-                case 'segment'
-                    handles = SetActiveSegment(handles, activeSegNum);
-                case 'Marker'
-                    handles = SetActiveMarker(handles, activeSegNum);
-            end
-    %         set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'LineWidth',1);
-    %         set(hObject,'edgecolor',handles.SegmentActiveColor,'LineWidth',2);
-            handles.figure_Main.KeyPressFcn = @keyPressHandler;
-        case 'extend'
-            switch elementType
-                case 'segment'
-                    handles.SegmentSelection{filenum}(activeSegNum) = ~handles.SegmentSelection{filenum}(activeSegNum);
-                    hObject.FaceColor = handles.SegmentSelectColors{handles.SegmentSelection{filenum}(activeSegNum+1)};
-                case 'Marker'
-                    handles.MarkerSelection{filenum}(activeSegNum) = ~handles.MarkerSelection{filenum}(activeSegNum);
-                    hObject.FaceColor = handles.MarkerSelectColors{handles.MarkerSelection{filenum}(activeSegNum+1)};
-            end
-        case 'open'
-            switch elementType
-                case 'segment'
-                    if activeSegNum < length(handles.SegmentHandles)
-                        handles.SegmentTimes{filenum}(activeSegNum,2) = handles.SegmentTimes{filenum}(activeSegNum+1,2);
-                        handles.SegmentTimes{filenum}(activeSegNum+1,:) = [];
-                        handles.SegmentTitles{filenum}(activeSegNum+1) = [];
-                        handles.SegmentSelection{filenum}(activeSegNum+1) = [];
-                        handles = PlotSegments(handles);
-                        hObject = handles.SegmentHandles(activeSegNum);
-                        set(handles.SegmentHandles,'edgecolor',handles.SegmentInactiveColor,'LineWidth',1);
-                        handles = SetActiveSegment(handles, activeSegNum);
-    %                     set(hObject,'edgecolor',handles.SegmentActiveColor,'LineWidth',2);
-                        handles.figure_Main.KeyPressFcn = @keyPressHandler;
-                    end
-                case 'Marker'
-                    % Nah, doubt we need to implement concatenating adjacent
-                    % markers.
-            end
-    end
-    
-    guidata(hObject, handles);
-
-function handles = ToggleAnnotationSelect(handles, filenum, annotationNum, activeType)
-    switch activeType
-        case 'segment'
-            handles = ToggleSegmentSelect(handles, filenum, annotationNum);
-        case 'marker'
-            handles = ToggleMarkerSelect(handles, filenum, markerNum);
-    end
-function handles = ToggleSegmentSelect(handles, filenum, segmentNum)
-    handles.SegmentSelection{filenum}(segmentNum) = ~handles.SegmentSelection{filenum}(segmentNum);
-    handles.SegmentHandles(segmentNum).FaceColor = handles.SegmentSelectColors{handles.SegmentSelection{filenum}(segmentNum)+1};
-function handles = ToggleMarkerSelect(handles, filenum, markerNum)
-    handles.MarkerSelection{filenum}(markerNum) = ~handles.MarkerSelection{filenum}(markerNum);
-    handles.MarkerHandles(markerNum).FaceColor = handles.MarkerSelectColors{handles.MarkerSelection{filenum}(markerNum)+1};
-    
-
-function markerNum = FindActiveMarker(handles)
-    marker = findobj('Parent',handles.axes_Segments,'edgecolor',handles.MarkerActiveColor);
-    if isempty(marker)
-        markerNum = [];
-        return;
-    end
-    markerNum = find(handles.MarkerHandles == marker);
-function segmentNum = FindActiveSegment(handles)
-    segment = findobj('Parent',handles.axes_Segments,'edgecolor',handles.SegmentActiveColor);
-    if isempty(segment)
-        segmentNum = [];
-        return;
-    end
-    segmentNum = find(handles.SegmentHandles == segment);
-
-function handles = JoinSegmentWithNext(handles, filenum, segmentNum)
-    if segmentNum < length(handles.SegmentHandles)
-        % This is not the last segment in the file
-        handles.SegmentTimes{filenum}(segmentNum,2) = handles.SegmentTimes{filenum}(segmentNum+1,2);
-        handles.SegmentTimes{filenum}(segmentNum+1,:) = [];
-        handles.SegmentTitles{filenum}(segmentNum+1) = [];
-        handles.SegmentSelection{filenum}(segmentNum+1) = [];
-        handles = PlotSegments(handles);
-        handles = SetActiveSegment(handles, segmentNum);
-        handles.figure_Main.KeyPressFcn = @keyPressHandler;
-    end
 
 function inside = areCoordinatesIn(x, y, figureChild)
     % Check if given normalized figure coordinates are inside the borders
