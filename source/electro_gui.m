@@ -1713,13 +1713,8 @@ function [markerHandles, labelHandles] = CreateMarkers(handles, ax, times, title
         % Create a text graphics object right above the middle of the segment
         % rectangle
         labelHandles(c) = text(ax, (x1+x2)/2,y1,titles(c), 'VerticalAlignment', 'bottom');
-    %     if c==1
-    %         % Set the first segment to be the selected one
-    %         set(markerHandles(c), 'EdgeColor', activeColor, 'LineWidth', 2);
-    %     else
-            markerHandles(c).EdgeColor = inactiveColor;
-            markerHandles(c).LineWidth = 1;
-    %     end
+        markerHandles(c).EdgeColor = inactiveColor;
+        markerHandles(c).LineWidth = 1;
     end
     % Attach click handler "click_segment" to segment rectangle
     
@@ -2210,8 +2205,6 @@ function click_segment(hObject, event)
                 case 'Marker'
                     handles = SetActiveMarker(handles, activeSegNum);
             end
-    %         set(handles.SegmentHandles,'EdgeColor',handles.SegmentInactiveColor,'LineWidth',1);
-    %         set(hObject,'EdgeColor',handles.SegmentActiveColor,'LineWidth',2);
             handles.figure_Main.KeyPressFcn = @keyPressHandler;
         case 'extend'
             switch elementType
@@ -2226,15 +2219,16 @@ function click_segment(hObject, event)
             switch elementType
                 case 'segment'
                     if activeSegNum < length(handles.SegmentHandles)
+                        % Deselect active segment
+                        handles = SetActiveSegment(handles, []);
                         handles.SegmentTimes{filenum}(activeSegNum,2) = handles.SegmentTimes{filenum}(activeSegNum+1,2);
                         handles.SegmentTimes{filenum}(activeSegNum+1,:) = [];
                         handles.SegmentTitles{filenum}(activeSegNum+1) = [];
                         handles.SegmentSelection{filenum}(activeSegNum+1) = [];
                         handles = PlotSegments(handles);
                         hObject = handles.SegmentHandles(activeSegNum);
-                        set(handles.SegmentHandles,'EdgeColor',handles.SegmentInactiveColor,'LineWidth',1);
+                        % Select new active segment
                         handles = SetActiveSegment(handles, activeSegNum);
-    %                     set(hObject,'EdgeColor',handles.SegmentActiveColor,'LineWidth',2);
                         handles.figure_Main.KeyPressFcn = @keyPressHandler;
                     end
                 case 'Marker'
@@ -2437,6 +2431,14 @@ function handles = ToggleMarkerSelect(handles, filenum, markerNum)
     handles.MarkerSelection{filenum}(markerNum) = ~handles.MarkerSelection{filenum}(markerNum);
     handles.MarkerHandles(markerNum).FaceColor = handles.MarkerSelectColors{handles.MarkerSelection{filenum}(markerNum)+1};
 
+function markerNum = FindActiveMarker(handles)
+    % Get the index of the active marker
+    markerNum = handles.SelectedMarkerNum;
+
+function segmentNum = FindActiveSegment(handles)
+    % Get the index of the active segment
+    segmentNum = handles.SelectedSegmentNum;
+
 function handles = SetSegmentTitle(handles, title, filenum, segmentNum)
     % Set the title of the specified segment
     % If segmentNum is not provided, use the currently selected segment
@@ -2457,21 +2459,6 @@ function handles = SetMarkerTitle(handles, title, filenum, markerNum)
     end
     handles.MarkerTitles{filenum}{markerNum} = title;
     handles.MarkerLabelHandles(markerNum) = title;
-
-function markerNum = FindActiveMarker(handles)
-    marker = findobj('Parent',handles.axes_Segments,'EdgeColor',handles.MarkerActiveColor);
-    if isempty(marker)
-        markerNum = [];
-        return;
-    end
-    markerNum = find(handles.MarkerHandles == marker);
-function segmentNum = FindActiveSegment(handles)
-    segment = findobj('Parent',handles.axes_Segments,'EdgeColor',handles.SegmentActiveColor);
-    if isempty(segment)
-        segmentNum = [];
-        return;
-    end
-    segmentNum = find(handles.SegmentHandles == segment);
 
 function handles = JoinSegmentWithNext(handles, filenum, segmentNum)
     if segmentNum < length(handles.SegmentHandles)
@@ -2525,29 +2512,45 @@ function [handles, order] = SortMarkers(handles, filenum)
     handles.MarkerHandles = handles.MarkerHandles(order);
 
 function handles = SetActiveMarker(handles, markerNum)
-    % Inactivate all markers
-    set(handles.MarkerHandles, 'EdgeColor', handles.MarkerInactiveColor, 'LineWidth', 1);
-    % Inactivate all segments
-    set(handles.SegmentHandles, 'EdgeColor', handles.SegmentInactiveColor, 'LineWidth', 1);
-    % Activate requested marker
-    if ~isempty(handles.MarkerHandles)
-        markerNum = coerceToRange(markerNum, [1, length(handles.MarkerHandles)]);
-        set(handles.MarkerHandles(markerNum), 'EdgeColor', handles.MarkerActiveColor, 'LineWidth', 2);
+    if ~isempty(handles.SelectedMarkerNum)
+        % Inactivate currently selected marker
+        handles.MarkerHandles(handles.SelectedMarkerNum).EdgeColor = handles.MarkerInactiveColor;
+        handles.MarkerHandles(handles.SelectedMarkerNum).LineWidth = 1;
+    end
+
+    % Set new selected marker number
+    handles.SelectedMarkerNum = markerNum;
+
+    if ~isempty(handles.SelectedMarkerNum)
+        % Activate selected marker
+        handles.MarkerHandles(handles.SelectedMarkerNum).EdgeColor = handles.MarkerActiveColor;
+        handles.MarkerHandles(handles.SelectedMarkerNum).LineWidth = 2;
+    elseif ~isempty(handles.MarkerHandles)
+        % Requested marker number is not valid - pick the closest one
+        coerceToRange(handles.SelectedMarkerNum, [1, length(handles.MarkerHandles)]);
     else
         % No markers? Set active segment instead.
         handles = SetActiveSegment(handles, 1);
     end
 function handles = SetActiveSegment(handles, segmentNum)
-    % Inactivate all segments
-    set(handles.SegmentHandles, 'EdgeColor', handles.SegmentInactiveColor, 'LineWidth', 1);
-    % Inactivate all markers
-    set(handles.MarkerHandles, 'EdgeColor', handles.MarkerInactiveColor, 'LineWidth', 1);
-    % Activate requested segment
-    if ~isempty(handles.SegmentHandles)
-        segmentNum = coerceToRange(segmentNum, [1, length(handles.SegmentHandles)]);
-        set(handles.SegmentHandles(segmentNum), 'EdgeColor', handles.SegmentActiveColor, 'LineWidth', 2);
+    if ~isempty(handles.SelectedSegmentNum)
+        % Inactivate currently selected segment
+        handles.SegmentHandles(handles.SelectedSegmentNum).EdgeColor = handles.SegmentInactiveColor;
+        handles.SegmentHandles(handles.SelectedSegmentNum).LineWidth = 1;
     end
-    
+
+    % Set new selected segment number
+    handles.SelectedSegmentNum = segmentNum;
+
+    if ~isempty(handles.SelectedSegmentNum)
+        % Activate selected segment
+        handles.SegmentHandles(handles.SelectedSegmentNum).EdgeColor = handles.SegmentActiveColor;
+        handles.SegmentHandles(handles.SelectedSegmentNum).LineWidth = 2;
+    elseif ~isempty(handles.SegmentHandles)
+        % Requested segment number is not valid - pick the closest one
+        coerceToRange(handles.SelectedSegmentNum, [1, length(handles.SegmentHandles)]);
+    end
+
 function value = coerceToRange(value, valueRange)
     value = min(max(value, valueRange(1)), valueRange(2));
     
@@ -8517,8 +8520,6 @@ function menu_Concatenate_Callback(hObject, ~, handles)
     handles = PlotSegments(handles);
     
     handles = SetActiveSegment(handles, min(f));
-    % set(handles.SegmentHandles,'EdgeColor',handles.SegmentInactiveColor,'LineWidth',1);
-    % set(handles.SegmentHandles(min(f)),'EdgeColor',handles.SegmentActiveColor,'LineWidth',2);
     handles.figure_Main.KeyPressFcn = @keyPressHandler;
     
     guidata(hObject, handles);
