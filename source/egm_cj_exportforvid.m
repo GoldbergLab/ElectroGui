@@ -80,7 +80,7 @@ function handles = egm_cj_exportforvid(handles)
     %% code a bunch of hard coded shit for one example for jesse's talk
     curfig = gcf;
     set(curfig,'Position',[184         108        1413         955]);
-    sh = findobj(curfig,'Type','axes');
+    sh = get(curfig,'Children');
     %set(sh(1),'Colormap',colormap);
     set(sh(3),'xTick',[]);
     set(sh(2),'xTick',[]);
