@@ -23,7 +23,7 @@ function varargout = electro_gui(varargin)
     
     % Edit the above text to modify the response to help electro_gui
     
-    % Last Modified by GUIDE v2.5 04-May-2023 10:21:37
+    % Last Modified by GUIDE v2.5 09-Feb-2024 13:15:30
     
     % Begin initialization code - DO NOT EDIT
     gui_Singleton = 1;
@@ -132,6 +132,14 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     dr = dir([mfilename('fullpath') '*m']);
     handles.figure_Main.Name = ['ElectroGui v. ', dr.date];
     
+    % Turn off the pop-up tool buttons for axes
+    handles.axes_Sound.Toolbar.Visible = 'off';
+    handles.axes_Sonogram.Toolbar.Visible = 'off';
+    handles.axes_Amplitude.Toolbar.Visible = 'off';
+    handles.axes_Channel1.Toolbar.Visible = 'off';
+    handles.axes_Channel2.Toolbar.Visible = 'off';
+    handles.axes_Events.Toolbar.Visible = 'off';
+
     %% Set up axes-indexed lists of GUI elements, to make code more extensible    
     % handles.popup_Channels are dropdown menus for the channel axes to select a channel of data to display.
     handles.popup_Channels = [handles.popup_Channel1, handles.popup_Channel2];
