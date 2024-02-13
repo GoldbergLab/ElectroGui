@@ -136,14 +136,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     
     dr = dir([mfilename('fullpath') '*m']);
     handles.figure_Main.Name = ['ElectroGui v. ', dr.date];
-    
-    % Turn off the pop-up tool buttons for axes
-    handles.axes_Sound.Toolbar.Visible = 'off';
-    handles.axes_Sonogram.Toolbar.Visible = 'off';
-    handles.axes_Amplitude.Toolbar.Visible = 'off';
-    handles.axes_Channel1.Toolbar.Visible = 'off';
-    handles.axes_Channel2.Toolbar.Visible = 'off';
-    handles.axes_Events.Toolbar.Visible = 'off';
+
 
     %% Set up axes-indexed lists of GUI elements, to make code more extensible    
     % handles.popup_Channels are dropdown menus for the channel axes to select a channel of data to display.
@@ -238,18 +231,31 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     if handles.EnableFileCaching
         try
             % Start up parallel pool for caching purposes
-            gcp();
+            p = gcp();
+            p.IdleTimeout = 90;
         catch
             warning('Failed to start parallel pool - maybe the parallel computing toolbox is not installed? Disabling file caching.');
             handles.EnableFileCaching = false;
         end
     end
     
+    handles = disableAxesPopupToolbars(handles);
+
     % Update handles structure
     guidata(hObject, handles);
     
     % UIWAIT makes electro_gui wait for user response (see UIRESUME)
     % uiwait(handles.figure_Main);
+
+function handles = disableAxesPopupToolbars(handles)
+    % Turn off the pop-up tool buttons for axes
+    handles.axes_Sound.Toolbar.Visible = 'off';
+    handles.axes_Sonogram.Toolbar.Visible = 'off';
+    handles.axes_Amplitude.Toolbar.Visible = 'off';
+    handles.axes_Channel1.Toolbar.Visible = 'off';
+    handles.axes_Channel2.Toolbar.Visible = 'off';
+    handles.axes_Segments.Toolbar.Visible = 'off';
+    handles.axes_Events.Toolbar.Visible = 'off';
 
 function handles = loadTempFile(handles)
     % Get temp file
@@ -1185,6 +1191,8 @@ function handles = eg_LoadFile(handles)
     handles = eg_EditTimescale(handles);
     
     cd(curr);
+
+    handles = disableAxesPopupToolbars(handles);
 
 function handles = setClickSoundCallback(handles, ax)
     % Set click_sound as button down callback for axes and children
@@ -2360,11 +2368,11 @@ function click_segment(hObject, event)
                         handles.SegmentTimes{filenum}(clickedAnnotationNum+1,:) = [];
                         handles.SegmentTitles{filenum}(clickedAnnotationNum+1) = [];
                         handles.SegmentSelection{filenum}(clickedAnnotationNum+1) = [];
-                        hObject = handles.SegmentHandles(clickedAnnotationNum);
                         % Select new active segment
                         handles = SetActiveSegment(handles, clickedAnnotationNum);
                         handles.figure_Main.KeyPressFcn = @keyPressHandler;
                         handles = PlotAnnotations(handles);
+                        hObject = handles.axes_Segments;
                     end
                 case 'marker'
                     % Nah, doubt we need to implement concatenating adjacent
@@ -2605,7 +2613,8 @@ function segmentNum = FindActiveSegment(handles)
 
 function [newAnnotationNum, newAnnotationType] = FindClosestAnnotationOfOtherType(handles, filenum, annotationNum, annotationType)
     % Find the marker or segment closest in time to the currently selected
-    %   segment or marker
+    %   segment or marker. If no annotations of the other type exist,
+    %   return the same annotation.
 
     if ~exist('annotationNum', 'var') || isempty(annotationNum)
         % No annotation number provided - use the currently active one
@@ -2620,8 +2629,8 @@ function [newAnnotationNum, newAnnotationType] = FindClosestAnnotationOfOtherTyp
         case 'segment'
             if isempty(handles.MarkerHandles)
                 % No markers to switch to, do nothing
-                newAnnotationNum = [];
-                newAnnotationType = 'none';
+                newAnnotationNum = annotationNum;
+                newAnnotationType = 'segment';
                 return
             end
             segmentTime = mean(handles.SegmentTimes{filenum}(annotationNum, :));
@@ -2633,8 +2642,8 @@ function [newAnnotationNum, newAnnotationType] = FindClosestAnnotationOfOtherTyp
         case 'marker'
             if isempty(handles.SegmentHandles)
                 % No segments to switch to, do nothing
-                newAnnotationNum = [];
-                newAnnotationType = 'none';
+                newAnnotationNum = annotationNum;
+                newAnnotationType = 'marker';
                 return
             end
             markerTime = mean(handles.MarkerTimes{filenum}(annotationNum, :));
