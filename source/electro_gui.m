@@ -3153,6 +3153,7 @@ function push_New_Callback(hObject, ~, handles)
     handles = eg_PopulateSoundSources(handles);
     
     handles.popup_EventList.String = {'(None)'};
+    handles.popup_EventList.UserData(1) = generateEventSourceListElementInfo(false, [], '', []);
     
     handles = InitializeVariables(handles);
     
@@ -3212,14 +3213,14 @@ function push_New_Callback(hObject, ~, handles)
     
     % get event parameters
     for axnum = 1:2
-        v = get(handles.(['popup_EventDetector' num2str(axnum)]),'Value');
-        ud = get(handles.(['popup_EventDetector' num2str(axnum)]),'UserData');
+        v = handles.popup_EventDetectors(axnum).Value;
+        ud = handles.popup_EventDetectors(axnum).UserData;
         if isempty(ud{v}) && v>1
-            str = get(handles.(['popup_EventDetector' num2str(axnum)]),'String');
+            str = handles.popup_EventDetectors(axnum).String;
             dtr = str{v};
             [handles.EventParams{axnum}, ~] = eg_runPlugin(handles.plugins.eventDetectors, dtr, 'params');
             ud{v} = handles.EventParams{axnum};
-            set(handles.(['popup_EventDetector' num2str(axnum)]),'UserData',ud);
+            handles.popup_EventDetectors(axnum).UserData = ud;
         else
             handles.EventParams{axnum} = ud{v};
         end
@@ -3295,8 +3296,6 @@ function handles = InitializeVariables(handles)
     handles.MarkerTitles = cell(1,handles.TotalFileNumber);
     handles.MarkerSelection = cell(1,handles.TotalFileNumber);
     
-    
-    
     handles.BackupChan = cell(1,2);
     handles.BackupLabel = cell(1,2);
     handles.BackupTitle = cell(1,2);
@@ -3304,6 +3303,7 @@ function handles = InitializeVariables(handles)
     handles.EventSources = {};
     handles.EventFunctions = {};
     handles.EventDetectors = {};
+    handles.EventParameters = {};
     handles.EventThresholds = zeros(0,handles.TotalFileNumber);
     handles.EventCurrentThresholds = [];
     handles.EventCurrentIndex = [0 0];
@@ -3502,14 +3502,14 @@ function push_Open_Callback(hObject, ~, handles)
     
     % get event parameters
     for axnum = 1:2
-        v = get(handles.(['popup_EventDetector' num2str(axnum)]),'Value');
-        ud = get(handles.(['popup_EventDetector' num2str(axnum)]),'UserData');
+        v = handles.popup_EventDetectors(axnum).Value;
+        ud = handles.popup_EventDetectors(axnum).UserData;
         if isempty(ud{v}) && v>1
-            str = get(handles.(['popup_EventDetector' num2str(axnum)]),'String');
+            str = handles.popup_EventDetectors(axnum).String;
             dtr = str{v};
             [handles.EventParams{axnum}, ~] = eg_runPlugin(handles.plugins.eventDetectors, dtr, 'params');
             ud{v} = handles.EventParams{axnum};
-            set(handles.(['popup_EventDetector' num2str(axnum)]),'UserData',ud);
+            handles.popup_EventDetectors(axnum).UserData = ud;
         else
             handles.EventParams{axnum} = ud{v};
         end
@@ -4289,7 +4289,7 @@ function click_Channel(hObject, event)
     
         for axn = 1:2
             if handles.axes_Channel(axn).Visible
-                if strcmp(get(handles.(['menu_AutoLimits' num2str(axn)]),'Checked'),'on')
+                if handles.menu_AutoLimits(axn).Checked
                     yl = [min(handles.loadedChannelData{axn}) max(handles.loadedChannelData{axn})];
                     if yl(1)==yl(2)
                         yl = [yl(1)-1 yl(2)+1];
@@ -4361,15 +4361,15 @@ function click_Channel(hObject, event)
                 for axn = 1:2
                     if handles.axes_Channel(axn).Visible && handles.EventCurrentIndex(axn)==indx
                         handles = EventSetThreshold(handles,axn);
-                        if strcmp(get(handles.(['menu_EventAutoDetect' num2str(axn)]),'Checked'),'on') && strcmp(get(handles.(['push_Detect' num2str(axn)]),'Enable'),'on')
+                        if handles.menu_EventAutoDetect(axn).Checked && handles.push_Detects(axn).Enable
                             handles = DetectEvents(handles,axn);
     
                             if handles.menu_AutoDisplayEvents.Checked
                                 handles = UpdateEventBrowser(handles);
                             end
     
-                            val = get(handles.popup_Channels(3-axn),'Value');
-                            str = get(handles.popup_Channels(3-axn),'String');
+                            val = handles.popup_Channels(3-axn).Value;
+                            str = handles.popup_Channels(3-axn).String;
                             nums = [];
                             for c = 1:length(handles.EventTimes)
                                 nums(c) = size(handles.EventTimes{c},1);
@@ -4485,7 +4485,7 @@ function handles = EventSetThreshold(handles,axnum)
         end
     else
         handles.EventThresholds(indx,getCurrentFileNum(handles)) = handles.EventCurrentThresholds(indx);
-        if strcmp(get(handles.(['menu_EventAutoDetect' num2str(axnum)]),'Checked'),'on') && strcmp(get(handles.(['push_Detect' num2str(axnum)]),'Enable'),'on')
+        if handles.menu_EventAutoDetect(axnum).Checked && handles.push_Detects(axnum).Enable
             handles = DetectEvents(handles,axnum);
             if handles.menu_AutoDisplayEvents.Checked
                 handles = UpdateEventBrowser(handles);
@@ -4913,7 +4913,7 @@ function handles = SetManualThreshold(handles,axnum)
     for axn = 1:2
         if handles.axes_Channel(axn).Visible && handles.EventCurrentIndex(axn)==indx
             handles = EventSetThreshold(handles,axn);
-            if strcmp(get(handles.(['menu_EventAutoDetect' num2str(axn)]),'Checked'),'on') && strcmp(get(handles.(['push_Detect' num2str(axn)]),'Enable'),'on')
+            if handles.menu_EventAutoDetect(axn).Checked && handles.push_Detects(axn).Enable
                 handles = DetectEvents(handles,axn);
                 if handles.menu_AutoDisplayEvents.Checked
                     handles = UpdateEventBrowser(handles);
@@ -4939,14 +4939,14 @@ function handles = SetManualThreshold(handles,axnum)
 
 function handles = eg_clickEventDetector(handles,axnum)
     
-    v = get(handles.(['popup_EventDetector' num2str(axnum)]),'Value');
-    ud = get(handles.(['popup_EventDetector' num2str(axnum)]),'UserData');
+    v = handles.popup_EventDetectors(axnum).Value;
+    ud = handles.popup_EventDetectors(axnum).UserData;
     if isempty(ud{v}) && v>1
-        str = get(handles.(['popup_EventDetector' num2str(axnum)]),'String');
+        str = handles.popup_EventDetectors(axnum).String;
         dtr = str{v};
         [handles.EventParams{axnum}, ~] = eg_runPlugin(handles.plugins.eventDetectors, dtr, 'params');
         ud{v} = handles.EventParams{axnum};
-        set(handles.(['popup_EventDetector' num2str(axnum)]),'UserData',ud);
+        handles.popup_EventDetectors(axnum).UserData = ud;
     else
         handles.EventParams{axnum} = ud{v};
     end
@@ -4956,18 +4956,18 @@ function handles = eg_clickEventDetector(handles,axnum)
     end
     str = handles.popup_Channels(axnum).String;
     src = str{handles.popup_Channels(axnum).Value};
-    if get(handles.(['popup_EventDetector' num2str(axnum)]),'Value')==1 || contains(src,' - ')
-        set(handles.(['menu_Events' num2str(axnum)]),'Enable','off');
-        set(handles.(['push_Detect' num2str(axnum)]),'Enable','off');
+    if handles.popup_EventDetectors(axnum).Value == 1 || contains(src,' - ')
+        handles.menu_Events(axnum).Enable = 'off';
+        handles.push_Detects(axnum).Enable = 'off';
         handles.EventCurrentIndex(axnum) = 0;
     else
-        set(handles.(['menu_Events' num2str(axnum)]),'Enable','on');
-        set(handles.(['push_Detect' num2str(axnum)]),'Enable','on');
+        handles.menu_Events(axnum).Enable = 'on';
+        handles.push_Detects(axnum).Enable = 'on';
     
         str = handles.popup_Functions(axnum).String;
         fun = str{handles.popup_Functions(axnum).Value};
-        str = get(handles.(['popup_EventDetector' num2str(axnum)]),'String');
-        dtr = str{get(handles.(['popup_EventDetector' num2str(axnum)]),'Value')};
+        str = handles.popup_EventDetectors(axnum).String;
+        dtr = str{handles.popup_EventDetectors(axnum).Value};
         mtch = 0;
         for c = 1:length(handles.EventSources)
             cnt = [0 0 0];
@@ -5015,7 +5015,7 @@ function handles = eg_clickEventDetector(handles,axnum)
         end
     
         % Delete list of event part display menu items
-        delete(get(handles.(['menu_EventsDisplay',num2str(axnum)]),'Children'));
+        delete(handles.menu_EventsDisplay(axnum).Children);
         handles.menu_EventsDisplayList{axnum} = gobjects().empty;
     
         indx = 0;
@@ -8560,10 +8560,10 @@ function handles = menu_EventParams(handles,axnum)
     
     handles.EventParams{axnum} = pr;
     
-    v = get(handles.(['popup_EventDetector' num2str(axnum)]),'Value');
-    ud = get(handles.(['popup_EventDetector' num2str(axnum)]),'UserData');
+    v = handles.popup_EventDetectors(axnum).Value;
+    ud = handles.popup_EventDetectors(axnum).UserData;
     ud{v} = handles.EventParams{axnum};
-    set(handles.(['popup_EventDetector' num2str(axnum)]),'UserData',ud);
+    handles.popup_EventDetectors(axnum).UserData = ud;
     
     handles = DetectEvents(handles,axnum);
     
