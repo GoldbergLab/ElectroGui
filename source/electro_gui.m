@@ -1743,13 +1743,16 @@ function [annotationHandles, labelHandles] = CreateAnnotations(handles, ax, time
         if activeIndex == annotationNum
             newAnnotation.EdgeColor = activeColor;
             newAnnotation.LineWidth = 2;
+            newAnnotation.LineStyle = '-';
         else
             newAnnotation.EdgeColor = inactiveColor;
             newAnnotation.LineWidth = 1;
+            newAnnotation.LineStyle = '-';
         end
 
         % Attach click handler "click_segment" to segment rectangle
         newAnnotation.ButtonDownFcn = @click_segment;
+        newLabel.ButtonDownFcn = @(hObject, event)click_segment(newAnnotation, event);
 
         % Put new handles in list
         labelHandles(annotationNum) = newLabel;
@@ -1815,13 +1818,16 @@ function handles = UpdateActiveAnnotationDisplay(handles, oldAnnotationNum, oldA
         [~, newAnnotationType] = FindActiveAnnotation(handles);
     end
 
+    % Update old active segment display to inactive
     switch oldAnnotationType
         case 'segment'
             handles.SegmentHandles(oldAnnotationNum).EdgeColor = handles.SegmentInactiveColor;
             handles.SegmentHandles(oldAnnotationNum).LineWidth = 1;
+            handles.SegmentHandles(oldAnnotationNum).LineStyle = '-';
         case 'marker'
             handles.MarkerHandles(oldAnnotationNum).EdgeColor = handles.MarkerInactiveColor;
             handles.MarkerHandles(oldAnnotationNum).LineWidth = 1;
+            handles.MarkerHandles(oldAnnotationNum).LineStyle = '-';
         otherwise
             error('Invalid annotation type: %s', annotationType);
     end
@@ -1829,9 +1835,11 @@ function handles = UpdateActiveAnnotationDisplay(handles, oldAnnotationNum, oldA
         case 'segment'
             handles.SegmentHandles(newAnnotationNum).EdgeColor = handles.SegmentActiveColor;
             handles.SegmentHandles(newAnnotationNum).LineWidth = 2;
+            handles.SegmentHandles(oldAnnotationNum).LineStyle = '-';
         case 'marker'
             handles.MarkerHandles(newAnnotationNum).EdgeColor = handles.MarkerActiveColor;
             handles.MarkerHandles(newAnnotationNum).LineWidth = 2;
+            handles.MarkerHandles(oldAnnotationNum).LineStyle = '-';
         otherwise
             error('Invalid annotation type: %s', annotationType);
     end
@@ -1892,11 +1900,13 @@ function handles = PlotAnnotations(handles, modes)
     if ~isempty(handles.ActiveSegmentNum)
         handles.SegmentHandles(handles.ActiveSegmentNum).EdgeColor = handles.SegmentActiveColor;
         handles.SegmentHandles(handles.ActiveSegmentNum).LineWidth = 2;
+        handles.SegmentHandles(handles.ActiveSegmentNum).LineStyle = '-';
     end
     % Update active marker highlight
     if ~isempty(handles.ActiveMarkerNum)
         handles.MarkerHandles(handles.ActiveMarkerNum).EdgeColor = handles.MarkerActiveColor;
         handles.MarkerHandles(handles.ActiveMarkerNum).LineWidth = 2;
+        handles.MarkerHandles(handles.ActiveMarkerNum).LineStyle = '-';
     end
 
     hold(ax, 'off');
