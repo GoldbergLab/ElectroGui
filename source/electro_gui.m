@@ -3106,7 +3106,11 @@ function push_New_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
+    handles = eg_NewDbase(handles);
     
+    guidata(hObject, handles);
+
+function handles = eg_NewDbase(handles)
     handles.IsUpdating = 0;
     [handles, ischanged] = eg_NewExperiment(handles);
     if ischanged == 0
@@ -3149,7 +3153,6 @@ function push_New_Callback(hObject, ~, handles)
         str{c} = makeFileEntry(handles, handles.sound_files(c).name, true);
     end
     handles.list_Files.String = str;
-    
     
     sourceStrings = {'(None)','Sound'};
     for c = 1:length(handles.chan_files)
@@ -3255,8 +3258,6 @@ function push_New_Callback(hObject, ~, handles)
     
     handles = eg_LoadFile(handles);
     
-    guidata(hObject, handles);
-    
 function handles = loadProperties(handles)
     % Load properties from files, add to default properties.
     
@@ -3334,7 +3335,12 @@ function push_Open_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    [file, path] = uigetfile(fullfile(handles.tempSettings.lastDirectory, '*.mat'),'Load analysis');
+    handles = eg_OpenDbase(handles);
+    
+    guidata(hObject, handles);
+    
+function handles = eg_OpenDbase(handles)
+[file, path] = uigetfile(fullfile(handles.tempSettings.lastDirectory, '*.mat'),'Load analysis');
     if ~ischar(file)
         return
     end
@@ -3545,16 +3551,18 @@ function push_Open_Callback(hObject, ~, handles)
     handles = eg_RestartProperties(handles);
     
     handles = eg_LoadFile(handles);
-    
-    guidata(hObject, handles);
-    
-    
+
 % --- Executes on button press in push_Save.
 function push_Save_Callback(hObject, ~, handles)
     % hObject    handle to push_Save (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
+    handles = eg_SaveDbase(handles);
+    
+    guidata(hObject, handles);
+
+function handles = eg_SaveDbase(handles)
     if ~isfield(handles, 'DefaultFile')
         msgbox('Please create a new experiment or open an existing one before saving.');
         return;
@@ -3569,11 +3577,7 @@ function push_Save_Callback(hObject, ~, handles)
     
     save([path file],'dbase');
     handles.DefaultFile = [path file];
-    
-    guidata(hObject, handles);
-    
-    
-    
+
 % --- Executes on button press in push_Cancel.
 function push_Cancel_Callback(hObject, ~, handles)
     % hObject    handle to push_Cancel (see GCBO)
@@ -3955,6 +3959,15 @@ function keyPressHandler(hObject, event)
                 [annotationNum, annotationType] = FindActiveAnnotation(handles);
                 [handles, changedAnnotationNums] = InsertBlankAnnotationTitle(handles, annotationNum, annotationType, filenum);
                 handles = UpdateAnnotationTitleDisplay(handles, changedAnnotationNums, annotationType);
+            case 'o'
+                % User pressed control-o - activate open dbase dialog
+                handles = eg_OpenDbase(handles);
+            case 'n'
+                % User pressed control-n - activate new dbase dialog
+                handles = eg_NewDbase(handles);
+            case 's'
+                % User pressed control-s - activate save dbase dialog
+                handles = eg_SaveDbase(handles);
         end
     else
         % User pressed a key without control down
