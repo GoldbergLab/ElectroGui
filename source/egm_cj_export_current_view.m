@@ -68,6 +68,8 @@ function handles = egm_cj_export_current_view(handles)
     if numplots ==2
         h1 = cur.Children(2);
         h2 = cur.Children(1);
+        loc1 = get(h1,'Position');
+        loc2 = get(h2,'Position');
         hs = axes('Position',[loc1(1) loc1(2)-0.125 loc1(3) loc1(4)*0.5]);
     else
         if numplots ==3
@@ -103,14 +105,29 @@ function handles = egm_cj_export_current_view(handles)
     set(h1,'Ylim',[250 7000]);
     xlabel('');
     set(h1,'Ytick',[2000 4000 6000]);
-    set(h1,'YTickLabel',['2k'; '4k'; '6k'])
+    set(h1,'Xtick',[]);
+    set(h1,'YTickLabel',['2'; '4'; '6'])
     set(h1,'FontSize',16)
     ylabel('Freq (Hz)');
     xlims = get(h1,'Xlim');
     set(h2,'Xlim',xlims);
     set(h2,'Visible','off');
     ylabel('Voltage')
-    set(h2,'Position',[loc2(1) loc2(2)+0.05 loc2(3) loc2(4)])
+    set(h2,'Position',[loc2(1) loc2(2)+0.15 loc2(3) loc2(4)])
+    
+    %change color and thickness
+    xd = get(h2,'Children');
+    set(xd,'LineWidth',2)
+    set(xd,'Color','k')
+    xdat = get(xd,'XData');
+    ydat = get(xd,'YData');
+    xl = get(h2,'Xlim');
+    yl = get(h2,'Ylim');
+    loc1 = get(h1,'Position');
+    loc2 = get(h2,'Position');
+    line([xl(1),xl(1)],[-100, 0],'LineWidth',8)
+    
+    
     
     %modify third plot if it is there
     if numplots ==3

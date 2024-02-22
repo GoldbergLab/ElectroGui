@@ -10,7 +10,10 @@ if loaddata == 1
     headerlinesIn = 4;
     A = importdata(filename,delimiterIn,headerlinesIn);
     data = A.data(:,1);
-   dateandtime = datenum(A.textdata{headerlinesIn-3,1});
+    % this line is a very poor way to address the negative time stamp
+    % problem
+    A.textdata{headerlinesIn-3,1} = strrep(A.textdata{headerlinesIn-3,1},'-','');
+    dateandtime = datenum(A.textdata{headerlinesIn-3,1});
     label = 'Voltage';
 else
     data = [];

@@ -6,7 +6,7 @@ function ispower = egs_CJquick_sonogram(ax,wv,fs,params)
 
 freqwinSize = 512; % NFFT - controls frequency resolution
 timewindowSize = 256; % window size of time in samples
-overlapPercent = 50; % Overlap percentage for sliding window
+overlapPercent = 75; % Overlap percentage for sliding window
 windowOverlap = overlapPercent/100;
 windowOverlap = floor(windowOverlap*timewindowSize);
 
@@ -18,6 +18,7 @@ end
 bck = get(ax,'units');
 freqRange = get(ax,'ylim');
 % The spectrogram
+
 [S,F,t] = specgram(wv, freqwinSize, fs, timewindowSize,windowOverlap);
 % Old code inherited from AAquick_sonogram
 ndx = find((F>=freqRange(1)) & (F<=freqRange(2)));
