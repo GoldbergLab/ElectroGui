@@ -3972,7 +3972,7 @@ elseif strcmp(get(gcf,'selectiontype'),'normal')
     set(handles.xlimbox,'xdata',xd);
     handles = eg_EditTimescale(handles);
 
-elseif strcmp(get(gcf,'selectiontype'),'extend')
+elseif strcmp(get(gcf,'selectiontype'),'alt')
     handles.SelectedEvent = [];
     delete(findobj('linestyle','-.'));
 
@@ -4029,73 +4029,95 @@ elseif strcmp(get(gcf,'selectiontype'),'extend')
                 end
             end
         end
+    end
 
+elseif strcmp(get(gcf,'selectiontype'),'extend')
+    handles.SelectedEvent = [];
+    delete(findobj('linestyle','-.'));
+
+    if handles.EventCurrentIndex(axnum)==0
+        return
+    end
+
+    set(gca,'units','pixels');
+    set(get(gca,'parent'),'units','pixels');
+    rect = rbbox;
+
+    pos = get(gca,'position');
+    set(get(gca,'parent'),'units','normalized');
+    set(gca,'units','normalized');
+    xl = xlim;
+    yl = ylim;
+
+    rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
+    rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
+    rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
+    rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
+
+    subplot(handles.(['axes_Channel' num2str(axnum)]));
+    obj = findobj('parent',gca,'linestyle','-');
+    xs = [];
+    for c = 1:length(obj)
+        x = get(obj(c),'xdata');
+        y = get(obj(c),'ydata');
+        f = find(x>rect(1) & x<rect(1)+rect(3) & y>rect(2) & y<rect(2)+rect(4));
+        xs = [xs x(f)];
+    end
+    obj = findobj('parent',gca,'linestyle','none');
+    objin = [];
+    ison = [];
+    for c = 1:length(obj)
+        x = get(obj(c),'xdata');
+        if ~isempty(find((xs-x>0 & xs-x<handles.SearchBefore(axnum)) | (x-xs>0 & x-xs<handles.SearchAfter(axnum))))
+            objin = [objin obj(c)];
+            if sum(get(obj(c),'markerfacecolor')==[1 1 1])==3
+                ison = [ison 0];
+            else
+                ison = [ison 1];
+            end
+        end
+    end
+
+    if ~isempty(ison) & mean(ison)>0.5
+        set(objin,'markerfacecolor','w');
     else
-        subplot(handles.(['axes_Channel' num2str(axnum)]));
-        obj = findobj('parent',gca,'linestyle','-');
-        xs = [];
-        for c = 1:length(obj)
-            x = get(obj(c),'xdata');
-            y = get(obj(c),'ydata');
-            f = find(x>rect(1) & x<rect(1)+rect(3) & y>rect(2) & y<rect(2)+rect(4));
-            xs = [xs x(f)];
+        for c = 1:length(objin)
+            set(objin(c),'markerfacecolor',get(objin(c),'markeredgecolor'));
         end
-        obj = findobj('parent',gca,'linestyle','none');
-        objin = [];
-        ison = [];
-        for c = 1:length(obj)
-            x = get(obj(c),'xdata');
-            if ~isempty(find((xs-x>0 & xs-x<handles.SearchBefore(axnum)) | (x-xs>0 & x-xs<handles.SearchAfter(axnum))))
-                objin = [objin obj(c)];
-                if sum(get(obj(c),'markerfacecolor')==[1 1 1])==3
-                    ison = [ison 0];
-                else
-                    ison = [ison 1];
-                end
+    end
+
+    indx = handles.EventCurrentIndex(axnum);
+    for c = 1:length(handles.EventHandles{axnum})
+        for d = 1:length(handles.EventHandles{axnum}{c})
+            if sum(get(handles.EventHandles{axnum}{c}(d),'markerfacecolor')==[1 1 1])==3
+                handles.EventSelected{indx}{c,getCurrentFileNum(handles)}(d) = 0;
+            else
+                handles.EventSelected{indx}{c,getCurrentFileNum(handles)}(d) = 1;
             end
         end
+    end
 
-        if ~isempty(ison) & mean(ison)>0.5
-            set(objin,'markerfacecolor','w');
-        else
-            for c = 1:length(objin)
-                set(objin(c),'markerfacecolor',get(objin(c),'markeredgecolor'));
-            end
+    val = get(handles.popup_Channels(3-axnum),'value');
+    str = get(handles.popup_Channels(3-axnum),'string');
+    nums = [];
+    for c = 1:length(handles.EventTimes);
+        nums(c) = size(handles.EventTimes{c},1);
+    end
+    if val > length(str)-sum(nums)
+        indx = val-(length(str)-sum(nums));
+        cs = cumsum(nums);
+        f = length(find(cs<indx))+1;
+        if f == handles.EventCurrentIndex(axnum)
+            handles = eg_LoadChannel(handles,3-axnum);
         end
+    end
 
-        indx = handles.EventCurrentIndex(axnum);
-        for c = 1:length(handles.EventHandles{axnum})
-            for d = 1:length(handles.EventHandles{axnum}{c})
-                if sum(get(handles.EventHandles{axnum}{c}(d),'markerfacecolor')==[1 1 1])==3
-                    handles.EventSelected{indx}{c,getCurrentFileNum(handles)}(d) = 0;
-                else
-                    handles.EventSelected{indx}{c,getCurrentFileNum(handles)}(d) = 1;
-                end
-            end
-        end
+    if strcmp(get(handles.(['axes_Channel' num2str(3-axnum)]),'visible'),'on') & handles.EventCurrentIndex(1)==handles.EventCurrentIndex(2)
+        handles = DisplayEvents(handles,3-axnum);
+    end
 
-        val = get(handles.popup_Channels(3-axnum),'value');
-        str = get(handles.popup_Channels(3-axnum),'string');
-        nums = [];
-        for c = 1:length(handles.EventTimes);
-            nums(c) = size(handles.EventTimes{c},1);
-        end
-        if val > length(str)-sum(nums)
-            indx = val-(length(str)-sum(nums));
-            cs = cumsum(nums);
-            f = length(find(cs<indx))+1;
-            if f == handles.EventCurrentIndex(axnum)
-                handles = eg_LoadChannel(handles,3-axnum);
-            end
-        end
-
-        if strcmp(get(handles.(['axes_Channel' num2str(3-axnum)]),'visible'),'on') & handles.EventCurrentIndex(1)==handles.EventCurrentIndex(2)
-            handles = DisplayEvents(handles,3-axnum);
-        end
-
-        if strcmp(get(handles.menu_AutoDisplayEvents,'checked'),'on')
-            handles = UpdateEventBrowser(handles);
-        end
+    if strcmp(get(handles.menu_AutoDisplayEvents,'checked'),'on')
+        handles = UpdateEventBrowser(handles);
     end
 end
 
