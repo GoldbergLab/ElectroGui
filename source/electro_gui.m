@@ -4341,29 +4341,8 @@ function click_Channel(hObject, event)
     
             if rect(3) < 0.01
                 % Simple control-click on axes
-    
-                filenum = getCurrentFileNum(handles);
-    
-                if isempty(eventSourceIdx)
-                    [handles, eventSourceIdx] = addNewEventSourceFromChannelAxes(handles, axnum);
-                end
-    
-                % Set the new event threshold
-                handles.EventThresholds(eventSourceIdx, filenum) = rect(2);
-    
-                % Update events for the event source configuration of this
-                % channel axes.
-                [handles, eventSourceIdx] = DetectEvents(handles, axnum);
-    
-                for axn = 1:2
-                    if GetChannelAxesEventSourceIdx(handles, axn)==eventSourceIdx
-                        % Axes is visible and is currently showing the same
-                        % event source
-                        handles = UpdateChannelEventDisplay(handles, axn);
-                    end
-                end
-    
-                handles = UpdateEventViewer(handles);
+                handles = SetEventThreshold(handles, axnum, rect(2));
+
             else
                 % Control click and drag on channel axes
     
@@ -4953,41 +4932,39 @@ function popup_EventListAlign_Callback(hObject, ~, handles)
     
     guidata(hObject, handles);
 
-function handles = SetEventThreshold(handles,axnum)
-    
-    indx = handles.EventCurrentIndex(axnum);
-    answer = inputdlg({'Threshold'},'Threshold',1,{num2str(handles.EventCurrentThresholds(indx))});
-    if isempty(answer)
-        return
+function handles = SetEventThreshold(handles, axnum, threshold)
+    eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
+    if isempty(eventSourceIdx)
+        [handles, eventSourceIdx] = addNewEventSourceFromChannelAxes(handles, axnum);
     end
-    handles.EventCurrentThresholds(indx) = str2double(answer{1});
-    handles.EventThresholds(indx,getCurrentFileNum(handles)) = str2double(answer{1});
+
+    filenum = getCurrentFileNum(handles);
+
+    if ~exist('threshold', 'var') || isempty(threshold)
+        % No threshold given, get it from the user
+        answer = inputdlg({'Threshold'},'Threshold',1,{num2str(handles.EventThresholds(eventSourceIdx, filenum))});
+        if isempty(answer)
+            return
+        end
+        handles.EventThresholds(eventSourceIdx, filenum) = str2double(answer{1});
+    end
+
+    % Set the new event threshold
+    handles.EventThresholds(eventSourceIdx, filenum) = threshold;
+
+    % Update events for the event source configuration of this
+    % channel axes.
+    [handles, eventSourceIdx] = DetectEvents(handles, axnum);
+
     for axn = 1:2
-        if handles.axes_Channel(axn).Visible && handles.EventCurrentIndex(axn)==indx
-            handles = UpdateEventThresholdDisplay(handles,axn);
-            if handles.menu_EventAutoDetect(axn).Checked && strcmp(handles.push_Detects(axn).Enable)
-                handles = DetectEvents(handles,axn);
-                if handles.menu_AutoDisplayEvents.Checked
-                    handles = UpdateEventViewer(handles);
-                end
-    
-                val = get(handles.popup_Channels(3-axn),'Value');
-                str = get(handles.popup_Channels(3-axn),'String');
-                nums = [];
-                for c = 1:length(handles.EventTimes)
-                    nums(c) = size(handles.EventTimes{c},1);
-                end
-                if val > length(str)-sum(nums)
-                    indx = val-(length(str)-sum(nums));
-                    cs = cumsum(nums);
-                    f = length(find(cs<indx))+1;
-                    if f == handles.EventCurrentIndex(axn)
-                        handles = eg_LoadChannel(handles,3-axn);
-                    end
-                end
-            end
+        if GetChannelAxesEventSourceIdx(handles, axn)==eventSourceIdx
+            % Axes is visible and is currently showing the same
+            % event source
+            handles = UpdateChannelEventDisplay(handles, axn);
         end
     end
+
+    handles = UpdateEventViewer(handles);
 
 function handles = eg_clickEventDetector(handles, axnum)
 
