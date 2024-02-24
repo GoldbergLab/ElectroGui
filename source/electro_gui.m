@@ -23,7 +23,7 @@ function varargout = electro_gui(varargin)
     
     % Edit the above text to modify the response to help electro_gui
     
-    % Last Modified by GUIDE v2.5 09-Feb-2024 13:15:30
+    % Last Modified by GUIDE v2.5 17-Feb-2024 22:17:26
     
     % Begin initialization code - DO NOT EDIT
     gui_Singleton = 1;
@@ -112,7 +112,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     
     handles.ActiveEventNum = [];
     handles.ActiveEventPartNum = [];
-    handles.ActiveEventCursor = gobjects().empty;
+    handles.ActiveEventCursors = gobjects().empty;
 
     % File caching settings
     handles.EnableFileCaching = true;
@@ -3147,7 +3147,7 @@ function handles = eg_NewDbase(handles)
     handles.popup_Function2.Value = 1;
     handles.popup_EventDetector1.Value = 1;
     handles.popup_EventDetector2.Value = 1;
-    handles.popup_EventList.Value = 1;
+    handles.popup_EventListAlign.Value = 1;
     
     str = {};
     for c = 1:length(handles.sound_files)
@@ -3390,7 +3390,7 @@ function handles = eg_OpenDbase(handles)
     
     handles.popup_Channel1.Value = 1;
     handles.popup_Channel2.Value = 1;
-    handles.popup_EventList.Value = 1;
+    handles.popup_EventListAlign.Value = 1;
     handles.axes_Events.Visible = 'off';
     
     if strcmp(handles.WorksheetTitle,'Untitled')
@@ -3439,7 +3439,7 @@ function handles = eg_OpenDbase(handles)
         handles.EventCurrentThresholds = inf*ones(1,length(dbase.AnalysisState.EventList)-1);
         handles.popup_Channel1.String = dbase.AnalysisState.SourceList;
         handles.popup_Channel2.String = dbase.AnalysisState.SourceList;
-%         handles.popup_EventList.String = dbase.AnalysisState.EventList;
+%         handles.popup_EventListAlign.String = dbase.AnalysisState.EventList;
         handles.edit_FileNumber.String = num2str(dbase.AnalysisState.CurrentFile);
         handles.list_Files.Value = dbase.AnalysisState.CurrentFile;
         handles.EventWhichPlot = dbase.AnalysisState.EventWhichPlot;
@@ -4247,6 +4247,7 @@ function menu_PeakDetect2_Callback(hObject, ~, handles)
     
     
 function click_Channel(hObject, event)
+    % Handle a click on the channel axes
     handles = guidata(hObject);
 
     obj = hObject;
@@ -4282,6 +4283,8 @@ function click_Channel(hObject, event)
         handles = eg_EditTimescale(handles);
     
     elseif strcmp(handles.figure_Main.SelectionType,'normal')
+        % Left click
+
         ax.Units = 'pixels';
         ax.Parent.Units = 'pixels';
         rect = rbbox();
@@ -4308,13 +4311,15 @@ function click_Channel(hObject, event)
         end
         handles = eg_EditTimescale(handles);
     
-    elseif strcmp(handles.figure_Main.SelectionType,'extend')
+    elseif strcmp(handles.figure_Main.SelectionType,'alt')
+        % Control-click
+
         handles.ActiveEventNum = [];
         handles.ActiveEventPartNum = [];
         handles.ActiveEventSourceIdx = [];
 
         % Remove active event cursor
-        delete(handles.ActiveEventCursor);
+        delete(handles.ActiveEventCursors);
     
         ax.Units = 'pixels';
         ax.Parent.Units = 'pixels';
@@ -4332,7 +4337,7 @@ function click_Channel(hObject, event)
         rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
 
         if rect(3) == 0
-            % Simple shift-click on axes
+            % Simple control-click on axes
             pos = ax.CurrentPoint;
 
             eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
@@ -4358,73 +4363,73 @@ function click_Channel(hObject, event)
                 end
             end
             handles = UpdateEventViewer(handles);
-            
+        end
+
+    elseif strcmp(handles.figure_Main.SelectionType,'extend')
+        % Shift-click
+
+        % Check the event source the clicked channel axes is displaying
+        eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
+
+        if ~isempty(eventSourceIdx)
+            % The clicked channel axes is currently showing an event source
+
+            handles.ActiveEventNum = [];
+            handles.ActiveEventPartNum = [];
+            handles.ActiveEventSourceIdx = [];
     
-        else
-            obj = findobj('Parent', handles.axes_Channel(axnum), 'LineStyle', '-');
-            xs = [];
-            for c = 1:length(obj)
-                x = obj(c).XData;
-                y = obj(c).YData;
-                f = x>rect(1) & x<rect(1)+rect(3) & y>rect(2) & y<rect(2)+rect(4);
-                xs = [xs, x(f)];
+            % Remove active event cursor
+            delete(handles.ActiveEventCursors);
+        
+            ax.Units = 'pixels';
+            ax.Parent.Units = 'pixels';
+            rect = rbbox();
+        
+            pos = ax.Position;
+            ax.Parent.Units = 'normalized';
+            ax.Units = 'normalized';
+            xl = xlim(ax);
+            yl = ylim(ax);
+        
+            % Get coordinates of box in data coordinate system
+            rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
+            rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
+            rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
+            rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
+    
+            % Find events that fall within time bounds of box
+            filenum = getCurrentFileNum(handles);
+            boxedEventMask = false(length(handles.EventTimes{eventSourceIdx}{1, filenum}), 1);
+            minTime = rect(1);
+            maxTime = rect(1)+rect(3);
+            minVolt = rect(2);
+            maxVolt = rect(2)+rect(4);
+
+            % Check all event parts to see if any fall within box
+            for eventPartNum = 1:length(handles.EventTimes{eventSourceIdx})
+                eventSamples = handles.EventTimes{eventSourceIdx}{eventPartNum, filenum};
+                eventTimes = eventSamples / handles.fs;
+                eventVoltages = handles.loadedChannelData{axnum}(eventSamples);
+                % Get mask of events that fall within box
+                boxedMask = eventTimes > minTime & eventTimes < maxTime & eventVoltages > minVolt & eventVoltages < maxVolt;
+                % Combine it with masks from previous event parts
+                boxedEventMask = boxedEventMask | boxedMask;
             end
-            obj = findobj('Parent', handles.axes_Channel(axnum), 'LineStyle', 'none');
-            objin = [];
-            ison = [];
-            for c = 1:length(obj)
-                x = obj(c).XData(1);
-                if ~isempty(find((xs-x>0 & xs-x<handles.SearchBefore(axnum)) | (x-xs>0 & x-xs<handles.SearchAfter(axnum)), 1))
-                    objin = [objin obj(c)];
-                    if sum(obj(c).MarkerFaceColor==[1 1 1])==3
-                        ison = [ison 0];
-                    else
-                        ison = [ison 1];
-                    end
+
+            % Invert the selected status of any events that fell within box
+            for eventPartNum = 1:length(handles.EventHandles{axnum})
+                handles.EventSelected{eventSourceIdx}{eventPartNum, filenum}(boxedEventMask) = ~handles.EventSelected{eventSourceIdx}{eventPartNum, filenum}(boxedEventMask);
+            end
+    
+            % Update event display for any axes displaying the same event source
+            for axn = 1:2
+                if eventSourceIdx == GetChannelAxesEventSourceIdx(handles, axn)
+                    handles = UpdateChannelEventDisplay(handles, axn);
                 end
             end
-    
-            if ~isempty(ison) && mean(ison)>0.5
-                [objin.MarkerFaceColor] = deal('w');
-            else
-                for c = 1:length(objin)
-                    objin(c).MarkerFaceColor = objin(c).MarkerEdgeColor;
-                end
-            end
-    
-            indx = handles.EventCurrentIndex(axnum);
-            for c = 1:length(handles.EventHandles{axnum})
-                for d = 1:length(handles.EventHandles{axnum}{c})
-                    if all(handles.EventHandles{axnum}{c}(d).MarkerFaceColor==[1 1 1])
-                        handles.EventSelected{indx}{c,getCurrentFileNum(handles)}(d) = false;
-                    else
-                        handles.EventSelected{indx}{c,getCurrentFileNum(handles)}(d) = true;
-                    end
-                end
-            end
-    
-            val = get(handles.popup_Channels(3-axnum),'Value');
-            str = get(handles.popup_Channels(3-axnum),'String');
-            nums = [];
-            for c = 1:length(handles.EventTimes)
-                nums(c) = size(handles.EventTimes{c},1);
-            end
-            if val > length(str)-sum(nums)
-                indx = val-(length(str)-sum(nums));
-                cs = cumsum(nums);
-                f = length(find(cs<indx))+1;
-                if f == handles.EventCurrentIndex(axnum)
-                    handles = eg_LoadChannel(handles,3-axnum);
-                end
-            end
-    
-            if strcmp(handles.axes_Channel(3-axnum).Visible', 'on') && handles.EventCurrentIndex(1)==handles.EventCurrentIndex(2)
-                handles = UpdateChannelEventDisplay(handles,3-axnum);
-            end
-    
-            if handles.menu_AutoDisplayEvents.Checked
-                handles = UpdateEventViewer(handles);
-            end
+
+            % Update event viewer
+            handles = UpdateEventViewer(handles);
         end
     end
     
@@ -4801,31 +4806,31 @@ function push_Detect2_Callback(hObject, ~, handles)
     
     guidata(hObject, handles);
 
-% --- Executes on selection change in popup_EventList.
-function popup_EventList_Callback(hObject, ~, handles)
-    % hObject    handle to popup_EventList (see GCBO)
+% --- Executes on selection change in popup_EventListAlign.
+function popup_EventListAlign_Callback(hObject, ~, handles)
+    % hObject    handle to popup_EventListAlign (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    % Hints: contents = hObject.String returns popup_EventList contents as cell array
-    %        contents{hObject.Value} returns selected item from popup_EventList
+    % Hints: contents = hObject.String returns popup_EventListAlign contents as cell array
+    %        contents{hObject.Value} returns selected item from popup_EventListAlign
     
     handles.ActiveEventNum = [];
     handles.ActiveEventPartNum = [];
     handles.ActiveEventSourceIdx = [];
-    delete(handles.ActiveEventCursor);
+    delete(handles.ActiveEventCursors);
     
-    if handles.popup_EventList.Value==1
+    if handles.popup_EventListAlign.Value==1
         % "None" is selected in event list - turn off event axes and
         % disable "display events" button
         cla(handles.axes_Events);
         handles.axes_Events.Visible = 'off';
-        handles.push_DisplayEvents.Enable = 'off';
+%         handles.push_DisplayEvents.Enable = 'off';
         return
     else
         % Something other than "none" is selected in the event list
         handles.axes_Events.Visible = 'on';
-        handles.push_DisplayEvents.Enable = 'on';
+%         handles.push_DisplayEvents.Enable = 'on';
     
         if ~handles.axes_Channel2.Visible
             % Channel axes 2 is invisible
@@ -4835,12 +4840,12 @@ function popup_EventList_Callback(hObject, ~, handles)
             plt = 2;
         else
             % Both channel axes are visible
-            if handles.EventWhichPlot(handles.popup_EventList.Value)==0
+            if handles.EventWhichPlot(handles.popup_EventListAlign.Value)==0
                 nums = [];
                 for c = 1:length(handles.EventTimes)
                     nums(c) = size(handles.EventTimes{c},1);
                 end
-                indx = handles.popup_EventList.Value-1;
+                indx = handles.popup_EventListAlign.Value-1;
                 cs = cumsum(nums);
                 f = length(find(cs<indx))+1;
                 if f == handles.EventCurrentIndex(1)
@@ -4850,9 +4855,9 @@ function popup_EventList_Callback(hObject, ~, handles)
                 else
                     plt = 1;
                 end
-                handles.EventWhichPlot(handles.popup_EventList.Value) = plt;
+                handles.EventWhichPlot(handles.popup_EventListAlign.Value) = plt;
             else
-                plt = handles.EventWhichPlot(handles.popup_EventList.Value);
+                plt = handles.EventWhichPlot(handles.popup_EventListAlign.Value);
             end
         end
     
@@ -5021,8 +5026,8 @@ function handles = UpdateEventSourceList(handles)
         end
     end
     % Update list
-    handles.popup_EventList.String = eventListItems;
-    handles.popup_EventList.UserData = eventListInfo;
+    handles.popup_EventListAlign.String = eventListItems;
+    handles.popup_EventListAlign.UserData = eventListInfo;
 
 function [handles, eventSourceIdx] = DetectEvents(handles, axnum)
     % Use the configuration of the given channel axes to either create a
@@ -5042,7 +5047,7 @@ function [handles, eventSourceIdx] = DetectEvents(handles, axnum)
     handles.ActiveEventSourceIdx = [];
 
     % Remove active event cursor
-    delete(handles.ActiveEventCursor);
+    delete(handles.ActiveEventCursors);
     
     % Get channel data
     chanData = handles.loadedChannelData{axnum};
@@ -5188,7 +5193,7 @@ function ClickEventSymbol(hObject, event)
         handles.ActiveEventPartNum = [];
         handles.ActiveEventSourceIdx = [];
         % Delete highlighted event markers
-        delete(handles.ActiveEventCursor);
+        delete(handles.ActiveEventCursors);
     
         handles.EventSelected{eventSourceIdx}{eventPartNum, filenum}(eventNum) = false;
     
@@ -5222,7 +5227,7 @@ function ClickEventSymbol(hObject, event)
     
     
     elseif strcmp(handles.figure_Main.SelectionType,'normal') && sum(hObject.MarkerFaceColor==[1 1 1])~=3
-        indx = handles.popup_EventList.Value-1;
+        indx = handles.popup_EventListAlign.Value-1;
         if indx==0
             return
         end
@@ -5274,7 +5279,7 @@ function EventPartDisplayClick(hObject, event)
     guidata(hObject, handles);
 
 function handles = UpdateEventViewer(handles)
-    delete(handles.ActiveEventCursor);
+    delete(handles.ActiveEventCursors);
     delete(handles.EventWaveHandles);
 
     hold(handles.axes_Events, 'on');
@@ -5282,10 +5287,10 @@ function handles = UpdateEventViewer(handles)
     eventSourceIdx = GetEventViewerEventSourceIdx(handles);
 
     if isempty(eventSourceIdx)
-        handles.push_DisplayEvents.Enable = 'off';
+%         handles.push_DisplayEvents.Enable = 'off';
         return
     else
-        handles.push_DisplayEvents.Enable = 'on';
+%         handles.push_DisplayEvents.Enable = 'on';
     end
     
     if handles.menu_AnalyzeTop.Checked
@@ -5346,12 +5351,12 @@ function handles = UpdateEventViewer(handles)
             str = f.Label;
             [feature1, name1] = eg_runPlugin(handles.plugins.eventFeatures, ...
                 str, channelData, handles.fs, allEventTimes, g, ...
-                round(handles.EventXLims(handles.popup_EventList.Value,:)*handles.fs));
+                round(handles.EventXLims(handles.popup_EventListAlign.Value,:)*handles.fs));
             f = findobj('Parent',handles.menu_YAxis,'Checked','on');
             str = f.Label;
             [feature2, name2] = eg_runPlugin(handles.plugins.eventFeatures, ...
                 str, channelData, handles.fs, allEventTimes, g, ...
-                round(handles.EventXLims(handles.popup_EventList.Value,:)*handles.fs));
+                round(handles.EventXLims(handles.popup_EventListAlign.Value,:)*handles.fs));
     
             for c = 1:length(feature1)
                 if eventSelection(c)==1
@@ -5435,21 +5440,21 @@ function handles = SetEventViewerEventListElement(handles, eventListIdx, eventSo
     % Set the specified element of the event viewer event source list
     if ~exists('eventListIdx', 'var') || isempty(eventListIdx)
         % Add element on to the end if no list index is provided
-        eventListIdx = length(handles.popup_EventList.String)+1;
+        eventListIdx = length(handles.popup_EventListAlign.String)+1;
     end
-    handles.popup_EventList.String{eventListIdx} = eventSourceText;
-    handles.popup_EventList.UserData(eventListIdx).eventSourceIdx = eventSourceIdx;
-    handles.popup_EventList.UserData(eventListIdx).eventPartIdx = eventPartIdx; 
+    handles.popup_EventListAlign.String{eventListIdx} = eventSourceText;
+    handles.popup_EventListAlign.UserData(eventListIdx).eventSourceIdx = eventSourceIdx;
+    handles.popup_EventListAlign.UserData(eventListIdx).eventPartIdx = eventPartIdx; 
 function eventSourceIdx = GetEventViewerEventSourceIdx(handles)
     % Get the event source index from the currently selected item in the
     % event viewer event source list
-    eventListIdx = handles.popup_EventList.Value;
-    eventSourceIdx = handles.popup_EventList.UserData(eventListIdx).eventSourceIdx;
+    eventListIdx = handles.popup_EventListAlign.Value;
+    eventSourceIdx = handles.popup_EventListAlign.UserData(eventListIdx).eventSourceIdx;
 function eventPartIdx = GetEventViewerEventPartIdx(handles)
     % Get the event part index from the currently selected item in the
     % event viewer event source list
-    eventListIdx = handles.popup_EventList.Value;
-    eventPartIdx = handles.popup_EventList.UserData(eventListIdx).eventPartIdx;
+    eventListIdx = handles.popup_EventListAlign.Value;
+    eventPartIdx = handles.popup_EventListAlign.UserData(eventListIdx).eventPartIdx;
 function eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum)
     % Get the event source index that matches the current settings of the
     % given channel axes. If there is no match, return an empty array
@@ -5602,27 +5607,45 @@ function handles = SetEventDisplayActiveState(handles, eventNum, eventPartNum, e
 
     % Update active event cursor in sound axes
     if activeState
-        % Create or update the active event cursor
         [handles, numSamples] = eg_GetNumSamples(handles);
         filenum = getCurrentFileNum(handles);
         ts = linspace(0, numSamples/handles.fs, numSamples);
         eventTimes = handles.EventTimes{eventSourceIdx}{eventPartNum,filenum};
         activeEventTime = ts(eventTimes(eventNum));
-    
-        if isempty(handles.ActiveEventCursor) || ~isvalid(handles.ActiveEventCursor)
-            % No active event cursor yet, create it
-            hold(handles.axes_Sound, 'on');
-            handles.ActiveEventCursor = plot(handles.axes_Sound, [activeEventTime, activeEventTime], ylim(handles.axes_Sound),'-.','LineWidth',2,'Color','r');
-            hold(handles.axes_Sound, 'off');
-        else
-            % Active event cursor already exists, update its position
-            handles.ActiveEventCursor.XData = [activeEventTime, activeEventTime];
-            handles.ActiveEventCursor.YData = ylim(handles.axes_Sound);
-        end
+        
+        handles = UpdateActiveEventCursors(handles, activeEventTime);
     else
-        % Delete the active event cursor
-        delete(handles.ActiveEventCursor);
+        handles = UpdateActiveEventCursors(handles, []);
     end
+
+function handles = UpdateActiveEventCursors(handles, eventTime)
+    % Create, update, or delete the active event cursor
+
+    % Delete the active event cursor
+    delete(handles.ActiveEventCursors);
+
+    if isempty(eventTime)
+        return;
+    end
+
+%     if isempty(handles.ActiveEventCursors) || any(~isvalid(handles.ActiveEventCursors))
+        % No active event cursor yet, reset them then create then
+        handles.ActiveEventCursors = gobjects().empty;
+        % Make list of axes to plot cursor on
+        axesList = [handles.axes_Sound, handles.axes_Sonogram, handles.axes_Amplitude, handles.axes_Channel];
+        % Remove any invalid or invisible axes
+        axesList(~isvalid(axesList) | ~[axesList.Visible]) = [];
+        for ax = axesList
+            hold(ax, 'on');
+            handles.ActiveEventCursors(end+1) = plot(ax, [eventTime, eventTime], ylim(ax), '-.', 'LineWidth' , 1, 'Color', 'r');
+            hold(ax, 'off');
+        end
+%     else
+%         % Active event cursor already exists, update its position
+%         handles.ActiveEventCursors.XData = [activeEventTime, activeEventTime];
+%         handles.ActiveEventCursors.YData = ylim(handles.axes_Sound);
+%     end
+
 
 % function handles = ActivateEvent(handles,i)
 %     
@@ -5630,7 +5653,7 @@ function handles = SetEventDisplayActiveState(handles, eventNum, eventPartNum, e
 %         return
 %     end
 %     delete(findobj('Parent',handles.axes_Events,'LineWidth',2));
-%     delete(handles.ActiveEventCursor);
+%     delete(handles.ActiveEventCursors);
 %     handles.ActiveEventNum = i;
 %     
 %     if i<=length(handles.EventWaveHandles)
@@ -5661,7 +5684,7 @@ function handles = SetEventDisplayActiveState(handles, eventNum, eventPartNum, e
 %     for c = 1:length(handles.EventTimes)
 %         nums(c) = size(handles.EventTimes{c},1);
 %     end
-%     indx = handles.popup_EventList.Value-1;
+%     indx = handles.popup_EventListAlign.Value-1;
 %     cs = cumsum(nums);
 %     f = length(find(cs<indx))+1;
 %     if f>1
@@ -5700,7 +5723,7 @@ function unselect_event(hObject, ~, handles)
     handles.ActiveEventPartNum = [];
     guidata(hObject, handles);
     
-    delete(handles.ActiveEventCursor);
+    delete(handles.ActiveEventCursors);
     delete(findobj('Parent',handles.axes_Events,'LineWidth',2));
 
 function click_eventaxes(hObject, event)
@@ -5754,7 +5777,7 @@ function click_eventaxes(hObject, event)
         delete(findobj('Parent',handles.axes_Events,'LineWidth',2));
         handles.ActiveEventNum = [];
         handles.ActiveEventPartNum = [];
-        delete(handles.ActiveEventCursor);
+        delete(handles.ActiveEventCursors);
     
         handles.axes_Events.Units = 'pixels';
         handles.axes_Events.Parent.Units = 'pixels';
@@ -5802,7 +5825,7 @@ function handles = DeleteEvents(handles,todel)
     for eventSourceIdx = 1:length(handles.EventTimes)
         nums(eventSourceIdx) = size(handles.EventTimes{eventSourceIdx},1);
     end
-    indx = handles.popup_EventList.Value-1;
+    indx = handles.popup_EventListAlign.Value-1;
     cs = cumsum(nums);
     f = length(find(cs<indx))+1;
     if f>1
@@ -5822,7 +5845,7 @@ function handles = DeleteEvents(handles,todel)
     end
     
     for axn = 1:2
-        indx = handles.popup_EventList.Value-1;
+        indx = handles.popup_EventListAlign.Value-1;
         cs = cumsum(nums);
         f = length(find(cs<indx))+1;
         if handles.EventCurrentIndex(axn) == f && handles.axes_Channel(axn).Visible
@@ -5849,8 +5872,8 @@ function handles = DeleteEvents(handles,todel)
     ylim(handles.axes_Events, ylb);
     
 % --- Executes during object creation, after setting all properties.
-function popup_EventList_CreateFcn(hObject, ~, handles)
-    % hObject    handle to popup_EventList (see GCBO)
+function popup_EventListAlign_CreateFcn(hObject, ~, handles)
+    % hObject    handle to popup_EventListAlign (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    empty - handles not created until after all CreateFcns called
     
@@ -6322,7 +6345,7 @@ function menu_AnalyzeTop_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    handles.EventWhichPlot(handles.popup_EventList.Value)=1;
+    handles.EventWhichPlot(handles.popup_EventListAlign.Value)=1;
     handles.menu_AnalyzeTop.Checked = 'on';
     handles.menu_AnalyzeBottom.Checked = 'off';
     
@@ -6346,7 +6369,7 @@ function menu_AnalyzeBottom_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    handles.EventWhichPlot(handles.popup_EventList.Value)=2;
+    handles.EventWhichPlot(handles.popup_EventListAlign.Value)=2;
     handles.menu_AnalyzeTop.Checked = 'off';
     handles.menu_AnalyzeBottom.Checked = 'on';
     
@@ -6390,15 +6413,15 @@ function menu_DisplayFeatures_Callback(hObject, ~, handles)
     guidata(hObject, handles);
     
     
-% --- Executes on button press in push_DisplayEvents.
-function push_DisplayEvents_Callback(hObject, ~, handles)
-    % hObject    handle to push_DisplayEvents (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles = UpdateEventViewer(handles);
-    
-    guidata(hObject, handles);
+% % --- Executes on button press in push_DisplayEvents.
+% function push_DisplayEvents_Callback(hObject, ~, handles)
+%     % hObject    handle to push_DisplayEvents (see GCBO)
+%     % eventdata  reserved - to be defined in a future version of MATLAB
+%     % handles    structure with handles and user data (see GUIDATA)
+%     
+%     handles = UpdateEventViewer(handles);
+%     
+%     guidata(hObject, handles);
     
     
 % --------------------------------------------------------------------
@@ -6424,7 +6447,7 @@ function menu_EventsAxisLimits_Callback(hObject, ~, handles)
     % handles    structure with handles and user data (see GUIDATA)
     
     
-    v = handles.popup_EventList.Value;
+    v = handles.popup_EventListAlign.Value;
     answer = inputdlg({'Min (ms)','Max (ms)'},'Set limits',1,{num2str(-handles.EventXLims(v,1)*1000),num2str(handles.EventXLims(v,2)*1000)});
     if isempty(answer)
         return
@@ -10523,7 +10546,7 @@ function dbase = GetDBase(handles)
     dbase.Properties = handles.Properties;
     
     dbase.AnalysisState.SourceList = handles.popup_Channel1.String;
-    dbase.AnalysisState.EventList = handles.popup_EventList.String;
+    dbase.AnalysisState.EventList = handles.popup_EventListAlign.String;
     dbase.AnalysisState.CurrentFile = getCurrentFileNum(handles);
     dbase.AnalysisState.EventWhichPlot = handles.EventWhichPlot;
     dbase.AnalysisState.EventLims = handles.EventXLims;
@@ -10655,7 +10678,6 @@ function suppressStupidCallbackWarnings()
     menu_AnalyzeBottom_Callback;
     menu_DisplayValues_Callback;
     menu_DisplayFeatures_Callback;
-    push_DisplayEvents_Callback;
     menu_AutoDisplayEvents_Callback;
     menu_EventsAxisLimits_Callback;
     context_SoundOptions_Callback;
@@ -10881,3 +10903,29 @@ function popup_SoundSource_CreateFcn(hObject, eventdata, handles)
         hObject.BackgroundColor = 'white';
     end
     
+
+
+% --- Executes on selection change in popup_EventListData.
+function popup_EventListData_Callback(hObject, eventdata, handles)
+% hObject    handle to popup_EventListData (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns popup_EventListData contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from popup_EventListData
+
+handles = UpdateEventViewer(handles);
+
+guidata(hObject, handles);
+
+% --- Executes during object creation, after setting all properties.
+function popup_EventListData_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to popup_EventListData (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
