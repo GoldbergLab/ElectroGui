@@ -4329,43 +4329,42 @@ function click_Channel(hObject, event)
     
         eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
 
-        if ~isempty(eventSourceIdx)
-            pos = ax.Position;
-            ax.Parent.Units = 'normalized';
-            ax.Units = 'normalized';
-            xl = xlim(ax);
-            yl = ylim(ax);
-        
-            rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
-            rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
-            rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
-            rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
+        pos = ax.Position;
+        ax.Parent.Units = 'normalized';
+        ax.Units = 'normalized';
+        xl = xlim(ax);
+        yl = ylim(ax);
     
-            if rect(3) < 0.01
-                % Simple control-click on axes
-                handles = SetEventThreshold(handles, axnum, rect(2));
+        rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
+        rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
+        rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
+        rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
 
-            else
-                % Control click and drag on channel axes
-    
+        if rect(3) < 0.01
+            % Simple control-click on axes
+            handles = SetEventThreshold(handles, axnum, rect(2));
+        else
+            % Control click and drag on channel axes
+
+            if ~isempty(eventSourceIdx)
                 % Set local threshold 
-
+    
                 filenum = getCurrentFileNum(handles);
-
+    
                 eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
-
+    
                 [~, ~, eventDetectorName, eventParameters] = GetEventSourceInfo(handles, eventSourceIdx);
-
+    
                 % Get channel data
                 chanData = handles.loadedChannelData{axnum};
-
+    
                 minTime = rect(1);
                 maxTime = rect(1)+rect(3);
                 minSample = max(1,                round(minTime*handles.fs));
                 maxSample = min(length(chanData), round(maxTime*handles.fs));
                 minVolt = -Inf;
                 maxVolt = Inf;
-
+    
                 % Get a mask for events within box
                 boxedEventMask = GetBoxedEventMask(handles, axnum, filenum, minTime, maxTime, minVolt, maxVolt);
                 % Just combine the mask for all the event parts - we're
@@ -4377,11 +4376,11 @@ function click_Channel(hObject, event)
                     handles.EventTimes{eventSourceIdx}{eventPartNum, filenum}(boxedEventMask) = [];
                     handles.EventSelected{eventSourceIdx}{eventPartNum, filenum}(boxedEventMask) = [];
                 end
-
+    
                 % Restrict the data we're detecting events in  to the 
                 % specified time limits
                 chanData = chanData(minSample:maxSample);
-
+    
                 % Get the specified local threshold
                 localThreshold = rect(2);
                 
