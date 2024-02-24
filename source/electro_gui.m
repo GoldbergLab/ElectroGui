@@ -2114,11 +2114,13 @@ function handles = eg_EditTimescale(handles)
     [handles, numSamples] = eg_GetNumSamples(handles);
 
     % Adjust view time limits if they exceed the boundaries of the data
-    if handles.TLim(1) < 0
-        handles.TLim(1) = 0;
-    end
-    if handles.TLim(2) > numSamples/handles.fs
-        handles.TLim(2) = numSamples/handles.fs;
+    handles.TLim(handles.TLim < 0) = 0;
+    handles.TLim(handles.TLim > numSamples/handles.fs) = numSamples/handles.fs;
+    % Ensure second time limit is greater than first
+    if diff(handles.TLim) < 0
+        handles.TLim = flip(handles.TLim);
+    elseif diff(handles.TLim) == 0
+        handles.TLim = [0, numSamples/handles.fs];
     end
 
     xlim(handles.axes_Sound, [0, numSamples / handles.fs]);
