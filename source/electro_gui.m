@@ -1651,7 +1651,7 @@ function handles = eg_PlotChannel(handles, axnum)
     set(handles.axes_Channel(axnum).Children, 'UIContextMenu', handles.axes_Channel(axnum).UIContextMenu);
     set(handles.axes_Channel(axnum).Children, 'ButtonDownFcn', handles.axes_Channel(axnum).ButtonDownFcn);
     
-function handles = SetThreshold(handles)
+function handles = SetSegmentThreshold(handles)
     % Clear segments axes
     cla(handles.axes_Segments);
     
@@ -2510,7 +2510,7 @@ function SegmenterMenuClick(hObject, ~, handles)
         handles.SegmenterParams = hObject.UserData;
     end
     
-    handles = SetThreshold(handles);
+    handles = SetSegmentThreshold(handles);
     
     guidata(hObject, handles);
 
@@ -3562,7 +3562,7 @@ function menu_AutoThreshold_Callback(hObject, ~, handles)
         handles.menu_AutoThreshold.Checked = 'on';
         handles.CurrentThreshold = eg_AutoThreshold(handles.amplitude);
         handles.SoundThresholds(getCurrentFileNum(handles)) = handles.CurrentThreshold;
-        handles = SetThreshold(handles);
+        handles = SetSegmentThreshold(handles);
     else
         handles.menu_AutoThreshold.Checked = 'off';
     end
@@ -3733,7 +3733,7 @@ function click_Amplitude(hObject, event)
         pos = handles.axes_Amplitude.CurrentPoint;
         handles.CurrentThreshold = pos(1,2);
         handles.SoundThresholds(getCurrentFileNum(handles)) = handles.CurrentThreshold;
-        handles = SetThreshold(handles);
+        handles = SetSegmentThreshold(handles);
     end
     
     guidata(hObject, handles);
@@ -3753,7 +3753,7 @@ function menu_SetThreshold_Callback(hObject, ~, handles)
     handles.CurrentThreshold = str2double(answer{1});
     handles.SoundThresholds(getCurrentFileNum(handles)) = handles.CurrentThreshold;
     
-    handles = SetThreshold(handles);
+    handles = SetSegmentThreshold(handles);
     
     guidata(hObject, handles);
     
@@ -4311,7 +4311,7 @@ function click_Channel(hObject, event)
         end
         handles = eg_EditTimescale(handles);
     
-    elseif strcmp(handles.figure_Main.SelectionType,'alt')
+    elseif strcmp(handles.figure_Main.SelectionType, 'alt')
         % Control-click
 
         handles.ActiveEventNum = [];
@@ -4325,44 +4325,107 @@ function click_Channel(hObject, event)
         ax.Parent.Units = 'pixels';
         rect = rbbox();
     
-        pos = ax.Position;
-        ax.Parent.Units = 'normalized';
-        ax.Units = 'normalized';
-        xl = xlim(ax);
-        yl = ylim(ax);
+        eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
+
+        if ~isempty(eventSourceIdx)
+            pos = ax.Position;
+            ax.Parent.Units = 'normalized';
+            ax.Units = 'normalized';
+            xl = xlim(ax);
+            yl = ylim(ax);
+        
+            rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
+            rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
+            rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
+            rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
     
-        rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
-        rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
-        rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
-        rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
-
-        if rect(3) == 0
-            % Simple control-click on axes
-            pos = ax.CurrentPoint;
-
-            eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
-            filenum = getCurrentFileNum(handles);
-
-            if isempty(eventSourceIdx)
-                [handles, eventSourceIdx] = addNewEventSourceFromChannelAxes(handles, axnum);
-            end
-
-            % Set the new event threshold
-            handles.EventThresholds(eventSourceIdx, filenum) = pos(1,2);
-
-            % Update events for the event source configuration of this
-            % channel axes.
-            [handles, eventSourceIdx] = DetectEvents(handles, axnum);
-
-            for axn = 1:2
-                if handles.axes_Channel(axn).Visible && ...
-                   handles.EventCurrentIndex(axn)==eventSourceIdx
-                    % Axes is visible and is currently showing the same
-                    % event source
-                    handles = UpdateChannelEventDisplay(handles, axn);
+            if rect(3) < 0.01
+                % Simple control-click on axes
+    
+                filenum = getCurrentFileNum(handles);
+    
+                if isempty(eventSourceIdx)
+                    [handles, eventSourceIdx] = addNewEventSourceFromChannelAxes(handles, axnum);
                 end
+    
+                % Set the new event threshold
+                handles.EventThresholds(eventSourceIdx, filenum) = rect(2);
+    
+                % Update events for the event source configuration of this
+                % channel axes.
+                [handles, eventSourceIdx] = DetectEvents(handles, axnum);
+    
+                for axn = 1:2
+                    if GetChannelAxesEventSourceIdx(handles, axn)==eventSourceIdx
+                        % Axes is visible and is currently showing the same
+                        % event source
+                        handles = UpdateChannelEventDisplay(handles, axn);
+                    end
+                end
+    
+                handles = UpdateEventViewer(handles);
+            else
+                % Control click and drag on channel axes
+    
+                % Set local threshold 
+
+                filenum = getCurrentFileNum(handles);
+
+                eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
+
+                [~, ~, eventDetectorName, eventParameters] = GetEventSourceInfo(handles, eventSourceIdx);
+
+                % Get channel data
+                chanData = handles.loadedChannelData{axnum};
+
+                minTime = rect(1);
+                maxTime = rect(1)+rect(3);
+                minSample = max(1,                round(minTime*handles.fs));
+                maxSample = min(length(chanData), round(maxTime*handles.fs));
+                minVolt = -Inf;
+                maxVolt = Inf;
+
+                % Get a mask for events within box
+                boxedEventMask = GetBoxedEventMask(handles, axnum, filenum, minTime, maxTime, minVolt, maxVolt);
+                % Just combine the mask for all the event parts - we're
+                % assuming we'll never want to select one part of an event but
+                % not all others.
+                boxedEventMask = or(boxedEventMask{:});
+                % Delete events within box
+                for eventPartNum = 1:size(handles.EventTimes{eventSourceIdx}, 1)
+                    handles.EventTimes{eventSourceIdx}{eventPartNum, filenum}(boxedEventMask) = [];
+                    handles.EventSelected{eventSourceIdx}{eventPartNum, filenum}(boxedEventMask) = [];
+                end
+
+                % Restrict the data we're detecting events in  to the 
+                % specified time limits
+                chanData = chanData(minSample:maxSample);
+
+                % Get the specified local threshold
+                localThreshold = rect(2);
+                
+                % Run event detector plugin to get a list of detected event times
+                [newEventTimes, eventParts] = eg_runPlugin(handles.plugins.eventDetectors, eventDetectorName, chanData, handles.fs, localThreshold, eventParameters);
+                newEventSelected = true(1, length(newEventTimes{1}));
+                for eventPartNum = 1:length(eventParts)
+                    % Adjust event times based on start of time limits
+                    newEventTimes{eventPartNum} = newEventTimes{eventPartNum} + (minSample-1);
+                    % Store the original event times/selected
+                    oldEventTimes = handles.EventTimes{eventSourceIdx}{eventPartNum, filenum};
+                    oldEventSelected = handles.EventSelected{eventSourceIdx}{eventPartNum, filenum};
+                    % Concatenate new event times/selected
+                    eventTimes = vertcat(oldEventTimes, newEventTimes{eventPartNum});
+                    eventSelected = [oldEventSelected, newEventSelected];
+                    % Sort event times by time
+                    [eventTimes, sortIdx] = sort(eventTimes);
+                    eventSelected = eventSelected(sortIdx);
+                    % Update event times/selected
+                    handles.EventTimes{eventSourceIdx}{eventPartNum, filenum} = eventTimes;
+                    handles.EventSelected{eventSourceIdx}{eventPartNum, filenum} = eventSelected;
+                end
+                handles = UpdateChannelEventDisplay(handles, axnum);
+                handles = UpdateEventViewer(handles);
             end
-            handles = UpdateEventViewer(handles);
         end
 
     elseif strcmp(handles.figure_Main.SelectionType,'extend')
@@ -4399,22 +4462,17 @@ function click_Channel(hObject, event)
     
             % Find events that fall within time bounds of box
             filenum = getCurrentFileNum(handles);
-            boxedEventMask = false(length(handles.EventTimes{eventSourceIdx}{1, filenum}), 1);
             minTime = rect(1);
             maxTime = rect(1)+rect(3);
             minVolt = rect(2);
             maxVolt = rect(2)+rect(4);
 
-            % Check all event parts to see if any fall within box
-            for eventPartNum = 1:length(handles.EventTimes{eventSourceIdx})
-                eventSamples = handles.EventTimes{eventSourceIdx}{eventPartNum, filenum};
-                eventTimes = eventSamples / handles.fs;
-                eventVoltages = handles.loadedChannelData{axnum}(eventSamples);
-                % Get mask of events that fall within box
-                boxedMask = eventTimes > minTime & eventTimes < maxTime & eventVoltages > minVolt & eventVoltages < maxVolt;
-                % Combine it with masks from previous event parts
-                boxedEventMask = boxedEventMask | boxedMask;
-            end
+            % Get a mask for events within box
+            boxedEventMask = GetBoxedEventMask(handles, axnum, filenum, minTime, maxTime, minVolt, maxVolt);
+            % Just combine the mask for all the event parts - we're
+            % assuming we'll never want to select one part of an event but
+            % not all others.
+            boxedEventMask = or(boxedEventMask{:});
 
             % Invert the selected status of any events that fell within box
             for eventPartNum = 1:length(handles.EventHandles{axnum})
@@ -4435,6 +4493,27 @@ function click_Channel(hObject, event)
     
     guidata(handles.axes_Channel(axnum), handles);
     
+function boxedEventMask = GetBoxedEventMask(handles, axnum, filenum, minTime, maxTime, minVolt, maxVolt)
+
+    eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
+    if isempty(eventSourceIdx)
+        boxedEventMask = logical.empty();
+        return;
+    end
+
+    boxedEventMask = {};
+
+    % Check all event parts to see if any fall within box
+    for eventPartNum = 1:length(handles.EventTimes{eventSourceIdx})
+        eventSamples = handles.EventTimes{eventSourceIdx}{eventPartNum, filenum};
+        newEventTimes = eventSamples / handles.fs;
+        eventVoltages = handles.loadedChannelData{axnum}(eventSamples);
+        % Get mask of events that fall within box
+        boxedMask = newEventTimes > minTime & newEventTimes < maxTime & eventVoltages > minVolt & eventVoltages < maxVolt;
+        % Combine it with masks from previous event parts
+        boxedEventMask{eventPartNum} = boxedMask;
+    end
+
 function handles = UpdateEventThresholdDisplay(handles, eventSourceIdx)
     for axnum = WhichChannelAxesMatchEventSource(handles, eventSourceIdx)
         if ~handles.axes_Channel(axnum).Visible
@@ -4687,7 +4766,7 @@ function menu_UpdateEventThresholdDisplay1_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    handles = SetManualThreshold(handles,1);
+    handles = SetEventThreshold(handles,1);
     
     guidata(hObject, handles);
 
@@ -4744,7 +4823,7 @@ function menu_UpdateEventThresholdDisplay2_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    handles = SetManualThreshold(handles,2);
+    handles = SetEventThreshold(handles,2);
     
     guidata(hObject, handles);
 
@@ -4874,7 +4953,7 @@ function popup_EventListAlign_Callback(hObject, ~, handles)
     
     guidata(hObject, handles);
 
-function handles = SetManualThreshold(handles,axnum)
+function handles = SetEventThreshold(handles,axnum)
     
     indx = handles.EventCurrentIndex(axnum);
     answer = inputdlg({'Threshold'},'Threshold',1,{num2str(handles.EventCurrentThresholds(indx))});
@@ -4917,16 +4996,6 @@ function handles = eg_clickEventDetector(handles, axnum)
     end
 
     eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
-    
-%     str = handles.popup_Channels(axnum).String;
-%     src = str{handles.popup_Channels(axnum).Value};
-%     if handles.popup_EventDetectors(axnum).Value == 1 || contains(src,' - ')
-%         handles.menu_Events(axnum).Enable = 'off';
-%         handles.push_Detects(axnum).Enable = 'off';
-%         handles.EventCurrentIndex(axnum) = 0;
-%     else
-%         handles.menu_Events(axnum).Enable = 'on';
-%         handles.push_Detects(axnum).Enable = 'on';
 
     if isempty(eventSourceIdx)
         % No event source for this channel configuration
@@ -4946,32 +5015,32 @@ function handles = eg_clickEventDetector(handles, axnum)
         handles.EventSelected{end+1} = cell(length(labels),handles.TotalFileNumber);
     end
     
-        % Delete list of event part display menu items (one set of menu
-        % items for each axes)
-        delete(handles.menu_EventsDisplay(axnum).Children);
-        handles.menu_EventsDisplayList{axnum} = gobjects.empty();
-    
-        indx = 0;
-        str = handles.popup_Channel1.String;
-        while 1
-            indx = indx + 1;
-            if ~isempty(strfind(str{indx},' - '))
-                break
-            end
+    % Delete list of event part display menu items (one set of menu
+    % items for each axes)
+    delete(handles.menu_EventsDisplay(axnum).Children);
+    handles.menu_EventsDisplayList{axnum} = gobjects.empty();
+
+    indx = 0;
+    str = handles.popup_Channel1.String;
+    while 1
+        indx = indx + 1;
+        if ~isempty(strfind(str{indx},' - '))
+            break
         end
-        indx = indx - 1;
-        for c = 1:handles.EventCurrentIndex(axnum)-1
-            indx = indx + size(handles.EventTimes{c},1);
-        end
-        for c = 1:size(handles.EventTimes{handles.EventCurrentIndex(axnum)},1)
-            label = str{indx+c};
-            f = strfind(label,' - ');
-            label = label(f(end)+3:end);
-            handles.menu_EventsDisplayList{axnum}(c) = uimenu(handles.menu_EventsDisplay(axnum),...
-                'Label',label,...
-                'Callback',@EventPartDisplayClick, ...
-                'Checked','on');
-        end
+    end
+    indx = indx - 1;
+    for c = 1:handles.EventCurrentIndex(axnum)-1
+        indx = indx + size(handles.EventTimes{c},1);
+    end
+    for c = 1:size(handles.EventTimes{handles.EventCurrentIndex(axnum)},1)
+        label = str{indx+c};
+        f = strfind(label,' - ');
+        label = label(f(end)+3:end);
+        handles.menu_EventsDisplayList{axnum}(c) = uimenu(handles.menu_EventsDisplay(axnum),...
+            'Label',label,...
+            'Callback',@EventPartDisplayClick, ...
+            'Checked','on');
+    end
     
     handles = UpdateEventThresholdDisplay(handles,axnum);
 
@@ -5063,20 +5132,20 @@ function [handles, eventSourceIdx] = DetectEvents(handles, axnum)
     end
 
     % Run event detector plugin to get a list of detected event times
-    [eventTimes, eventLabels] = eg_runPlugin(handles.plugins.eventDetectors, eventDetectorName, chanData, handles.fs, threshold, eventParameters);
+    [eventTimes, eventParts] = eg_runPlugin(handles.plugins.eventDetectors, eventDetectorName, chanData, handles.fs, threshold, eventParameters);
 
     % Update event part selection menu
-    for eventPartNum = 1:length(eventLabels)
-        eventLabel = eventLabels{eventPartNum};
+    for eventPartNum = 1:length(eventParts)
+        eventPart = eventParts{eventPartNum};
         handles.menu_EventsDisplayList{axnum}(eventPartNum) = uimenu(handles.menu_EventsDisplay(axnum),...
-        'Label',eventLabel,...
+        'Label',eventPart,...
         'Callback',@EventPartDisplayClick, ...
         'Checked','on');
     end
 
-    for eventNum = 1:length(eventTimes)
-        handles.EventTimes{eventSourceIdx}{eventNum, filenum} = eventTimes{eventNum};
-        handles.EventSelected{eventSourceIdx}{eventNum, filenum} = true(1,length(eventTimes{eventNum}));
+    for eventPartNum = 1:length(eventTimes)
+        handles.EventTimes{eventSourceIdx}{eventPartNum, filenum} = eventTimes{eventPartNum};
+        handles.EventSelected{eventSourceIdx}{eventPartNum, filenum} = true(1,length(eventTimes{eventPartNum}));
     end
     
     handles = UpdateChannelEventDisplay(handles, axnum);
@@ -5106,6 +5175,11 @@ function handles = UpdateDisplayForEventSource(handles, eventSourceIdx)
 function handles = UpdateChannelEventDisplay(handles, axnum)
     % Get the index of the event source (a channel, but not in numerical
     % order, see handles.EventSources for order)
+    if ~handles.axes_Channel(axnum).Visible
+        % Axes isn't visible, no point in updating it.
+        return;
+    end
+
     eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
 
     handles = ClearEventMarkers(handles, axnum);
@@ -9025,7 +9099,7 @@ function handles = updateAmplitude(handles, forceRedraw)
             handles.CurrentThreshold = handles.SoundThresholds(filenum);
         end
         handles.SegmentLabelHandles = gobjects().empty;
-        handles = SetThreshold(handles);
+        handles = SetSegmentThreshold(handles);
     else
         % Just update y values
         plt.YData = handles.amplitude;
