@@ -114,6 +114,11 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.ActiveEventPartNum = [];
     handles.ActiveEventCursors = gobjects().empty;
 
+    % General cursor
+    handles.Cursors = gobjects().empty;
+    handles.ShiftDown = false;
+    handles.CtrlDown = false;
+
     % File caching settings
     handles.EnableFileCaching = true;
     handles.BackwardFileCacheSize = 1;
@@ -273,6 +278,8 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles = UpdateEventSourceList(handles);
 
     handles.figure_Main.KeyPressFcn = @keyPressHandler;
+    handles.figure_Main.KeyReleaseFcn = @keyReleaseHandler;
+    handles.figure_Main.WindowButtonMotionFcn = @MouseMotionHandler;
     
     % Update handles structure
     guidata(hObject, handles);
@@ -984,7 +991,7 @@ function edit_Timescale_Callback(hObject, ~, handles)
 
     tscale = str2double(handles.edit_Timescale.String);
     handles.TLim = [handles.TLim(1), handles.TLim(1) + tscale];
-    
+    handles = eg_EditTimescale(handles);
     guidata(hObject, handles);
     
 function handles = centerTimescale(handles, centerTime, radiusTime)
@@ -1185,7 +1192,8 @@ function handles = eg_LoadFile(handles)
 
     tmax = numSamples/handles.fs;
     handles.TLim = [0, tmax];
-
+    handles = eg_EditTimescale(handles);
+    
     % If file too long
     if numSamples > handles.TooLong
         txt = text(mean(xlim),mean(ylim), 'Long file. Click to load.',...
@@ -1207,8 +1215,6 @@ function handles = eg_LoadFile(handles)
     handles = eg_LoadChannel(handles,2);
     
     handles = updateAmplitude(handles, true);
-    
-    handles = eg_EditTimescale(handles);
     
     cd(curr);
 
@@ -2112,18 +2118,19 @@ function handles = eg_EditTimescale(handles)
     % timescale together, based on the value in handles.TLim
     
     [handles, numSamples] = eg_GetNumSamples(handles);
+    numSeconds = numSamples / handles.fs;
 
     % Adjust view time limits if they exceed the boundaries of the data
     handles.TLim(handles.TLim < 0) = 0;
-    handles.TLim(handles.TLim > numSamples/handles.fs) = numSamples/handles.fs;
+    handles.TLim(handles.TLim > numSeconds) = numSeconds;
     % Ensure second time limit is greater than first
     if diff(handles.TLim) < 0
         handles.TLim = flip(handles.TLim);
     elseif diff(handles.TLim) == 0
-        handles.TLim = [0, numSamples/handles.fs];
+        handles.TLim = [0, numSeconds];
     end
 
-    xlim(handles.axes_Sound, [0, numSamples / handles.fs]);
+    xlim(handles.axes_Sound, [0, numSeconds]);
 
     % Update xlimbox
     handles = updateXLimBox(handles);
@@ -2135,9 +2142,9 @@ function handles = eg_EditTimescale(handles)
         handles = eg_PlotSonogram(handles);
     else
         xlim(handles.axes_Sonogram, handles.TLim);
-        handles.axes_Sonogram.UIContextMenu = handles.context_Sonogram;
+%         handles.axes_Sonogram.UIContextMenu = handles.context_Sonogram;
     
-        handles = setClickSoundCallback(handles, handles.axes_Sonogram);
+%         handles = setClickSoundCallback(handles, handles.axes_Sonogram);
         handles = setClickSoundCallback(handles, handles.axes_Sound);
     end
     
@@ -2156,23 +2163,10 @@ function handles = eg_EditTimescale(handles)
     end
     
     handles.slider_Time.Min = 0;
-    handles.slider_Time.Max = numSamples/handles.fs - diff(handles.TLim) + eps;
+    handles.slider_Time.Max = numSeconds - diff(handles.TLim) + eps;
     handles.slider_Time.Value = handles.TLim(1);
-    stp = min([1 diff(handles.TLim)/((numSamples/handles.fs-diff(handles.TLim))+eps)]);
+    stp = min([1 diff(handles.TLim)/((numSeconds-diff(handles.TLim))+eps)]);
     handles.slider_Time.SliderStep = [0.1*stp 0.5*stp];
-    
-    % Make out-of-bounds segments invisible...not sure why this is
-    % necessary - I think it's not, commenting it out
-%     for c = 1:length(handles.SegmentLabelHandles)
-%         if ishandle(handles.SegmentLabelHandles(c))
-%             pos = get(handles.SegmentLabelHandles(c), 'Extent');
-%             if pos(1) < handles.TLim(1) || pos(1) + pos(3) > handles.TLim(2)
-%                 handles.SegmentLabelHandles(c).Visible = 'off';
-%             else
-%                 handles.SegmentLabelHandles(c).Visible = 'on';
-%             end
-%         end
-%     end
     
     handles = eg_Overlay(handles);
     
@@ -2308,13 +2302,13 @@ function click_sound(hObject, event)
         [handles, numSamples] = eg_GetNumSamples(handles);
     
         handles.TLim = [0, numSamples/handles.fs];
+        handles = eg_EditTimescale(handles);
 
         if handles.menu_FrequencyZoom.Checked
             % We're resetting y-axis (frequency) zoom too
             handles.CustomFreqLim = handles.FreqLim;
         end
         % Update spectrogram scales
-        handles = eg_EditTimescale(handles);
     elseif strcmp(handles.figure_Main.SelectionType, 'alt') && ~isempty(handles.figure_Main.CurrentModifier) && strcmp(handles.figure_Main.CurrentModifier, 'control')
         % User control-clicked on axes_Spectrogram
     
@@ -3891,10 +3885,85 @@ function exportView(handles)
         end
     end
 
+function MouseMotionHandler(hObject, event)
+    % Callback to handle mouse motion
+
+    handles = guidata(hObject);
+    if handles.ShiftDown
+        % User is holding the shift key down
+
+        % Get coordinates of mouse
+        xy = handles.figure_Main.CurrentPoint;
+
+        % Define list of axes that will have cursors
+        cursor_axes = [handles.axes_Amplitude, handles.axes_Sonogram, handles.axes_Channel];
+
+        % Check if mouse is inside one of the relevant display axes
+        inside = areCoordinatesIn(xy(1), xy(2), cursor_axes);
+        
+        if inside
+            % xlim will be the same for all the axes
+            ax1 = cursor_axes(1);
+            xl = xlim(ax1);
+            x = (xy(1) - ax1.Position(1)) / ax1.Position(3);
+
+            if isempty(handles.Cursors) || any(~isvalid(handles.Cursors))
+                delete(handles.Cursors);
+                handles.Cursors = gobjects().empty;
+                for k = 1:length(cursor_axes)
+                    ax = cursor_axes(k);
+                    if ax.Visible
+                        yl = ylim(ax);
+                        t = x*diff(xl)+xl(1);
+                        handles.Cursors(k) = line([t, t], yl, 'Parent', ax, 'Color', 'green');
+                    end
+                end
+            else
+                for k = 1:length(cursor_axes)
+                    ax = cursor_axes(k);
+                    if ax.Visible
+                        yl = ylim(ax);
+                        t = x*diff(xl)+xl(1);
+                        handles.Cursors(k).XData = [t, t];
+                        handles.Cursors(k).YData = yl;
+                    end
+                end
+            end
+    
+            guidata(hObject, handles);
+        end
+    end
+
+function keyReleaseHandler(hObject, event)
+    % Callback to handle a key release
+
+    handles = guidata(hObject);
+
+    if strcmp(event.Key, 'control')
+        handles.CtrlDown = false;
+    end
+    if strcmp(event.Key, 'shift')
+        handles.ShiftDown = false;
+
+        % Delete cursor objects, if they exist
+        delete(handles.Cursors);
+        handles.Cursors = gobjects().empty;
+    end
+
+    guidata(hObject, handles);
+
+
 function keyPressHandler(hObject, event)
     % Callback to handle a key press
 
     handles = guidata(hObject);
+
+    if strcmp(event.Key, 'control')
+        handles.CtrlDown = true;
+    end
+    if strcmp(event.Key, 'shift')
+        handles.ShiftDown = true;
+    end
 
     % Get currently loaded file num
     filenum = getCurrentFileNum(handles);
@@ -4267,8 +4336,6 @@ function click_Channel(hObject, event)
     if strcmp(handles.figure_Main.SelectionType,'open')
         [handles, numSamples] = eg_GetNumSamples(handles);
     
-        handles.TLim = [0, numSamples/handles.fs];
-    
         for axn = 1:2
             if handles.axes_Channel(axn).Visible
                 if handles.menu_AutoLimits(axn).Checked
@@ -4282,6 +4349,7 @@ function click_Channel(hObject, event)
                 end
             end
         end
+        handles.TLim = [0, numSamples/handles.fs];
         handles = eg_EditTimescale(handles);
     
     elseif strcmp(handles.figure_Main.SelectionType,'normal')
