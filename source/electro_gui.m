@@ -181,6 +181,9 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.ChanLimits1 = handles.ChanLimits(1,:);
     handles.ChanLimits2 = handles.ChanLimits(2,:);
     
+    % Sonogram overlay handles
+    handles.Sonogram_Overlays = gobjects(1, 2);
+
     % Set values of various GUI controls based on default values
     handles = setGUIValues(handles);
 
@@ -8829,42 +8832,57 @@ function menu_OverlayBottom_Callback(hObject, ~, handles)
     
     
 function handles = eg_Overlay(handles)
-    
-    da = [];
+    % Show, delete, or update channel data overlaid directly on top of the
+    % sonogram, depending on the settings within handles.menu_Overlay_Callback
+
+    % Collect list of channel axes that will and will not be overlaid on 
+    % top of the sonogram
+    axnums = [];
+    notAxnums = [];
     if handles.menu_OverlayTop.Checked
-        da = [da 1];
+        axnums = [axnums 1];
+    else
+        notAxnums = [notAxnums, 1];
     end
     if handles.menu_OverlayBottom.Checked
-        da = [da 2];
+        axnums = [axnums 2];
+    else
+        notAxnums = [notAxnums, 2];
     end
     
-    xl = xlim(handles.axes_Sonogram);
-    yl = ylim(handles.axes_Sonogram);
-    hold(handles.axes_Sonogram, 'on');
-    
-    delete(findobj('Parent', handles.axes_Sonogram, 'LineStyle', '-'))
-    for j = da
-        lm = handles.axes_Channel(j).YLim;
-        ch = findobj('Parent', handles.axes_Channel(j), 'LineStyle', '-');
-        for c = 1:length(ch)
-            x = ch(c).XData;
-            y = ch(c).YData;
-            y = (y-lm(1))/(lm(2)-lm(1));
-            y = y*(yl(2)-yl(1))+yl(1);
-            col = ch(c).Color;
-            lw = ch(c).LineWidth;
-            plot(handles.axes_Sonogram, x, y, 'Color', col, 'LineWidth', lw);
+    % Delete unchecked overlays
+    for axnum = notAxnums
+        delete(handles.Sonogram_Overlays(axnum));
+    end
+
+    if ~isempty(axnums)
+        % Create or update overlays
+        xl = xlim(handles.axes_Sonogram);
+        yl = ylim(handles.axes_Sonogram);
+        hold(handles.axes_Sonogram, 'on');
+        
+        for axnum = axnums
+            y = handles.loadedChannelData{axnum};
+            % Scale data to fit nicely on top of sonogram
+            yl1 = handles.axes_Channel(axnum).YLim;
+            yl2 = handles.axes_Sonogram.YLim;
+            y = (y - yl1(1)) / diff(yl1);
+            y = y * diff(yl2) + yl2(1);
+            if isvalid(handles.Sonogram_Overlays(axnum))
+                handles.Sonogram_Overlays(axnum).YData = y;
+            else
+                [handles, numSamples] = eg_GetNumSamples(handles);
+                t = linspace(0, numSamples/handles.fs, numSamples);
+                handles.Sonogram_Overlays(axnum) = plot(handles.axes_Sonogram, t, y, 'Color', 'b', 'LineWidth', 1);
+                handles.Sonogram_Overlays(axnum).UIContextMenu = handles.axes_Sonogram.UIContextMenu;
+                handles.Sonogram_Overlays(axnum).ButtonDownFcn = handles.axes_Sonogram.ButtonDownFcn;
+            end
         end
+        
+        hold(handles.axes_Sonogram, 'off');
+        xlim(handles.axes_Sonogram, xl);
+        ylim(handles.axes_Sonogram, yl);
     end
-    
-    for child = handles.axes_Sonogram.Children'
-        child.UIContextMenu = handles.axes_Sonogram.UIContextMenu;
-        child.ButtonDownFcn = handles.axes_Sonogram.ButtonDownFcn;
-    end
-    
-    hold(handles.axes_Sonogram, 'off');
-    xlim(handles.axes_Sonogram, xl);
-    ylim(handles.axes_Sonogram, yl);
     
     
 % --------------------------------------------------------------------
