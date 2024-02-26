@@ -1075,7 +1075,7 @@ function handles = refreshFileCache(handles)
         loadersInCache{end+1} = handles.sound_loader;
     
         % Add whatever channel is selected in axes1 to list
-        if ~isnan(selectedChannelNum1)
+        if ~isempty(selectedChannelNum1)
             filesInCache{end+1} = fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum1}(filenum).name);
             if isSound1
                 loadersInCache{end+1} = handles.sound_loader;
@@ -1084,7 +1084,7 @@ function handles = refreshFileCache(handles)
             end
         end
     
-        if ~isnan(selectedChannelNum2)
+        if ~isempty(selectedChannelNum2)
             % Add whatever channel is selected in axes2 to list
             filesInCache{end+1} = fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum2}(filenum).name);
             if isSound2
@@ -1312,7 +1312,7 @@ function isSound = isChannelSound(channelNum)
 function [selectedChannelNum, selectedChannelName, isSound] = getSelectedChannel(handles, axnum)
     % Return the name and number of the selected channel from the specified
     %   axis. If the name is not a valid channel, selectedChannelNum will be
-    %   NaN.
+    %   empty.
     channelOptionList = handles.popup_Channels(axnum).String;
     selectedChannelName = channelOptionList{handles.popup_Channels(axnum).Value};
     selectedChannelNum = channelNameToNum(selectedChannelName);
@@ -1355,7 +1355,7 @@ function channelNum = channelNameToNum(channelName)
         channelNumMatch = regexp(channelName, 'Channel ([0-9]+)', 'tokens');
         if isempty(channelNumMatch)
             % Not a valid channel name
-            channelNum = NaN;
+            channelNum = [];
         else
             channelNum = str2double(channelNumMatch{1});
         end
@@ -1374,7 +1374,7 @@ function [handles, isValidEventDetector] = updateEventDetectorInfo(handles, chan
     % This appears to be unused? Kinda confused.
     % Update stored event detector info
     isValidEventDetector = isValidPlugin(handles.plugins.eventDetectors, newEventDetector);
-    if isnan(channelNum)
+    if isempty(channelNum)
         % Not a valid channel
         return
     end
@@ -1403,7 +1403,7 @@ function [handles, isValidEventDetector] = updateEventDetectorInfo(handles, chan
 function [handles, isValidEventFunction] = updateEventFunctionInfo(handles, channelNum, newEventFunction)
     % This appears to be unused? Kinda confused.
     isValidEventFunction = isValidPlugin(handles.plugins.filters, newEventFunction);
-    if isnan(channelNum)
+    if isempty(channelNum)
         % Not a valid channel
         return
     end
@@ -1479,6 +1479,7 @@ function handles = eg_LoadChannel(handles,axnum)
         handles.ActiveEventNum = [];
         handles.ActiveEventPartNum = [];
         handles.ActiveEventSourceIdx = [];
+        handles.loadedChannelData{axnum} = [];
         handles = UpdateEventViewer(handles);
         return
     else
@@ -4260,13 +4261,14 @@ function handles = popup_Channels_Callback(handles, axnum)
     % Handle change in value of either channel source menu
     
     if isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
+        % ??
         handles.popup_Functions(axnum).Value = 1;
         handles.popup_EventDetectors(axnum).Value = 1;
         handles = eg_LoadChannel(handles, axnum);
     end
-    str = handles.popup_Channels(axnum).String;
-    str = str{handles.popup_Channels(axnum).Value};
-    if contains(str,' - ') || strcmp(str,'(None)')
+
+    channelNum = getSelectedChannel(handles, axnum);
+    if isempty(channelNum)
         handles.popup_EventDetectors(axnum).Enable = 'off';
     else
         handles.popup_EventDetectors(axnum).Enable = 'on';
@@ -4294,7 +4296,6 @@ function handles = popup_Channels_Callback(handles, axnum)
             warning('Found a default channel function in the defaults file, but it was not a recognized function: %s', handles.DefaultChannelFunction);
         end
     end
-    
     
 % --- Executes on selection change in popup_Channel1.
 function popup_Channel1_Callback(hObject, ~, handles)
@@ -5514,6 +5515,8 @@ function handles = UpdateEventViewer(handles)
             yl = ylim(handles.axes_Events);
             ylim(handles.axes_Events, [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
         else
+            delete(handles.EventWaveHandles);
+            handles.EventWaveHandles = gobjects().empty();
             ylabel(handles.axes_Events, '');
         end
     else
