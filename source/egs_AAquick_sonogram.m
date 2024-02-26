@@ -8,7 +8,7 @@ if isstr(ax) & strcmp(ax,'params')
     return
 end
 
-bck = get(ax,'units');
+originalAxesUnits = ax.Units;
 
 NFFT = 512;
 nCourse = 1;
@@ -18,8 +18,8 @@ freqRange = get(ax,'ylim');
 %determine size of axis relative to size of the signal,
 %use this to adapt the window overlap and downsampling of the signal.
 %no need to worry about size of fftwindow, this doesn't effect speed.
-set(ax,'Units','pixels');
-pixSize = get(ax,'Position');
+ax.Units = 'pixels';
+pixSize = ax.Position;
 numPixels = pixSize(3) / nCourse;
 numWindows = length(wv) / windowSize;
 if(numWindows < numPixels)
@@ -51,9 +51,9 @@ ndx = find((F>=freqRange(1)) & (F<=freqRange(2)));
 p = 2*log(abs(S(ndx,:))+eps)+20;
 f = linspace(freqRange(1),freqRange(2),size(p,1));
 
-set(ax,'units',bck);
+set(ax,'units',originalAxesUnits);
 
-xl = xlim;
+xl = xlim(ax);
 imagesc(ax, linspace(xl(1),xl(2),size(p,2)),f,p);
 
 ispower = 1;

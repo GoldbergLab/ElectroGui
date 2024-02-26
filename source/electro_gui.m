@@ -2135,12 +2135,6 @@ function handles = eg_EditTimescale(handles)
 
     xlim(handles.axes_Sound, [0, numSeconds]);
 
-    % Update xlimbox
-    handles = updateXLimBox(handles);
-    
-    % Update string that shows the amount of time visible I guess?
-    handles.edit_Timescale.String = num2str(diff(handles.TLim),4);
-    
     if handles.menu_AutoCalculate.Checked
         handles = eg_PlotSonogram(handles);
     else
@@ -2150,7 +2144,14 @@ function handles = eg_EditTimescale(handles)
 %         handles = setClickSoundCallback(handles, handles.axes_Sonogram);
         handles = setClickSoundCallback(handles, handles.axes_Sound);
     end
+
+    % Update xlimbox
+    handles = updateXLimBox(handles);
     
+    % Update string that shows the amount of time visible I guess?
+    handles.edit_Timescale.String = num2str(diff(handles.TLim),4);
+    
+
     % Set amplitude axes time limits to match
     xlim(handles.axes_Amplitude, handles.TLim);
     % Set segments axes limits to match
@@ -2222,6 +2223,7 @@ function handles = eg_PlotSonogram(handles)
     end
 
     handles = setClickSoundCallback(handles, handles.axes_Sonogram);
+    xlim(handles.axes_Sonogram, handles.TLim);
     
 function click_sound(hObject, event)
     % Callback for a mouse click on any of the sound axes
@@ -3308,7 +3310,6 @@ function handles = InitializeVariables(handles)
     
     handles.EventThresholds = zeros(0,handles.TotalFileNumber);
     handles.EventCurrentThresholds = [];
-    handles.EventCurrentIndex = [0 0];
     
     handles.EventWhichPlot = 0;
 
@@ -3397,7 +3398,6 @@ function handles = eg_OpenDbase(handles)
     end
     
     handles.Properties = dbase.Properties;
-    handles.EventCurrentIndex = [0 0];
     
     handles.popup_Channel1.Value = 1;
     handles.popup_Channel2.Value = 1;
@@ -5052,59 +5052,59 @@ function handles = SetEventThreshold(handles, axnum, threshold)
 
     handles = UpdateEventViewer(handles);
 
-function handles = eg_clickEventDetector(handles, axnum)
-
-    if ~handles.axes_Channel(axnum).Visible
-        return
-    end
-
-    eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
-
-    if isempty(eventSourceIdx)
-        % No event source for this channel configuration
-        eventDetector = getSelectedEventDetector(handles, axnum);
-        handles.EventParameters{eventSourceIdx} = eg_runPlugin(handles.plugins.eventDetectors, eventDetector, 'params');
-    else
-        handles.EventCurrentIndex(axnum) = length(handles.EventSources)+1;
-        handles.EventSources{end+1} = src;
-        handles.EventFunctions{end+1} = fun;
-        handles.EventDetectors{end+1} = dtr;
-        handles.EventThresholds = [handles.EventThresholds; inf*ones(1,size(handles.EventThresholds,2))];
-        handles.EventCurrentThresholds(end+1) = inf;
-
-        [~, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, [], handles.fs, inf, handles.ChannelAxesEventParameters{axnum});
-        handles.EventTimes{end+1} = cell(length(labels),handles.TotalFileNumber);
-        handles.EventSelected{end+1} = cell(length(labels),handles.TotalFileNumber);
-    end
-    
-    % Delete list of event part display menu items (one set of menu
-    % items for each axes)
-    delete(handles.menu_EventsDisplay(axnum).Children);
-    handles.menu_EventsDisplayList{axnum} = gobjects.empty();
-
-    indx = 0;
-    str = handles.popup_Channel1.String;
-    while 1
-        indx = indx + 1;
-        if ~isempty(strfind(str{indx},' - '))
-            break
-        end
-    end
-    indx = indx - 1;
-    for c = 1:handles.EventCurrentIndex(axnum)-1
-        indx = indx + size(handles.EventTimes{c},1);
-    end
-    for c = 1:size(handles.EventTimes{handles.EventCurrentIndex(axnum)},1)
-        label = str{indx+c};
-        f = strfind(label,' - ');
-        label = label(f(end)+3:end);
-        handles.menu_EventsDisplayList{axnum}(c) = uimenu(handles.menu_EventsDisplay(axnum),...
-            'Label',label,...
-            'Callback',@EventPartDisplayClick, ...
-            'Checked','on');
-    end
-    
-    handles = UpdateEventThresholdDisplay(handles,axnum);
+% function handles = eg_clickEventDetector(handles, axnum)
+% 
+%     if ~handles.axes_Channel(axnum).Visible
+%         return
+%     end
+% 
+%     eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
+% 
+%     if isempty(eventSourceIdx)
+%         % No event source for this channel configuration
+%         eventDetector = getSelectedEventDetector(handles, axnum);
+%         handles.EventParameters{eventSourceIdx} = eg_runPlugin(handles.plugins.eventDetectors, eventDetector, 'params');
+%     else
+%         handles.EventCurrentIndex(axnum) = length(handles.EventSources)+1;
+%         handles.EventSources{end+1} = src;
+%         handles.EventFunctions{end+1} = fun;
+%         handles.EventDetectors{end+1} = dtr;
+%         handles.EventThresholds = [handles.EventThresholds; inf*ones(1,size(handles.EventThresholds,2))];
+%         handles.EventCurrentThresholds(end+1) = inf;
+% 
+%         [~, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, [], handles.fs, inf, handles.ChannelAxesEventParameters{axnum});
+%         handles.EventTimes{end+1} = cell(length(labels),handles.TotalFileNumber);
+%         handles.EventSelected{end+1} = cell(length(labels),handles.TotalFileNumber);
+%     end
+%     
+%     % Delete list of event part display menu items (one set of menu
+%     % items for each axes)
+%     delete(handles.menu_EventsDisplay(axnum).Children);
+%     handles.menu_EventsDisplayList{axnum} = gobjects.empty();
+% 
+%     indx = 0;
+%     str = handles.popup_Channel1.String;
+%     while 1
+%         indx = indx + 1;
+%         if ~isempty(strfind(str{indx},' - '))
+%             break
+%         end
+%     end
+%     indx = indx - 1;
+%     for c = 1:handles.EventCurrentIndex(axnum)-1
+%         indx = indx + size(handles.EventTimes{c},1);
+%     end
+%     for c = 1:size(handles.EventTimes{handles.EventCurrentIndex(axnum)},1)
+%         label = str{indx+c};
+%         f = strfind(label,' - ');
+%         label = label(f(end)+3:end);
+%         handles.menu_EventsDisplayList{axnum}(c) = uimenu(handles.menu_EventsDisplay(axnum),...
+%             'Label',label,...
+%             'Callback',@EventPartDisplayClick, ...
+%             'Checked','on');
+%     end
+%     
+%     handles = UpdateEventThresholdDisplay(handles,axnum);
 
 function [handles, eventSourceIdx] = addNewEventSourceFromChannelAxes(handles, axnum)
     % Add a new event source based on the current settings in the given
@@ -8873,8 +8873,6 @@ function handles = eg_Overlay(handles)
 
     if ~isempty(axnums)
         % Create or update overlays
-        xl = xlim(handles.axes_Sonogram);
-        yl = ylim(handles.axes_Sonogram);
         hold(handles.axes_Sonogram, 'on');
         
         for axnum = axnums
@@ -8896,8 +8894,6 @@ function handles = eg_Overlay(handles)
         end
         
         hold(handles.axes_Sonogram, 'off');
-        xlim(handles.axes_Sonogram, xl);
-        ylim(handles.axes_Sonogram, yl);
     end
     
     
@@ -9026,7 +9022,7 @@ function handles = menu_FunctionParams(handles,axnum)
     
     if isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
         handles = eg_LoadChannel(handles,axnum);
-        handles = eg_clickEventDetector(handles,axnum);
+        handles = DetectEvents(handles, axnum);
     end
     
     
