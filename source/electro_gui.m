@@ -1195,7 +1195,6 @@ function handles = eg_LoadFile(handles)
 
     tmax = numSamples/handles.fs;
     handles.TLim = [0, tmax];
-    handles = eg_EditTimescale(handles);
     
     % If file too long
     if numSamples > handles.TooLong
@@ -1222,6 +1221,8 @@ function handles = eg_LoadFile(handles)
     cd(curr);
 
     handles = disableAxesPopupToolbars(handles);
+
+    handles = eg_EditTimescale(handles);
 
 function handles = setClickSoundCallback(handles, ax)
     % Set click_sound as button down callback for axes and children
