@@ -3148,16 +3148,16 @@ function handles = eg_NewDbase(handles)
     handles.popup_EventDetector2.Value = 1;
     handles.popup_EventListAlign.Value = 1;
     
-    str = {};
-    for c = 1:length(handles.sound_files)
-        str{c} = makeFileEntry(handles, handles.sound_files(c).name, true);
+    fileEntries = {};
+    for fileNum = 1:length(handles.sound_files)
+        fileEntries{fileNum} = makeFileEntry(handles, handles.sound_files(fileNum).name, true);
     end
-    handles.list_Files.String = str;
+    handles.list_Files.String = fileEntries;
     
     sourceStrings = {'(None)','Sound'};
-    for c = 1:length(handles.chan_files)
-        if ~isempty(handles.chan_files{c})
-            sourceStrings{end+1} = ['Channel ' num2str(c)];
+    for chanNum = 1:length(handles.chan_files)
+        if ~isempty(handles.chan_files{chanNum})
+            sourceStrings{end+1} = ['Channel ' num2str(chanNum)];
         end
     end
     handles.popup_Channel1.String = sourceStrings;
@@ -3323,7 +3323,19 @@ function push_Open_Callback(hObject, ~, handles)
     handles = eg_OpenDbase(handles);
     
     guidata(hObject, handles);
-    
+
+% function handles = fillData(handles)
+%     % Ensure all relevant fields are appropriately-sized
+% 
+%     % Check that event times are fully filled in
+%     for eventSourceIdx = 1:length(handles.EventTimes)
+%         fileCount = size(handles.EventTimes{eventSourceIdx}, 2);
+%         if fileCount ~= handles.TotalFileNumber
+%             handles.EventTimes{eventSourceIdx}(:, fileCount+1:handles.TotalFileNumber) = deal({[]});
+%             handles.EventSelected{eventSourceIdx}(:, fileCount+1:handles.TotalFileNumber) = deal({[]});
+%         end
+%     end
+
 function handles = eg_OpenDbase(handles)
     % Prompt user to select dbase .mat file
     [file, path] = uigetfile(fullfile(handles.tempSettings.lastDirectory, '*.mat'), 'Load analysis');
@@ -3507,6 +3519,8 @@ function handles = eg_OpenDbase(handles)
         end
     end
     
+%     handles = fillData(handles);
+
     handles = eg_PopulateSoundSources(handles);
     
     handles = eg_RestartProperties(handles);
@@ -5059,7 +5073,6 @@ function handles = eg_clickEventDetector(handles, axnum)
         handles.EventCurrentThresholds(end+1) = inf;
 
         [~, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, [], handles.fs, inf, handles.ChannelAxesEventParameters{axnum});
-
         handles.EventTimes{end+1} = cell(length(labels),handles.TotalFileNumber);
         handles.EventSelected{end+1} = cell(length(labels),handles.TotalFileNumber);
     end
@@ -5116,6 +5129,9 @@ function [handles, eventSourceIdx] = addNewEventSource(handles, channelNum, ...
     handles.EventParameters{eventSourceIdx} = eventParameters;
     handles.EventXLims(eventSourceIdx, :) = eventXLims;
     handles.EventParts{eventSourceIdx} = eventParts;
+
+    handles.EventTimes{eventSourceIdx} = cell(length(eventParts), handles.TotalFileNumber);
+    handles.EventSelected{eventSourceIdx} = cell(length(eventParts), handles.TotalFileNumber);
 
 function handles = UpdateEventSourceList(handles)
     % Update the list of event sources above the event viewer axes
