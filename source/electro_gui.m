@@ -23,7 +23,7 @@ function varargout = electro_gui(varargin)
     
     % Edit the above text to modify the response to help electro_gui
     
-    % Last Modified by GUIDE v2.5 26-Feb-2024 14:56:49
+    % Last Modified by GUIDE v2.5 26-Feb-2024 16:25:32
     
     % Begin initialization code - DO NOT EDIT
     gui_Singleton = 1;
@@ -517,14 +517,14 @@ function handles = setGUIValues(handles)
     handles.CustomFreqLim = handles.FreqLim;
     
     if handles.FilterSound == 1
-        handles.menu_FilterSound.Checked = 'on';
+        handles.playback_FilteredSound.Checked = 'on';
     end
     if handles.PlayReverse == 1
-        handles.menu_PlayReverse.Checked = 'on';
+        handles.playback_Reverse.Checked = 'on';
     end
     
     handles.AnimationPlots = fliplr(handles.AnimationPlots);
-    ch = handles.menu_ProgressBar.Children;
+    ch = handles.menu_Animation.Children;
     for c = 1:length(ch)
         if handles.AnimationPlots(c) == 1
             ch(c).Checked = 'on';
@@ -543,9 +543,9 @@ function handles = setGUIValues(handles)
         handles.menu_AnimationProgressBar.Checked = 'on';
     end
     
-    handles.check_Sound.Value = handles.DefaultMix(1);
-    handles.check_TopPlot.Value = handles.DefaultMix(2);
-    handles.check_BottomPlot.Value = handles.DefaultMix(3);    
+    handles.playback_SoundInMix.Checked = handles.DefaultMix(1);
+    handles.playback_TopInMix.Checked = handles.DefaultMix(2);
+    handles.playback_BottomInMix.Checked = handles.DefaultMix(3);    
 
 function [pluginNames, pluginTypes] = getPluginNamesFromFilenames(pluginFilenames)
     % Extract the plain names and types of electro_gui plugin from a list of their filenames
@@ -851,15 +851,6 @@ function menu_Experiment_Callback(hObject, ~, handles)
     % hObject    handle to menu_Experiment (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
-    
-% --- Executes on button press in push_Play.
-function push_Play_Callback(hObject, ~, handles)
-    % hObject    handle to push_Play (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    snd = GenerateSound(handles,'snd');
-    progress_play(handles,snd);
 
 function progress_play(handles,wav)
     % Get time limits for visible sonogram
@@ -882,7 +873,7 @@ function progress_play(handles,wav)
 
 
     axs = [handles.axes_Channel2 handles.axes_Channel1 handles.axes_Amplitude handles.axes_Segments handles.axes_Sonogram handles.axes_Sound];
-    ch = handles.menu_ProgressBar.Children;
+    ch = handles.menu_Animation.Children;
     indx = [];
     for c = 1:length(ch)
         if ch(c).Checked && axs(c).Visible
@@ -902,18 +893,18 @@ function progress_play(handles,wav)
         end
         for c = 1:length(axs)
             hold(axs(c), 'on')
-            if ~handles.menu_PlayReverse.Checked
+            if ~handles.playback_Reverse.Checked
                 h(c) = plot(axs(c), [sampleLimits(1) sampleLimits(1)]/handles.fs,ylim,'Color',handles.ProgressBarColor,'LineWidth',2);
             else
                 h(c) = plot(axs(c), [sampleLimits(2) sampleLimits(2)]/handles.fs,ylim,'Color',handles.ProgressBarColor,'LineWidth',2);
             end
         end
-        y = audioplayer(wav,fs);
-        play(y);
-        while isplaying(y)
-            pos = y.CurrentSample;
+        ap = audioplayer(wav,fs);
+        play(ap);
+        while isplaying(ap)
+            pos = ap.CurrentSample;
             for c = 1:length(h)
-                if ~handles.menu_PlayReverse.Checked
+                if ~handles.playback_Reverse.Checked
                     h(c).XData = ([pos pos]+sampleLimits(1)-1)/handles.fs;
                 else
                     h(c).XData = (sampleLimits(2)-[pos pos]+1)/handles.fs;
@@ -921,8 +912,8 @@ function progress_play(handles,wav)
             end
             drawnow;
         end
-        stop(y);
-        clear(y);
+        stop(ap);
+        delete(ap);
         delete(h);
         hold(handles.axes_Sonogram, 'off');
     end
@@ -3155,16 +3146,6 @@ function menu_FreqLimits_Callback(hObject, ~, handles)
     
     guidata(hObject, handles);
     
-% --- Executes on button press in push_New.
-function push_New_Callback(hObject, ~, handles)
-    % hObject    handle to push_New (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles = eg_NewDbase(handles);
-    
-    guidata(hObject, handles);
-
 function handles = eg_NewDbase(handles)
     handles.IsUpdating = 0;
     [handles, ischanged] = eg_NewExperiment(handles);
@@ -3367,16 +3348,6 @@ function handles = InitializeVariables(handles)
     handles.EventWhichPlot = 0;
 
     handles.FileLength = zeros(1,handles.TotalFileNumber);
-    
-% --- Executes on button press in push_Open.
-function push_Open_Callback(hObject, ~, handles)
-    % hObject    handle to push_Open (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles = eg_OpenDbase(handles);
-    
-    guidata(hObject, handles);
 
 % function handles = fillData(handles)
 %     % Ensure all relevant fields are appropriately-sized
@@ -3632,16 +3603,6 @@ function handles = eg_OpenDbase(handles)
     handles = UpdateEventSourceList(handles);
 
     handles = eg_LoadFile(handles);
-
-% --- Executes on button press in push_Save.
-function push_Save_Callback(hObject, ~, handles)
-    % hObject    handle to push_Save (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles = eg_SaveDbase(handles);
-    
-    guidata(hObject, handles);
 
 function handles = eg_SaveDbase(handles)
     if ~isfield(handles, 'DefaultFile')
@@ -6311,19 +6272,7 @@ function menu_AmplitudeThresholdColor_Callback(hObject, ~, handles)
     obj.Color = c;
     
     guidata(hObject, handles);
-    
-    
-% --- Executes on button press in push_PlayMix.
-function push_PlayMix_Callback(hObject, ~, handles)
-    % hObject    handle to push_PlayMix (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    snd = GenerateSound(handles,'mix');
-    progress_play(handles,snd);
-    
-    
-    
+        
 function edit_SoundWeight_Callback(hObject, ~, handles)
     % hObject    handle to edit_SoundWeight (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
@@ -6460,57 +6409,6 @@ function edit_BottomClipper_CreateFcn(hObject, ~, handles)
         hObject.BackgroundColor = 'white';
     end
     
-    
-% --- Executes on button press in check_Sound.
-function check_Sound_Callback(hObject, ~, handles)
-    % hObject    handle to check_Sound (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    % Hint: hObject.Value returns toggle state of check_Sound
-    
-    
-% --- Executes on button press in check_TopPlot.
-function check_TopPlot_Callback(hObject, ~, handles)
-    % hObject    handle to check_TopPlot (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    % Hint: hObject.Value returns toggle state of check_TopPlot
-    
-    
-% --- Executes on button press in check_BottomPlot.
-function check_BottomPlot_Callback(hObject, ~, handles)
-    % hObject    handle to check_BottomPlot (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    % Hint: hObject.Value returns toggle state of check_BottomPlot
-    
-    
-    
-    
-% --- Executes on button press in push_SoundOptions.
-function push_SoundOptions_Callback(hObject, ~, handles)
-    % hObject    handle to push_SoundOptions (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    import java.awt.*;
-    import java.awt.event.*;
-    
-    handles.push_SoundOptions.UIContextMenu = handles.context_SoundOptions;
-    
-    % Trigger a right-click event
-    try
-        rob = Robot;
-        rob.mousePress(InputEvent.BUTTON3_MASK);
-        pause(0.01);
-        rob.mouseRelease(InputEvent.BUTTON3_MASK);
-    catch
-        errordlg('Java is not working properly. You must right-click the button.','Java error');
-    end
-    
-    
 % --------------------------------------------------------------------
 function menu_EventsDisplay1_Callback(hObject, ~, handles)
     % hObject    handle to menu_EventsDisplay1 (see GCBO)
@@ -6522,9 +6420,6 @@ function menu_EventsDisplay2_Callback(hObject, ~, handles)
     % hObject    handle to menu_EventsDisplay2 (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
-    
-    
-    
     
 % --------------------------------------------------------------------
 function menu_SelectionParameters1_Callback(hObject, ~, handles)
@@ -6640,127 +6535,8 @@ function menu_EventsAxisLimits_Callback(hObject, ~, handles)
     handles = UpdateEventViewer(handles);
     
     guidata(hObject, handles);
-    
-    
-% --------------------------------------------------------------------
-function context_SoundOptions_Callback(hObject, ~, handles)
-    % hObject    handle to context_SoundOptions (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    
-    
-    
-% --------------------------------------------------------------------
-function menu_SoundWeights_Callback(hObject, ~, handles)
-    % hObject    handle to menu_SoundWeights (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    answer = inputdlg({'Sound','Top plot','Bottom plot'},'Sound weights',1,{num2str(handles.SoundWeights(1)),num2str(handles.SoundWeights(2)),num2str(handles.SoundWeights(3))});
-    if isempty(answer)
-        return
-    end
-    handles.SoundWeights = [str2double(answer{1}), str2double(answer{2}), str2double(answer{3})];
-    
-    guidata(hObject, handles);
-    
-    
-% --------------------------------------------------------------------
-function menu_SoundClippers_Callback(hObject, ~, handles)
-    % hObject    handle to menu_SoundClippers (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    answer = inputdlg({'Top plot','Bottom plot'},'Sound clippers',1,{num2str(handles.SoundClippers(1)),num2str(handles.SoundClippers(2))});
-    if isempty(answer)
-        return
-    end
-    handles.SoundClippers = [str2double(answer{1}), str2double(answer{2})];
-    
-    guidata(hObject, handles);
-    
-    
-% --------------------------------------------------------------------
-function menu_PlaySpeed_Callback(hObject, ~, handles)
-    % hObject    handle to menu_PlaySpeed (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    
-    answer = inputdlg({'Playback speed (relative to normal)'},'Play speed',1,{num2str(handles.SoundSpeed)});
-    if isempty(answer)
-        return
-    end
-    handles.SoundSpeed = str2double(answer{1});
-    
-    guidata(hObject, handles);
-    
-    
-% --------------------------------------------------------------------
-function menu_ProgressBar_Callback(hObject, ~, handles)
-    % hObject    handle to menu_ProgressBar (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    
-% --------------------------------------------------------------------
-function menu_ProgressSoundWave_Callback(hObject, ~, handles)
-    % hObject    handle to menu_ProgressSoundWave (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    
-    handles = ChangeProgress(handles,hObject);
-    guidata(hObject, handles);
-    
-% --------------------------------------------------------------------
-function menu_ProgressSonogram_Callback(hObject, ~, handles)
-    % hObject    handle to menu_ProgressSonogram (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles = ChangeProgress(handles,hObject);
-    guidata(hObject, handles);
-    
-% --------------------------------------------------------------------
-function menu_ProgressSegments_Callback(hObject, ~, handles)
-    % hObject    handle to menu_ProgressSegments (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles = ChangeProgress(handles,hObject);
-    guidata(hObject, handles);
-    
-% --------------------------------------------------------------------
-function menu_ProgressAmplitude_Callback(hObject, ~, handles)
-    % hObject    handle to menu_ProgressAmplitude (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles = ChangeProgress(handles,hObject);
-    guidata(hObject, handles);
-    
-% --------------------------------------------------------------------
-function menu_ProgressTop_Callback(hObject, ~, handles)
-    % hObject    handle to menu_ProgressTop (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles = ChangeProgress(handles,hObject);
-    guidata(hObject, handles);
-    
-% --------------------------------------------------------------------
-function menu_ProgressBottom_Callback(hObject, ~, handles)
-    % hObject    handle to menu_ProgressBottom (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles = ChangeProgress(handles,hObject);
-    guidata(hObject, handles);
-    
-function handles = ChangeProgress(handles,obj)
-    
+
+function handles = ChangeProgress(handles, obj)
     if strcmp(obj.Checked,'off')
         obj.Checked = 'on';
     else
@@ -7433,7 +7209,7 @@ function push_Export_Callback(hObject, ~, handles)
     
                 sound_inserted = 0;
     
-                ch = handles.menu_ProgressBar.Children;
+                ch = handles.menu_Animation.Children;
                 progbar = [];
                 axs = [handles.axes_Channel2 handles.axes_Channel1 handles.axes_Amplitude handles.axes_Segments handles.axes_Sonogram handles.axes_Sound];
                 for c = 1:length(ch)
@@ -7803,7 +7579,7 @@ function push_Export_Callback(hObject, ~, handles)
                             crd(:,2) = -crd(:,2)*ycoord(end,4)/op.PageSetup.SlideHeight;
                             crd = sortrows(crd);
     
-                            if handles.menu_PlayReverse.Checked
+                            if handles.playback_Reverse.Checked
                                 crd(:,1) = flipud(crd(:,1))-crd(end,1);
                                 crd(:,2) = flipud(crd(:,2));
                             end
@@ -7895,7 +7671,7 @@ function push_Export_Callback(hObject, ~, handles)
     
                     if ~strcmp(animopt,'None')
                         for c = 1:size(ycoord,1)
-                            if handles.menu_PlayReverse.Checked
+                            if handles.playback_Reverse.Checked
                                 ycoord(c,1) = ycoord(c,1)+ycoord(c,3);
                                 ycoord(c,3) = -ycoord(c,3);
                             end
@@ -9371,8 +9147,8 @@ function snd = GenerateSound(handles,sound_type)
     [handles, filtered_sound] = eg_GetSound(handles, true);
     
     snd = zeros(size(sound));
-    if handles.check_Sound.Value==1 || strcmp(sound_type,'snd')
-        if handles.menu_FilterSound.Checked
+    if handles.playback_SoundInMix.Checked==1 || strcmp(sound_type,'snd')
+        if handles.playback_FilteredSound.Checked
             snd = snd + filtered_sound * handles.SoundWeights(1);
         else
             snd = snd + sound * handles.SoundWeights(1);
@@ -9380,7 +9156,7 @@ function snd = GenerateSound(handles,sound_type)
     end
     
     if strcmp(sound_type,'mix')
-        if handles.axes_Channel1.Visible && handles.check_TopPlot.Value==1
+        if handles.axes_Channel1.Visible && handles.playback_TopInMix.Checked==1
             addval = handles.loadedChannelData{1};
             addval(abs(addval) < handles.SoundClippers(1)) = 0;
             addval = addval * handles.SoundWeights(2);
@@ -9389,7 +9165,7 @@ function snd = GenerateSound(handles,sound_type)
             end
             snd = snd + addval;
         end
-        if handles.axes_Channel2.Visible && handles.check_BottomPlot.Value==1
+        if handles.axes_Channel2.Visible && handles.playback_BottomInMix.Checked==1
             addval = handles.loadedChannelData{2};
             addval(abs(addval) < handles.SoundClippers(2)) = 0;
             addval = addval * handles.SoundWeights(3);
@@ -9412,25 +9188,9 @@ function snd = GenerateSound(handles,sound_type)
     end
     snd = snd(xd(1):xd(2));
     
-    if handles.menu_PlayReverse.Checked
+    if handles.playback_Reverse.Checked
         snd = snd(end:-1:1);
     end
-    
-    
-% --------------------------------------------------------------------
-function menu_PlayReverse_Callback(hObject, ~, handles)
-    % hObject    handle to menu_PlayReverse (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    
-    if ~handles.menu_PlayReverse.Checked
-        handles.menu_PlayReverse.Checked = 'on';
-    else
-        handles.menu_PlayReverse.Checked = 'off';
-    end
-    
-    guidata(hObject, handles);
     
     
 % --------------------------------------------------------------------
@@ -9723,22 +9483,6 @@ function handles = eg_LoadProperties(handles)
             end
         end
     end
-    
-    
-% --------------------------------------------------------------------
-function menu_FilterSound_Callback(hObject, ~, handles)
-    % hObject    handle to menu_FilterSound (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    
-    if handles.menu_FilterSound.Checked
-        handles.menu_FilterSound.Checked = 'off';
-    else
-        handles.menu_FilterSound.Checked = 'on';
-    end
-    
-    guidata(hObject, handles);
     
     
 % --------------------------------------------------------------------
@@ -10380,20 +10124,6 @@ function menu_CleanUpList_Callback(hObject, ~, handles)
     
     guidata(hObject, handles);
     
-    
-% --------------------------------------------------------------------
-function menu_ProgressBarColor_Callback(hObject, ~, handles)
-    % hObject    handle to menu_ProgressBarColor (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    
-    c = uisetcolor(handles.ProgressBarColor, 'Select color');
-    handles.ProgressBarColor = c;
-    
-    guidata(hObject, handles);
-    
-    
 % --------------------------------------------------------------------
 function menu_AnimationNone_Callback(hObject, ~, handles)
     % hObject    handle to menu_AnimationNone (see GCBO)
@@ -10776,7 +10506,6 @@ function suppressStupidCallbackWarnings()
     slider_Time_Callback;
     slider_Time_CreateFcn;
     menu_Experiment_Callback;
-    push_Play_Callback;
     push_TimescaleRight_Callback;
     push_TimescaleLeft_Callback;
     edit_Timescale_Callback;
@@ -10851,7 +10580,6 @@ function suppressStupidCallbackWarnings()
     menu_AmplitudeColors_Callback;
     menu_AmplitudeColor_Callback;
     menu_AmplitudeThresholdColor_Callback;
-    push_PlayMix_Callback;
     edit_SoundWeight_Callback;
     edit_SoundWeight_CreateFcn;
     edit_TopWeight_Callback;
@@ -10864,10 +10592,6 @@ function suppressStupidCallbackWarnings()
     edit_TopClipper_CreateFcn;
     edit_BottomClipper_Callback;
     edit_BottomClipper_CreateFcn;
-    check_Sound_Callback;
-    check_TopPlot_Callback;
-    check_BottomPlot_Callback;
-    push_SoundOptions_Callback;
     menu_EventsDisplay1_Callback;
     menu_EventsDisplay2_Callback;
     menu_SelectionParameters1_Callback;
@@ -10879,18 +10603,6 @@ function suppressStupidCallbackWarnings()
     menu_DisplayFeatures_Callback;
     menu_AutoDisplayEvents_Callback;
     menu_EventsAxisLimits_Callback;
-    context_SoundOptions_Callback;
-    menu_SoundWeights_Callback;
-    menu_SoundClippers_Callback;
-    menu_PlaySpeed_Callback;
-    menu_ProgressBar_Callback;
-    menu_ProgressSoundWave_Callback;
-    menu_ProgressSonogram_Callback;
-    menu_ProgressSegments_Callback;
-    menu_ProgressAmplitude_Callback;
-    menu_ProgressTop_Callback;
-    menu_ProgressBottom_Callback;
-    ChangeProgress;
     menu_XAxis_Callback;
     menu_Yaxis_Callback;
     menu_YAxis_Callback;
@@ -10962,10 +10674,8 @@ function suppressStupidCallbackWarnings()
     menu_IncludeSoundNone_Callback;
     menu_IncludeSoundOnly_Callback;
     menu_IncludeSoundMix_Callback;
-    menu_PlayReverse_Callback;
     menu_FilterList_Callback;
     menu_FilterParameters_Callback;
-    menu_FilterSound_Callback;
     menu_AddProperty_Callback;
     context_Properties_Callback;
     menu_AddPropertyString_Callback;
@@ -10981,7 +10691,6 @@ function suppressStupidCallbackWarnings()
     menu_FillProperty_Callback;
     menu_DefaultPropertyValue_Callback;
     menu_CleanUpList_Callback;
-    menu_ProgressBarColor_Callback;
     menu_AnimationNone_Callback;
     menu_AnimationProgressBar_Callback;
     menu_AnimationArrowAbove_Callback;
@@ -10994,16 +10703,7 @@ function suppressStupidCallbackWarnings()
     menu_ChangeFiles_Callback;
     menu_DeleteFiles_Callback;
     menu_AutoApplyYLim_Callback;
-    
-    
-% --- Executes on button press in ShowHelpButton.
-function ShowHelpButton_Callback(hObject, eventdata, handles)
-    % hObject    handle to ShowHelpButton (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    msgbox(eg_HelpText(handles), 'electro_gui info and help:');
-    
-    
+        
 % --------------------------------------------------------------------
 function center_Timescale_Callback(hObject, eventdata, handles)
     % hObject    handle to center_Timescale (see GCBO)
@@ -11179,3 +10879,232 @@ function handles = setChannelAxesEventSource(handles, axnum, eventSourceIdx)
     end
 
     handles = eg_LoadChannel(handles, axnum);
+
+
+% --------------------------------------------------------------------
+function menu_File_Callback(hObject, eventdata, handles)
+    % hObject    handle to menu_File (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function file_New_Callback(hObject, eventdata, handles)
+    % hObject    handle to file_New (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handles = eg_NewDbase(handles);
+    
+    guidata(hObject, handles);
+
+% --------------------------------------------------------------------
+function file_Open_Callback(hObject, eventdata, handles)
+    % hObject    handle to file_Open (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    handles = eg_OpenDbase(handles);
+    
+    guidata(hObject, handles);
+
+% --------------------------------------------------------------------
+function file_Save_Callback(hObject, eventdata, handles)
+    % hObject    handle to file_Save (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    handles = eg_SaveDbase(handles);
+    
+    guidata(hObject, handles);
+
+% --------------------------------------------------------------------
+function file_Help_Callback(hObject, eventdata, handles)
+    % hObject    handle to file_Help (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    msgbox(eg_HelpText(handles), 'electro_gui info and help:');
+
+
+% --------------------------------------------------------------------
+function menu_Playback_Callback(hObject, eventdata, handles)
+    % hObject    handle to menu_Playback (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+
+% --------------------------------------------------------------------
+function menu_PlaySound_Callback(hObject, eventdata, handles)
+    % hObject    handle to menu_PlaySound (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    snd = GenerateSound(handles,'snd');
+    progress_play(handles,snd);
+
+
+% --------------------------------------------------------------------
+function menu_PlayMix_Callback(hObject, eventdata, handles)
+    % hObject    handle to menu_PlayMix (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    snd = GenerateSound(handles,'mix');
+    progress_play(handles,snd);
+
+% --------------------------------------------------------------------
+function playback_SoundInMix_Callback(hObject, eventdata, handles)
+    % hObject    handle to playback_SoundInMix (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function playback_TopInMix_Callback(hObject, eventdata, handles)
+    % hObject    handle to playback_TopInMix (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function playback_BottomInMix_Callback(hObject, eventdata, handles)
+    % hObject    handle to playback_BottomInMix (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function playback_Weights_Callback(hObject, eventdata, handles)
+    % hObject    handle to playback_Weights (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    answer = inputdlg({'Sound','Top plot','Bottom plot'},'Sound weights',1,{num2str(handles.SoundWeights(1)),num2str(handles.SoundWeights(2)),num2str(handles.SoundWeights(3))});
+    if isempty(answer)
+        return
+    end
+    handles.SoundWeights = [str2double(answer{1}), str2double(answer{2}), str2double(answer{3})];
+    
+    guidata(hObject, handles);
+    
+% --------------------------------------------------------------------
+function playback_Clippers_Callback(hObject, eventdata, handles)
+    % hObject    handle to playback_Clippers (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    answer = inputdlg({'Top plot','Bottom plot'},'Sound clippers',1,{num2str(handles.SoundClippers(1)),num2str(handles.SoundClippers(2))});
+    if isempty(answer)
+        return
+    end
+    handles.SoundClippers = [str2double(answer{1}), str2double(answer{2})];
+    
+    guidata(hObject, handles);
+
+% --------------------------------------------------------------------
+function playback_Speed_Callback(hObject, eventdata, handles)
+    % hObject    handle to playback_Speed (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    answer = inputdlg({'Playback speed (relative to normal)'},'Play speed',1,{num2str(handles.SoundSpeed)});
+    if isempty(answer)
+        return
+    end
+    handles.SoundSpeed = str2double(answer{1});
+    
+    guidata(hObject, handles);
+
+% --------------------------------------------------------------------
+function playback_Reverse_Callback(hObject, eventdata, handles)
+    % hObject    handle to playback_Reverse (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    if ~handles.playback_Reverse.Checked
+        handles.playback_Reverse.Checked = 'on';
+    else
+        handles.playback_Reverse.Checked = 'off';
+    end
+
+    guidata(hObject, handles);
+
+% --------------------------------------------------------------------
+function playback_FilteredSound_Callback(hObject, eventdata, handles)
+    % hObject    handle to playback_FilteredSound (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    if handles.playback_FilteredSound.Checked
+        handles.playback_FilteredSound.Checked = 'off';
+    else
+        handles.playback_FilteredSound.Checked = 'on';
+    end
+    
+    guidata(hObject, handles);
+
+% --------------------------------------------------------------------
+function playback_ProgressBarColor_Callback(hObject, eventdata, handles)
+    % hObject    handle to playback_ProgressBarColor (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    selectedColor = uisetcolor(handles.ProgressBarColor, 'Select color');
+    handles.ProgressBarColor = selectedColor;
+    
+    guidata(hObject, handles);
+
+% --------------------------------------------------------------------
+function playback_animation_SoundWave_Callback(hObject, eventdata, handles)
+    % hObject    handle to playback_animation_SoundWave (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handles = ChangeProgress(handles, hObject);
+    guidata(hObject, handles);
+    
+% --------------------------------------------------------------------
+function playback_animation_Sonogram_Callback(hObject, eventdata, handles)
+    % hObject    handle to playback_animation_Sonogram (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handles = ChangeProgress(handles, hObject);
+    guidata(hObject, handles);
+
+% --------------------------------------------------------------------
+function playback_animation_Segments_Callback(hObject, eventdata, handles)
+    % hObject    handle to playback_animation_Segments (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    handles = ChangeProgress(handles, hObject);
+    guidata(hObject, handles);
+
+% --------------------------------------------------------------------
+function playback_animation_SoundAmplitude_Callback(hObject, eventdata, handles)
+    % hObject    handle to playback_animation_SoundAmplitude (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    handles = ChangeProgress(handles, hObject);
+    guidata(hObject, handles);
+
+% --------------------------------------------------------------------
+function playback_animation_TopPlot_Callback(hObject, eventdata, handles)
+    % hObject    handle to playback_animation_TopPlot (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handles = ChangeProgress(handles, hObject);
+    guidata(hObject, handles);
+
+% --------------------------------------------------------------------
+function playback_animation_BottomPlot_Callback(hObject, eventdata, handles)
+    % hObject    handle to playback_animation_BottomPlot (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handles = ChangeProgress(handles, hObject);
+    guidata(hObject, handles);
