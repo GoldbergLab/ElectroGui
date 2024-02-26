@@ -23,7 +23,7 @@ function varargout = electro_gui(varargin)
     
     % Edit the above text to modify the response to help electro_gui
     
-    % Last Modified by GUIDE v2.5 17-Feb-2024 22:17:26
+    % Last Modified by GUIDE v2.5 26-Feb-2024 14:56:49
     
     % Begin initialization code - DO NOT EDIT
     gui_Singleton = 1;
@@ -208,10 +208,10 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.ChannelAxesEventParameters{1}.Values = {};
     handles.ChannelAxesEventParameters{2}.Names = {};
     handles.ChannelAxesEventParameters{2}.Values = {};
-    handles.FunctionParams{1}.Names = {};
-    handles.FunctionParams{1}.Values = {};
-    handles.FunctionParams{2}.Names = {};
-    handles.FunctionParams{2}.Values = {};
+    handles.ChannelAxesFunctionParams{1}.Names = {};
+    handles.ChannelAxesFunctionParams{1}.Values = {};
+    handles.ChannelAxesFunctionParams{2}.Names = {};
+    handles.ChannelAxesFunctionParams{2}.Values = {};
     handles.FilterParams.Names = {};
     handles.FilterParams.Values = {};
     
@@ -261,6 +261,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.EventSources = {};      % Array of event source channel names
     handles.EventChannels = [];     % Array of event source channel numbers
     handles.EventFunctions = {};    % Array of event source filter names
+    handles.EventFunctionParameters = {};  % Array of event source filter parameters
     handles.EventDetectors = {};    % Array of event source detector names
     handles.EventParameters = {};   % Array of event source detector parameters
     handles.EventParts = {};        % Array of event part options for the selected event detector
@@ -1277,7 +1278,28 @@ function eventParts = getSelectedEventParts(handles, axnum)
     else
         eventParts = handles.EventParts{eventSourceIdx};
     end
-    
+
+function selectedFunctionParameters = getSelectedFunctionParameters(handles, axnum)
+    % Get the function parameters for the given channel axes
+    eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
+    if isempty(eventSourceIdx)
+        % Current axis configuration does not correspond to a know event source
+        % Use temporary axes params instead
+        selectedFunctionParameters = handles.ChannelAxesFunctionParams{axnum};
+        if isempty(selectedFunctionParameters)
+            % Get default params from event detector
+            functionName = getSelectedFilter(handles, axnum);
+            if ~isempty(functionName)
+                selectedFunctionParameters = eg_runPlugin(handles.plugins.filters, functionName, 'params');
+            else
+                selectedFunctionParameters = struct.empty();
+            end
+            % Store for next time
+            handles.ChannelAxesFunctionParameters{axnum} = selectedFunctionParameters;
+        end
+    else
+        selectedFunctionParameters = handles.EventFunctionParameters{eventSourceIdx};
+    end    
 function selectedEventParameters = getSelectedEventParameters(handles, axnum)
     % Get the event parameters for the given channel axes
     eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
@@ -1338,16 +1360,34 @@ function selectedFilter = getSelectedFilter(handles, axnum)
     else
         selectedFilter = fiterOptionList{filterOptionListIndex};
     end
-function handles = setSelectedEventDetector(handles, axnum, eventDetector)
+function handles = setSelectedEventDetector(handles, axnum, eventDetectorName)
     % Set the currently selected event detector for the selected axis
     eventDetectorOptionList = handles.popup_EventDetectors(axnum).String;
-    newIndex = find(strcmp(eventDetectorOptionList, eventDetector));
+    newIndex = find(strcmp(eventDetectorOptionList, eventDetectorName));
     if isempty(newIndex)
-        error('Error: Could not set selected event detector to ''%s'', as it is not in the option list.', eventDetector);
+        error('Error: Could not set selected event detector to ''%s'', as it is not in the option list.', eventDetectorName);
     end
     handles.popup_EventDetectors(axnum).Value = newIndex;
+function handles = setSelectedFilter(handles, axnum, filterName)
+    % Set the currently selected filter for the selected axis
+    filterOptionList = handles.popup_Functions(axnum).String;
+    newIndex = find(strcmp(filterOptionList, filterName));
+    if isempty(newIndex)
+        error('Error: Could not set selected filter to ''%s'', as it is not in the option list.', filterName);
+    end
+    handles.popup_Functions(axnum).Value = newIndex;
+function handles = setSelectedChannel(handles, axnum, channelName)
+    % Set the currently selected filter for the selected axis
+    channelOptionList = handles.popup_Channels(axnum).String;
+    newIndex = find(strcmp(channelOptionList, channelName));
+    if isempty(newIndex)
+        error('Error: Could not set selected channel to ''%s'', as it is not in the option list.', filter);
+    end
+    handles.popup_Channels(axnum).Value = newIndex;
+
 function channelName = channelNumToName(channelNum)
     channelName = ['Channel ', num2str(channelNum)];
+
 function channelNum = channelNameToNum(channelName)
     if strcmp(channelName, 'Sound')
         channelNum = 0;
@@ -1370,35 +1410,35 @@ function handles = setSelectedEventFunction(handles, axnum, eventFunction)
     end
     handles.popup_Functions(axnum).Value = newIndex;
     
-function [handles, isValidEventDetector] = updateEventDetectorInfo(handles, channelNum, newEventDetector)
-    % This appears to be unused? Kinda confused.
-    % Update stored event detector info
-    isValidEventDetector = isValidPlugin(handles.plugins.eventDetectors, newEventDetector);
-    if isempty(channelNum)
-        % Not a valid channel
-        return
-    end
-    filenum = getCurrentFileNum(handles);
-    if ~strcmp(getEventDetector(handles, filenum, channelNum), newEventDetector)
-        % This is a different event detector from the one previously stored
-        % Have to get new params
-        if isValidEventDetector
-            [handles.ChannelAxesEventParameters{filenum, channelNum}, ~] = eg_runPlugin(handles.plugins.eventDetectors, newEventDetector, 'params');
-        else
-            handles.ChannelAxesEventParameters{filenum, channelNum} = [];
-        end
-        % This function appears to not exist? Kinda confused.
-        handles = setEventDetector(handles, filenum, channelNum, newEventDetector);
-    end
-    % Get labels for current detector
-    if ~strcmp(newEventDetector, handles.nullEventDetector)
-        [~, labels] = eg_runPlugin(handles.plugins.eventDetectors, newEventDetector, 'params');
-    else
-        labels = {};
-    end
-    % Add empty entry for event times for this new detector function.
-    handles.EventTimes{filenum, channelNum} = cell(1, length(labels));
-    handles.EventSelected = logical.empty();
+% function [handles, isValidEventDetector] = updateEventDetectorInfo(handles, channelNum, newEventDetector)
+%     % This appears to be unused? Kinda confused.
+%     % Update stored event detector info
+%     isValidEventDetector = isValidPlugin(handles.plugins.eventDetectors, newEventDetector);
+%     if isempty(channelNum)
+%         % Not a valid channel
+%         return
+%     end
+%     filenum = getCurrentFileNum(handles);
+%     if ~strcmp(getEventDetector(handles, filenum, channelNum), newEventDetector)
+%         % This is a different event detector from the one previously stored
+%         % Have to get new params
+%         if isValidEventDetector
+%             [handles.ChannelAxesEventParameters{filenum, channelNum}, ~] = eg_runPlugin(handles.plugins.eventDetectors, newEventDetector, 'params');
+%         else
+%             handles.ChannelAxesEventParameters{filenum, channelNum} = [];
+%         end
+%         % This function appears to not exist? Kinda confused.
+%         handles = setEventDetector(handles, filenum, channelNum, newEventDetector);
+%     end
+%     % Get labels for current detector
+%     if ~strcmp(newEventDetector, handles.nullEventDetector)
+%         [~, labels] = eg_runPlugin(handles.plugins.eventDetectors, newEventDetector, 'params');
+%     else
+%         labels = {};
+%     end
+%     % Add empty entry for event times for this new detector function.
+%     handles.EventTimes{filenum, channelNum} = cell(1, length(labels));
+%     handles.EventSelected = logical.empty();
     
 function [handles, isValidEventFunction] = updateEventFunctionInfo(handles, channelNum, newEventFunction)
     % This appears to be unused? Kinda confused.
@@ -1465,7 +1505,7 @@ function [handles, channelData, channelLabels] = loadChannelData(handles, channe
             channelData = channelData(indx);
         end
     end
-    
+
 function handles = eg_LoadChannel(handles,axnum)
     % Load a new channel of data
     
@@ -1492,7 +1532,7 @@ function handles = eg_LoadChannel(handles,axnum)
     % Load channel data
     selectedChannelNum = getSelectedChannel(handles, axnum);
     selectedFilter = getSelectedFilter(handles, axnum);
-    selectedFilterParams = handles.FunctionParams{axnum};
+    selectedFilterParams = handles.ChannelAxesFunctionParams{axnum};
     [handles, handles.loadedChannelData{axnum}, handles.Labels{axnum}] = loadChannelData(handles, selectedChannelNum, selectedFilter, selectedFilterParams);
     
     % Plot channel data
@@ -1640,15 +1680,8 @@ function handles = eg_PlotChannel(handles, axnum)
     end
     handles.axes_Channel(axnum).Visible = 'on';
     handles.popup_Functions(axnum).Enable = 'on';
-    str = handles.popup_Channels(axnum).String;
-    str = str{handles.popup_Channels(axnum).Value};
-    if ~contains(str,' - ')
-        handles.popup_EventDetectors(axnum).Enable = 'on';
-        handles.push_Detects(axnum).Enable = 'on';
-    else
-        handles.popup_EventDetectors(axnum).Enable = 'off';
-        handles.push_Detects(axnum).Enable = 'off';
-    end
+    handles.popup_EventDetectors(axnum).Enable = 'on';
+    handles.push_Detects(axnum).Enable = 'on';
     
     [handles, numSamples] = eg_GetNumSamples(handles);
     t = linspace(0,numSamples/handles.fs,numSamples);
@@ -3267,11 +3300,11 @@ function handles = eg_NewDbase(handles)
         if isempty(ud{v}) && v>1
             str = handles.popup_Functions(axnum).String;
             dtr = str{v};
-            [handles.FunctionParams{axnum}, ~] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
-            ud{v} = handles.FunctionParams{axnum};
+            [handles.ChannelAxesFunctionParams{axnum}, ~] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
+            ud{v} = handles.ChannelAxesFunctionParams{axnum};
             handles.popup_Functions(axnum).UserData = ud;
         else
-            handles.FunctionParams{axnum} = ud{v};
+            handles.ChannelAxesFunctionParams{axnum} = ud{v};
         end
     end
     
@@ -3435,6 +3468,17 @@ function handles = eg_OpenDbase(handles)
             handles.EventParameters{eventSourceIdx} = eventParameters;
         end
     end
+    if isfield(dbase, 'EventFunctionParameters')
+        handles.EventFunctionParameters = dbase.EventFunctionParameters;
+    else
+        % Legacy dbases do not have a list of event parameters
+        handles.EventFunctionParameters = cell(1, 1:length(handles.EventTimes));
+        for eventSourceIdx = 1:length(handles.EventTimes)
+            filterName = handles.EventFunctions{eventSourceIdx};
+            filterParameters = eg_runPlugin(handles.plugins.filters, filterName, 'params');
+            handles.EventFunctionParameters{eventSourceIdx} = filterParameters;
+        end
+    end
     if isfield(dbase, 'EventXLims')
         handles.EventXLims = dbase.EventXLims;
     else
@@ -3571,11 +3615,11 @@ function handles = eg_OpenDbase(handles)
         if isempty(ud{v}) && v>1
             str = handles.popup_Functions(axnum).String;
             dtr = str{v};
-            [handles.FunctionParams{axnum}, ~] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
-            ud{v} = handles.FunctionParams{axnum};
+            [handles.ChannelAxesFunctionParams{axnum}, ~] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
+            ud{v} = handles.ChannelAxesFunctionParams{axnum};
             handles.popup_Functions(axnum).UserData = ud;
         else
-            handles.FunctionParams{axnum} = ud{v};
+            handles.ChannelAxesFunctionParams{axnum} = ud{v};
         end
     end
     
@@ -3585,6 +3629,8 @@ function handles = eg_OpenDbase(handles)
     
     handles = eg_RestartProperties(handles);
     
+    handles = UpdateEventSourceList(handles);
+
     handles = eg_LoadFile(handles);
 
 % --- Executes on button press in push_Save.
@@ -4176,14 +4222,14 @@ function handles = popup_Functions_Callback(handles, axnum)
         dtr = str{v};
         f = strfind(dtr,' - ');
         if isempty(f)
-            [handles.FunctionParams{axnum}, ~] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
+            [handles.ChannelAxesFunctionParams{axnum}, ~] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
         else
-            [handles.FunctionParams{axnum}, ~] = eg_runPlugin(handles.plugins.filters, dtr(1:f-1), 'params');
+            [handles.ChannelAxesFunctionParams{axnum}, ~] = eg_runPlugin(handles.plugins.filters, dtr(1:f-1), 'params');
         end
-        ud{v} = handles.FunctionParams{axnum};
+        ud{v} = handles.ChannelAxesFunctionParams{axnum};
         handles.popup_Functions(axnum).UserData = ud;
     else
-        handles.FunctionParams{axnum} = ud{v};
+        handles.ChannelAxesFunctionParams{axnum} = ud{v};
     end
     
     % I think this is checking if theres a "data too long" message on the
@@ -4261,7 +4307,7 @@ function handles = popup_Channels_Callback(handles, axnum)
     % Handle change in value of either channel source menu
     
     if isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
-        % ??
+        % ?? is this for the long file thing?
         handles.popup_Functions(axnum).Value = 1;
         handles.popup_EventDetectors(axnum).Value = 1;
         handles = eg_LoadChannel(handles, axnum);
@@ -4506,7 +4552,7 @@ function click_Channel(hObject, event)
     
                 eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
     
-                [~, ~, eventDetectorName, eventParameters] = GetEventSourceInfo(handles, eventSourceIdx);
+                [~, ~, eventDetectorName, ~, eventParameters] = GetEventSourceInfo(handles, eventSourceIdx);
     
                 % Get channel data
                 chanData = handles.loadedChannelData{axnum};
@@ -5128,20 +5174,22 @@ function [handles, eventSourceIdx] = addNewEventSourceFromChannelAxes(handles, a
     % channel axes
     [channelNum, channelName] = getSelectedChannel(handles, axnum);
     filterName = getSelectedFilter(handles, axnum);
+    filterParameters = getSelectedFunctionParameters(handles, axnum);
     eventDetectorName = getSelectedEventDetector(handles, axnum);
     eventParameters = getSelectedEventParameters(handles, axnum);
     eventXLims = getSelectedEventLims(handles, axnum);
     eventParts = getSelectedEventParts(handles, axnum);
-    [handles, eventSourceIdx] = addNewEventSource(handles, channelNum, channelName, filterName, eventDetectorName, eventParameters, eventXLims, eventParts);
+    [handles, eventSourceIdx] = addNewEventSource(handles, channelNum, channelName, filterName, eventDetectorName, filterParameters, eventParameters, eventXLims, eventParts);
 
 function [handles, eventSourceIdx] = addNewEventSource(handles, channelNum, ...
-        channelName, filterName, eventDetectorName, eventParameters, ...
-        eventXLims, eventParts)
+        channelName, filterName, eventDetectorName, EventFunctionParameters, ...
+        eventParameters, eventXLims, eventParts)
     % Add a new event source, update all event-source-indexed variables
     eventSourceIdx = length(handles.EventSources) + 1;
     handles.EventSources{eventSourceIdx} = channelName;
     handles.EventChannels(eventSourceIdx) = channelNum;
     handles.EventFunctions{eventSourceIdx} = filterName;
+    handles.EventFunctionParameters{eventSourceIdx} = EventFunctionParameters;
     handles.EventDetectors{eventSourceIdx} = eventDetectorName;
     handles.EventParameters{eventSourceIdx} = eventParameters;
     handles.EventXLims(eventSourceIdx, :) = eventXLims;
@@ -5470,9 +5518,7 @@ function handles = UpdateEventViewer(handles)
             if isempty(channelData)
                 % None of the currently loaded channels have this data,
                 % load it from file
-                selectedChannelNum = getSelectedChannel(handles, axnum);
-                selectedFilter = getSelectedFilter(handles, axnum);
-                selectedFilterParams = handles.FunctionParams{axnum};
+                [selectedChannelNum, selectedFilter, ~, ~, selectedFilterParams] = GetEventSourceInfo(handles, eventSourceIdx);
                 [handles, channelData, channelYLabel] = loadChannelData(handles, selectedChannelNum, selectedFilter, selectedFilterParams);
             end
         case 'Top axes'
@@ -5593,11 +5639,12 @@ function [channelNum, filterName, eventDetectorName] = GetEventViewerSourceInfo(
     else
         [channelNum, filterName, eventDetectorName] = GetEventSourceInfo(handles, eventSourceIdx);
     end
-function [channelNum, filterName, eventDetectorName, eventParameters, eventLims, eventParts] = GetEventSourceInfo(handles, eventSourceIdx)
+function [channelNum, filterName, eventDetectorName, eventParameters, filterParameters, eventLims, eventParts] = GetEventSourceInfo(handles, eventSourceIdx)
     % Return the channel number, filter name, and event detector name for
     % the given event source index
     channelNum = handles.EventChannels(eventSourceIdx);
     filterName = handles.EventFunctions(eventSourceIdx);
+    filterParameters = handles.EventFunctionParameters(eventSourceIdx);
     eventDetectorName = handles.EventDetectors(eventSourceIdx);
     eventParameters = handles.EventParameters{eventSourceIdx};
     eventLims = handles.EventXLims(eventSourceIdx);
@@ -5636,13 +5683,15 @@ function eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum)
     % Get the event source index that matches the current settings of the
     % given channel axes. If there is no match, return an empty array
     [axChannelNum, axFilterName, axEventDetectorName] = GetChannelAxesInfo(handles, axnum);
-    for eventSourceIdx = 1:length(handles.EventSources)
-        [channelNum, filterName, eventDetectorName] = GetEventSourceInfo(handles, eventSourceIdx);
-        if axChannelNum == channelNum && ...
-           strcmp(axFilterName, filterName) && ...
-           strcmp(axEventDetectorName, eventDetectorName)
-            % Found a match
-            return
+    if ~isempty(axChannelNum) && ~isempty(axFilterName) && ~isempty(axEventDetectorName)
+        for eventSourceIdx = 1:length(handles.EventSources)
+            [channelNum, filterName, eventDetectorName] = GetEventSourceInfo(handles, eventSourceIdx);
+            if axChannelNum == channelNum && ...
+               strcmp(axFilterName, filterName) && ...
+               strcmp(axEventDetectorName, eventDetectorName)
+                % Found a match
+                return
+            end
         end
     end
     % No match found
@@ -5661,10 +5710,12 @@ function matchingAxes = WhichChannelAxesMatchEventSource(handles, eventSourceIdx
     for axnum = 1:2
         [channelNum, filterName, eventDetectorName] = GetEventSourceInfo(handles, eventSourceIdx);
         [axChannelNum, axFilterName, axEventDetectorName] = GetChannelAxesInfo(handles, axnum);
-        if channelNum == axChannelNum && ...
-           strcmp(filterName, axFilterName) && ...
-           strcmp(eventDetectorName, axEventDetectorName)
-            matchingAxes(end+1) = axnum;
+        if ~isempty(axChannelNum) && ~isempty(axFilterName) && ~isempty(axEventDetectorName)
+            if channelNum == axChannelNum && ...
+               strcmp(filterName, axFilterName) && ...
+               strcmp(eventDetectorName, axEventDetectorName)
+                matchingAxes(end+1) = axnum;
+            end
         end
     end
 
@@ -8993,7 +9044,7 @@ function menu_FunctionParams2_Callback(hObject, ~, handles)
     
 function handles = menu_FunctionParams(handles,axnum)
     
-    pr = handles.FunctionParams{axnum};
+    pr = handles.ChannelAxesFunctionParams{axnum};
     
     if ~isfield(pr,'Names') || isempty(pr.Names)
         errordlg('Current function does not require parameters.','Function error');
@@ -9006,11 +9057,11 @@ function handles = menu_FunctionParams(handles,axnum)
     end
     pr.Values = answer;
     
-    handles.FunctionParams{axnum} = pr;
+    handles.ChannelAxesFunctionParams{axnum} = pr;
     
     v = handles.popup_Functions(axnum).Value;
     ud = handles.popup_Functions(axnum).UserData;
-    ud{v} = handles.FunctionParams{axnum};
+    ud{v} = handles.ChannelAxesFunctionParams{axnum};
     handles.popup_Functions(axnum).UserData = ud;
     
     if isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
@@ -10684,11 +10735,13 @@ function dbase = GetDBase(handles)
     dbase.EventChannels = handles.EventChannels;
     dbase.EventSources = handles.EventSources;
     dbase.EventFunctions = handles.EventFunctions;
+    dbase.EventFunctionParameters = handles.EventFunctionParameters;
     dbase.EventDetectors = handles.EventDetectors;
+    dbase.EventParameters = handles.EventParameters;
+
     dbase.EventThresholds = handles.EventThresholds;
     dbase.EventTimes = handles.EventTimes;
     dbase.EventIsSelected = handles.EventSelected;
-    dbase.EventParameters = handles.EventParameters;
     dbase.EventXLims = handles.EventXLims;
     dbase.EventParts = handles.EventParts;
 
@@ -11053,25 +11106,76 @@ function popup_SoundSource_CreateFcn(hObject, eventdata, handles)
 
 % --- Executes on selection change in popup_EventListData.
 function popup_EventListData_Callback(hObject, eventdata, handles)
-% hObject    handle to popup_EventListData (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: contents = cellstr(get(hObject,'String')) returns popup_EventListData contents as cell array
-%        contents{get(hObject,'Value')} returns selected item from popup_EventListData
-
-handles = UpdateEventViewer(handles);
-
-guidata(hObject, handles);
+    % hObject    handle to popup_EventListData (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    % Hints: contents = cellstr(get(hObject,'String')) returns popup_EventListData contents as cell array
+    %        contents{get(hObject,'Value')} returns selected item from popup_EventListData
+    
+    handles = UpdateEventViewer(handles);
+    
+    guidata(hObject, handles);
 
 % --- Executes during object creation, after setting all properties.
 function popup_EventListData_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to popup_EventListData (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
+    % hObject    handle to popup_EventListData (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    empty - handles not created until after all CreateFcns called
+    
+    % Hint: popupmenu controls usually have a white background on Windows.
+    %       See ISPC and COMPUTER.
+    if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+        set(hObject,'BackgroundColor','white');
+    end
 
-% Hint: popupmenu controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
+
+% --------------------------------------------------------------------
+function context_EventListAlign_Callback(hObject, eventdata, handles)
+    % hObject    handle to context_EventListAlign (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function EventViewerSourceToTopAxes_Callback(hObject, eventdata, handles)
+    % hObject    handle to EventViewerSourceToTopAxes (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    % Display currently selected event viewer event source in the top channel
+    % axes
+    
+    eventSourceIdx = GetEventViewerEventSourceIdx(handles);
+    handles = setChannelAxesEventSource(handles, 1, eventSourceIdx);
+    guidata(hObject, handles);
+
+% --------------------------------------------------------------------
+function EventViewerSourceToBottomAxes_Callback(hObject, eventdata, handles)
+    % hObject    handle to EventViewerSourceToBottomAxes (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    % Display currently selected event viewer event source in the bottom channel
+    % axes
+    
+    eventSourceIdx = GetEventViewerEventSourceIdx(handles);
+    handles = setChannelAxesEventSource(handles, 2, eventSourceIdx);
+    guidata(hObject, handles);
+
+function handles = setChannelAxesEventSource(handles, axnum, eventSourceIdx)
+    if isempty(eventSourceIdx)
+        handles.popup_Channel(axnum).Value = 1;
+    else
+        [channelNum, filterName, eventDetectorName, eventParameters, ...
+            filterParameters, ~, ~] = ...
+            GetEventSourceInfo(handles, eventSourceIdx);
+        channelName = channelNumToName(channelNum);
+        handles = setSelectedChannel(handles, axnum, channelName);
+        handles = setSelectedFilter(handles, axnum, filterName);
+        handles = setSelectedEventDetector(handles, axnum, eventDetectorName);
+        handles.ChannelAxesEventParameters{axnum} = eventParameters;
+        handles.ChannelAxesFunctionParameters{axnum} = filterParameters;
+    end
+
+    handles = eg_LoadChannel(handles, axnum);
