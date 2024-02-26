@@ -3983,20 +3983,28 @@ function MouseMotionHandler(hObject, event)
             xl = xlim(ax1);
             x = (xy(1) - ax1.Position(1)) / ax1.Position(3);
 
-            if isempty(handles.Cursors) || any(~isvalid(handles.Cursors))
-                delete(handles.Cursors);
-                handles.Cursors = gobjects().empty;
-                for k = 1:length(cursor_axes)
-                    ax = cursor_axes(k);
+            % Loop over cursor axes updating cursor
+            for k = 1:length(cursor_axes)
+                if k > length(handles.Cursors)
+                    % We're adding a new cursor
+                    handles.Cursors(k) = gobjects();
+                end
+
+                ax = cursor_axes(k);
+                if ~isgraphics(handles.Cursors(k)) || ~isvalid(handles.Cursors(k))
+                    % Cursor is not valid, create a new one
+                    delete(handles.Cursors(k));
                     if ax.Visible
                         yl = ylim(ax);
                         t = x*diff(xl)+xl(1);
                         handles.Cursors(k) = line([t, t], yl, 'Parent', ax, 'Color', 'green');
                     end
-                end
-            else
-                for k = 1:length(cursor_axes)
-                    ax = cursor_axes(k);
+                else
+                    % Cursor is valid, update its values
+                    if ax ~= handles.Cursors(k).Parent
+                        % This cursor belongs to some other axes, fix it
+                        handles.Cursors(k).Parent = ax;
+                    end
                     if ax.Visible
                         yl = ylim(ax);
                         t = x*diff(xl)+xl(1);
