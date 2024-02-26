@@ -69,6 +69,18 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     [pathstr, ~, ~] = fileparts(mfilename('fullpath'));
     cd(pathstr);
 
+    % Get current logged in username
+    lic = license('inuse');
+    user = lic(1).user;
+    f = regexpi(user,'[A-Z1-9]');
+    user = user(f);
+    
+    % Ensure a defaults file exists for the user
+    handles = ensureDefaultsFileExists(handles, user);
+    
+    % Prompt user to choose a defaults file, then load it.
+    handles = chooseAndLoadDefaultsFile(handles);
+
     % Gather all electro_gui plugins
     handles = gatherPlugins(handles);
     
@@ -105,7 +117,6 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     validSegmentCharacters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%&*(){}[]_';
     handles.validSegmentCharacters = num2cell(validSegmentCharacters);
 
-
     % Set up event objects
     handles.EventWhichPlot = 0;
     handles.EventWaveHandles = gobjects().empty;
@@ -124,18 +135,6 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.BackwardFileCacheSize = 1;
     handles.ForwardFileCacheSize = 3;
     handles = resetFileCache(handles);
-    
-    % Get current logged in username
-    lic = license('inuse');
-    user = lic(1).user;
-    f = regexpi(user,'[A-Z1-9]');
-    user = user(f);
-    
-    % Ensure a defaults file exists for the user
-    handles = ensureDefaultsFileExists(handles, user);
-    
-    % Prompt user to choose a defaults file, then load it.
-    handles = chooseAndLoadDefaultsFile(handles);
 
     % Load temp file, or use defaults if it doesn't exist
     handles.tempFile = 'eg_temp.mat';
@@ -205,11 +204,10 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.SegmenterParams.Values = {};
     handles.SonogramParams.Names = {};
     handles.SonogramParams.Values = {};
-    handles.ChannelAxesEventParameters{1}.Names = {};
+    handles.ChannelAxesEventParameters{1}.Names = {};       % Temporary place to record channel parameters before an event source is defined
     handles.ChannelAxesEventParameters{1}.Values = {};
     handles.ChannelAxesEventParameters{2}.Names = {};
     handles.ChannelAxesEventParameters{2}.Values = {};
-    handles.ChannelAxesEventXLims = [[0.001, 0.003]; [0.001, 0.003]];
     handles.FunctionParams{1}.Names = {};
     handles.FunctionParams{1}.Values = {};
     handles.FunctionParams{2}.Names = {};
@@ -283,7 +281,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.figure_Main.KeyPressFcn = @keyPressHandler;
     handles.figure_Main.KeyReleaseFcn = @keyReleaseHandler;
     handles.figure_Main.WindowButtonMotionFcn = @MouseMotionHandler;
-    
+
     % Update handles structure
     guidata(hObject, handles);
     
@@ -1305,7 +1303,7 @@ function selectedEventLims = getSelectedEventLims(handles, axnum)
     eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
     if isempty(eventSourceIdx)
         % Use temporary axes params instead
-        selectedEventLims = handles.ChannelAxesEventXLims(axnum, :);
+        selectedEventLims = handles.EventLims;
     else
         selectedEventLims = handles.EventXLims(eventSourceIdx, :);
     end
@@ -3397,6 +3395,46 @@ function handles = eg_OpenDbase(handles)
             handles.EventSelected{axnum}{filenum} = logical(handles.EventSelected{axnum}{filenum});
         end
     end
+
+    if isfield(dbase, 'EventChannels')
+        handles.EventChannels = dbase.EventChannels;
+    else
+        % Legacy dbases do not have a list of channel numbers, only channel
+        % names (stored in "EventSources" field)
+        handles.EventChannels = cellfun(@channelNameToNum, handles.EventSources, 'UniformOutput', true);
+    end
+    if isfield(dbase, 'EventParameters')
+        handles.EventParameters = dbase.EventParameters;
+    else
+        % Legacy dbases do not have a list of event parameters
+        handles.EventParameters = cell(1, 1:length(handles.EventTimes));
+        for eventSourceIdx = 1:length(handles.EventTimes)
+            eventDetectorName = handles.EventDetectors{eventSourceIdx};
+            eventParameters = eg_runPlugin(handles.plugins.eventDetectors, eventDetectorName, 'params');
+            handles.EventParameters{eventSourceIdx} = eventParameters;
+        end
+    end
+    if isfield(dbase, 'EventXLims')
+        handles.EventXLims = dbase.EventXLims;
+    else
+        % Legacy dbases had event xlims stored in analysis state, and I
+        % think it was per channel axes, not per file, so not complete.
+        for eventSourceIdx = 1:length(handles.EventTimes)
+            handles.EventXLims(eventSourceIdx, :) = handles.EventLims;
+        end
+    end
+    if isfield(dbase, 'EventParts')
+        handles.EventParts = dbase.EventParts;
+    else
+        % Legacy dbases did not have a list of event part names
+        handles.EventParts = {};
+        for eventSourceIdx = 1:length(handles.EventTimes)
+            eventDetectorName = handles.EventDetectors{eventSourceIdx};
+            [~, eventParts] = eg_runPlugin(handles.plugins.eventDetectors, eventDetectorName, 'params');
+            handles.EventParts{eventSourceIdx} = eventParts;
+        end
+    end
+    
     
     handles.Properties = dbase.Properties;
     
@@ -10687,13 +10725,17 @@ function dbase = GetDBase(handles)
     dbase.MarkerTitles = handles.MarkerTitles;
     dbase.MarkerIsSelected = handles.MarkerSelection;
     
+    dbase.EventChannels = handles.EventChannels;
     dbase.EventSources = handles.EventSources;
     dbase.EventFunctions = handles.EventFunctions;
     dbase.EventDetectors = handles.EventDetectors;
     dbase.EventThresholds = handles.EventThresholds;
     dbase.EventTimes = handles.EventTimes;
     dbase.EventIsSelected = handles.EventSelected;
-    
+    dbase.EventParameters = handles.EventParameters;
+    dbase.EventXLims = handles.EventXLims;
+    dbase.EventParts = handles.EventParts;
+
     dbase.Properties = handles.Properties;
     
     dbase.AnalysisState.SourceList = handles.popup_Channel1.String;
