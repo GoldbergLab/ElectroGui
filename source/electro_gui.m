@@ -5569,11 +5569,12 @@ function handles = UpdateEventViewer(handles)
     
     if handles.menu_AutoApplyYLim.Checked && ~isempty(handles.EventWaveHandles)
         if handles.menu_DisplayValues.Checked
-            if handles.menu_AnalyzeTop.Checked && handles.menu_AutoLimits1.Checked
-                handles.axes_Channel1.YLim = handles.axes_Events.YLim;
-            elseif handles.menu_AutoLimits2.Checked
-                handles.axes_Channel2.YLim = handles.axes_Events.YLim;
-            end
+            % Update this
+%             if handles.menu_AnalyzeTop.Checked && handles.menu_AutoLimits1.Checked
+%                 handles.axes_Channel1.YLim = handles.axes_Events.YLim;
+%             elseif handles.menu_AutoLimits2.Checked
+%                 handles.axes_Channel2.YLim = handles.axes_Events.YLim;
+%             end
         end
     end
 
@@ -5928,20 +5929,21 @@ function click_eventaxes(hObject, event)
         handles.axes_Events.Units = 'normalized';
     
     elseif strcmp(handles.figure_Main.SelectionType,'open')
-        axis tight
-        yl = ylim;
-        ylim([mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
+        axis(handles.axes_EventViewer, 'tight');
+        yl = ylim(handles.axes_EventViewer);
+        ylim(handles.axes_EventViewer, [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
         if handles.menu_DisplayFeatures.Checked
-            xl = xlim;
-            xlim([mean(xl)+(xl(1)-mean(xl))*1.1 mean(xl)+(xl(2)-mean(xl))*1.1]);
+            xl = xlim(handles.axes_EventViewer);
+            xlim(handles.axes_EventViewer, [mean(xl)+(xl(1)-mean(xl))*1.1 mean(xl)+(xl(2)-mean(xl))*1.1]);
         end
         if handles.menu_AutoApplyYLim.Checked
             if handles.menu_DisplayValues.Checked
-                if handles.menu_AnalyzeTop.Checked && handles.menu_AutoLimits1.Checked
-                    handles.axes_Channel1.YLim = handles.axes_Events.YLim;
-                elseif handles.menu_AutoLimits2.Checked
-                    handles.axes_Channel2.YLim = handles.axes_Events.YLim;
-                end
+                % UPDATE THIS
+%                 if handles.menu_AnalyzeTop.Checked && handles.menu_AutoLimits1.Checked
+%                     handles.axes_Channel1.YLim = handles.axes_Events.YLim;
+%                 elseif handles.menu_AutoLimits2.Checked
+%                     handles.axes_Channel2.YLim = handles.axes_Events.YLim;
+%                 end
             end
         end
     
@@ -6461,7 +6463,6 @@ function menu_EventsDisplay1_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    
 % --------------------------------------------------------------------
 function menu_EventsDisplay2_Callback(hObject, ~, handles)
     % hObject    handle to menu_EventsDisplay2 (see GCBO)
@@ -6502,57 +6503,12 @@ function handles = SelectionParameters(handles,axnum)
     handles.SearchBefore(axnum) = str2double(answer{1})/1000;
     handles.SearchAfter(axnum) = str2double(answer{2})/1000;
     
-    
-
-    
-% --------------------------------------------------------------------
-function menu_PlotToAnalyze_Callback(hObject, ~, handles)
-    % hObject    handle to menu_PlotToAnalyze (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    
-% --------------------------------------------------------------------
-function menu_AnalyzeTop_Callback(hObject, ~, handles)
-    % hObject    handle to menu_AnalyzeTop (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles.EventWhichPlot(handles.popup_EventListAlign.Value)=1;
-    handles.menu_AnalyzeTop.Checked = 'on';
-    handles.menu_AnalyzeBottom.Checked = 'off';
-    
-    handles.ActiveEventNum = [];
-    handles.ActiveEventPartNum = [];
-    
-    handles = UpdateEventViewer(handles);
-    
-    guidata(hObject, handles);
-    
 % --------------------------------------------------------------------
 function menu_ViewerDisplay_Callback(hObject, ~, handles)
     % hObject    handle to menu_ViewerDisplay (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
-    
-    
-% --------------------------------------------------------------------
-function menu_AnalyzeBottom_Callback(hObject, ~, handles)
-    % hObject    handle to menu_AnalyzeBottom (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles.EventWhichPlot(handles.popup_EventListAlign.Value)=2;
-    handles.menu_AnalyzeTop.Checked = 'off';
-    handles.menu_AnalyzeBottom.Checked = 'on';
-    
-    handles.ActiveEventNum = [];
-    handles.ActiveEventPartNum = [];
-
-    handles = UpdateEventViewer(handles);
-    
-    guidata(hObject, handles);
-    
+        
 % --------------------------------------------------------------------
 function menu_DisplayValues_Callback(hObject, ~, handles)
     % hObject    handle to menu_DisplayValues (see GCBO)
@@ -10689,11 +10645,13 @@ function menu_AutoApplyYLim_Callback(hObject, ~, handles)
         handles.menu_AutoApplyYLim.Checked = 'on';
         if handles.menu_AutoApplyYLim.Checked
             if handles.menu_DisplayValues.Checked
-                if handles.menu_AnalyzeTop.Checked && handles.menu_AutoLimits1.Checked
-                    handles.axes_Channel1.YLim = handles.axes_Events.YLim;
-                elseif handles.menu_AutoLimits2.Checked
-                    handles.axes_Channel2.YLim = handles.axes_Events.YLim;
-                end
+                % UPDATE THIS 
+
+%                 if handles.menu_AnalyzeTop.Checked && handles.menu_AutoLimits1.Checked
+%                     handles.axes_Channel1.YLim = handles.axes_Events.YLim;
+%                 elseif handles.menu_AutoLimits2.Checked
+%                     handles.axes_Channel2.YLim = handles.axes_Events.YLim;
+%                 end
             end
         end
     end
@@ -10860,10 +10818,7 @@ function suppressStupidCallbackWarnings()
     menu_SelectionParameters2_Callback;
     popup_EventList_CreateFcn;
     context_EventViewer_Callback;
-    menu_PlotToAnalyze_Callback;
-    menu_AnalyzeTop_Callback;
     menu_ViewerDisplay_Callback;
-    menu_AnalyzeBottom_Callback;
     menu_DisplayValues_Callback;
     menu_DisplayFeatures_Callback;
     menu_AutoDisplayEvents_Callback;
