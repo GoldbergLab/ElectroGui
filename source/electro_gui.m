@@ -1307,6 +1307,8 @@ function selectedEventLims = getSelectedEventLims(handles, axnum)
     else
         selectedEventLims = handles.EventXLims(eventSourceIdx, :);
     end
+function isSound = isChannelSound(channelNum)
+    isSound = (channelNum == 0);
 function [selectedChannelNum, selectedChannelName, isSound] = getSelectedChannel(handles, axnum)
     % Return the name and number of the selected channel from the specified
     %   axis. If the name is not a valid channel, selectedChannelNum will be
@@ -1314,7 +1316,7 @@ function [selectedChannelNum, selectedChannelName, isSound] = getSelectedChannel
     channelOptionList = handles.popup_Channels(axnum).String;
     selectedChannelName = channelOptionList{handles.popup_Channels(axnum).Value};
     selectedChannelNum = channelNameToNum(selectedChannelName);
-    isSound = (selectedChannelNum == 0);
+    isSound = isChannelSound(selectedChannelNum);
 function selectedEventDetector = getSelectedEventDetector(handles, axnum)
     % Return the name of the selected event detector from the specified axis.
     eventDetectorOptionList = handles.popup_EventDetectors(axnum).String;
@@ -1417,6 +1419,52 @@ function [handles, isValidEventFunction] = updateEventFunctionInfo(handles, chan
         % This function appears to not exist? Kinda confused.
         handles = setEventFunction(handles, filenum, channelNum, newEventFunction);
     end
+
+function [handles, channelData, channelLabels] = loadChannelData(handles, channelNum, filterName, filterParams, filenum)
+    if ~exist('filenum', 'var') || isempty(filenum)
+        % No file number provided, use the current one
+        filenum = getCurrentFileNum(handles);
+    end
+    if ~exist('filterName', 'var')
+        % No filter info provided, assume we want unfiltered data
+        filterName = '';
+        filterParams = [];
+    end
+
+    % Check if this channel represents sound
+    isSound = isChannelSound(channelNum);
+    if isSound
+        % Load using the specified sound loader
+        loader = handles.sound_loader;
+        filePath = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
+    else
+        % Load using the specified channel data loader
+        loader = handles.chan_loader{channelNum};
+        filePath = fullfile(handles.DefaultRootPath, handles.chan_files{channelNum}(filenum).name);
+    end
+    if handles.EnableFileCaching
+        % File is already cached - retrieve data
+        [handles, data] = retrieveFileFromCache(handles, filePath, loader);
+        [rawChannelData, ~, ~, channelLabels, ~] = data{:};
+    else
+        % File is not cached - load data
+        [rawChannelData, ~, ~, channelLabels, ~] = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
+    end
+    if isempty(filterName)
+        % Raw data requested
+        channelData = rawChannelData;
+    else
+        % Filter data
+        [channelData, channelLabels] = eg_runPlugin(handles.plugins.filters, filterName, rawChannelData, handles.fs, filterParams);
+
+        % Fix length of filtered channel data
+        [handles, numSamples] = eg_GetNumSamples(handles);
+        % Resample data appropriately?
+        if length(channelData) < numSamples
+            indx = fix(linspace(1, length(handles.loadedChannelData{axnum}), numSamples));
+            channelData = channelData(indx);
+        end
+    end
     
 function handles = eg_LoadChannel(handles,axnum)
     % Load a new channel of data
@@ -1439,44 +1487,13 @@ function handles = eg_LoadChannel(handles,axnum)
         handles.axes_Channel(axnum).Visible = 'on';
         handles.popup_Functions(axnum).Enable = 'on';
     end
-    
-    filenum = getCurrentFileNum(handles);
-    [selectedChannelNum, ~, isSound] = getSelectedChannel(handles, axnum);
-    if isSound
-        loader = handles.sound_loader;
-        filePath = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
-    else
-        loader = handles.chan_loader{selectedChannelNum};
-        filePath = fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum}(filenum).name);
-    end
 
-    if handles.EnableFileCaching
-        [handles, data] = retrieveFileFromCache(handles, filePath, loader);
-        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = data{:};
-    else
-        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
-    end
-    
+    % Load channel data
+    selectedChannelNum = getSelectedChannel(handles, axnum);
     selectedFilter = getSelectedFilter(handles, axnum);
-    if ~isempty(selectedFilter)
-        % This is not the "(Raw)" function - apply the selected function
-
-        % Get filtered channel data
-        rawChannelData = handles.loadedChannelData{axnum};
-        [filteredChannelData, lab] = eg_runPlugin(handles.plugins.filters, selectedFilter, rawChannelData, handles.fs, handles.FunctionParams{axnum});
-        handles.Labels{axnum} = lab;
-        handles.loadedChannelData{axnum} = filteredChannelData;
-    end
+    selectedFilterParams = handles.FunctionParams{axnum};
+    [handles, handles.loadedChannelData{axnum}, handles.Labels{axnum}] = loadChannelData(handles, selectedChannelNum, selectedFilter, selectedFilterParams);
     
-    [handles, numSamples] = eg_GetNumSamples(handles);
-    
-    % Fix length of filtered channel data
-    if length(handles.loadedChannelData{axnum}) < numSamples
-        indx = fix(linspace(1, length(handles.loadedChannelData{axnum}), numSamples));
-        filteredChannelData = handles.loadedChannelData{axnum};
-        handles.loadedChannelData{axnum} = filteredChannelData(indx);
-    end
-
     % Plot channel data
     handles = eg_PlotChannel(handles,axnum);
 
@@ -1497,6 +1514,9 @@ function handles = eg_LoadChannel(handles,axnum)
     
     % If overlay is requested, overlay channel data on another axes
     handles = eg_Overlay(handles);
+
+    % Update event viewer in case it was showing data from this axes
+    handles = UpdateEventViewer(handles);
     
 function [handles, numSamples] = eg_GetNumSamples(handles)
     [handles, sound] = eg_GetSound(handles, false);
@@ -5001,59 +5021,8 @@ function popup_EventListAlign_Callback(hObject, ~, handles)
     handles.ActiveEventNum = [];
     handles.ActiveEventPartNum = [];
     handles.ActiveEventSourceIdx = [];
-    delete(handles.ActiveEventCursors);
-    
-    if handles.popup_EventListAlign.Value==1
-        % "None" is selected in event list - turn off event axes and
-        % disable "display events" button
-        cla(handles.axes_Events);
-        handles.axes_Events.Visible = 'off';
-%         handles.push_DisplayEvents.Enable = 'off';
-        return
-    else
-        % Something other than "none" is selected in the event list
-        handles.axes_Events.Visible = 'on';
-%         handles.push_DisplayEvents.Enable = 'on';
-    
-        if ~handles.axes_Channel2.Visible
-            % Channel axes 2 is invisible
-            plt = 1;
-        elseif ~handles.axes_Channel1.Visible
-            % Channel axes 1 is invisible
-            plt = 2;
-        else
-            % Both channel axes are visible
-            if handles.EventWhichPlot(handles.popup_EventListAlign.Value)==0
-                nums = [];
-                for c = 1:length(handles.EventTimes)
-                    nums(c) = size(handles.EventTimes{c},1);
-                end
-                indx = handles.popup_EventListAlign.Value-1;
-                cs = cumsum(nums);
-                f = length(find(cs<indx))+1;
-                if f == handles.EventCurrentIndex(1)
-                    plt = 1;
-                elseif f == handles.EventCurrentIndex(2)
-                    plt = 2;
-                else
-                    plt = 1;
-                end
-                handles.EventWhichPlot(handles.popup_EventListAlign.Value) = plt;
-            else
-                plt = handles.EventWhichPlot(handles.popup_EventListAlign.Value);
-            end
-        end
-    
-        if plt == 1
-            handles.menu_AnalyzeTop.Checked = 'on';
-            handles.menu_AnalyzeBottom.Checked = 'off';
-        else
-            handles.menu_AnalyzeTop.Checked = 'off';
-            handles.menu_AnalyzeBottom.Checked = 'on';
-        end
-    
-        handles = UpdateEventViewer(handles);
-    end
+
+    handles = UpdateEventViewer(handles);
     
     guidata(hObject, handles);
 
@@ -5459,32 +5428,50 @@ function EventPartDisplayClick(hObject, event)
 function handles = UpdateEventViewer(handles)
     delete(handles.ActiveEventCursors);
     delete(handles.EventWaveHandles);
+    handles.EventWaveHandles = gobjects().empty;
 
     hold(handles.axes_Events, 'on');
     
     eventSourceIdx = GetEventViewerEventSourceIdx(handles);
 
     if isempty(eventSourceIdx)
-%         handles.push_DisplayEvents.Enable = 'off';
+        handles.axes_Events.Visible = 'off';
         return
     else
-%         handles.push_DisplayEvents.Enable = 'on';
+        handles.axes_Events.Visible = 'on';
     end
     
-    if handles.menu_AnalyzeTop.Checked
-        if handles.axes_Channel1.Visible
+    % Determine what data should be displayed
+    val = handles.popup_EventListData.Value;
+    dataSources = handles.popup_EventListData.String;
+    dataSource = dataSources{val};
+    switch dataSource
+        case '<< Source'
+            % Check if any of the channels match the event alignment data source
+            channelData = [];
+            for axnum = 1:2
+                chanEventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
+                if eventSourceIdx == chanEventSourceIdx
+                    % This channel matches - use the loaded channel data
+                    channelData = handles.loadedChannelData{axnum};
+                    channelYLabel = handles.axes_Channel(axnum).YLabel.String;
+                    break;
+                end
+            end
+            if isempty(channelData)
+                % None of the currently loaded channels have this data,
+                % load it from file
+                selectedChannelNum = getSelectedChannel(handles, axnum);
+                selectedFilter = getSelectedFilter(handles, axnum);
+                selectedFilterParams = handles.FunctionParams{axnum};
+                [handles, channelData, channelYLabel] = loadChannelData(handles, selectedChannelNum, selectedFilter, selectedFilterParams);
+            end
+        case 'Top axes'
             channelData = handles.loadedChannelData{1};
-            channelYLabel = (handles.axes_Channel1.YLabel.String);
-        else
-            channelData = [];
-        end
-    else
-        if handles.axes_Channel2.Visible
+            channelYLabel = (handles.axes_Channel(1).YLabel.String);
+        case 'Bottom axes'
             channelData = handles.loadedChannelData{2};
-            channelYLabel = (handles.axes_Channel2.YLabel.String);
-        else
-            channelData = [];
-        end
+            channelYLabel = (handles.axes_Channel(2).YLabel.String);
     end
     
     filenum = getCurrentFileNum(handles);
@@ -5494,9 +5481,8 @@ function handles = UpdateEventViewer(handles)
     eventTimes = handles.EventTimes{eventSourceIdx}{eventPartIdx,filenum};
     eventSelection = handles.EventSelected{eventSourceIdx}{eventPartIdx,filenum};
     
-    % ??
     if handles.menu_DisplayValues.Checked
-        % Intialize new array for event wave handles
+        % "Display > Values" in Event axes context menu is selected
         handles.EventWaveHandles = gobjects().empty;
         % Check if there is channel data
         if ~isempty(channelData)
@@ -5523,6 +5509,7 @@ function handles = UpdateEventViewer(handles)
             ylabel(handles.axes_Events, '');
         end
     else
+        % "Display > Features" in Event axes context menu is selected
         handles.EventWaveHandles = gobjects().empty;
         if ~isempty(channelData)
             f = findobj('Parent',handles.menu_XAxis,'Checked','on');
