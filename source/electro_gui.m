@@ -23,7 +23,7 @@ function varargout = electro_gui(varargin)
     
     % Edit the above text to modify the response to help electro_gui
     
-    % Last Modified by GUIDE v2.5 26-Feb-2024 19:34:26
+    % Last Modified by GUIDE v2.5 26-Feb-2024 23:05:23
     
     % Begin initialization code - DO NOT EDIT
     gui_Singleton = 1;
@@ -139,6 +139,9 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % Load temp file, or use defaults if it doesn't exist
     handles.tempFile = 'eg_temp.mat';
     handles = loadTempFile(handles);
+
+    % Update list of recent files
+    handles = updateRecentFileList(handles);
 
     % If user has QuoteFile defined in their defaults, serve them up a
     % welcome message and a nice quote
@@ -301,8 +304,8 @@ function handles = disableAxesPopupToolbars(handles)
 
 function handles = loadTempFile(handles)
     % Get temp file
-    tempSettingsFields =        {'lastDirectory',         'lastDBase'};
-    tempSettingsDefaultValues = {handles.DefaultRootPath, ''};
+    tempSettingsFields =        {'lastDirectory',         'lastDBase', 'recentFiles'};
+    tempSettingsDefaultValues = {handles.DefaultRootPath, '',          {}};
     if exist(handles.tempFile, 'file')
         try
             handles.tempSettings = load(handles.tempFile, tempSettingsFields{:});
@@ -326,6 +329,42 @@ function updateTempFile(handles)
     % Update temp file
     tempSettings = handles.tempSettings;
     save(handles.tempFile, '-struct', 'tempSettings');
+
+function handles = updateRecentFileList(handles)
+    % Update the list of recent files
+
+    for recentFileItem = handles.menu_OpenRecent.Children'
+        if recentFileItem ~= handles.openRecent_None
+            delete(recentFileItem);
+        end
+    end
+    handles.openRecent_None.Visible = isempty(handles.tempSettings.recentFiles);
+    for k = 1:length(handles.tempSettings.recentFiles)
+        recentFilePath = handles.tempSettings.recentFiles{k};
+        uimenu(handles.menu_OpenRecent, 'Text', recentFilePath, 'UserData', recentFilePath, 'MenuSelectedFcn', @click_recentFile);
+    end
+
+function click_recentFile(hObject, event)
+    % Click an item in the recent files menu
+    handles = guidata(hObject);
+    recentFilePath = hObject.UserData;
+    handles = eg_OpenDbase(handles, recentFilePath);
+    guidata(hObject, handles);
+
+function handles = addRecentFile(handles, filePath)
+    % Add a file to a list of recent files in the temp settings struct
+    if ~isfield(handles.tempSettings, 'recentFiles')
+        handles.tempSettings.recentFiles = {};
+    end
+    % Add file
+    handles.tempSettings.recentFiles = [filePath, handles.tempSettings.recentFiles];
+    % Remove duplicates
+    handles.tempSettings.recentFiles = unique(handles.tempSettings.recentFiles, 'stable');
+    % Limit number of stored recent files
+    maxFiles = 10;
+    numFiles = min(maxFiles, length(handles.tempSettings.recentFiles));
+    handles.tempSettings.recentFiles = handles.tempSettings.recentFiles(1:numFiles);
+    handles = updateRecentFileList(handles);
 
 function handles = setUpWorksheet(handles)
     sz = handles.figure_Main.PaperSize;
@@ -359,7 +398,7 @@ function handles = setUpWorksheet(handles)
     handles.WorksheetColormap = {};
     handles.WorksheetSounds = {};
     handles.WorksheetFs = [];
-    handles.WorksheetTimes = [];
+    handles.WorksheetTimes = datetime.empty();
     
     handles.WorksheetCurrentPage = 1;
     
@@ -3361,12 +3400,20 @@ function handles = InitializeVariables(handles)
 %         end
 %     end
 
-function handles = eg_OpenDbase(handles)
-    % Prompt user to select dbase .mat file
-    [file, path] = uigetfile(fullfile(handles.tempSettings.lastDirectory, '*.mat'), 'Load analysis');
-    if ~ischar(file)
-        % User cancelled load
-        return
+function handles = eg_OpenDbase(handles, filePath)
+    if ~exist('filePath', 'var') || isempty(filePath)
+        % Prompt user to select dbase .mat file
+        [file, path] = uigetfile(fullfile(handles.tempSettings.lastDirectory, '*.mat'), 'Load analysis');
+        if ~ischar(file)
+            % User cancelled load
+            return
+        end
+        filePath = fullfile(path, file);
+        handles = addRecentFile(handles, filePath);
+    else
+        % File path already provided
+        [path, file, ext] = fileparts(filePath);
+        file = [file, ext];
     end
     
     % Load dbase into 'dbase' variable
@@ -7054,7 +7101,7 @@ function menu_ClearWorksheet_Callback(hObject, ~, handles)
     handles.WorksheetColormap = {};
     handles.WorksheetSounds = {};
     handles.WorksheetFs = [];
-    handles.WorksheetTimes = [];
+    handles.WorksheetTimes = datetime.empty();
     
     handles = UpdateWorksheet(handles);
     
@@ -11125,3 +11172,17 @@ function export_options_IncludeSoundClip_SoundMix_Callback(hObject, eventdata, h
     hObject.Checked = 'on';
     guidata(hObject, handles);
 
+
+
+% --------------------------------------------------------------------
+function menu_OpenRecent_Callback(hObject, eventdata, handles)
+    % hObject    handle to menu_OpenRecent (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function openRecent_None_Callback(hObject, eventdata, handles)
+    % hObject    handle to openRecent_None (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
