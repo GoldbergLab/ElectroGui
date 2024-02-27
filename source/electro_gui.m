@@ -89,8 +89,8 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.SoundExpression = '';
     
     % Keep track of whether or not the shift and control keys are down
-    handles.ShiftKeyDown = false;
-    handles.CtrlKeyDown = false;
+    handles.ShiftDown = false;
+    handles.CtrlDown = false;
 
     % Min and max time to display on axes
     handles.TLim = [0, 1];
@@ -3955,12 +3955,8 @@ function scrollHandler(source, event)
         [t, ~] = convertFigCoordsToChildAxesCoords(x, y, handles.axes_Sonogram);
         handles = zoomSonogram(handles, t, event.VerticalScrollCount);
     elseif areCoordinatesIn(x, y, handles.axes_Events)
-        eventSourceIdx = GetEventViewerEventSourceIdx(handles);
-        eventPartNum = GetEventViewerEventPartIdx(handles);
-%         numEvents = GetNumEvents(handles, eventSourceIdx, eventPartNum);
         visibleEventMask = isgraphics(handles.EventWaveHandles);
         newActiveEventNum = findNextTrueIdx(visibleEventMask, handles.ActiveEventNum, event.VerticalScrollCount);
-%         newActiveEventNum = mod(handles.ActiveEventNum + event.VerticalScrollCount - 1, numEvents) + 1;
         handles = SetActiveEventDisplay(handles, newActiveEventNum);
     end
     guidata(source, handles);
@@ -4554,7 +4550,11 @@ function click_Channel(hObject, event)
         handles = eg_EditTimescale(handles);
     
     elseif strcmp(handles.figure_Main.SelectionType, 'alt')
-        % Control-click
+        % Control-click or right click
+        if ~handles.CtrlDown
+            % False alarm, this is just a right click, stand down
+            return;
+        end
 
         handles.ActiveEventNum = [];
         handles.ActiveEventPartNum = [];
@@ -7797,14 +7797,14 @@ function menu_Concatenate_Callback(hObject, ~, handles)
     
     filenum = getCurrentFileNum(handles);
     
-    set(gca,'Units','pixels');
-    set(get(gca,'Parent'),'Units','pixels');
+    handles.axes_Segments.Units = 'pixels';
+    handles.figure_Main.Units = 'pixels';
     ginput(1);
     rect = rbbox;
     
-    pos = get(gca,'Position');
-    set(get(gca,'Parent'),'Units','normalized');
-    set(gca,'Units','normalized');
+    pos = handles.axes_Segments.Position;
+    handles.figure_Main.Units = 'normalized';
+    handles.axes_Segments.Units = 'normalized';
     xl = xlim;
     
     rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
