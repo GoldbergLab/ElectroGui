@@ -3931,7 +3931,7 @@ function inside = areCoordinatesIn(x, y, figureChild)
         elseif y > figureChild(k).Position(2) + figureChild(k).Position(4)
             inside = false;
         else
-            inside = true;
+            inside = k;
             return;
         end
     end
@@ -4051,16 +4051,56 @@ function MouseMotionHandler(hObject, event)
         xy = handles.figure_Main.CurrentPoint;
 
         % Define list of axes that will have cursors
-        cursor_axes = [handles.axes_Amplitude, handles.axes_Sonogram, handles.axes_Channel];
+        cursor_axes = [handles.axes_Amplitude, handles.axes_Sonogram, handles.axes_Segments, handles.axes_Channel, handles.axes_Sound];
 
         % Check if mouse is inside one of the relevant display axes
         inside = areCoordinatesIn(xy(1), xy(2), cursor_axes);
         
         if inside
+            % User is moving mouse within one of the designated cursor axes
+            % with the shift key down - draw or update the cursors
+
+            % ax1 is the particular axes the mouse is currently inside
+            ax1 = cursor_axes(inside);
             % xlim will be the same for all the axes
-            ax1 = cursor_axes(1);
             xl = xlim(ax1);
+            % get the x position as a fraction of the axes limits
             x = (xy(1) - ax1.Position(1)) / ax1.Position(3);
+            % Get the x position is a time in the axes coordinate system
+            t = x*diff(xl)+xl(1);
+            if ax1 == handles.axes_Segments
+                % Mouse is in segment axes
+                % Snap to close by segment start/end
+                filenum = getCurrentFileNum(handles);
+                sampleNum = t*handles.fs;
+                % Check how far away we are from the nearest segment
+                [minSampleDistance, minIdx] = min(abs(handles.SegmentTimes{filenum}(:) - sampleNum));
+                threshold = diff(xlim(ax1)) / 50;
+                if minSampleDistance / handles.fs < threshold
+                    % We're close to a segment boundary - snap to it
+                    t = handles.SegmentTimes{filenum}(minIdx) / handles.fs;
+                end
+            elseif any(ax1 == handles.axes_Channel)
+                % Mouse is in one of the channel axes
+
+                % Determine which channel axes
+                axnum = find(ax1 == handles.axes_Channel);
+                % Check if axes is displaying events 
+                eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
+                if ~isempty(eventSourceIdx)
+                    % Axes is currently displaying events
+                    filenum = getCurrentFileNum(handles);
+                    sampleNum = t*handles.fs;
+                    eventSamples = vertcat(handles.EventTimes{eventSourceIdx}{:, filenum});
+                    % Check how far away we are from the nearest event
+                    [minSampleDistance, minIdx] = min(abs(eventSamples - sampleNum));
+                    threshold = diff(xlim(ax1)) / 50;
+                    if minSampleDistance / handles.fs < threshold
+                        % We're close to an event - snap to it
+                        t = eventSamples(minIdx) / handles.fs;
+                    end
+                end
+            end
 
             % Loop over cursor axes updating cursor
             for k = 1:length(cursor_axes)
@@ -4075,7 +4115,6 @@ function MouseMotionHandler(hObject, event)
                     delete(handles.Cursors(k));
                     if ax.Visible
                         yl = ylim(ax);
-                        t = x*diff(xl)+xl(1);
                         handles.Cursors(k) = line([t, t], yl, 'Parent', ax, 'Color', 'green');
                     end
                 else
@@ -4086,7 +4125,6 @@ function MouseMotionHandler(hObject, event)
                     end
                     if ax.Visible
                         yl = ylim(ax);
-                        t = x*diff(xl)+xl(1);
                         handles.Cursors(k).XData = [t, t];
                         handles.Cursors(k).YData = yl;
                     end
@@ -4094,8 +4132,12 @@ function MouseMotionHandler(hObject, event)
             end
     
             guidata(hObject, handles);
+            return;
         end
     end
+
+    delete(handles.Cursors);
+    handles.Cursors = gobjects().empty;
 
 function keyReleaseHandler(hObject, event)
     % Callback to handle a key release
