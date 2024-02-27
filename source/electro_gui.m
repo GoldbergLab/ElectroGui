@@ -23,7 +23,7 @@ function varargout = electro_gui(varargin)
     
     % Edit the above text to modify the response to help electro_gui
     
-    % Last Modified by GUIDE v2.5 26-Feb-2024 23:05:23
+    % Last Modified by GUIDE v2.5 26-Feb-2024 23:11:20
     
     % Begin initialization code - DO NOT EDIT
     gui_Singleton = 1;
@@ -9452,8 +9452,8 @@ function file_Save_Callback(hObject, eventdata, handles)
     guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function file_Help_Callback(hObject, eventdata, handles)
-    % hObject    handle to file_Help (see GCBO)
+function help_ControlsHelp_Callback(hObject, eventdata, handles)
+    % hObject    handle to help_ControlsHelp (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
 
@@ -11186,3 +11186,10 @@ function openRecent_None_Callback(hObject, eventdata, handles)
     % hObject    handle to openRecent_None (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function menu_Help_Callback(hObject, eventdata, handles)
+% hObject    handle to menu_Help (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
