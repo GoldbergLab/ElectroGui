@@ -23,7 +23,7 @@ function varargout = electro_gui(varargin)
     
     % Edit the above text to modify the response to help electro_gui
     
-    % Last Modified by GUIDE v2.5 26-Feb-2024 16:25:32
+    % Last Modified by GUIDE v2.5 26-Feb-2024 19:34:26
     
     % Begin initialization code - DO NOT EDIT
     gui_Singleton = 1;
@@ -215,27 +215,27 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.FilterParams.Names = {};
     handles.FilterParams.Values = {};
     
-    handles.menu_EditFigureTemplate.UserData = handles.template;
+    handles.export_options_EditFigureTemplate.UserData = handles.template;
     
     handles = setUpWorksheet(handles);
     
     if handles.ExportReplotSonogram == 1
-        handles.menu_CustomResolution.Checked = 'on';
+        handles.export_options_SonogramImageMode_Recalculate.Checked = 'on';
     else
-        handles.menu_ScreenResolution.Checked = 'on';
+        handles.export_options_SonogramImageMode_ScreenImage.Checked = 'on';
     end
     switch handles.ExportSonogramIncludeClip
         case 0
-            handles.menu_IncludeSoundNone.Checked = 'on';
+            handles.export_options_IncludeSoundClip_None_Callback.Checked = 'on';
         case 1
-            handles.menu_IncludeSoundOnly.Checked = 'on';
+            handles.export_options_IncludeSoundClip_SoundOnly_Callback.Checked = 'on';
         case 2
-            handles.menu_IncludeSoundMix.Checked = 'on';
+            handles.export_options_IncludeSoundClip_SoundMix_Callback.Checked = 'on';
     end
     if handles.ExportSonogramIncludeLabel == 1
-        handles.menu_IncludeTimestamp.Checked = 'on';
+        handles.export_options_IncludeTimestamp.Checked = 'on';
     else
-        handles.menu_IncludeTimestamp.Checked = 'off';
+        handles.export_options_IncludeTimestamp.Checked = 'off';
     end
     
     handles.ScalebarPresets = [0.001 0.002 0.005 0.01 0.02 0.025 0.05 0.1 0.2 0.25 0.5 1 2 5 10 20 30 60];
@@ -524,14 +524,14 @@ function handles = setGUIValues(handles)
     end
     
     handles.AnimationPlots = fliplr(handles.AnimationPlots);
-    ch = handles.menu_Animation.Children;
+    ch = handles.menu_export_options_Animation.Children;
     for c = 1:length(ch)
         if handles.AnimationPlots(c) == 1
             ch(c).Checked = 'on';
         end
     end
     
-    ch = handles.menu_Animation.Children;
+    ch = handles.menu_export_options_Animation.Children;
     ischeck = false;
     for c = 1:length(ch)
         if strcmp(ch(c).Label,handles.AnimationType)
@@ -540,7 +540,7 @@ function handles = setGUIValues(handles)
         end
     end
     if ~ischeck
-        handles.menu_AnimationProgressBar.Checked = 'on';
+        handles.menu_export_options_Animation_ProgressBar.Checked = 'on';
     end
     
     handles.playback_SoundInMix.Checked = handles.DefaultMix(1);
@@ -873,7 +873,7 @@ function progress_play(handles,wav)
 
 
     axs = [handles.axes_Channel2 handles.axes_Channel1 handles.axes_Amplitude handles.axes_Segments handles.axes_Sonogram handles.axes_Sound];
-    ch = handles.menu_Animation.Children;
+    ch = handles.menu_export_options_Animation.Children;
     indx = [];
     for c = 1:length(ch)
         if ch(c).Checked && axs(c).Visible
@@ -6579,1238 +6579,6 @@ function YAxisMenuClick(hObject, ~, handles)
     
     guidata(hObject, handles);
     
-% --- Executes on selection change in popup_Export.
-function popup_Export_Callback(hObject, ~, handles)
-    % hObject    handle to popup_Export (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    % Hints: contents = hObject.String returns popup_Export contents as cell array
-    %        contents{hObject.Value} returns selected item from popup_Export
-    
-    radiohands = [handles.radio_Matlab handles.radio_PowerPoint handles.radio_Files handles.radio_Clipboard];
-    
-    str = handles.popup_Export.String;
-    val = handles.popup_Export.Value;
-    str = str{val};
-    switch str
-        case 'Sonogram'
-            val = [1 1 1 1];
-        case 'Figure'
-            val = [0 1 0 0];
-        case 'Worksheet'
-            val = [1 1 0 0];
-        case {'Current sound','Sound mix'}
-            val = [0 1 1 0];
-        case 'Segments'
-            val = [0 0 1 0];
-        case 'Events'
-            val = [1 0 0 1];
-    end
-    
-    states = {'off','on'};
-    for c = 1:length(radiohands)
-        radiohands(c).enable = states{1+val(c)};
-    end
-    for c = 1:length(radiohands)
-        if strcmp(radiohands(c).Enable,'off') && radiohands(c).Value==1
-            for d = 1:length(radiohands)
-                if strcmp(radiohands(d).Enable,'on')
-                    radiohands(d).Value = 1;
-                end
-            end
-        end
-    end
-    
-% --- Executes during object creation, after setting all properties.
-function popup_Export_CreateFcn(hObject, ~, handles)
-    % hObject    handle to popup_Export (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    empty - handles not created until after all CreateFcns called
-    
-    % Hint: popupmenu controls usually have a white background on Windows.
-    %       See ISPC and COMPUTER.
-    if ispc && isequal(hObject.BackgroundColor, get(0,'defaultUicontrolBackgroundColor'))
-        hObject.BackgroundColor = 'white';
-    end
-    
-% --- Executes on button press in push_Export.
-function push_Export_Callback(hObject, ~, handles)
-    % hObject    handle to push_Export (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    txtexp = text(mean(xlim(handles.axes_Sonogram)),mean(ylim(handles.axes_Sonogram)),'Exporting...',...
-        'HorizontalAlignment','center','Color','r','backgroundcolor',[1 1 1],'fontsize',14);
-    drawnow
-    
-    tempFilename = 'eg_temp.wav';
-    
-    %%%
-    
-    [handles, sound] = eg_GetSound(handles);
-    
-    str = handles.popup_Export.String;
-    val = handles.popup_Export.Value;
-    str = str{val};
-    switch str
-        case 'Segments'
-            path = uigetdir(handles.tempSettings.lastDirectory, 'Directory for segments');
-            if ~ischar(path)
-                delete(txtexp)
-                return
-            end
-            handles.DefaultRootPath = path;
-            handles.tempSettings.lastDirectory = path;
-            updateTempFile(handles);
-    
-            filenum = getCurrentFileNum(handles);
-    
-            if isfield(handles,'DefaultLabels')
-                labels = handles.DefaultLabels;
-            else
-                labels = [];
-                for c = 1:length(handles.SegmentTitles{filenum})
-                    labels = [labels handles.SegmentTitles{filenum}{c}];
-                end
-                if ~isempty(labels)
-                    labels = unique(labels);
-                end
-                labels = ['''''' labels];
-            end
-    
-            answer = inputdlg({'List of labels to export (leave empty for all segments, '''' = unlabeled)','File format'},'Export segments',1,{labels,handles.SegmentFileFormat});
-            if isempty(answer)
-                delete(txtexp)
-                return
-            end
-            newLabel = answer{1};
-            handles.SegmentFileFormat = answer{2};
-    
-            if ~strcmp(labels,newLabel)
-                handles.DefaultLabels = newLabel;
-            end
-            if isempty(newLabel)
-                handles = rmfield(handles,'DefaultLabels');
-            end
-    
-            dtm = datetime(handles.text_DateAndTime.String);
-            dtm.Format = 'yyyymmdd';
-            sd = string(dtm);
-            dtm.Format = 'HHMMSS';
-            st = string(dtm);
-            [~,name,~] = fileparts(handles.text_FileName.String);
-            sf = name;
-            for c = 1:length(handles.SegmentTitles{filenum})
-                if ~isempty(strfind(newLabel,handles.SegmentTitles{filenum}{c})) || isempty(newLabel) || (isempty(handles.SegmentTitles{filenum}{c}) && contains(newLabel,''''''))
-                    str = handles.SegmentFileFormat;
-                    f = strfind(str,'\d');
-                    for j = f
-                        str = [str(1:j-1) sd str(j+2:end)];
-                    end
-                    f = strfind(str,'\t');
-                    for j = f
-                        str = [str(1:j-1) st str(j+2:end)];
-                    end
-                    f = strfind(str,'\f');
-                    for j = f
-                        str = [str(1:j-1) sf str(j+2:end)];
-                    end
-                    f = strfind(str,'\l');
-                    for j = f
-                        str = [str(1:j-1) handles.SegmentTitles{filenum}{c} str(j+2:end)];
-                    end
-                    f = strfind(str,'\i');
-                    for j = f
-                        num = num2str(str(j+2));
-                        if num>0
-                            indx = num2str(c,['%0.' num2str(num) 'd']);
-                        else
-                            indx = num2str(c);
-                        end
-                        str = [str(1:j-1) indx str(j+3:end)];
-                    end
-                    f = strfind(str,'\n');
-                    for j = f
-                        num = num2str(str(j+2));
-                        if num>0
-                            indx = num2str(filenum,['%0.' num2str(num) 'd']);
-                        else
-                            indx = num2str(filenum);
-                        end
-                        str = [str(1:j-1) indx str(j+3:end)];
-                    end
-    
-                    wav = sound(handles.SegmentTimes{filenum}(c,1):handles.SegmentTimes{filenum}(c,2));
-    
-                    audiowrite(fullfile(path, [str, '.wav']), wav, handles.fs, 'BitsPerSample', 16);
-                end
-            end
-        case 'Sonogram'
-            if handles.radio_Files.Value==1
-                [~, name, ~] = fileparts(handles.text_FileName.String);
-                [file, path] = uiputfile([handles.DefaultRootPath '\' name '.jpg'],'Save image');
-                if ~ischar(file)
-                    delete(txtexp)
-                    return
-                end
-                handles.DefaultRootPath = path;
-            end
-            xl = handles.axes_Sonogram.XLim;
-            yl = handles.axes_Sonogram.YLim;
-            fig = figure();
-            set(fig,'Visible','off','Units','pixels');
-            pos = get(fig,'Position');
-            pos(3) = handles.ExportSonogramResolution*handles.ExportSonogramWidth*(xl(2)-xl(1));
-            pos(4) = handles.ExportSonogramResolution*handles.ExportSonogramHeight;
-            fig.Position = pos;
-            subplot('Position',[0 0 1 1]);
-            hold on
-            if handles.ExportReplotSonogram == 0
-                ch = findobj('Parent',handles.axes_Sonogram,'type',image);
-                for c = 1:length(ch)
-                    if ch(c) ~= txtexp
-                        x = ch(c).XData;
-                        y = ch(c).YData;
-                        m = ch(c).CData;
-                        f = find(x>=xl(1) & x<=xl(2));
-                        g = find(y>=yl(1) & y<=yl(2));
-                        imagesc(x(f),y(g),m(g,f));
-                    end
-                end
-            else
-                xlim(xl);
-                ylim(yl);
-                xlp = round(xl*handles.fs);
-                if xlp(1)<1; xlp(1) = 1; end
-    
-                [handles, numSamples] = eg_GetNumSamples(handles);
-    
-                if xlp(2)>numSamples
-                    xlp(2) = numSamples;
-                end
-                for c = 1:length(handles.menu_Algorithm)
-                    if handles.menu_Algorithm(c).Checked
-                        alg = handles.menu_Algorithm(c).Label;
-                    end
-                end
-                eg_runPlugin(handles.plugins.spectrums, alg, handles.axes_Sonogram, ...
-                    sound(xlp(1):xlp(2)), handles.fs, handles.SonogramParams);
-                handles.axes_Sonogram.YDir = 'normal';
-                handles.NewSlope = handles.DerivativeSlope;
-                handles.DerivativeSlope = 0;
-                handles = SetSonogramColors(handles);
-            end
-            cl = handles.axes_Sonogram.CLim;
-            handles.axes_Sonogram.CLim = cl;
-            col = handles.figure_Main.Colormap;
-            handles.figure_Main.Colormap = col;
-            axis tight;
-            axis off;
-    
-    
-        case 'Current sound'
-            wav = GenerateSound(handles,'snd');
-            fs = handles.fs * handles.SoundSpeed;
-    
-        case 'Sound mix'
-            wav = GenerateSound(handles,'mix');
-            fs = handles.fs * handles.SoundSpeed;
-    
-        case 'Events'
-            if handles.radio_Matlab.Value==1
-                fig = figure();
-                ax = axes(fig);
-                ch = handles.axes_Events.Children;
-                xs = [];
-                ys = [];
-                for c = length(ch):-1:1
-                    x = ch(c).XData;
-                    y = ch(c).YData;
-                    col = ch(c).Color;
-                    ls = ch(c).LineStyle;
-                    lw = ch(c).LineWidth;
-                    ma = ch(c).Marker;
-                    ms = ch(c).MarkerSize;
-                    mf = ch(c).MarkerFaceColor;
-                    me = ch(c).MarkerEdgeColor;
-                    plot(ax, x,y,'Color',col,'LineStyle',ls,'LineWidth',lw,'Marker',ma,'MarkerSize',ms,'MarkerFaceColor',mf,'MarkerEdgeColor',me);
-                    hold(ax, 'on');
-                    if handles.menu_DisplayFeatures.Checked && sum(col==[1 0 0])~=3
-                        xs = [xs x];
-                        ys = [ys y];
-                    end
-                end
-    
-                xl = handles.axes_Events.XLim;
-                yl = handles.axes_Events.YLim;
-                xlabel = handles.axes_Events.XLabel.String;
-                ylabel = handles.axes_Events.YLabel.String;
-                str = {};
-                if handles.menu_DisplayFeatures.Checked
-                    xs = xs(xs>=xl(1) & xs<=xl(2));
-                    ys = ys(ys>=yl(1) & ys<=yl(2));
-                    str{1} = ['N = ' num2str(length(xs))];
-                    str{2} = ['Mean ' xlabel ' = ' num2str(mean(xs))];
-                    str{3} = ['Stdev ' xlabel ' = ' num2str(std(xs))];
-                    str{4} = ['Mean ' ylabel ' = ' num2str(mean(ys))];
-                    str{5} = ['Stdev ' ylabel ' = ' num2str(std(ys))];
-                    txt = text(xl(1),yl(2),str);
-                    txt.HorizontalAlignment = 'Left';
-                    txt.VerticalAlignment = 'top';
-                    txt.FontSize = 8;
-                end
-                xlabel(ax, xlabel);
-                ylabel(ax, ylabel);
-                xlim(ax, xl);
-                ylim(ax, yl);
-                box(ax, 'off');
-            elseif handles.radio_Clipboard.Value==1
-                if handles.menu_DisplayFeatures.Checked
-                    ch = handles.axes_Events.Children;
-                    xs = [];
-                    ys = [];
-                    for c = length(ch):-1:1
-                        x = ch(c).XData;
-                        y = ch(c).YData;
-                        col = ch(c).Color;
-                        if sum(col==[1 0 0])~=3
-                            xs = [xs x];
-                            ys = [ys y];
-                        end
-                    end
-                    str = [num2str(length(xs)) char(9) num2str(mean(xs)) char(9) num2str(std(xs)) char(9) num2str(mean(ys)) char(9) num2str(std(ys))];
-                    clipboard('copy',str);
-                else
-                    errordlg('Must be in the Display->Features mode!','Error');
-                end
-            end
-    
-            delete(txtexp)
-            return
-    end
-    
-    
-    %%%
-    if handles.radio_Matlab.Value==1
-        switch str
-            case 'Sonogram'
-                fig.Units = 'inches';
-                pos = fig.Position;
-                pos(3) = handles.ExportSonogramWidth*(xl(2)-xl(1));
-                pos(4) = handles.ExportSonogramHeight;
-                fig.Position = pos;
-                fig.Visible = 'on';
-            case 'Worksheet'
-                lst = handles.WorksheetList;
-                used = handles.WorksheetUsed;
-                widths = handles.WorksheetWidths;
-    
-                perpage = fix(0.001+(handles.WorksheetHeight - 2*handles.WorksheetMargin - handles.WorksheetIncludeTitle*handles.WorksheetTitleHeight)/(handles.ExportSonogramHeight + handles.WorksheetVerticalInterval));
-                pagenum = fix((0:length(lst)-1)/perpage)+1;
-    
-                for j = 1:max(pagenum)
-                    fig = figure('Units','inches');
-                    ud.Sounds = {};
-                    ud.Fs = [];
-                    bcg = axes('Position',[0 0 1 1],'Visible','off');
-                    ps = fig.Position;
-                    ps(3) = handles.WorksheetWidth;
-                    ps(4) = handles.WorksheetHeight;
-                    fig.Position = ps;
-                    if handles.WorksheetIncludeTitle == 1
-                        txt = text(bcg, handles.WorksheetMargin/handles.WorksheetWidth,(handles.WorksheetHeight-handles.WorksheetMargin)/handles.WorksheetHeight,handles.WorksheetTitle);
-                        txt.HorizontalAlignment = 'left';
-                        txt.VerticalAlignment = 'top';
-                        txt.FontSize = 14;
-                        txt = text(bcg, (handles.WorksheetWidth-handles.WorksheetMargin)/handles.WorksheetWidth,(handles.WorksheetHeight-handles.WorksheetMargin)/handles.WorksheetHeight,['Page ' num2str(j) '/' num2str(max(pagenum))]);
-                        txt.HorizontalAlignment = 'right';
-                        txt.VerticalAlignment = 'top';
-                        txt.FontSize = 14;
-                    end
-                    f = find(pagenum==j);
-                    for c = 1:length(f)
-                        indx = f(c);
-                        for d = 1:length(lst{indx})
-                            ud.Sounds{end+1} = handles.WorksheetSounds{lst{indx}(d)};
-                            ud.Fs(end+1) = handles.WorksheetFs(lst{indx}(d));
-    
-                            x = (handles.WorksheetWidth-used(indx))/2 + sum(widths(lst{indx}(1:d-1))) + handles.WorksheetHorizontalInterval*(d-1);
-                            wd = widths(lst{indx}(d));
-                            y = handles.WorksheetHeight - handles.WorksheetMargin - handles.WorksheetIncludeTitle*handles.WorksheetTitleHeight - handles.WorksheetVerticalInterval*c - handles.ExportSonogramHeight*c;
-                            ax = axes('Position',[x/handles.WorksheetWidth y/handles.WorksheetHeight wd/handles.WorksheetWidth handles.ExportSonogramHeight/handles.WorksheetHeight]);
-                            hold(ax, 'on');
-                            for i = 1:length(handles.WorksheetMs{lst{indx}(d)})
-                                p = handles.WorksheetMs{lst{indx}(d)}{i};
-                                if size(p,3) == 1
-                                    cl = handles.WorksheetClim{lst{indx}(d)};
-                                    p = (p-cl(1))/(cl(2)-cl(1));
-                                    p(p<0)=0;
-                                    p(p>1)=1;
-                                    p = round(p*(size(handles.WorksheetColormap{lst{indx}(d)},1)-1))+1;
-                                    p1 = reshape(handles.WorksheetColormap{lst{indx}(d)}(p,1),size(p));
-                                    p2 = reshape(handles.WorksheetColormap{lst{indx}(d)}(p,2),size(p));
-                                    p3 = reshape(handles.WorksheetColormap{lst{indx}(d)}(p,3),size(p));
-                                    p = cat(3,p1,p2,p3);
-                                else
-                                    ax.CLim = handles.WorksheetClim{lst{indx}(d)};
-                                    fig.Colormap = handles.WorksheetColormap{lst{indx}(d)};
-                                end
-                                im = imagesc(ax, handles.WorksheetXs{lst{indx}(d)}{i},handles.WorksheetYs{lst{indx}(d)}{i},p);
-                                if handles.ExportSonogramIncludeClip > 0
-                                    im.ButtonDownFcn = ['ud=get(gcf,''UserData''); sound(ud.Sounds{' num2str(length(ud.Sounds)) '},ud.Fs(' num2str(length(ud.Fs)) '))'];
-                                end
-                            end
-                            xlim(ax, handles.WorksheetXLims{lst{indx}(d)});
-                            ylim(ax, handles.WorksheetYLims{lst{indx}(d)});
-                            axis(ax, 'off');
-                            if handles.ExportSonogramIncludeLabel == 1
-                                fig.CurrentAxes = bcg;
-                                txt = text(ax (x+wd/2)/handles.WorksheetWidth,(y+handles.ExportSonogramHeight)/handles.WorksheetHeight,string(datetime(handles.WorksheetTimes(lst{indx}(d)))));
-                                txt.HorizontalAlignment = 'center';
-                                txt.VerticalAlignment = 'bottom';
-                            end
-                        end
-                    end
-    
-                    if handles.ExportSonogramIncludeClip > 0
-                        fig.UserData = ud;
-                    end
-                    fig.Units = 'pixels';
-                    screen_size = get(0,'screensize');
-                    fig_pos = fig.Position;
-                    fig.position = [(screen_size(3)-fig_pos(3))/2,(screen_size(4)-fig_pos(4))/2,fig_pos(3),fig_pos(4)];
-    
-                    fig.PaperOrientation = handles.WorksheetOrientation;
-                    fig.PaperPositionMode = 'auto';
-                end
-        end
-    
-    elseif handles.radio_Clipboard.Value==1
-        fig.Units = 'inches';
-        pos = fig.Position;
-        pos(3) = handles.ExportSonogramWidth*(xl(2)-xl(1));
-        pos(4) = handles.ExportSonogramHeight;
-        fig.Position = pos;
-        fig.PaperPositionMode = 'manual';
-        fig.Renderer = 'painters'; %#ok<*FGREN> 
-    
-        print('-dmeta',['-f' num2str(fig)],['-r' num2str(handles.ExportSonogramResolution)]);
-        delete(fig)
-    
-    elseif handles.radio_Files.Value==1
-        switch str
-            case 'Sonogram'
-                fig.Units = 'inches';
-                pos = fig.Position;
-                pos(3) = handles.ExportSonogramWidth*(xl(2)-xl(1));
-                pos(4) = handles.ExportSonogramHeight;
-                fig.Position = pos;
-                fig.PaperPositionMode = 'auto';
-    
-                print('-djpeg',['-f' num2str(fig)],[path file],['-r' num2str(handles.ExportSonogramResolution)]);
-    
-                delete(fig);
-    
-            case {'Current sound', 'Sound mix'}
-                [~,name,~] = fileparts(handles.text_FileName.String);
-                [file, path] = uiputfile([handles.DefaultRootPath '\' name '.wav'],'Save sound');
-                if ~ischar(file)
-                    delete(txtexp)
-                    return
-                end
-                handles.DefaultRootPath = path;
-    
-                audiowrite(fullfile(path, file), wav, handles.fs, 'BitsPerSample', 16);
-        end
-    
-    elseif handles.radio_PowerPoint.Value==1
-        ppt = actxserver('PowerPoint.Application');
-        op = ppt.ActivePresentation;
-        slide_count = op.Slides.Count;
-        if slide_count>0
-            oldslide = ppt.ActiveWindow.View.Slide;
-            slide_count = int32(double(slide_count)+1);
-    %         newslide = invoke(op.Slides,'Add',slide_count,'ppLayoutBlank');
-            newslide = invoke(op.Slides,'Add',slide_count,11); %mod by VG
-        else
-            slide_count = int32(double(slide_count)+1);
-    %         newslide = invoke(op.Slides,'Add',slide_count,'ppLayoutBlank');
-            newslide = invoke(op.Slides,'Add',slide_count,11); %mod by VG
-            oldslide = ppt.ActiveWindow.View.Slide;
-        end
-    
-        switch str
-            case 'Sonogram'
-                set(fig,'PaperPositionMode','manual','Renderer','painters')
-                print('-dmeta',['-f' num2str(fig)]);
-                pic = invoke(newslide.Shapes,'PasteSpecial',2);
-                ug = invoke(pic,'Ungroup');
-                ug.Fill.Visible = 'msoFalse';
-                set(ug,'Height',72*handles.ExportSonogramHeight,'Width',72*handles.ExportSonogramWidth*(xl(2)-xl(1)));
-    
-                if handles.ExportSonogramIncludeClip > 0
-                    wav = GenerateSound(handles,'snd');
-                    fs = handles.fs * handles.SoundSpeed;
-    
-                    audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
-    
-                    snd = invoke(newslide.Shapes,'AddMediaObject', fullfile(pwd, tempFilename));
-                    snd.Left = ug.Left;
-                    snd.Top = ug.Top;
-                    mt = dir(f.UserData.ax);
-                    delete(mt(1).name);
-                end
-    
-                if handles.ExportSonogramIncludeLabel == 1
-                    txt = addWorksheetTextBox(handles, newslide, handles.text_DateAndTime.String, 8, [], [], 'msoAnchorCenter', 'msoAnchorBottom');
-                    txt.Left = ug.Left+ug.Width/2-txt.Width/2;
-                    txt.Top = ug.Top-txt.Height;
-                end
-    
-                if newslide.Shapes.Range.Count>1
-                    invoke(newslide.Shapes.Range,'Group');
-                end
-                invoke(newslide.Shapes.Range,'Cut');
-                pic = invoke(oldslide.Shapes,'Paste');
-                slideHeight = op.PageSetup.SlideHeight;
-                slideWidth = op.PageSetup.SlideWidth;
-                pic.Top = slideHeight/2-pic.Height/2;
-                pic.Left = slideWidth/2-pic.Width/2;
-    
-                delete(fig);
-    
-                if newslide.SlideIndex~=oldslide.SlideIndex
-                    invoke(newslide,'Delete');
-                end
-    
-            case {'Current sound', 'Sound mix'}
-                audiowrite(tempFilename, wav, fs, 'BitsPerSample', 16);
-                snd = invoke(newslide.Shapes,'AddMediaObject', fullfile(pwd, tempFilename));
-                mt = dir(tempFilename);
-                delete(mt(1).name);
-    
-                if handles.ExportSonogramIncludeLabel == 1
-                    txt = addWorksheetTextBox(handles, newslide,  handles.text_DateAndTime.String, 8, snd.Left+snd.Width, [], [], 'msoAnchorMiddle');
-                    txt.Top = snd.Top+snd.Height/2-txt.Height/2;
-                end
-    
-                if newslide.Shapes.Range.Count>1
-                    invoke(newslide.Shapes.Range,'Group');
-                end
-                invoke(newslide.Shapes.Range, 'Cut');
-                invoke(oldslide.Shapes, 'Paste');
-    
-                if newslide.SlideIndex~=oldslide.SlideIndex
-                    invoke(newslide,'Delete');
-                end
-    
-    
-            case 'Worksheet'
-                ppt = actxserver('PowerPoint.Application');
-                op = ppt.ActivePresentation;
-    
-                offx = (op.PageSetup.SlideWidth-72*handles.WorksheetWidth)/2;
-                offy = (op.PageSetup.SlideHeight-72*handles.WorksheetHeight)/2;
-    
-                lst = handles.WorksheetList;
-                used = handles.WorksheetUsed;
-                widths = handles.WorksheetWidths;
-    
-                perpage = fix(0.001+(handles.WorksheetHeight - 2*handles.WorksheetMargin - handles.WorksheetIncludeTitle*handles.WorksheetTitleHeight)/(handles.ExportSonogramHeight + handles.WorksheetVerticalInterval));
-                pagenum = fix((0:length(lst)-1)/perpage)+1;
-    
-    
-                fig = figure('Visible','off','Units','pixels');
-                set(fig,'PaperPositionMode','manual','Renderer','painters');
-                ax = subplot('Position',[0 0 1 1]);
-                axis(ax, 'off');
-                for j = 1:max(pagenum)
-                    if j > 1
-                        slide_count = op.Slides.Count;
-                        newslide = invoke(op.Slides,'Add',slide_count+1,'ppLayoutBlank');
-                    end
-                    if handles.WorksheetIncludeTitle == 1
-                        addWorksheetTextBox(handles, newslide, handles.WorksheetTitle, 14, 72*handles.WorksheetMargin+offx, 72*handles.WorksheetMargin+offy, [], 'msoAnchorTop');
-                        txt = addWorksheetTextBox(handles, newslide, ['Page ' num2str(j) '/' num2str(max(pagenum))], 14, [], 72*handles.WorksheetMargin+offy, [], 'msoAnchorTop');
-                        txt.Left = 72*(handles.WorksheetWidth-handles.WorksheetMargin-txt.Width+offx);
-                    end
-    
-                    f = find(pagenum==j);
-                    for c = 1:length(f)
-                        indx = f(c);
-    
-                        for d = 1:length(lst{indx})
-                            cla(ax);
-                            hold(ax, 'on');
-                            ps = fig.Position;
-                            ps(3) = handles.ExportSonogramResolution*handles.ExportSonogramWidth*(handles.WorksheetXLims{lst{indx}(d)}(2)-handles.WorksheetXLims{lst{indx}(d)}(1));
-                            ps(4) = handles.ExportSonogramResolution*handles.ExportSonogramHeight;
-                            fig.Position = ps;
-    
-                            x = (handles.WorksheetWidth-used(indx))/2 + sum(widths(lst{indx}(1:d-1))) + handles.WorksheetHorizontalInterval*(d-1);
-                            wd = widths(lst{indx}(d));
-                            y = handles.WorksheetMargin + handles.WorksheetIncludeTitle*handles.WorksheetTitleHeight + handles.WorksheetVerticalInterval*(c-1) + handles.ExportSonogramHeight*(c-1);
-    
-                            for i = 1:length(handles.WorksheetMs{lst{indx}(d)})
-                                p = handles.WorksheetMs{lst{indx}(d)}{i};
-                                imagesc(ax, handles.WorksheetXs{lst{indx}(d)}{i},handles.WorksheetYs{lst{indx}(d)}{i},p);
-                                ax.CLim = handles.WorksheetClim{lst{indx}(d)};
-                                fig.Colormap = handles.WorksheetColormap{lst{indx}(d)};
-                            end
-                            xlim(ax, handles.WorksheetXLims{lst{indx}(d)});
-                            ylim(ax, handles.WorksheetYLims{lst{indx}(d)});
-    
-                            print('-dmeta',['-f' num2str(fig)]);
-                            pic = invoke(newslide.Shapes,'PasteSpecial',2);
-                            ug = invoke(pic,'Ungroup');
-                            ug.Fill.Visible = 'msoFalse';
-                            ug.Height = 72*handles.ExportSonogramHeight;
-                            ug.Width = 72*handles.ExportSonogramWidth*(handles.WorksheetXLims{lst{indx}(d)}(2)-handles.WorksheetXLims{lst{indx}(d)}(1));
-                            ug.Left = 72*x+offx;
-                            ug.Top = 72*(y+handles.WorksheetVerticalInterval)+offy;
-    
-                            if handles.ExportSonogramIncludeLabel == 1
-                                txt = addWorksheetTextBox(handles, newslide, string(datetime(handles.WorksheetTimes(lst{indx}(d)))), 10, [], [], 'msoAnchorCenter', 'msoAnchorBottom');
-                                txt.Left = 72*(x+wd/2-txt.Width/2+offx);
-                                txt.Top = 72*(y+handles.WorksheetVerticalInterval-txt.Height+offy);
-                            end
-    
-                            if handles.ExportSonogramIncludeClip > 0
-                                wav = handles.WorksheetSounds{lst{indx}(d)};
-                                fs = handles.WorksheetFs(lst{indx}(d));
-                                audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
-                                snd = invoke(newslide.Shapes,'AddMediaObject', fullfile(pwd, tempFilename));
-                                snd.Left = ug.Left;
-                                snd.Top = ug.Top;
-                                mt = dir(f.UserData.ax);
-                                delete(mt(1).name);
-                            end
-                        end
-                    end
-                end
-                delete(fig);
-    
-            case 'Figure'
-                handles.template = handles.menu_EditFigureTemplate.UserData;
-    
-                ppt = actxserver('PowerPoint.Application');
-                op = ppt.ActivePresentation;
-    
-                fig = figure('Visible','off','Units','pixels');
-                fig.PaperPositionMode = 'manual';
-                fig.Renderer = 'painters';
-                ax = subplot('Position',[0 0 1 1]);
-    
-                xl = handles.axes_Sonogram.XLim;
-    
-                offx = (op.PageSetup.SlideWidth-72*handles.ExportSonogramWidth*(xl(2)-xl(1)))/2;
-                offy = (op.PageSetup.SlideHeight-72*(sum(handles.template.Height)+sum(handles.template.Interval(1:end-1))))/2;
-    
-                sound_inserted = 0;
-    
-                ch = handles.menu_Animation.Children;
-                progbar = [];
-                axs = [handles.axes_Channel2 handles.axes_Channel1 handles.axes_Amplitude handles.axes_Segments handles.axes_Sonogram handles.axes_Sound];
-                for c = 1:length(ch)
-                    if ch(c).Checked && axs(c).Visible
-                        progbar = [progbar c];
-                    end
-                end
-                ycoord = zeros(0,4);
-                coords = {};
-    
-                for c = 1:length(handles.template.Plot)
-                    ps = fig.Position;
-                    ps(3) = handles.ExportSonogramResolution*handles.ExportSonogramWidth*(xl(2)-xl(1));
-                    ps(4) = handles.ExportSonogramResolution*handles.template.Height(c);
-                    fig.Position = ps;
-    
-                    cla(ax);
-    
-                    include_progbar = 0;
-    
-                    switch handles.template.Plot{c}
-    
-                        case 'Sonogram'
-                            if ~isempty(find(progbar==5, 1))
-                                include_progbar = 1;
-                            end
-    
-                            yl = handles.axes_Sonogram.YLim;
-    
-                            hold(ax, 'on');
-                            if handles.ExportReplotSonogram == 0
-                                ch = findobj('Parent',handles.axes_Sonogram,'type','image');
-                                for j = 1:length(ch)
-                                    if ch(j) ~= txtexp
-                                        x = ch(j).XData;
-                                        y = ch(j).YData;
-                                        m = ch(j).CData;
-                                        f = find(x>=xl(1) & x<=xl(2));
-                                        g = find(y>=yl(1) & y<=yl(2));
-                                        imagesc(ax, x(f),y(g),m(g,f));
-                                    end
-                                end
-                            else
-                                xlim(ax, xl);
-                                ylim(ax, yl);
-                                xlp = round(xl*handles.fs);
-                                if xlp(1)<1; xlp(1) = 1; end
-                                [handles, numSamples] = eg_GetNumSamples(handles);
-    
-                                if xlp(2)>numSamples; xlp(2) = numSamples; end
-                                for j = 1:length(handles.menu_Algorithm)
-                                    if handles.menu_Algorithm(j).Checked
-                                        alg = handles.menu_Algorithm(j).Label;
-                                    end
-                                end
-                                eg_runPlugin(handles.plugins.spectrums, ...
-                                    alg, ax, sound(xlp(1):xlp(2)), ...
-                                    handles.fs, handles.SonogramParams);
-                                ax.YDir = 'normal';
-                                handles.NewSlope = handles.DerivativeSlope;
-                                handles.DerivativeSlope = 0;
-                                handles = SetSonogramColors(handles);
-                            end
-                            cl = handles.axes_Sonogram.CLim;
-                            ax.CLim = cl;
-                            col = handles.figure_Main.Colormap;
-                            fig.Colormap = col;
-                            axis(ax, 'tight');
-                            axis(ax, 'off');
-    
-                        case 'Segments'
-                            if ~isempty(find(progbar==4, 1))
-                                include_progbar = 1;
-                            end
-    
-                            st = handles.SegmentTimes{getCurrentFileNum(handles)};
-                            sel = handles.SegmentSelection{getCurrentFileNum(handles)};
-                            f = find(st(:,1)>xl(1)*handles.fs & st(:,1)<xl(2)*handles.fs);
-                            g = find(st(:,2)>xl(1)*handles.fs & st(:,2)<xl(2)*handles.fs);
-                            h = find(st(:,1)<xl(1)*handles.fs & st(:,2)>xl(2)*handles.fs);
-                            f = unique([f; g; h]);
-    
-                            hold(ax, 'on');
-                            [handles, numSamples] = eg_GetNumSamples(handles);
-    
-                            xs = linspace(0, numSamples/handles.fs, numSamples);
-                            for j = f'
-                                if sel(j)==1
-                                    patch(xs([st(j,1) st(j,2) st(j,2) st(j,1)]),[0 0 1 1],handles.SegmentSelectColor);
-                                end
-                            end
-    
-                            ylim(ax, [0, 1]);
-                            axis(ax, 'off');
-    
-                        case 'Segment labels'
-                            st = handles.SegmentTimes{getCurrentFileNum(handles)};
-                            sel = handles.SegmentSelection{getCurrentFileNum(handles)};
-                            lab = handles.SegmentTitles{getCurrentFileNum(handles)};
-                            f = find(st(:,1)>xl(1)*handles.fs & st(:,1)<xl(2)*handles.fs);
-                            g = find(st(:,2)>xl(1)*handles.fs & st(:,2)<xl(2)*handles.fs);
-                            h = find(st(:,1)<xl(1)*handles.fs & st(:,2)>xl(2)*handles.fs);
-                            f = unique([f; g; h]);
-    
-                            hold(ax, 'on');
-                            [handles, numSamples] = eg_GetNumSamples(handles);
-    
-                            xs = linspace(0, numSamples/handles.fs, numSamples);
-                            for j = f'
-                                if sel(j)==1
-                                    if ~isempty(lab{j})
-                                        txt = addWorksheetTextBox(handles, newslide, lab{j}, 8, [], [], 'msoAnchorCenter', 'msoAnchorBottom');
-                                        txt.Left = offx+72*handles.ExportSonogramWidth*mean(xs(st(j,:))-xl(1))-txt.Width/2;
-                                        txt.Top = offy+72*(sum(handles.template.Interval(1:c-1)+sum(handles.template.Height(1:c-1))));
-                                    end
-                                end
-                            end
-    
-                            axis(ax, 'off');
-    
-                        case 'Amplitude'
-                            if ~isempty(find(progbar==3, 1))
-                                include_progbar = 1;
-                            end
-    
-                            m = findobj('Parent',handles.axes_Amplitude,'LineStyle','-');
-                            x = m.XData;
-                            y = m.YData;
-                            col = m.Color;
-                            linewidth = m.LineWidth;
-                            f = find(x>=xl(1) & x<=xl(2));
-                            if sum(col==1)==3
-                                col = col-eps;
-                            end
-                            plot(ax, x(f),y(f),'Color',col);
-    
-                            ylim(ax, handles.axes_Amplitude.YLim);
-                            ax.YDir = 'normal';
-                            axis(ax, 'off');
-    
-                        case {'Top plot','Bottom plot'}
-                            if ~isempty(find(progbar==1, 1)) && strcmp(handles.template.Plot{c},'Bottom plot')
-                                include_progbar = 1;
-                            end
-                            if ~isempty(find(progbar==2, 1)) && strcmp(handles.template.Plot{c},'Top plot')
-                                include_progbar = 1;
-                            end
-    
-                            if strcmp(handles.template.Plot{c},'Top plot')
-                                axnum = 1;
-                            else
-                                axnum = 2;
-                            end
-    
-                            m = findobj('Parent',handles.axes_Channel(axnum),'LineStyle','-');
-                            hold(ax, 'on')
-                            for j = 1:length(m)
-                                x = m(j).XData;
-                                y = m(j).YData;
-                                col = m(j).Color;
-                                linewidth = m(j).LineWidth;
-                                f = find(x>=xl(1) & x<=xl(2));
-                                if sum(col==1)==3
-                                    col = col-eps;
-                                end
-                                plot(ax, x(f),y(f),'Color',col);
-                            end
-    
-                            ylim(ax, handles.axes_Channel(axnum).YLim);
-                            ax.YDir = 'normal';
-                            axis(ax, 'off');
-    
-                        case 'Sound wave'
-                            if ~isempty(find(progbar==6, 1))
-                                include_progbar = 1;
-                            end
-    
-                            m = findobj('Parent',handles.axes_Sound,'LineStyle','-');
-                            hold(ax, 'on')
-                            for j = 1:length(m)
-                                x = m(j).XData;
-                                y = m(j).YData;
-                                f = find(x>=xl(1) & x<=xl(2));
-                                plot(ax, x(f),y(f),'b');
-                            end
-                            linewidth = 1;
-    
-                            ylim(ax, handles.axes_Sound.YLim);
-                            ax.YDir = 'normal';
-                            axis(ax, 'off');
-                    end
-    
-                    if handles.template.AutoYLimits(c)==1
-                        axis tight;
-                    end
-                    yl = ylim;
-                    xlim(xl);
-    
-    
-                    if ~strcmp(handles.template.Plot{c},'Segment labels')
-                        print('-dmeta',['-f' num2str(fig)]);
-                        pic = invoke(newslide.Shapes,'PasteSpecial',2);
-                        ug = invoke(pic,'Ungroup');
-                        ug.Height = 72*handles.template.Height(c);
-                        ug.Width = 72*handles.ExportSonogramWidth*(xl(2-xl(1)));
-                        ug.Left = offx;
-                        ug.Top = offy+72*(sum(handles.template.Interval(1:c-1))+sum(handles.template.Height(1:c-1)));
-    
-                        switch handles.template.YScaleType(c)
-                            case 0
-                                % no scale bar
-                            case 1 % scalebar
-                                approx = handles.ScalebarHeight/handles.template.Height(c)*(yl(2)-yl(1));
-                                ord = floor(log10(approx));
-                                val = approx/10^ord;
-                                if ord == 0
-                                    pres = [1 2 3 4 5 10];
-                                else
-                                    pres = [1 2 2.5 3 4 5 10];
-                                end
-                                [~, fnd] = min(abs(pres-val));
-                                val = pres(fnd)*10^ord;
-                                sb_height = 72*val/(yl(2)-yl(1))*handles.template.Height(c);
-    
-                                unit = '';
-                                switch handles.template.Plot{c}
-                                    case 'Sonogram'
-                                        unit = ' kHz';
-                                        val = val/1000;
-                                    case 'Amplitude'
-                                        txt = handles.axes_Amplitude.YLabel.String;
-                                        fnd2 = strfind(txt,')');
-                                        if ~isempty(fnd2)
-                                            fnd1 = strfind(txt(1:fnd2(end)),'(');
-                                            if ~isempty(fnd1)
-                                                unit = [' ' txt(fnd1(end)+1:fnd2(end)-1)];
-                                            end
-                                        end
-                                    case 'Top plot'
-                                        txt = handles.axes_Channel1.YLabel.String;
-                                        fnd2 = strfind(txt,')');
-                                        if ~isempty(fnd2)
-                                            fnd1 = strfind(txt(1:fnd2(end)),'(');
-                                            if ~isempty(fnd1)
-                                                unit = [' ' txt(fnd1(end)+1:fnd2(end)-1)];
-                                            end
-                                        end
-                                    case 'Bottom plot'
-                                        txt = handles.axes_Channel2.YLabel.String;
-                                        fnd2 = strfind(txt,')');
-                                        if ~isempty(fnd2)
-                                            fnd1 = strfind(txt(1:fnd2(end)),'(');
-                                            if ~isempty(fnd1)
-                                                unit = [' ' txt(fnd1(end)+1:fnd2(end)-1)];
-                                            end
-                                        end
-                                    case 'Sound wave'
-                                        unit = 'ADU';
-                                end
-    
-                                sb_posy = ug.Top+0.5*ug.Height-0.5*sb_height;
-    
-                                if handles.VerticalScalebarPosition <= 0
-                                    sb_posx = offx + 72*handles.VerticalScalebarPosition;
-                                else
-                                    sb_posx = offx + 72*(handles.ExportSonogramWidth*(xl(2)-xl(1))+handles.VerticalScalebarPosition);
-                                end
-                                invoke(newslide.Shapes,'AddLine',sb_posx,sb_posy,sb_posx,sb_posy+sb_height);
-    
-                                txt = addWorksheetTextBox(handles, newslide, [num2str(val) unit], 8, [], [], [], 'msoAnchorMiddle');
-                                if handles.VerticalScalebarPosition <= 0
-                                    txt.Left = sb_posx-txt.Width-72*0.05;
-                                    txt.TextFrame.TextRange.ParagraphFormat.Alignment = 'ppAlignRight';
-                                else
-                                    txt.Left = sb_posx+72*0.05;
-                                    txt.TextFrame.TextRange.ParagraphFormat.Alignment = 'ppAlignLeft';
-                                end
-                                txt.Top = ug.Top+0.5*ug.Height-0.5*txt.Height;
-    
-                            case 2 % axis
-                                invoke(newslide.Shapes,'AddLine',offx,ug.Top,offx,ug.Top+ug.Height);
-                                fig_yscale = figure('Visible','off','Units','inches');
-                                ps = fig_yscale.Position;
-                                ps(4) = handles.template.Height(c);
-                                fig_yscale.Position = ps;
-                                ax = subplot('Position',[0 0 1 1]);
-                                ylim(ax, [yl(1) yl(2)]);
-                                ytick = ax.YTick;
-                                delete(fig_yscale);
-    
-                                switch handles.template.Plot{c}
-                                    case 'Sonogram'
-                                        str = handles.axes_Sonogram.YLabel.String;
-                                    case 'Amplitude'
-                                        str = handles.axes_Amplitude.YLabel.String;
-                                    case 'Top plot'
-                                        str = handles.axes_Channel1.YLabel.String;
-                                    case 'Bottom plot'
-                                        str = handles.axes_Channel2.YLabel.String;
-                                    case 'Sound wave'
-                                        str = 'Sound amplitude (ADU)';
-                                end
-    
-                                mn = inf;
-                                for j = 1:length(ytick')
-                                    tickpos = ug.Top+ug.Height-(ytick(j)-yl(1))/(yl(2)-yl(1))*ug.Height;
-                                    invoke(newslide.Shapes,'AddLine',offx,tickpos,offx+72*0.02,tickpos);
-    
-                                    txt = addWorksheetTextBox(handles, newslide, num2str(ytick(j)), 8, [], [], [], 'msoAnchorMiddle', 'ppAlignRight');
-                                    txt.Left = offx-txt.Width-72*0.02;
-                                    txt.Top = tickpos-0.5*txt.Height;
-                                    mn = min([mn, txt.Left]);
-                                end
-    
-    %                             if strcmp(handles.template.Plot{c},'Sonogram')
-    %                                 ytick = ytick/1000;
-    %                             end
-    
-                                addWorksheetTextBox(handles, newslide, str, 10, [], [], 'msoAnchorCenter', 'msoAnchorBottom', 'ppAlignCenter', 270);
-                                txt.Left = mn-0.5*txt.Width-72*0.15;
-                                txt.Top = ug.Top+0.5*ug.Height-0.5*txt.Height;
-                        end
-    
-                        if include_progbar == 1
-                            ycoord = [ycoord; ug.Left ug.Top ug.Width ug.Height];
-                            switch handles.template.Plot{c}
-                                case {'Amplitude','Top plot','Bottom plot'}
-                                    xs = (x(f)-xl(1))/(xl(2)-xl(1));
-                                    ys = (y(f)-yl(1))/(yl(2)-yl(1));
-                                    crd = [xs' ys'];
-                                case 'Sound wave'
-                                    xs = (x(f)-xl(1))/(xl(2)-xl(1));
-                                    ys = (y(f)-yl(1))/(yl(2)-yl(1));
-                                    crd = [xs' abs(ys')];
-                                case 'Segments'
-                                    crd = [];
-                                    for j = f'
-                                        if sel(j)==1
-                                            crd = [crd; xs(st(j,1)) 0; xs(st(j,2)) 1];
-                                        end
-                                    end
-                                    crd = [xl(1) 0; crd; xl(2) 0];
-                                    crd(:,1) = (crd(:,1)-xl(1))/(xl(2)-xl(1));
-                                    crd(:,2) = (crd(:,2)-yl(1))/(yl(2)-yl(1));
-                                case 'Sonogram'
-                                    ch = findobj('Parent',handles.axes_Sonogram,'type','image');
-                                    crd = [];
-                                    for j = 1:length(ch)
-                                        if ch(j) ~= txtexp
-                                            x = ch(j).XData;
-                                            y = ch(j).YData;
-                                            m = ch(j).CData;
-                                            f = find(x>=xl(1) & x<=xl(2));
-                                            g = find(y>=yl(1) & y<=yl(2));
-                                            if handles.SonogramFollowerPower == inf
-                                                [~, wh] = max(m(g,f),[],1);
-                                                crd = [crd; x(f)' y(g(wh))'];
-                                            else
-                                                crd = [crd; x(f)' ((y(g)*abs(m(g,f)).^handles.SonogramFollowerPower)./sum(abs(m(g,f)).^handles.SonogramFollowerPower,1))'];
-                                            end
-                                        end
-                                    end
-                                    crd(:,1) = (crd(:,1)-xl(1))/(xl(2)-xl(1));
-                                    crd(:,2) = (crd(:,2)-yl(1))/(yl(2)-yl(1));
-                            end
-                            crd(:,1) = crd(:,1)*ycoord(end,3)/op.PageSetup.SlideWidth;
-                            crd(:,2) = -crd(:,2)*ycoord(end,4)/op.PageSetup.SlideHeight;
-                            crd = sortrows(crd);
-    
-                            if handles.playback_Reverse.Checked
-                                crd(:,1) = flipud(crd(:,1))-crd(end,1);
-                                crd(:,2) = flipud(crd(:,2));
-                            end
-    
-                            vals = [];
-                            if ~strcmp(handles.template.Plot{c},'Segments')
-                                lst = linspace(crd(1,1),crd(end,1),round(ug.Width)*2);
-                                for j=1:length(lst)
-                                    fnd = find(abs(crd(:,1)-lst(j))<abs(lst(end)-lst(1))/length(lst));
-                                    [~, ind] = max(abs(crd(fnd,2)-mean(crd(:,2))));
-                                    vals(j) = crd(fnd(ind),2);
-                                end
-                                crd = [crd(round(linspace(1,size(crd,1),length(lst))),1) vals'];
-                            end
-                            coords{end+1} = crd;
-                        end
-    
-                        if strcmp(handles.template.Plot{c},'Sonogram') && handles.ExportSonogramIncludeClip > 0
-                            if handles.ExportSonogramIncludeClip == 1
-                                wav = GenerateSound(handles,'snd');
-                            else
-                                wav = GenerateSound(handles,'mix');
-                            end
-                            fs = handles.fs * handles.SoundSpeed;
-    
-                            audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
-    
-                            snd = invoke(newslide.Shapes,'AddMediaObject', fullfile(pwd, tempFilename));
-                            snd.Left = ug.Left;
-                            snd.Top = ug.Top;
-                            mt = dir(f.UserData.ax);
-                            delete(mt(1).name);
-                            sound_inserted = 1;
-                        end
-    
-                        ug = invoke(ug,'Ungroup');
-                        if ~strcmp(handles.template.Plot{c},'Segments')
-                            for j = 1:ug.Count
-                                if strcmp(ug.Item(j).Type,'msoAutoShape')
-                                    invoke(ug.Item(j),'Delete');
-                                else
-                                    if exist('LineWidth', 'var')
-                                        ug.Item(j).Line.Weight = linewidth;
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-    
-                if handles.ExportSonogramIncludeLabel == 1
-                    dt = datevec(handles.text_DateAndTime.String);
-                    dt(6) = dt(6)+xl(1);
-                    addWorksheetTextBox(handles, newslide, string(datetime(dt)), 10, [], [], 'msoAnchorCenter', 'msoAnchorBottom', 'ppAlignCenter');
-                    txt.Left = op.PageSetup.SlideWidth-txt.Width/2;
-                    txt.Top = offy-txt.Height;
-                end
-    
-                if sound_inserted == 0 && handles.ExportSonogramIncludeClip > 0
-                    if handles.ExportSonogramIncludeClip == 1
-                        wav = GenerateSound(handles,'snd');
-                    else
-                        wav = GenerateSound(handles,'mix');
-                    end
-                    fs = handles.fs * handles.SoundSpeed;
-    
-                    audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
-    
-                    snd = invoke(newslide.Shapes,'AddMediaObject',[pwd '\eg_temp.wav']);
-                    snd.Left = offx;
-                    snd.Top = offy;
-                    mt = dir(f.UserData.ax);
-                    delete(mt(1).name);
-                end
-    
-                % Insert animation
-    
-                if exist('snd', 'var')
-                    anim = invoke(snd.ActionSettings,'Item',1);
-                    anim.Action = 'ppActionNone';
-    
-                    seq = newslide.TimeLine;
-                    seq = seq.InteractiveSequences;
-                    seq = invoke(seq,'Item',1);
-                    itm(1) = invoke(seq,'Item',1);
-    
-                    animopt = findobj('Parent',handles.menu_Animation,'Checked','on');
-                    animopt = animopt.Label;
-    
-                    if ~strcmp(animopt,'None')
-                        for c = 1:size(ycoord,1)
-                            if handles.playback_Reverse.Checked
-                                ycoord(c,1) = ycoord(c,1)+ycoord(c,3);
-                                ycoord(c,3) = -ycoord(c,3);
-                            end
-    
-                            col = handles.ProgressBarColor;
-                            col = 255*col(1) + 256*255*col(2) + 256^2*255*col(3);
-                            switch animopt
-                                case 'Progress bar'
-                                    animline = invoke(newslide.Shapes,'Addline',ycoord(c,1),ycoord(c,2),ycoord(c,1),ycoord(c,2)+ycoord(c,4));
-                                    animline.Line.Weight = 2;
-                                    animline.Line.ForeColor.RGB = col;
-                                case 'Arrow above'
-                                    animline = invoke(newslide.Shapes,'Addline',ycoord(c,1),ycoord(c,2),ycoord(c,1),ycoord(c,2)-15);
-                                    animline.Line.BeginArrowheadStyle = 'msoArrowheadTriangle';
-                                    animline.Line.BeginArrowheadWidth = 'msoArrowheadWidthMedium';
-                                    animline.Line.BeginArrowheadLength = 'msoArrowheadLengthMedium';
-                                    animline.Line.Weight = 2;
-                                    animline.Line.ForeColor.RGB = col;
-                                case 'Arrow below'
-                                    animline = invoke(newslide.Shapes,'Addline',ycoord(c,1),ycoord(c,2)+ycoord(c,4),ycoord(c,1),ycoord(c,2)+ycoord(c,4)+15);
-                                    animline.Line.BeginArrowheadStyle = 'msoArrowheadTriangle';
-                                    animline.Line.BeginArrowheadWidth = 'msoArrowheadWidthMedium';
-                                    animline.Line.BeginArrowheadLength = 'msoArrowheadLengthMedium';
-                                    animline.Line.Weight = 2;
-                                    animline.Line.ForeColor.RGB = col;
-                                case 'Value follower'
-                                    animline = invoke(newslide.Shapes,'Addshape',9,ycoord(c,1)-2,ycoord(c,2)+ycoord(c,4)-2,4,4);
-                                    animline.Fill.Forecolor.RGB = col;
-                                    animline.Line.Forecolor.RGB = col;
-                            end
-    
-    
-                            itm(end+1) = invoke(newslide.TimeLine.MainSequence,'AddEffect',animline,'msoAnimEffectAppear');
-                            itm(end).Timing.TriggerType = 'msoAnimTriggerWithPrevious';
-                            invoke(itm(end),'MoveAfter',itm(end-1));
-    
-                            itm(end+1) = invoke(newslide.TimeLine.MainSequence,'AddEffect',animline,'msoAnimEffectPathRight');
-                            itm(end).Timing.TriggerType = 'msoAnimTriggerWithPrevious';
-                            set(itm(end).Timing,'SmoothStart','msoFalse','SmoothEnd','msoFalse');
-                            itm(end).Timing.Duration = length(wav)/fs;
-    
-                            beh = itm(end).Behaviors;
-                            beh = invoke(beh,'Item',1);
-                            mef = beh.MotionEffect;
-    
-                            if strcmp(animopt,'Value follower')
-                                crp = coords{c};
-                                crp(:,1) = [0; crp(1:end-1,1)];
-                                m = [repmat(' M ',size(coords{c},1),1) num2str(crp) repmat(' L ',size(coords{c},1),1) num2str(coords{c})];
-                                m = reshape(m',1, ...
-                                    numel(m));
-                                str = [m ' E'];
-                                mef.Path = str;
-                            else
-                                set(mef,'Path',['M 0 0 L ' num2str(ycoord(c,3)/op.PageSetup.SlideWidth) ' 0 E']);
-                            end
-    
-                            invoke(itm(end),'MoveAfter',itm(end-1));
-    
-                            itm(end+1) = invoke(newslide.TimeLine.MainSequence,'AddEffect',animline,'msoAnimEffectFade');
-                            itm(end).Exit = 'msoTrue';
-                            set(itm(end).Timing,'TriggerDelayTime',length(wav)/fs,'Duration',0.01)
-                            itm(end).Timing.TriggerType = 'msoAnimTriggerWithPrevious';
-                            invoke(itm(end),'MoveAfter',itm(end-1));
-                        end
-                    end
-                end
-    
-    
-    
-                delete(fig);
-    
-                bestlength = handles.ScalebarWidth/handles.ExportSonogramWidth;
-                errs = abs(handles.ScalebarPresets-bestlength);
-                [~, j] = min(errs);
-                y = offy+72*(sum(handles.template.Height)+sum(handles.template.Interval));
-                x2 = op.PageSetup.SlideWidth-offx;
-                x1 = x2-72*handles.ScalebarPresets(j)*handles.ExportSonogramWidth;
-                invoke(newslide.Shapes,'AddLine',x1,y,x2,y);
-                txt = addWorksheetTextBox(handles, newslide, handles.ScalebarLabels{j}, 8, [], y, 'msoAnchorCenter', 'msoAnchorTop', 'ppAlignCenter');
-                txt.Left = (x1+x2/2-txt.Width/2);
-        end
-    end
-    
-    delete(txtexp);
-    guidata(hObject, handles);
-    
-% --- Executes on button press in push_ExportOptions.
-function push_ExportOptions_Callback(hObject, ~, handles)
-    % hObject    handle to push_ExportOptions (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    import java.awt.*;
-    import java.awt.event.*;
-    
-    handles.push_ExportOptions.UIContextMenu = handles.context_ExportOptions;
-    
-    % Trigger a right-click event
-    try
-        rob = Robot;
-        rob.mousePress(InputEvent.BUTTON3_MASK);
-        pause(0.01);
-        rob.mouseRelease(InputEvent.BUTTON3_MASK);
-    catch
-        errordlg('Java is not working properly. You must right-click the button.','Java error');
-    end
-    
-% --- Executes on button press in radio_Matlab.
-function radio_Matlab_Callback(hObject, ~, handles)
-    % hObject    handle to radio_Matlab (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    % Hint: hObject.Value returns toggle state of radio_Matlab
-    
-% --- Executes on button press in radio_PowerPoint.
-function radio_PowerPoint_Callback(hObject, ~, handles)
-    % hObject    handle to radio_PowerPoint (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    % Hint: hObject.Value returns toggle state of radio_PowerPoint
-    
-% --- Executes on button press in radio_Files.
-function radio_Files_Callback(hObject, ~, handles)
-    % hObject    handle to radio_Files (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    % Hint: hObject.Value returns toggle state of radio_Files
-    
-% --- Executes on button press in radio_Clipboard.
-function radio_Clipboard_Callback(hObject, ~, handles)
-    % hObject    handle to radio_Clipboard (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    % Hint: hObject.Value returns toggle state of radio_Clipboard
-    
 % --- Executes on button press in push_UpdateFileList.
 function push_UpdateFileList_Callback(hObject, ~, handles)
     % hObject    handle to push_UpdateFileList (see GCBO)
@@ -8293,60 +7061,6 @@ function menu_ClearWorksheet_Callback(hObject, ~, handles)
     guidata(hObject, handles);
     
 % --------------------------------------------------------------------
-function context_ExportOptions_Callback(hObject, ~, handles)
-    % hObject    handle to context_ExportOptions (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    
-% --------------------------------------------------------------------
-function menu_SonogramDimensions_Callback(hObject, ~, handles)
-    % hObject    handle to menu_SonogramDimensions (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    answer = inputdlg({'Sonogram height (in)'},'Height',1,{num2str(handles.ExportSonogramHeight)});
-    if isempty(answer)
-        return
-    end
-    handles.ExportSonogramHeight = str2double(answer{1});
-    
-    handles = UpdateWorksheet(handles);
-    
-    guidata(hObject, handles);
-    
-% --------------------------------------------------------------------
-function menu_ScreenResolution_Callback(hObject, ~, handles)
-    % hObject    handle to menu_ScreenResolution (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles.menu_ScreenResolution.Checked = 'on';
-    handles.menu_CustomResolution.Checked = 'off';
-    handles.ExportReplotSonogram = 0;
-    guidata(hObject, handles);
-    
-    
-% --------------------------------------------------------------------
-function menu_SonogramExport_Callback(hObject, ~, handles)
-    % hObject    handle to menu_SonogramExport (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    
-% --------------------------------------------------------------------
-function menu_CustomResolution_Callback(hObject, ~, handles)
-    % hObject    handle to menu_CustomResolution (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles.menu_ScreenResolution.Checked = 'off';
-    handles.menu_CustomResolution.Checked = 'on';
-    handles.ExportReplotSonogram = 1;
-    guidata(hObject, handles);
-    
-    
-% --------------------------------------------------------------------
 function menu_WorksheetView_Callback(hObject, ~, handles)
     % hObject    handle to menu_WorksheetView (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
@@ -8421,23 +7135,6 @@ function MacrosMenuclick(hObject, ~, handles)
     
     
 % --------------------------------------------------------------------
-function menu_IncludeTimestamp_Callback(hObject, ~, handles)
-    % hObject    handle to menu_IncludeTimestamp (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    if handles.menu_IncludeTimestamp.Checked
-        handles.menu_IncludeTimestamp.Checked = 'off';
-        handles.ExportSonogramIncludeLabel = 0;
-    else
-        handles.menu_IncludeTimestamp.Checked = 'on';
-        handles.ExportSonogramIncludeLabel = 1;
-    end
-    
-    guidata(hObject, handles);
-    
-    
-% --------------------------------------------------------------------
 function menu_Portrait_Callback(hObject, ~, handles)
     % hObject    handle to menu_Portrait (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
@@ -8479,66 +7176,7 @@ function menu_Landscape_Callback(hObject, ~, handles)
         handles = UpdateWorksheet(handles);
         guidata(hObject, handles);
     end
-    
-    
-% --------------------------------------------------------------------
-function menu_ImageResolution_Callback(hObject, ~, handles)
-    % hObject    handle to menu_ImageResolution (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    
-    answer = inputdlg({'Resolution (dpi)'},'Resolution',1,{num2str(handles.ExportSonogramResolution)});
-    if isempty(answer)
-        return
-    end
-    handles.ExportSonogramResolution = str2double(answer{1});
-    
-    
-% --------------------------------------------------------------------
-function menu_ImageTimescale_Callback(hObject, ~, handles)
-    % hObject    handle to menu_ImageTimescale (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    
-    answer = inputdlg({'Image timescale (in/sec)'},'Timescale',1,{num2str(handles.ExportSonogramWidth)});
-    if isempty(answer)
-        return
-    end
-    handles.ExportSonogramWidth = str2double(answer{1});
-    
-    handles = UpdateWorksheet(handles);
-    
-    guidata(hObject, handles);
-    
-    
-% --------------------------------------------------------------------
-function menu_ScalebarDimensions_Callback(hObject, ~, handles)
-    % hObject    handle to menu_ScalebarDimensions (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    answer = inputdlg({'Preferred horizontal scalebar width (in)','Preferred vertical scalebar height (in)','Vertical scalebar position (in), <0 for left, >0 for right'},'Scalebar',1,{num2str(handles.ScalebarWidth),num2str(handles.ScalebarHeight),num2str(handles.VerticalScalebarPosition)});
-    if isempty(answer)
-        return
-    end
-    handles.ScalebarWidth = str2double(answer{1});
-    handles.ScalebarHeight = str2double(answer{2});
-    handles.VerticalScalebarPosition = str2double(answer{3});
-    
-    guidata(hObject, handles);
-    
-    
-% --------------------------------------------------------------------
-function menu_EditFigureTemplate_Callback(hObject, ~, handles)
-    % hObject    handle to menu_EditFigureTemplate (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    eg_Template_Editor(hObject);
-    
-    
+
 % --------------------------------------------------------------------
 function menu_LineWidth1_Callback(hObject, ~, handles)
     % hObject    handle to menu_LineWidth1 (see GCBO)
@@ -9096,49 +7734,7 @@ function menu_DontPlot_Callback(hObject, ~, handles)
     handles = eg_LoadFile(handles);
     
     guidata(hObject, handles);
-    
-    
-% --------------------------------------------------------------------
-function menu_IncludeSoundNone_Callback(hObject, ~, handles)
-    % hObject    handle to menu_IncludeSoundNone (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles.ExportSonogramIncludeClip = 0;
-    for child = handles.menu_IncludeSoundClip.Children'
-        child.Checked = 'off';
-    end
-    hObject.Checked = 'on';
-    guidata(hObject, handles);
-    
-% --------------------------------------------------------------------
-function menu_IncludeSoundOnly_Callback(hObject, ~, handles)
-    % hObject    handle to menu_IncludeSoundOnly (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles.ExportSonogramIncludeClip = 1;
-    for child = handles.menu_IncludeSoundClip.Children'
-        child.Checked = 'off';
-    end
-    hObject.Checked = 'on';
-    guidata(hObject, handles);
-    
-% --------------------------------------------------------------------
-function menu_IncludeSoundMix_Callback(hObject, ~, handles)
-    % hObject    handle to menu_IncludeSoundMix (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles.ExportSonogramIncludeClip = 2;
-    for child = handles.menu_IncludeSoundClip.Children'
-        child.Checked = 'off';
-    end
-    hObject.Checked = 'on';
-    guidata(hObject, handles);
-    
-    
-    
+        
 function snd = GenerateSound(handles,sound_type)
     % Generate sound with the selected options. Sound_type is either 'snd' or
     % 'mix'
@@ -10125,88 +8721,6 @@ function menu_CleanUpList_Callback(hObject, ~, handles)
     guidata(hObject, handles);
     
 % --------------------------------------------------------------------
-function menu_AnimationNone_Callback(hObject, ~, handles)
-    % hObject    handle to menu_AnimationNone (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles = ClickAnimation(handles, hObject);
-    guidata(hObject, handles);
-    
-    
-% --------------------------------------------------------------------
-function menu_AnimationProgressBar_Callback(hObject, ~, handles)
-    % hObject    handle to menu_AnimationProgressBar (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles = ClickAnimation(handles, hObject);
-    guidata(hObject, handles);
-    
-% --------------------------------------------------------------------
-function menu_AnimationArrowAbove_Callback(hObject, ~, handles)
-    % hObject    handle to menu_AnimationArrowAbove (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles = ClickAnimation(handles, hObject);
-    guidata(hObject, handles);
-    
-% --------------------------------------------------------------------
-function menu_AnimationArrowBelow_Callback(hObject, ~, handles)
-    % hObject    handle to menu_AnimationArrowBelow (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles = ClickAnimation(handles, hObject);
-    guidata(hObject, handles);
-    
-    
-function handles = ClickAnimation(handles, hObject)
-    
-    ch = handles.menu_Animation.Children;
-    for c = 1:length(ch)
-        ch(c).Checked = 'off';
-    end
-    hObject.Checked = 'on';
-    
-    
-% --------------------------------------------------------------------
-function menu_Animation_Callback(hObject, ~, handles)
-    % hObject    handle to menu_Animation (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    
-    
-    
-% --------------------------------------------------------------------
-function menu_ValueFollower_Callback(hObject, ~, handles)
-    % hObject    handle to menu_ValueFollower (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    
-    handles = ClickAnimation(handles, hObject);
-    guidata(hObject, handles);
-    
-    
-% --------------------------------------------------------------------
-function menu_SonogramFollower_Callback(hObject, ~, handles)
-    % hObject    handle to menu_SonogramFollower (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    answer = inputdlg({'Power weighting exponent (inf for maximum-follower)'},'Exponent',1,{num2str(handles.SonogramFollowerPower)});
-    if isempty(answer)
-        return
-    end
-    handles.SonogramFollowerPower = str2double(answer{1});
-    
-    guidata(hObject, handles);
-    
-    
-% --------------------------------------------------------------------
 function menu_ScalebarHeight_Callback(hObject, ~, handles)
     % hObject    handle to menu_ScalebarHeight (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
@@ -10608,14 +9122,6 @@ function suppressStupidCallbackWarnings()
     menu_YAxis_Callback;
     XAxisMenuClick;
     YAxisMenuClick;
-    popup_Export_Callback;
-    popup_Export_CreateFcn;
-    push_Export_Callback;
-    push_ExportOptions_Callback;
-    radio_Matlab_Callback;
-    radio_PowerPoint_Callback;
-    radio_Files_Callback;
-    radio_Clipboard_Callback;
     push_UpdateFileList_Callback;
     push_WorksheetAppend_Callback;
     UpdateWorksheet;
@@ -10633,24 +9139,14 @@ function suppressStupidCallbackWarnings()
     menu_EditTitle_Callback;
     menu_WorksheetDimensions_Callback;
     menu_ClearWorksheet_Callback;
-    context_ExportOptions_Callback;
-    menu_SonogramDimensions_Callback;
-    menu_ScreenResolution_Callback;
-    menu_SonogramExport_Callback;
-    menu_CustomResolution_Callback;
     menu_WorksheetView_Callback;
     ViewWorksheet;
     push_Macros_Callback;
     context_Macros_Callback;
     MacrosMenuclick;
-    menu_IncludeTimestamp_Callback;
     menu_Portrait_Callback;
     menu_Orientation_Callback;
     menu_Landscape_Callback;
-    menu_ImageResolution_Callback;
-    menu_ImageTimescale_Callback;
-    menu_ScalebarDimensions_Callback;
-    menu_EditFigureTemplate_Callback;
     menu_LineWidth1_Callback;
     menu_LineWidth2_Callback;
     setLineWidth;
@@ -10671,9 +9167,6 @@ function suppressStupidCallbackWarnings()
     menu_SourceBottomPlot_Callback;
     menu_Concatenate_Callback;
     menu_DontPlot_Callback;
-    menu_IncludeSoundNone_Callback;
-    menu_IncludeSoundOnly_Callback;
-    menu_IncludeSoundMix_Callback;
     menu_FilterList_Callback;
     menu_FilterParameters_Callback;
     menu_AddProperty_Callback;
@@ -10691,13 +9184,6 @@ function suppressStupidCallbackWarnings()
     menu_FillProperty_Callback;
     menu_DefaultPropertyValue_Callback;
     menu_CleanUpList_Callback;
-    menu_AnimationNone_Callback;
-    menu_AnimationProgressBar_Callback;
-    menu_AnimationArrowAbove_Callback;
-    menu_AnimationArrowBelow_Callback;
-    menu_Animation_Callback;
-    menu_ValueFollower_Callback;
-    menu_SonogramFollower_Callback;
     menu_ScalebarHeight_Callback;
     context_UpdateList_Callback;
     menu_ChangeFiles_Callback;
@@ -11108,3 +9594,1534 @@ function playback_animation_BottomPlot_Callback(hObject, eventdata, handles)
 
     handles = ChangeProgress(handles, hObject);
     guidata(hObject, handles);
+
+
+% --------------------------------------------------------------------
+function menu_Export_Callback(hObject, eventdata, handles)
+    % hObject    handle to menu_Export (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+% --------------------------------------------------------------------
+function action_Export_Callback(hObject, eventdata, handles)
+    % hObject    handle to action_Export (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    txtexp = text(mean(xlim(handles.axes_Sonogram)),mean(ylim(handles.axes_Sonogram)),'Exporting...',...
+        'HorizontalAlignment','center','Color','r','backgroundcolor',[1 1 1],'fontsize',14);
+    drawnow
+    
+    tempFilename = 'eg_temp.wav';
+    
+    %%%
+    
+    [handles, sound] = eg_GetSound(handles);
+    
+    exportAs = getMenuGroupValue(handles.menu_ExportAs.Children');
+    exportTo = getMenuGroupValue(handles.menu_ExportTo.Children');
+
+    switch exportAs
+        case 'Segments'
+            path = uigetdir(handles.tempSettings.lastDirectory, 'Directory for segments');
+            if ~ischar(path)
+                delete(txtexp)
+                return
+            end
+            handles.DefaultRootPath = path;
+            handles.tempSettings.lastDirectory = path;
+            updateTempFile(handles);
+    
+            filenum = getCurrentFileNum(handles);
+    
+            if isfield(handles,'DefaultLabels')
+                labels = handles.DefaultLabels;
+            else
+                labels = [];
+                for c = 1:length(handles.SegmentTitles{filenum})
+                    labels = [labels handles.SegmentTitles{filenum}{c}];
+                end
+                if ~isempty(labels)
+                    labels = unique(labels);
+                end
+                labels = ['''''' labels];
+            end
+    
+            answer = inputdlg({'List of labels to export (leave empty for all segments, '''' = unlabeled)','File format'},'Export segments',1,{labels,handles.SegmentFileFormat});
+            if isempty(answer)
+                delete(txtexp)
+                return
+            end
+            newLabel = answer{1};
+            handles.SegmentFileFormat = answer{2};
+    
+            if ~strcmp(labels,newLabel)
+                handles.DefaultLabels = newLabel;
+            end
+            if isempty(newLabel)
+                handles = rmfield(handles,'DefaultLabels');
+            end
+    
+            dtm = datetime(handles.text_DateAndTime.String);
+            dtm.Format = 'yyyymmdd';
+            sd = string(dtm);
+            dtm.Format = 'HHMMSS';
+            st = string(dtm);
+            [~,name,~] = fileparts(handles.text_FileName.String);
+            sf = name;
+            for c = 1:length(handles.SegmentTitles{filenum})
+                if ~isempty(strfind(newLabel,handles.SegmentTitles{filenum}{c})) || isempty(newLabel) || (isempty(handles.SegmentTitles{filenum}{c}) && contains(newLabel,''''''))
+                    str = handles.SegmentFileFormat;
+                    f = strfind(str,'\d');
+                    for j = f
+                        str = [str(1:j-1) sd str(j+2:end)];
+                    end
+                    f = strfind(str,'\t');
+                    for j = f
+                        str = [str(1:j-1) st str(j+2:end)];
+                    end
+                    f = strfind(str,'\f');
+                    for j = f
+                        str = [str(1:j-1) sf str(j+2:end)];
+                    end
+                    f = strfind(str,'\l');
+                    for j = f
+                        str = [str(1:j-1) handles.SegmentTitles{filenum}{c} str(j+2:end)];
+                    end
+                    f = strfind(str,'\i');
+                    for j = f
+                        num = num2str(str(j+2));
+                        if num>0
+                            indx = num2str(c,['%0.' num2str(num) 'd']);
+                        else
+                            indx = num2str(c);
+                        end
+                        str = [str(1:j-1) indx str(j+3:end)];
+                    end
+                    f = strfind(str,'\n');
+                    for j = f
+                        num = num2str(str(j+2));
+                        if num>0
+                            indx = num2str(filenum,['%0.' num2str(num) 'd']);
+                        else
+                            indx = num2str(filenum);
+                        end
+                        str = [str(1:j-1) indx str(j+3:end)];
+                    end
+    
+                    wav = sound(handles.SegmentTimes{filenum}(c,1):handles.SegmentTimes{filenum}(c,2));
+    
+                    audiowrite(fullfile(path, [str, '.wav']), wav, handles.fs, 'BitsPerSample', 16);
+                end
+            end
+        case 'Sonogram'
+            if strcmp(exportTo, 'File')
+                [~, name, ~] = fileparts(handles.text_FileName.String);
+                [file, path] = uiputfile([handles.DefaultRootPath '\' name '.jpg'],'Save image');
+                if ~ischar(file)
+                    delete(txtexp)
+                    return
+                end
+                handles.DefaultRootPath = path;
+            end
+            xl = handles.axes_Sonogram.XLim;
+            yl = handles.axes_Sonogram.YLim;
+            fig = figure();
+            set(fig,'Visible','off','Units','pixels');
+            pos = get(fig,'Position');
+            pos(3) = handles.ExportSonogramResolution*handles.ExportSonogramWidth*(xl(2)-xl(1));
+            pos(4) = handles.ExportSonogramResolution*handles.ExportSonogramHeight;
+            fig.Position = pos;
+            subplot('Position',[0 0 1 1]);
+            hold on
+            if handles.ExportReplotSonogram == 0
+                ch = findobj('Parent',handles.axes_Sonogram,'type',image);
+                for c = 1:length(ch)
+                    if ch(c) ~= txtexp
+                        x = ch(c).XData;
+                        y = ch(c).YData;
+                        m = ch(c).CData;
+                        f = find(x>=xl(1) & x<=xl(2));
+                        g = find(y>=yl(1) & y<=yl(2));
+                        imagesc(x(f),y(g),m(g,f));
+                    end
+                end
+            else
+                xlim(xl);
+                ylim(yl);
+                xlp = round(xl*handles.fs);
+                if xlp(1)<1; xlp(1) = 1; end
+    
+                [handles, numSamples] = eg_GetNumSamples(handles);
+    
+                if xlp(2)>numSamples
+                    xlp(2) = numSamples;
+                end
+                for c = 1:length(handles.menu_Algorithm)
+                    if handles.menu_Algorithm(c).Checked
+                        alg = handles.menu_Algorithm(c).Label;
+                    end
+                end
+                eg_runPlugin(handles.plugins.spectrums, alg, handles.axes_Sonogram, ...
+                    sound(xlp(1):xlp(2)), handles.fs, handles.SonogramParams);
+                handles.axes_Sonogram.YDir = 'normal';
+                handles.NewSlope = handles.DerivativeSlope;
+                handles.DerivativeSlope = 0;
+                handles = SetSonogramColors(handles);
+            end
+            cl = handles.axes_Sonogram.CLim;
+            handles.axes_Sonogram.CLim = cl;
+            col = handles.figure_Main.Colormap;
+            handles.figure_Main.Colormap = col;
+            axis tight;
+            axis off;
+    
+    
+        case 'Current sound'
+            wav = GenerateSound(handles,'snd');
+            fs = handles.fs * handles.SoundSpeed;
+    
+        case 'Sound mix'
+            wav = GenerateSound(handles,'mix');
+            fs = handles.fs * handles.SoundSpeed;
+    
+        case 'Events'
+            switch exportTo
+                case 'MATLAB'
+                    fig = figure();
+                    ax = axes(fig);
+                    ch = handles.axes_Events.Children;
+                    xs = [];
+                    ys = [];
+                    for c = length(ch):-1:1
+                        x = ch(c).XData;
+                        y = ch(c).YData;
+                        col = ch(c).Color;
+                        ls = ch(c).LineStyle;
+                        lw = ch(c).LineWidth;
+                        ma = ch(c).Marker;
+                        ms = ch(c).MarkerSize;
+                        mf = ch(c).MarkerFaceColor;
+                        me = ch(c).MarkerEdgeColor;
+                        plot(ax, x,y,'Color',col,'LineStyle',ls,'LineWidth',lw,'Marker',ma,'MarkerSize',ms,'MarkerFaceColor',mf,'MarkerEdgeColor',me);
+                        hold(ax, 'on');
+                        if handles.menu_DisplayFeatures.Checked && sum(col==[1 0 0])~=3
+                            xs = [xs x];
+                            ys = [ys y];
+                        end
+                    end
+        
+                    xl = handles.axes_Events.XLim;
+                    yl = handles.axes_Events.YLim;
+                    xlabel = handles.axes_Events.XLabel.String;
+                    ylabel = handles.axes_Events.YLabel.String;
+                    str = {};
+                    if handles.menu_DisplayFeatures.Checked
+                        xs = xs(xs>=xl(1) & xs<=xl(2));
+                        ys = ys(ys>=yl(1) & ys<=yl(2));
+                        str{1} = ['N = ' num2str(length(xs))];
+                        str{2} = ['Mean ' xlabel ' = ' num2str(mean(xs))];
+                        str{3} = ['Stdev ' xlabel ' = ' num2str(std(xs))];
+                        str{4} = ['Mean ' ylabel ' = ' num2str(mean(ys))];
+                        str{5} = ['Stdev ' ylabel ' = ' num2str(std(ys))];
+                        txt = text(xl(1),yl(2),str);
+                        txt.HorizontalAlignment = 'Left';
+                        txt.VerticalAlignment = 'top';
+                        txt.FontSize = 8;
+                    end
+                    xlabel(ax, xlabel);
+                    ylabel(ax, ylabel);
+                    xlim(ax, xl);
+                    ylim(ax, yl);
+                    box(ax, 'off');
+                case 'Clipboard'
+                    if handles.menu_DisplayFeatures.Checked
+                        ch = handles.axes_Events.Children;
+                        xs = [];
+                        ys = [];
+                        for c = length(ch):-1:1
+                            x = ch(c).XData;
+                            y = ch(c).YData;
+                            col = ch(c).Color;
+                            if sum(col==[1 0 0])~=3
+                                xs = [xs x];
+                                ys = [ys y];
+                            end
+                        end
+                        str = [num2str(length(xs)) char(9) num2str(mean(xs)) char(9) num2str(std(xs)) char(9) num2str(mean(ys)) char(9) num2str(std(ys))];
+                        clipboard('copy',str);
+                    else
+                        errordlg('Must be in the Display->Features mode!','Error');
+                    end
+            end
+    
+            delete(txtexp)
+            return
+    end
+    
+    
+    %%%
+    switch exportTo
+        case 'MATLAB'
+            switch exportAs
+                case 'Sonogram'
+                    fig.Units = 'inches';
+                    pos = fig.Position;
+                    pos(3) = handles.ExportSonogramWidth*(xl(2)-xl(1));
+                    pos(4) = handles.ExportSonogramHeight;
+                    fig.Position = pos;
+                    fig.Visible = 'on';
+                case 'Worksheet'
+                    lst = handles.WorksheetList;
+                    used = handles.WorksheetUsed;
+                    widths = handles.WorksheetWidths;
+        
+                    perpage = fix(0.001+(handles.WorksheetHeight - 2*handles.WorksheetMargin - handles.WorksheetIncludeTitle*handles.WorksheetTitleHeight)/(handles.ExportSonogramHeight + handles.WorksheetVerticalInterval));
+                    pagenum = fix((0:length(lst)-1)/perpage)+1;
+        
+                    for j = 1:max(pagenum)
+                        fig = figure('Units','inches');
+                        ud.Sounds = {};
+                        ud.Fs = [];
+                        bcg = axes('Position',[0 0 1 1],'Visible','off');
+                        ps = fig.Position;
+                        ps(3) = handles.WorksheetWidth;
+                        ps(4) = handles.WorksheetHeight;
+                        fig.Position = ps;
+                        if handles.WorksheetIncludeTitle == 1
+                            txt = text(bcg, handles.WorksheetMargin/handles.WorksheetWidth,(handles.WorksheetHeight-handles.WorksheetMargin)/handles.WorksheetHeight,handles.WorksheetTitle);
+                            txt.HorizontalAlignment = 'left';
+                            txt.VerticalAlignment = 'top';
+                            txt.FontSize = 14;
+                            txt = text(bcg, (handles.WorksheetWidth-handles.WorksheetMargin)/handles.WorksheetWidth,(handles.WorksheetHeight-handles.WorksheetMargin)/handles.WorksheetHeight,['Page ' num2str(j) '/' num2str(max(pagenum))]);
+                            txt.HorizontalAlignment = 'right';
+                            txt.VerticalAlignment = 'top';
+                            txt.FontSize = 14;
+                        end
+                        f = find(pagenum==j);
+                        for c = 1:length(f)
+                            indx = f(c);
+                            for d = 1:length(lst{indx})
+                                ud.Sounds{end+1} = handles.WorksheetSounds{lst{indx}(d)};
+                                ud.Fs(end+1) = handles.WorksheetFs(lst{indx}(d));
+        
+                                x = (handles.WorksheetWidth-used(indx))/2 + sum(widths(lst{indx}(1:d-1))) + handles.WorksheetHorizontalInterval*(d-1);
+                                wd = widths(lst{indx}(d));
+                                y = handles.WorksheetHeight - handles.WorksheetMargin - handles.WorksheetIncludeTitle*handles.WorksheetTitleHeight - handles.WorksheetVerticalInterval*c - handles.ExportSonogramHeight*c;
+                                ax = axes('Position',[x/handles.WorksheetWidth y/handles.WorksheetHeight wd/handles.WorksheetWidth handles.ExportSonogramHeight/handles.WorksheetHeight]);
+                                hold(ax, 'on');
+                                for i = 1:length(handles.WorksheetMs{lst{indx}(d)})
+                                    p = handles.WorksheetMs{lst{indx}(d)}{i};
+                                    if size(p,3) == 1
+                                        cl = handles.WorksheetClim{lst{indx}(d)};
+                                        p = (p-cl(1))/(cl(2)-cl(1));
+                                        p(p<0)=0;
+                                        p(p>1)=1;
+                                        p = round(p*(size(handles.WorksheetColormap{lst{indx}(d)},1)-1))+1;
+                                        p1 = reshape(handles.WorksheetColormap{lst{indx}(d)}(p,1),size(p));
+                                        p2 = reshape(handles.WorksheetColormap{lst{indx}(d)}(p,2),size(p));
+                                        p3 = reshape(handles.WorksheetColormap{lst{indx}(d)}(p,3),size(p));
+                                        p = cat(3,p1,p2,p3);
+                                    else
+                                        ax.CLim = handles.WorksheetClim{lst{indx}(d)};
+                                        fig.Colormap = handles.WorksheetColormap{lst{indx}(d)};
+                                    end
+                                    im = imagesc(ax, handles.WorksheetXs{lst{indx}(d)}{i},handles.WorksheetYs{lst{indx}(d)}{i},p);
+                                    if handles.ExportSonogramIncludeClip > 0
+                                        im.ButtonDownFcn = ['ud=get(gcf,''UserData''); sound(ud.Sounds{' num2str(length(ud.Sounds)) '},ud.Fs(' num2str(length(ud.Fs)) '))'];
+                                    end
+                                end
+                                xlim(ax, handles.WorksheetXLims{lst{indx}(d)});
+                                ylim(ax, handles.WorksheetYLims{lst{indx}(d)});
+                                axis(ax, 'off');
+                                if handles.ExportSonogramIncludeLabel == 1
+                                    fig.CurrentAxes = bcg;
+                                    txt = text(ax (x+wd/2)/handles.WorksheetWidth,(y+handles.ExportSonogramHeight)/handles.WorksheetHeight,string(datetime(handles.WorksheetTimes(lst{indx}(d)))));
+                                    txt.HorizontalAlignment = 'center';
+                                    txt.VerticalAlignment = 'bottom';
+                                end
+                            end
+                        end
+        
+                        if handles.ExportSonogramIncludeClip > 0
+                            fig.UserData = ud;
+                        end
+                        fig.Units = 'pixels';
+                        screen_size = get(0,'screensize');
+                        fig_pos = fig.Position;
+                        fig.position = [(screen_size(3)-fig_pos(3))/2,(screen_size(4)-fig_pos(4))/2,fig_pos(3),fig_pos(4)];
+        
+                        fig.PaperOrientation = handles.WorksheetOrientation;
+                        fig.PaperPositionMode = 'auto';
+                    end
+            end
+        case 'Clipboard'
+            fig.Units = 'inches';
+            pos = fig.Position;
+            pos(3) = handles.ExportSonogramWidth*(xl(2)-xl(1));
+            pos(4) = handles.ExportSonogramHeight;
+            fig.Position = pos;
+            fig.PaperPositionMode = 'manual';
+            fig.Renderer = 'painters'; %#ok<*FGREN> 
+        
+            print('-dmeta',['-f' num2str(fig)],['-r' num2str(handles.ExportSonogramResolution)]);
+            delete(fig)
+    
+        case 'File'
+            switch exportAs
+                case 'Sonogram'
+                    fig.Units = 'inches';
+                    pos = fig.Position;
+                    pos(3) = handles.ExportSonogramWidth*(xl(2)-xl(1));
+                    pos(4) = handles.ExportSonogramHeight;
+                    fig.Position = pos;
+                    fig.PaperPositionMode = 'auto';
+        
+                    print('-djpeg',['-f' num2str(fig)],[path file],['-r' num2str(handles.ExportSonogramResolution)]);
+        
+                    delete(fig);
+        
+                case {'Current sound', 'Sound mix'}
+                    [~,name,~] = fileparts(handles.text_FileName.String);
+                    [file, path] = uiputfile([handles.DefaultRootPath '\' name '.wav'],'Save sound');
+                    if ~ischar(file)
+                        delete(txtexp)
+                        return
+                    end
+                    handles.DefaultRootPath = path;
+        
+                    audiowrite(fullfile(path, file), wav, handles.fs, 'BitsPerSample', 16);
+            end
+    
+        case 'PowerPoint'
+            ppt = actxserver('PowerPoint.Application');
+            op = ppt.ActivePresentation;
+            slide_count = op.Slides.Count;
+            if slide_count>0
+                oldslide = ppt.ActiveWindow.View.Slide;
+                slide_count = int32(double(slide_count)+1);
+        %         newslide = invoke(op.Slides,'Add',slide_count,'ppLayoutBlank');
+                newslide = invoke(op.Slides,'Add',slide_count,11); %mod by VG
+            else
+                slide_count = int32(double(slide_count)+1);
+        %         newslide = invoke(op.Slides,'Add',slide_count,'ppLayoutBlank');
+                newslide = invoke(op.Slides,'Add',slide_count,11); %mod by VG
+                oldslide = ppt.ActiveWindow.View.Slide;
+            end
+        
+            switch exportAs
+                case 'Sonogram'
+                    set(fig,'PaperPositionMode','manual','Renderer','painters')
+                    print('-dmeta',['-f' num2str(fig)]);
+                    pic = invoke(newslide.Shapes,'PasteSpecial',2);
+                    ug = invoke(pic,'Ungroup');
+                    ug.Fill.Visible = 'msoFalse';
+                    set(ug,'Height',72*handles.ExportSonogramHeight,'Width',72*handles.ExportSonogramWidth*(xl(2)-xl(1)));
+        
+                    if handles.ExportSonogramIncludeClip > 0
+                        wav = GenerateSound(handles,'snd');
+                        fs = handles.fs * handles.SoundSpeed;
+        
+                        audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
+        
+                        snd = invoke(newslide.Shapes,'AddMediaObject', fullfile(pwd, tempFilename));
+                        snd.Left = ug.Left;
+                        snd.Top = ug.Top;
+                        mt = dir(f.UserData.ax);
+                        delete(mt(1).name);
+                    end
+        
+                    if handles.ExportSonogramIncludeLabel == 1
+                        txt = addWorksheetTextBox(handles, newslide, handles.text_DateAndTime.String, 8, [], [], 'msoAnchorCenter', 'msoAnchorBottom');
+                        txt.Left = ug.Left+ug.Width/2-txt.Width/2;
+                        txt.Top = ug.Top-txt.Height;
+                    end
+        
+                    if newslide.Shapes.Range.Count>1
+                        invoke(newslide.Shapes.Range,'Group');
+                    end
+                    invoke(newslide.Shapes.Range,'Cut');
+                    pic = invoke(oldslide.Shapes,'Paste');
+                    slideHeight = op.PageSetup.SlideHeight;
+                    slideWidth = op.PageSetup.SlideWidth;
+                    pic.Top = slideHeight/2-pic.Height/2;
+                    pic.Left = slideWidth/2-pic.Width/2;
+        
+                    delete(fig);
+        
+                    if newslide.SlideIndex~=oldslide.SlideIndex
+                        invoke(newslide,'Delete');
+                    end
+        
+                case {'Current sound', 'Sound mix'}
+                    audiowrite(tempFilename, wav, fs, 'BitsPerSample', 16);
+                    snd = invoke(newslide.Shapes,'AddMediaObject', fullfile(pwd, tempFilename));
+                    mt = dir(tempFilename);
+                    delete(mt(1).name);
+        
+                    if handles.ExportSonogramIncludeLabel == 1
+                        txt = addWorksheetTextBox(handles, newslide,  handles.text_DateAndTime.String, 8, snd.Left+snd.Width, [], [], 'msoAnchorMiddle');
+                        txt.Top = snd.Top+snd.Height/2-txt.Height/2;
+                    end
+        
+                    if newslide.Shapes.Range.Count>1
+                        invoke(newslide.Shapes.Range,'Group');
+                    end
+                    invoke(newslide.Shapes.Range, 'Cut');
+                    invoke(oldslide.Shapes, 'Paste');
+        
+                    if newslide.SlideIndex~=oldslide.SlideIndex
+                        invoke(newslide,'Delete');
+                    end
+        
+        
+                case 'Worksheet'
+                    ppt = actxserver('PowerPoint.Application');
+                    op = ppt.ActivePresentation;
+        
+                    offx = (op.PageSetup.SlideWidth-72*handles.WorksheetWidth)/2;
+                    offy = (op.PageSetup.SlideHeight-72*handles.WorksheetHeight)/2;
+        
+                    lst = handles.WorksheetList;
+                    used = handles.WorksheetUsed;
+                    widths = handles.WorksheetWidths;
+        
+                    perpage = fix(0.001+(handles.WorksheetHeight - 2*handles.WorksheetMargin - handles.WorksheetIncludeTitle*handles.WorksheetTitleHeight)/(handles.ExportSonogramHeight + handles.WorksheetVerticalInterval));
+                    pagenum = fix((0:length(lst)-1)/perpage)+1;
+        
+        
+                    fig = figure('Visible','off','Units','pixels');
+                    set(fig,'PaperPositionMode','manual','Renderer','painters');
+                    ax = subplot('Position',[0 0 1 1]);
+                    axis(ax, 'off');
+                    for j = 1:max(pagenum)
+                        if j > 1
+                            slide_count = op.Slides.Count;
+                            newslide = invoke(op.Slides,'Add',slide_count+1,'ppLayoutBlank');
+                        end
+                        if handles.WorksheetIncludeTitle == 1
+                            addWorksheetTextBox(handles, newslide, handles.WorksheetTitle, 14, 72*handles.WorksheetMargin+offx, 72*handles.WorksheetMargin+offy, [], 'msoAnchorTop');
+                            txt = addWorksheetTextBox(handles, newslide, ['Page ' num2str(j) '/' num2str(max(pagenum))], 14, [], 72*handles.WorksheetMargin+offy, [], 'msoAnchorTop');
+                            txt.Left = 72*(handles.WorksheetWidth-handles.WorksheetMargin-txt.Width+offx);
+                        end
+        
+                        f = find(pagenum==j);
+                        for c = 1:length(f)
+                            indx = f(c);
+        
+                            for d = 1:length(lst{indx})
+                                cla(ax);
+                                hold(ax, 'on');
+                                ps = fig.Position;
+                                ps(3) = handles.ExportSonogramResolution*handles.ExportSonogramWidth*(handles.WorksheetXLims{lst{indx}(d)}(2)-handles.WorksheetXLims{lst{indx}(d)}(1));
+                                ps(4) = handles.ExportSonogramResolution*handles.ExportSonogramHeight;
+                                fig.Position = ps;
+        
+                                x = (handles.WorksheetWidth-used(indx))/2 + sum(widths(lst{indx}(1:d-1))) + handles.WorksheetHorizontalInterval*(d-1);
+                                wd = widths(lst{indx}(d));
+                                y = handles.WorksheetMargin + handles.WorksheetIncludeTitle*handles.WorksheetTitleHeight + handles.WorksheetVerticalInterval*(c-1) + handles.ExportSonogramHeight*(c-1);
+        
+                                for i = 1:length(handles.WorksheetMs{lst{indx}(d)})
+                                    p = handles.WorksheetMs{lst{indx}(d)}{i};
+                                    imagesc(ax, handles.WorksheetXs{lst{indx}(d)}{i},handles.WorksheetYs{lst{indx}(d)}{i},p);
+                                    ax.CLim = handles.WorksheetClim{lst{indx}(d)};
+                                    fig.Colormap = handles.WorksheetColormap{lst{indx}(d)};
+                                end
+                                xlim(ax, handles.WorksheetXLims{lst{indx}(d)});
+                                ylim(ax, handles.WorksheetYLims{lst{indx}(d)});
+        
+                                print('-dmeta',['-f' num2str(fig)]);
+                                pic = invoke(newslide.Shapes,'PasteSpecial',2);
+                                ug = invoke(pic,'Ungroup');
+                                ug.Fill.Visible = 'msoFalse';
+                                ug.Height = 72*handles.ExportSonogramHeight;
+                                ug.Width = 72*handles.ExportSonogramWidth*(handles.WorksheetXLims{lst{indx}(d)}(2)-handles.WorksheetXLims{lst{indx}(d)}(1));
+                                ug.Left = 72*x+offx;
+                                ug.Top = 72*(y+handles.WorksheetVerticalInterval)+offy;
+        
+                                if handles.ExportSonogramIncludeLabel == 1
+                                    txt = addWorksheetTextBox(handles, newslide, string(datetime(handles.WorksheetTimes(lst{indx}(d)))), 10, [], [], 'msoAnchorCenter', 'msoAnchorBottom');
+                                    txt.Left = 72*(x+wd/2-txt.Width/2+offx);
+                                    txt.Top = 72*(y+handles.WorksheetVerticalInterval-txt.Height+offy);
+                                end
+        
+                                if handles.ExportSonogramIncludeClip > 0
+                                    wav = handles.WorksheetSounds{lst{indx}(d)};
+                                    fs = handles.WorksheetFs(lst{indx}(d));
+                                    audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
+                                    snd = invoke(newslide.Shapes,'AddMediaObject', fullfile(pwd, tempFilename));
+                                    snd.Left = ug.Left;
+                                    snd.Top = ug.Top;
+                                    mt = dir(f.UserData.ax);
+                                    delete(mt(1).name);
+                                end
+                            end
+                        end
+                    end
+                    delete(fig);
+        
+                case 'Figure'
+                    handles.template = handles.export_options_EditFigureTemplate.UserData;
+        
+                    ppt = actxserver('PowerPoint.Application');
+                    op = ppt.ActivePresentation;
+        
+                    fig = figure('Visible','off','Units','pixels');
+                    fig.PaperPositionMode = 'manual';
+                    fig.Renderer = 'painters';
+                    ax = subplot('Position',[0 0 1 1]);
+        
+                    xl = handles.axes_Sonogram.XLim;
+        
+                    offx = (op.PageSetup.SlideWidth-72*handles.ExportSonogramWidth*(xl(2)-xl(1)))/2;
+                    offy = (op.PageSetup.SlideHeight-72*(sum(handles.template.Height)+sum(handles.template.Interval(1:end-1))))/2;
+        
+                    sound_inserted = 0;
+        
+                    ch = handles.menu_export_options_Animation.Children;
+                    progbar = [];
+                    axs = [handles.axes_Channel2 handles.axes_Channel1 handles.axes_Amplitude handles.axes_Segments handles.axes_Sonogram handles.axes_Sound];
+                    for c = 1:length(ch)
+                        if ch(c).Checked && axs(c).Visible
+                            progbar = [progbar c];
+                        end
+                    end
+                    ycoord = zeros(0,4);
+                    coords = {};
+        
+                    for c = 1:length(handles.template.Plot)
+                        ps = fig.Position;
+                        ps(3) = handles.ExportSonogramResolution*handles.ExportSonogramWidth*(xl(2)-xl(1));
+                        ps(4) = handles.ExportSonogramResolution*handles.template.Height(c);
+                        fig.Position = ps;
+        
+                        cla(ax);
+        
+                        include_progbar = 0;
+        
+                        switch handles.template.Plot{c}
+        
+                            case 'Sonogram'
+                                if ~isempty(find(progbar==5, 1))
+                                    include_progbar = 1;
+                                end
+        
+                                yl = handles.axes_Sonogram.YLim;
+        
+                                hold(ax, 'on');
+                                if handles.ExportReplotSonogram == 0
+                                    ch = findobj('Parent',handles.axes_Sonogram,'type','image');
+                                    for j = 1:length(ch)
+                                        if ch(j) ~= txtexp
+                                            x = ch(j).XData;
+                                            y = ch(j).YData;
+                                            m = ch(j).CData;
+                                            f = find(x>=xl(1) & x<=xl(2));
+                                            g = find(y>=yl(1) & y<=yl(2));
+                                            imagesc(ax, x(f),y(g),m(g,f));
+                                        end
+                                    end
+                                else
+                                    xlim(ax, xl);
+                                    ylim(ax, yl);
+                                    xlp = round(xl*handles.fs);
+                                    if xlp(1)<1; xlp(1) = 1; end
+                                    [handles, numSamples] = eg_GetNumSamples(handles);
+        
+                                    if xlp(2)>numSamples; xlp(2) = numSamples; end
+                                    for j = 1:length(handles.menu_Algorithm)
+                                        if handles.menu_Algorithm(j).Checked
+                                            alg = handles.menu_Algorithm(j).Label;
+                                        end
+                                    end
+                                    eg_runPlugin(handles.plugins.spectrums, ...
+                                        alg, ax, sound(xlp(1):xlp(2)), ...
+                                        handles.fs, handles.SonogramParams);
+                                    ax.YDir = 'normal';
+                                    handles.NewSlope = handles.DerivativeSlope;
+                                    handles.DerivativeSlope = 0;
+                                    handles = SetSonogramColors(handles);
+                                end
+                                cl = handles.axes_Sonogram.CLim;
+                                ax.CLim = cl;
+                                col = handles.figure_Main.Colormap;
+                                fig.Colormap = col;
+                                axis(ax, 'tight');
+                                axis(ax, 'off');
+        
+                            case 'Segments'
+                                if ~isempty(find(progbar==4, 1))
+                                    include_progbar = 1;
+                                end
+        
+                                st = handles.SegmentTimes{getCurrentFileNum(handles)};
+                                sel = handles.SegmentSelection{getCurrentFileNum(handles)};
+                                f = find(st(:,1)>xl(1)*handles.fs & st(:,1)<xl(2)*handles.fs);
+                                g = find(st(:,2)>xl(1)*handles.fs & st(:,2)<xl(2)*handles.fs);
+                                h = find(st(:,1)<xl(1)*handles.fs & st(:,2)>xl(2)*handles.fs);
+                                f = unique([f; g; h]);
+        
+                                hold(ax, 'on');
+                                [handles, numSamples] = eg_GetNumSamples(handles);
+        
+                                xs = linspace(0, numSamples/handles.fs, numSamples);
+                                for j = f'
+                                    if sel(j)==1
+                                        patch(xs([st(j,1) st(j,2) st(j,2) st(j,1)]),[0 0 1 1],handles.SegmentSelectColor);
+                                    end
+                                end
+        
+                                ylim(ax, [0, 1]);
+                                axis(ax, 'off');
+        
+                            case 'Segment labels'
+                                st = handles.SegmentTimes{getCurrentFileNum(handles)};
+                                sel = handles.SegmentSelection{getCurrentFileNum(handles)};
+                                lab = handles.SegmentTitles{getCurrentFileNum(handles)};
+                                f = find(st(:,1)>xl(1)*handles.fs & st(:,1)<xl(2)*handles.fs);
+                                g = find(st(:,2)>xl(1)*handles.fs & st(:,2)<xl(2)*handles.fs);
+                                h = find(st(:,1)<xl(1)*handles.fs & st(:,2)>xl(2)*handles.fs);
+                                f = unique([f; g; h]);
+        
+                                hold(ax, 'on');
+                                [handles, numSamples] = eg_GetNumSamples(handles);
+        
+                                xs = linspace(0, numSamples/handles.fs, numSamples);
+                                for j = f'
+                                    if sel(j)==1
+                                        if ~isempty(lab{j})
+                                            txt = addWorksheetTextBox(handles, newslide, lab{j}, 8, [], [], 'msoAnchorCenter', 'msoAnchorBottom');
+                                            txt.Left = offx+72*handles.ExportSonogramWidth*mean(xs(st(j,:))-xl(1))-txt.Width/2;
+                                            txt.Top = offy+72*(sum(handles.template.Interval(1:c-1)+sum(handles.template.Height(1:c-1))));
+                                        end
+                                    end
+                                end
+        
+                                axis(ax, 'off');
+        
+                            case 'Amplitude'
+                                if ~isempty(find(progbar==3, 1))
+                                    include_progbar = 1;
+                                end
+        
+                                m = findobj('Parent',handles.axes_Amplitude,'LineStyle','-');
+                                x = m.XData;
+                                y = m.YData;
+                                col = m.Color;
+                                linewidth = m.LineWidth;
+                                f = find(x>=xl(1) & x<=xl(2));
+                                if sum(col==1)==3
+                                    col = col-eps;
+                                end
+                                plot(ax, x(f),y(f),'Color',col);
+        
+                                ylim(ax, handles.axes_Amplitude.YLim);
+                                ax.YDir = 'normal';
+                                axis(ax, 'off');
+        
+                            case {'Top plot','Bottom plot'}
+                                if ~isempty(find(progbar==1, 1)) && strcmp(handles.template.Plot{c},'Bottom plot')
+                                    include_progbar = 1;
+                                end
+                                if ~isempty(find(progbar==2, 1)) && strcmp(handles.template.Plot{c},'Top plot')
+                                    include_progbar = 1;
+                                end
+        
+                                if strcmp(handles.template.Plot{c},'Top plot')
+                                    axnum = 1;
+                                else
+                                    axnum = 2;
+                                end
+        
+                                m = findobj('Parent',handles.axes_Channel(axnum),'LineStyle','-');
+                                hold(ax, 'on')
+                                for j = 1:length(m)
+                                    x = m(j).XData;
+                                    y = m(j).YData;
+                                    col = m(j).Color;
+                                    linewidth = m(j).LineWidth;
+                                    f = find(x>=xl(1) & x<=xl(2));
+                                    if sum(col==1)==3
+                                        col = col-eps;
+                                    end
+                                    plot(ax, x(f),y(f),'Color',col);
+                                end
+        
+                                ylim(ax, handles.axes_Channel(axnum).YLim);
+                                ax.YDir = 'normal';
+                                axis(ax, 'off');
+        
+                            case 'Sound wave'
+                                if ~isempty(find(progbar==6, 1))
+                                    include_progbar = 1;
+                                end
+        
+                                m = findobj('Parent',handles.axes_Sound,'LineStyle','-');
+                                hold(ax, 'on')
+                                for j = 1:length(m)
+                                    x = m(j).XData;
+                                    y = m(j).YData;
+                                    f = find(x>=xl(1) & x<=xl(2));
+                                    plot(ax, x(f),y(f),'b');
+                                end
+                                linewidth = 1;
+        
+                                ylim(ax, handles.axes_Sound.YLim);
+                                ax.YDir = 'normal';
+                                axis(ax, 'off');
+                        end
+        
+                        if handles.template.AutoYLimits(c)==1
+                            axis tight;
+                        end
+                        yl = ylim;
+                        xlim(xl);
+        
+        
+                        if ~strcmp(handles.template.Plot{c},'Segment labels')
+                            print('-dmeta',['-f' num2str(fig)]);
+                            pic = invoke(newslide.Shapes,'PasteSpecial',2);
+                            ug = invoke(pic,'Ungroup');
+                            ug.Height = 72*handles.template.Height(c);
+                            ug.Width = 72*handles.ExportSonogramWidth*(xl(2-xl(1)));
+                            ug.Left = offx;
+                            ug.Top = offy+72*(sum(handles.template.Interval(1:c-1))+sum(handles.template.Height(1:c-1)));
+        
+                            switch handles.template.YScaleType(c)
+                                case 0
+                                    % no scale bar
+                                case 1 % scalebar
+                                    approx = handles.ScalebarHeight/handles.template.Height(c)*(yl(2)-yl(1));
+                                    ord = floor(log10(approx));
+                                    val = approx/10^ord;
+                                    if ord == 0
+                                        pres = [1 2 3 4 5 10];
+                                    else
+                                        pres = [1 2 2.5 3 4 5 10];
+                                    end
+                                    [~, fnd] = min(abs(pres-val));
+                                    val = pres(fnd)*10^ord;
+                                    sb_height = 72*val/(yl(2)-yl(1))*handles.template.Height(c);
+        
+                                    unit = '';
+                                    switch handles.template.Plot{c}
+                                        case 'Sonogram'
+                                            unit = ' kHz';
+                                            val = val/1000;
+                                        case 'Amplitude'
+                                            txt = handles.axes_Amplitude.YLabel.String;
+                                            fnd2 = strfind(txt,')');
+                                            if ~isempty(fnd2)
+                                                fnd1 = strfind(txt(1:fnd2(end)),'(');
+                                                if ~isempty(fnd1)
+                                                    unit = [' ' txt(fnd1(end)+1:fnd2(end)-1)];
+                                                end
+                                            end
+                                        case 'Top plot'
+                                            txt = handles.axes_Channel1.YLabel.String;
+                                            fnd2 = strfind(txt,')');
+                                            if ~isempty(fnd2)
+                                                fnd1 = strfind(txt(1:fnd2(end)),'(');
+                                                if ~isempty(fnd1)
+                                                    unit = [' ' txt(fnd1(end)+1:fnd2(end)-1)];
+                                                end
+                                            end
+                                        case 'Bottom plot'
+                                            txt = handles.axes_Channel2.YLabel.String;
+                                            fnd2 = strfind(txt,')');
+                                            if ~isempty(fnd2)
+                                                fnd1 = strfind(txt(1:fnd2(end)),'(');
+                                                if ~isempty(fnd1)
+                                                    unit = [' ' txt(fnd1(end)+1:fnd2(end)-1)];
+                                                end
+                                            end
+                                        case 'Sound wave'
+                                            unit = 'ADU';
+                                    end
+        
+                                    sb_posy = ug.Top+0.5*ug.Height-0.5*sb_height;
+        
+                                    if handles.VerticalScalebarPosition <= 0
+                                        sb_posx = offx + 72*handles.VerticalScalebarPosition;
+                                    else
+                                        sb_posx = offx + 72*(handles.ExportSonogramWidth*(xl(2)-xl(1))+handles.VerticalScalebarPosition);
+                                    end
+                                    invoke(newslide.Shapes,'AddLine',sb_posx,sb_posy,sb_posx,sb_posy+sb_height);
+        
+                                    txt = addWorksheetTextBox(handles, newslide, [num2str(val) unit], 8, [], [], [], 'msoAnchorMiddle');
+                                    if handles.VerticalScalebarPosition <= 0
+                                        txt.Left = sb_posx-txt.Width-72*0.05;
+                                        txt.TextFrame.TextRange.ParagraphFormat.Alignment = 'ppAlignRight';
+                                    else
+                                        txt.Left = sb_posx+72*0.05;
+                                        txt.TextFrame.TextRange.ParagraphFormat.Alignment = 'ppAlignLeft';
+                                    end
+                                    txt.Top = ug.Top+0.5*ug.Height-0.5*txt.Height;
+        
+                                case 2 % axis
+                                    invoke(newslide.Shapes,'AddLine',offx,ug.Top,offx,ug.Top+ug.Height);
+                                    fig_yscale = figure('Visible','off','Units','inches');
+                                    ps = fig_yscale.Position;
+                                    ps(4) = handles.template.Height(c);
+                                    fig_yscale.Position = ps;
+                                    ax = subplot('Position',[0 0 1 1]);
+                                    ylim(ax, [yl(1) yl(2)]);
+                                    ytick = ax.YTick;
+                                    delete(fig_yscale);
+        
+                                    switch handles.template.Plot{c}
+                                        case 'Sonogram'
+                                            str = handles.axes_Sonogram.YLabel.String;
+                                        case 'Amplitude'
+                                            str = handles.axes_Amplitude.YLabel.String;
+                                        case 'Top plot'
+                                            str = handles.axes_Channel1.YLabel.String;
+                                        case 'Bottom plot'
+                                            str = handles.axes_Channel2.YLabel.String;
+                                        case 'Sound wave'
+                                            str = 'Sound amplitude (ADU)';
+                                    end
+        
+                                    mn = inf;
+                                    for j = 1:length(ytick')
+                                        tickpos = ug.Top+ug.Height-(ytick(j)-yl(1))/(yl(2)-yl(1))*ug.Height;
+                                        invoke(newslide.Shapes,'AddLine',offx,tickpos,offx+72*0.02,tickpos);
+        
+                                        txt = addWorksheetTextBox(handles, newslide, num2str(ytick(j)), 8, [], [], [], 'msoAnchorMiddle', 'ppAlignRight');
+                                        txt.Left = offx-txt.Width-72*0.02;
+                                        txt.Top = tickpos-0.5*txt.Height;
+                                        mn = min([mn, txt.Left]);
+                                    end
+        
+        %                             if strcmp(handles.template.Plot{c},'Sonogram')
+        %                                 ytick = ytick/1000;
+        %                             end
+        
+                                    addWorksheetTextBox(handles, newslide, str, 10, [], [], 'msoAnchorCenter', 'msoAnchorBottom', 'ppAlignCenter', 270);
+                                    txt.Left = mn-0.5*txt.Width-72*0.15;
+                                    txt.Top = ug.Top+0.5*ug.Height-0.5*txt.Height;
+                            end
+        
+                            if include_progbar == 1
+                                ycoord = [ycoord; ug.Left ug.Top ug.Width ug.Height];
+                                switch handles.template.Plot{c}
+                                    case {'Amplitude','Top plot','Bottom plot'}
+                                        xs = (x(f)-xl(1))/(xl(2)-xl(1));
+                                        ys = (y(f)-yl(1))/(yl(2)-yl(1));
+                                        crd = [xs' ys'];
+                                    case 'Sound wave'
+                                        xs = (x(f)-xl(1))/(xl(2)-xl(1));
+                                        ys = (y(f)-yl(1))/(yl(2)-yl(1));
+                                        crd = [xs' abs(ys')];
+                                    case 'Segments'
+                                        crd = [];
+                                        for j = f'
+                                            if sel(j)==1
+                                                crd = [crd; xs(st(j,1)) 0; xs(st(j,2)) 1];
+                                            end
+                                        end
+                                        crd = [xl(1) 0; crd; xl(2) 0];
+                                        crd(:,1) = (crd(:,1)-xl(1))/(xl(2)-xl(1));
+                                        crd(:,2) = (crd(:,2)-yl(1))/(yl(2)-yl(1));
+                                    case 'Sonogram'
+                                        ch = findobj('Parent',handles.axes_Sonogram,'type','image');
+                                        crd = [];
+                                        for j = 1:length(ch)
+                                            if ch(j) ~= txtexp
+                                                x = ch(j).XData;
+                                                y = ch(j).YData;
+                                                m = ch(j).CData;
+                                                f = find(x>=xl(1) & x<=xl(2));
+                                                g = find(y>=yl(1) & y<=yl(2));
+                                                if handles.SonogramFollowerPower == inf
+                                                    [~, wh] = max(m(g,f),[],1);
+                                                    crd = [crd; x(f)' y(g(wh))'];
+                                                else
+                                                    crd = [crd; x(f)' ((y(g)*abs(m(g,f)).^handles.SonogramFollowerPower)./sum(abs(m(g,f)).^handles.SonogramFollowerPower,1))'];
+                                                end
+                                            end
+                                        end
+                                        crd(:,1) = (crd(:,1)-xl(1))/(xl(2)-xl(1));
+                                        crd(:,2) = (crd(:,2)-yl(1))/(yl(2)-yl(1));
+                                end
+                                crd(:,1) = crd(:,1)*ycoord(end,3)/op.PageSetup.SlideWidth;
+                                crd(:,2) = -crd(:,2)*ycoord(end,4)/op.PageSetup.SlideHeight;
+                                crd = sortrows(crd);
+        
+                                if handles.playback_Reverse.Checked
+                                    crd(:,1) = flipud(crd(:,1))-crd(end,1);
+                                    crd(:,2) = flipud(crd(:,2));
+                                end
+        
+                                vals = [];
+                                if ~strcmp(handles.template.Plot{c},'Segments')
+                                    lst = linspace(crd(1,1),crd(end,1),round(ug.Width)*2);
+                                    for j=1:length(lst)
+                                        fnd = find(abs(crd(:,1)-lst(j))<abs(lst(end)-lst(1))/length(lst));
+                                        [~, ind] = max(abs(crd(fnd,2)-mean(crd(:,2))));
+                                        vals(j) = crd(fnd(ind),2);
+                                    end
+                                    crd = [crd(round(linspace(1,size(crd,1),length(lst))),1) vals'];
+                                end
+                                coords{end+1} = crd;
+                            end
+        
+                            if strcmp(handles.template.Plot{c},'Sonogram') && handles.ExportSonogramIncludeClip > 0
+                                if handles.ExportSonogramIncludeClip == 1
+                                    wav = GenerateSound(handles,'snd');
+                                else
+                                    wav = GenerateSound(handles,'mix');
+                                end
+                                fs = handles.fs * handles.SoundSpeed;
+        
+                                audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
+        
+                                snd = invoke(newslide.Shapes,'AddMediaObject', fullfile(pwd, tempFilename));
+                                snd.Left = ug.Left;
+                                snd.Top = ug.Top;
+                                mt = dir(f.UserData.ax);
+                                delete(mt(1).name);
+                                sound_inserted = 1;
+                            end
+        
+                            ug = invoke(ug,'Ungroup');
+                            if ~strcmp(handles.template.Plot{c},'Segments')
+                                for j = 1:ug.Count
+                                    if strcmp(ug.Item(j).Type,'msoAutoShape')
+                                        invoke(ug.Item(j),'Delete');
+                                    else
+                                        if exist('LineWidth', 'var')
+                                            ug.Item(j).Line.Weight = linewidth;
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+        
+                    if handles.ExportSonogramIncludeLabel == 1
+                        dt = datevec(handles.text_DateAndTime.String);
+                        dt(6) = dt(6)+xl(1);
+                        addWorksheetTextBox(handles, newslide, string(datetime(dt)), 10, [], [], 'msoAnchorCenter', 'msoAnchorBottom', 'ppAlignCenter');
+                        txt.Left = op.PageSetup.SlideWidth-txt.Width/2;
+                        txt.Top = offy-txt.Height;
+                    end
+        
+                    if sound_inserted == 0 && handles.ExportSonogramIncludeClip > 0
+                        if handles.ExportSonogramIncludeClip == 1
+                            wav = GenerateSound(handles,'snd');
+                        else
+                            wav = GenerateSound(handles,'mix');
+                        end
+                        fs = handles.fs * handles.SoundSpeed;
+        
+                        audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
+        
+                        snd = invoke(newslide.Shapes,'AddMediaObject',[pwd '\eg_temp.wav']);
+                        snd.Left = offx;
+                        snd.Top = offy;
+                        mt = dir(f.UserData.ax);
+                        delete(mt(1).name);
+                    end
+        
+                    % Insert animation
+        
+                    if exist('snd', 'var')
+                        anim = invoke(snd.ActionSettings,'Item',1);
+                        anim.Action = 'ppActionNone';
+        
+                        seq = newslide.TimeLine;
+                        seq = seq.InteractiveSequences;
+                        seq = invoke(seq,'Item',1);
+                        itm(1) = invoke(seq,'Item',1);
+        
+                        animopt = findobj('Parent',handles.menu_export_options_Animation,'Checked','on');
+                        animopt = animopt.Label;
+        
+                        if ~strcmp(animopt,'None')
+                            for c = 1:size(ycoord,1)
+                                if handles.playback_Reverse.Checked
+                                    ycoord(c,1) = ycoord(c,1)+ycoord(c,3);
+                                    ycoord(c,3) = -ycoord(c,3);
+                                end
+        
+                                col = handles.ProgressBarColor;
+                                col = 255*col(1) + 256*255*col(2) + 256^2*255*col(3);
+                                switch animopt
+                                    case 'Progress bar'
+                                        animline = invoke(newslide.Shapes,'Addline',ycoord(c,1),ycoord(c,2),ycoord(c,1),ycoord(c,2)+ycoord(c,4));
+                                        animline.Line.Weight = 2;
+                                        animline.Line.ForeColor.RGB = col;
+                                    case 'Arrow above'
+                                        animline = invoke(newslide.Shapes,'Addline',ycoord(c,1),ycoord(c,2),ycoord(c,1),ycoord(c,2)-15);
+                                        animline.Line.BeginArrowheadStyle = 'msoArrowheadTriangle';
+                                        animline.Line.BeginArrowheadWidth = 'msoArrowheadWidthMedium';
+                                        animline.Line.BeginArrowheadLength = 'msoArrowheadLengthMedium';
+                                        animline.Line.Weight = 2;
+                                        animline.Line.ForeColor.RGB = col;
+                                    case 'Arrow below'
+                                        animline = invoke(newslide.Shapes,'Addline',ycoord(c,1),ycoord(c,2)+ycoord(c,4),ycoord(c,1),ycoord(c,2)+ycoord(c,4)+15);
+                                        animline.Line.BeginArrowheadStyle = 'msoArrowheadTriangle';
+                                        animline.Line.BeginArrowheadWidth = 'msoArrowheadWidthMedium';
+                                        animline.Line.BeginArrowheadLength = 'msoArrowheadLengthMedium';
+                                        animline.Line.Weight = 2;
+                                        animline.Line.ForeColor.RGB = col;
+                                    case 'Value follower'
+                                        animline = invoke(newslide.Shapes,'Addshape',9,ycoord(c,1)-2,ycoord(c,2)+ycoord(c,4)-2,4,4);
+                                        animline.Fill.Forecolor.RGB = col;
+                                        animline.Line.Forecolor.RGB = col;
+                                end
+        
+        
+                                itm(end+1) = invoke(newslide.TimeLine.MainSequence,'AddEffect',animline,'msoAnimEffectAppear');
+                                itm(end).Timing.TriggerType = 'msoAnimTriggerWithPrevious';
+                                invoke(itm(end),'MoveAfter',itm(end-1));
+        
+                                itm(end+1) = invoke(newslide.TimeLine.MainSequence,'AddEffect',animline,'msoAnimEffectPathRight');
+                                itm(end).Timing.TriggerType = 'msoAnimTriggerWithPrevious';
+                                set(itm(end).Timing,'SmoothStart','msoFalse','SmoothEnd','msoFalse');
+                                itm(end).Timing.Duration = length(wav)/fs;
+        
+                                beh = itm(end).Behaviors;
+                                beh = invoke(beh,'Item',1);
+                                mef = beh.MotionEffect;
+        
+                                if strcmp(animopt,'Value follower')
+                                    crp = coords{c};
+                                    crp(:,1) = [0; crp(1:end-1,1)];
+                                    m = [repmat(' M ',size(coords{c},1),1) num2str(crp) repmat(' L ',size(coords{c},1),1) num2str(coords{c})];
+                                    m = reshape(m',1, ...
+                                        numel(m));
+                                    str = [m ' E'];
+                                    mef.Path = str;
+                                else
+                                    set(mef,'Path',['M 0 0 L ' num2str(ycoord(c,3)/op.PageSetup.SlideWidth) ' 0 E']);
+                                end
+        
+                                invoke(itm(end),'MoveAfter',itm(end-1));
+        
+                                itm(end+1) = invoke(newslide.TimeLine.MainSequence,'AddEffect',animline,'msoAnimEffectFade');
+                                itm(end).Exit = 'msoTrue';
+                                set(itm(end).Timing,'TriggerDelayTime',length(wav)/fs,'Duration',0.01)
+                                itm(end).Timing.TriggerType = 'msoAnimTriggerWithPrevious';
+                                invoke(itm(end),'MoveAfter',itm(end-1));
+                            end
+                        end
+                    end
+        
+        
+        
+                    delete(fig);
+        
+                    bestlength = handles.ScalebarWidth/handles.ExportSonogramWidth;
+                    errs = abs(handles.ScalebarPresets-bestlength);
+                    [~, j] = min(errs);
+                    y = offy+72*(sum(handles.template.Height)+sum(handles.template.Interval));
+                    x2 = op.PageSetup.SlideWidth-offx;
+                    x1 = x2-72*handles.ScalebarPresets(j)*handles.ExportSonogramWidth;
+                    invoke(newslide.Shapes,'AddLine',x1,y,x2,y);
+                    txt = addWorksheetTextBox(handles, newslide, handles.ScalebarLabels{j}, 8, [], y, 'msoAnchorCenter', 'msoAnchorTop', 'ppAlignCenter');
+                    txt.Left = (x1+x2/2-txt.Width/2);
+            end
+    end
+    
+    delete(txtexp);
+    guidata(hObject, handles);    
+
+function handleMenuGroupCheck(group, itemToCheck)
+    for item = group
+        if item == itemToCheck
+            item.Checked = 'on';
+        else
+            item.Checked = 'off';
+        end
+    end
+
+function [checkedItemName, checkedItemNum] = getMenuGroupValue(group)
+    for k = 1:length(group)
+        item = group(k);
+        if item.Checked
+            checkedItemNum = k;
+            checkedItemName = item.Text;
+            return;
+        end
+    end
+    % No checked item found
+    checkedItemNum = [];
+    checkedItemName = '';
+
+% --------------------------------------------------------------------
+function menu_ExportAs_Callback(hObject, eventdata, handles)
+    % hObject    handle to menu_ExportAs (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+function handles = handleExportAsChange(handles)
+    exportAs = getMenuGroupValue(handles.menu_ExportAs.Children');
+
+    exportToOptions = [handles.export_toMATLAB, ...
+                       handles.export_toPowerPoint, ...
+                       handles.export_toFile, ...
+                       handles.export_toClipboard];
+
+    % Depending on what the "export as" setting is, enable/disable the
+    % options for "export to"
+    switch exportAs
+        case 'Sonogram'
+            enablePattern = [1 1 1 1];
+        case 'Figure'
+            enablePattern = [0 1 0 0];
+        case 'Worksheet'
+            enablePattern = [1 1 0 0];
+        case {'Current sound','Sound mix'}
+            enablePattern = [0 1 1 0];
+        case 'Segments'
+            enablePattern = [0 0 1 0];
+        case 'Events'
+            enablePattern = [1 0 0 1];
+    end
+
+    for k = 1:length(exportToOptions)
+        exportToOptions(k).Enable = enablePattern(k);
+        if ~enablePattern(k)
+            exportToOptions(k).Checked = false;
+        end
+    end
+
+% --------------------------------------------------------------------
+function export_asSonogram_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_asSonogram (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handleMenuGroupCheck(handles.menu_ExportAs.Children', hObject);
+    handles = handleExportAsChange(handles);
+    guidata(hObject, handles);
+
+% --------------------------------------------------------------------
+function export_asFigure_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_asFigure (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handleMenuGroupCheck(handles.menu_ExportAs.Children', hObject);
+    handles = handleExportAsChange(handles);
+    guidata(hObject, handles);
+
+
+% --------------------------------------------------------------------
+function export_asWorksheet_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_asWorksheet (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handleMenuGroupCheck(handles.menu_ExportAs.Children', hObject);
+    handles = handleExportAsChange(handles);
+    guidata(hObject, handles);
+
+
+% --------------------------------------------------------------------
+function export_asCurrentSound_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_asCurrentSound (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handleMenuGroupCheck(handles.menu_ExportAs.Children', hObject);
+    handles = handleExportAsChange(handles);
+    guidata(hObject, handles);
+
+
+% --------------------------------------------------------------------
+function export_asSoundMix_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_asSoundMix (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handleMenuGroupCheck(handles.menu_ExportAs.Children', hObject);
+    handles = handleExportAsChange(handles);
+    guidata(hObject, handles);
+
+
+% --------------------------------------------------------------------
+function export_asEvents_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_asEvents (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handleMenuGroupCheck(handles.menu_ExportAs.Children', hObject);
+    handles = handleExportAsChange(handles);
+    guidata(hObject, handles);
+
+
+% --------------------------------------------------------------------
+function menu_ExportTo_Callback(hObject, eventdata, handles)
+    % hObject    handle to menu_ExportTo (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function export_Options_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_Options (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function export_options_SonogramHeight_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_options_SonogramHeight (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    answer = inputdlg({'Sonogram height (in)'},'Height',1,{num2str(handles.ExportSonogramHeight)});
+    if isempty(answer)
+        return
+    end
+    handles.ExportSonogramHeight = str2double(answer{1});
+    
+    handles = UpdateWorksheet(handles);
+    
+    guidata(hObject, handles);
+
+% --------------------------------------------------------------------
+function export_options_ImageTimescape_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_options_ImageTimescape (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+
+    answer = inputdlg({'Image timescale (in/sec)'},'Timescale',1,{num2str(handles.ExportSonogramWidth)});
+    if isempty(answer)
+        return
+    end
+    handles.ExportSonogramWidth = str2double(answer{1});
+    
+    handles = UpdateWorksheet(handles);
+    
+    guidata(hObject, handles);
+    
+% --------------------------------------------------------------------
+function export_options_IncludeTimestamp_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_options_IncludeTimestamp (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    if handles.export_options_IncludeTimestamp.Checked
+        handles.export_options_IncludeTimestamp.Checked = 'off';
+        handles.ExportSonogramIncludeLabel = 0;
+    else
+        handles.export_options_IncludeTimestamp.Checked = 'on';
+        handles.ExportSonogramIncludeLabel = 1;
+    end
+    
+    guidata(hObject, handles);
+    
+
+% --------------------------------------------------------------------
+function menu_export_options_IncludeSoundClip_Callback(hObject, eventdata, handles)
+    % hObject    handle to menu_export_options_IncludeSoundClip (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function menu_export_options_Animation_Callback(hObject, eventdata, handles)
+    % hObject    handle to menu_export_options_Animation (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function export_options_ImageResolution_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_options_ImageResolution (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    answer = inputdlg({'Resolution (dpi)'},'Resolution',1,{num2str(handles.ExportSonogramResolution)});
+    if isempty(answer)
+        return
+    end
+    handles.ExportSonogramResolution = str2double(answer{1});    
+
+% --------------------------------------------------------------------
+function menu_export_options_SonogramImageMode_Callback(hObject, eventdata, handles)
+    % hObject    handle to menu_export_options_SonogramImageMode (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function export_options_ScalebarDimensions_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_options_ScalebarDimensions (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    answer = inputdlg({'Preferred horizontal scalebar width (in)','Preferred vertical scalebar height (in)','Vertical scalebar position (in), <0 for left, >0 for right'},'Scalebar',1,{num2str(handles.ScalebarWidth),num2str(handles.ScalebarHeight),num2str(handles.VerticalScalebarPosition)});
+    if isempty(answer)
+        return
+    end
+    handles.ScalebarWidth = str2double(answer{1});
+    handles.ScalebarHeight = str2double(answer{2});
+    handles.VerticalScalebarPosition = str2double(answer{3});
+    
+    guidata(hObject, handles);
+
+% --------------------------------------------------------------------
+function export_options_EditFigureTemplate_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_options_EditFigureTemplate (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    eg_Template_Editor(hObject);
+
+% --------------------------------------------------------------------
+function export_toMATLAB_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_toMATLAB (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handleMenuGroupCheck(handles.menu_ExportTo.Children', hObject);
+
+
+% --------------------------------------------------------------------
+function export_toPowerPoint_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_toPowerPoint (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handleMenuGroupCheck(handles.menu_ExportTo.Children', hObject);
+
+
+% --------------------------------------------------------------------
+function export_toFile_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_toFile (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handleMenuGroupCheck(handles.menu_ExportTo.Children', hObject);
+
+
+% --------------------------------------------------------------------
+function export_toClipboard_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_toClipboard (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handleMenuGroupCheck(handles.menu_ExportTo.Children', hObject);
+
+
+% --------------------------------------------------------------------
+function export_options_SonogramImageMode_ScreenImage_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_options_SonogramImageMode_ScreenImage (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    handles.export_options_SonogramImageMode_ScreenImage.Checked = 'on';
+    handles.export_options_SonogramImageMode_Recalculate.Checked = 'off';
+    handles.ExportReplotSonogram = 0;
+    guidata(hObject, handles);
+
+% --------------------------------------------------------------------
+function export_options_SonogramImageMode_Recalculate_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_options_SonogramImageMode_Recalculate (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handles.export_options_SonogramImageMode_ScreenImage.Checked = 'off';
+    handles.menu_CustomResolution.Checked = 'on';
+    handles.ExportReplotSonogram = 1;
+    guidata(hObject, handles);
+    
+% --------------------------------------------------------------------
+function export_options_Animation_None_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_options_Animation_None (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handleMenuGroupCheck(handles.menu_export_options_Animation.Children', hObject);
+
+% --------------------------------------------------------------------
+function export_options_Animation_ProgressBar_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_options_Animation_ProgressBar (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    handleMenuGroupCheck(handles.menu_export_options_Animation.Children', hObject);
+
+% --------------------------------------------------------------------
+function export_options_Animation_ArrowAbove_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_options_Animation_ArrowAbove (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handleMenuGroupCheck(handles.menu_export_options_Animation.Children', hObject);
+
+% --------------------------------------------------------------------
+function export_options_Animation_ArrowBelow_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_options_Animation_ArrowBelow (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handleMenuGroupCheck(handles.menu_export_options_Animation.Children', hObject);
+
+% --------------------------------------------------------------------
+function export_options_Animation_ValueFollower_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_options_Animation_ValueFollower (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handleMenuGroupCheck(handles.menu_export_options_Animation.Children', hObject);
+
+% --------------------------------------------------------------------
+function export_options_Animation_SonogramFollower_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_options_Animation_SonogramFollower (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    answer = inputdlg({'Power weighting exponent (inf for maximum-follower)'},'Exponent',1,{num2str(handles.SonogramFollowerPower)});
+    if isempty(answer)
+        return
+    end
+    handles.SonogramFollowerPower = str2double(answer{1});
+    
+    guidata(hObject, handles);
+
+% --------------------------------------------------------------------
+function export_options_IncludeSoundClip_None_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_options_IncludeSoundClip_None (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handles.ExportSonogramIncludeClip = 0;
+    for child = handles.menu_export_options_IncludeSoundClip.Children'
+        child.Checked = 'off';
+    end
+    hObject.Checked = 'on';
+    guidata(hObject, handles);    
+
+% --------------------------------------------------------------------
+function export_options_IncludeSoundClip_SoundOnly_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_options_IncludeSoundClip_SoundOnly (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+    handles.ExportSonogramIncludeClip = 1;
+    for child = handles.menu_export_options_IncludeSoundClip.Children'
+        child.Checked = 'off';
+    end
+    hObject.Checked = 'on';
+    guidata(hObject, handles);
+    
+% --------------------------------------------------------------------
+function export_options_IncludeSoundClip_SoundMix_Callback(hObject, eventdata, handles)
+    % hObject    handle to export_options_IncludeSoundClip_SoundMix (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    handles.ExportSonogramIncludeClip = 2;
+    for child = handles.menu_export_options_IncludeSoundClip.Children'
+        child.Checked = 'off';
+    end
+    hObject.Checked = 'on';
+    guidata(hObject, handles);
+
