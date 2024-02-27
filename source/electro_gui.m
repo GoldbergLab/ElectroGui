@@ -5944,12 +5944,12 @@ function click_eventaxes(hObject, event)
         handles.axes_Events.Units = 'normalized';
     
     elseif strcmp(handles.figure_Main.SelectionType,'open')
-        axis(handles.axes_EventViewer, 'tight');
-        yl = ylim(handles.axes_EventViewer);
-        ylim(handles.axes_EventViewer, [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
+        axis(handles.axes_Events, 'tight');
+        yl = ylim(handles.axes_Events);
+        ylim(handles.axes_Events, [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
         if handles.menu_DisplayFeatures.Checked
-            xl = xlim(handles.axes_EventViewer);
-            xlim(handles.axes_EventViewer, [mean(xl)+(xl(1)-mean(xl))*1.1 mean(xl)+(xl(2)-mean(xl))*1.1]);
+            xl = xlim(handles.axes_Events);
+            xlim(handles.axes_Events, [mean(xl)+(xl(1)-mean(xl))*1.1 mean(xl)+(xl(2)-mean(xl))*1.1]);
         end
         if handles.menu_AutoApplyYLim.Checked
             if handles.menu_DisplayValues.Checked
