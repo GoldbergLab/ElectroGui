@@ -4641,7 +4641,7 @@ function click_Channel(hObject, event)
     
                 eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
     
-                [~, ~, eventDetectorName, ~, eventParameters] = GetEventSourceInfo(handles, eventSourceIdx);
+                [~, ~, eventDetectorName, eventParameters] = GetEventSourceInfo(handles, eventSourceIdx);
     
                 % Get channel data
                 chanData = handles.loadedChannelData{axnum};
@@ -4772,7 +4772,7 @@ function boxedEventMask = GetBoxedEventMask(handles, axnum, filenum, minTime, ma
     boxedEventMask = {};
 
     % Check all event parts to see if any fall within box
-    for eventPartNum = 1:length(handles.EventTimes{eventSourceIdx})
+    for eventPartNum = 1:size(handles.EventTimes{eventSourceIdx}, 1)
         eventSamples = handles.EventTimes{eventSourceIdx}{eventPartNum, filenum};
         newEventTimes = eventSamples / handles.fs;
         eventVoltages = handles.loadedChannelData{axnum}(eventSamples);
