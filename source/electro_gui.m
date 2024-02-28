@@ -4395,16 +4395,22 @@ function handles = popup_Channels_Callback(handles, axnum)
     channelNum = getSelectedChannel(handles, axnum);
     if isempty(channelNum)
         handles.popup_EventDetectors(axnum).Enable = 'off';
+        matchingEventSourceIdx = [];
     else
         handles.popup_EventDetectors(axnum).Enable = 'on';
+        matchingEventSourceIdx = WhichEventSourceIdxMatch(handles, channelNum);
     end
     
     if handles.menu_SourcePlots(axnum).Checked
         handles = updateAmplitude(handles);
     end
     
-    %If available, use the default channel filter (from defaults file)
-    if isfield(handles, 'DefaultChannelFunction')
+    if ~isempty(matchingEventSourceIdx)
+        % If this channel is involved in an event source, load it up now
+        eventSourceIdx = matchingEventSourceIdx(end);
+        handles = setChannelAxesEventSource(handles, axnum, eventSourceIdx);
+    elseif isfield(handles, 'DefaultChannelFunction')
+        %If available, use the default channel filter (from defaults file)
         % handles.DefaultChannelFilter is defined
         allFunctionNames = handles.popup_Functions(axnum).String;
         defaultChannelFunctionIdx = find(strcmp(allFunctionNames, handles.DefaultChannelFunction));
@@ -5345,16 +5351,7 @@ function [handles, eventSourceIdx] = DetectEvents(handles, axnum)
     end
 
     % Run event detector plugin to get a list of detected event times
-    [eventTimes, eventParts] = eg_runPlugin(handles.plugins.eventDetectors, eventDetectorName, chanData, handles.fs, threshold, eventParameters);
-
-    % Update event part selection menu
-    for eventPartNum = 1:length(eventParts)
-        eventPart = eventParts{eventPartNum};
-        handles.menu_EventsDisplayList{axnum}(eventPartNum) = uimenu(handles.menu_EventsDisplay(axnum),...
-        'Label',eventPart,...
-        'Callback',@EventPartDisplayClick, ...
-        'Checked','on');
-    end
+    [eventTimes, ~] = eg_runPlugin(handles.plugins.eventDetectors, eventDetectorName, chanData, handles.fs, threshold, eventParameters);
 
     for eventPartNum = 1:length(eventTimes)
         handles.EventTimes{eventSourceIdx}{eventPartNum, filenum} = eventTimes{eventPartNum};
@@ -5412,6 +5409,21 @@ function handles = UpdateChannelEventDisplay(handles, axnum)
     for eventPartIdx = 1:size(handles.EventTimes{eventSourceIdx},1)
         eventTimes{eventPartIdx} = handles.EventTimes{eventSourceIdx}{eventPartIdx, filenum};
         eventSelected{eventPartIdx} = handles.EventSelected{eventSourceIdx}{eventPartIdx, filenum};
+    end
+
+    % Get event detector name
+    [~, ~, eventDetectorName] = GetEventSourceInfo(handles, eventSourceIdx);
+
+    % Run event detector plugin to get a list of detected event times
+    [~, eventParts] = eg_runPlugin(handles.plugins.eventDetectors, eventDetectorName, 'params');
+
+    % Update event part selection menu
+    for eventPartNum = 1:length(eventParts)
+        eventPart = eventParts{eventPartNum};
+        handles.menu_EventsDisplayList{axnum}(eventPartNum) = uimenu(handles.menu_EventsDisplay(axnum),...
+        'Label',eventPart,...
+        'Callback',@EventPartDisplayClick, ...
+        'Checked','on');
     end
 
     % Determine which of the event part to display (based on event parts
@@ -5565,7 +5577,16 @@ function EventPartDisplayClick(hObject, event)
     
     guidata(hObject, handles);
 
-function handles = UpdateEventViewer(handles)
+function handles = UpdateEventViewer(handles, keepView)
+    if ~exist('keepView', 'var') || isempty(keepView)
+        keepView = false;
+    end
+
+    if keepView
+        storedXLim = xlim(handles.axes_Events);
+        storedYLim = ylim(handles.axes_Events);
+    end
+
     delete(handles.ActiveEventCursors);
     delete(handles.EventWaveHandles);
     handles.EventWaveHandles = gobjects().empty;
@@ -5717,6 +5738,11 @@ function handles = UpdateEventViewer(handles)
         end
     end
 
+    if keepView
+        xlim(handles.axes_Events, storedXLim);
+        ylim(handles.axes_Events, storedYLim);
+    end
+
 function [channelNum, filterName, eventDetectorName] = GetEventViewerSourceInfo(handles)
     % Return the channel number, filter name, and event detector name for
     % the currently displayed event source in the event viewer
@@ -5786,7 +5812,29 @@ function eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum)
     end
     % No match found
     eventSourceIdx = [];
+function matchingEventSourceIdx = WhichEventSourceIdxMatch(handles, channelNum, filterName, eventDetectorName)
+    % Get a list of eventSourceIdx that match a given set of channelNum,
+    % filterName, eventDetectorName. If any of those are empty, they will
+    % not be considered in the matching process
+    if ~exist('channelNum', 'var')
+        channelNum = [];
+    end
+    if ~exist('filterName', 'var')
+        filterName = [];
+    end
+    if ~exist('eventDetectorName', 'var')
+        eventDetectorName = [];
+    end
 
+    matchingEventSourceIdx = [];
+    for eventSourceIdx = 1:length(handles.EventTimes)
+        [channelNum2, filterName2, eventDetectorName2] = GetEventSourceInfo(handles, eventSourceIdx);
+        if (isempty(channelNum) || channelNum==channelNum2) && ...
+           (isempty(filterName) || strcmp(filterName, filterName2)) && ...
+           (isempty(eventDetectorName) || eventDetectorName==eventDetectorName2)
+            matchingEventSourceIdx(end+1) = eventSourceIdx;
+        end
+    end
 function matchingAxes = WhichChannelAxesMatchEventSource(handles, eventSourceIdx)
     % Return a list of axes indices indicating whether each of the channel
     % axes match the given event source index, or if that is not provided,
@@ -6152,7 +6200,7 @@ function handles = UnselectEvents(handles, eventNums, eventSourceIdx)
     end
 
     % Update GUI
-    handles = UpdateEventViewer(handles);
+    handles = UpdateEventViewer(handles, true);
     axnums = WhichChannelAxesMatchEventSource(handles, eventSourceIdx);
     for axnum = axnums
         handles = UpdateChannelEventDisplay(handles, axnum);
