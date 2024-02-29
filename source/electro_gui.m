@@ -43,7 +43,7 @@ function varargout = electro_gui(varargin)
         gui_mainfcn(gui_State, varargin{:});
     end
     % End initialization code - DO NOT EDIT
-    
+
 % --- Executes just before electro_gui is made visible.
 function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % This function has no output args, see OutputFcn.
@@ -55,13 +55,17 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     
     % Allow macros to call individual functions within ElectroGui
     if ~isempty(varargin)
-        str = ['''' varargin{1} ''','];
-        for c = 2:length(varargin)
-            str = [str 'varargin{c},']; %#ok<*AGROW> 
-        end
-        str = str(1:end-1);
-        handles.output = eval(['feval(' str ')']);
-        guidata(hObject, handles);
+%         str = ['''' varargin{1} ''','];
+%         for c = 2:length(varargin)
+%             str = [str 'varargin{c},']; %#ok<*AGROW> 
+%         end
+%         str = str(1:end-1);
+%         handles.output = eval(['feval(' str ')']);
+%         guidata(hObject, handles);
+
+        eg_func = str2func(varargin{1});
+        varargin(1) = [];
+        handles.output = eg_func(varargin{:});
         return
     end
     
@@ -482,7 +486,7 @@ function handles = chooseAndLoadDefaultsFile(handles)
     userList = {'(Default)'};
     defaultsFileList = dir('defaults_*.m');
     for c = 1:length(defaultsFileList)
-        userList(end+1) = regexp(defaultsFileList(c).name, '(?<=defaults_).*(?=\.m)', 'match');
+        userList(end+1) = regexp(defaultsFileList(c).name, '(?<=defaults_).*(?=\.m)', 'match'); %#ok<*AGROW>
     end
     currentUserDefaultIndex = find(strcmp(handles.userfile, {defaultsFileList.name}));
     
@@ -1102,12 +1106,12 @@ function handles = refreshFileCache(handles)
     minCacheNum = max(1, filenum - handles.BackwardFileCacheSize);
     maxCacheNum = min(handles.TotalFileNumber, filenum + handles.ForwardFileCacheSize);
     
-    fileNums = minCacheNum:maxCacheNum;
+    filenums = minCacheNum:maxCacheNum;
     [selectedChannelNum1, ~, isSound1] = getSelectedChannel(handles, 1);
     [selectedChannelNum2, ~, isSound2] = getSelectedChannel(handles, 2);
     
     % Add sound files to list of necessary cache files:
-    for filenum = fileNums
+    for filenum = filenums
         % Add sound file to list
         filesInCache{end+1} = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
         loadersInCache{end+1} = handles.sound_loader;
@@ -1535,9 +1539,10 @@ function [handles, channelData, channelLabels] = loadChannelData(handles, channe
         [channelData, channelLabels] = eg_runPlugin(handles.plugins.filters, filterName, rawChannelData, handles.fs, filterParams);
 
         % Fix length of filtered channel data
-        [handles, numSamples] = eg_GetNumSamples(handles);
-        % Resample data appropriately?
+        [handles, numSamples] = eg_GetNumSamples(handles, filenum);
+        % Resample data appropriately? This seems bad.
         if length(channelData) < numSamples
+            warning('Filter seems to be shortening channel data?')
             indx = fix(linspace(1, length(handles.loadedChannelData{axnum}), numSamples));
             channelData = channelData(indx);
         end
@@ -1610,6 +1615,8 @@ function [handles, sound] = eg_GetSound(handles, filtered, soundChannel)
     if ~exist('soundChannel', 'var') || isempty(soundChannel)
         soundChannel = handles.SoundChannel;
     end
+
+    filenum = getCurrentFileNum(handles);
     
     switch soundChannel
         case 0
@@ -3231,8 +3238,8 @@ function handles = eg_NewDbase(handles)
     handles.popup_EventListAlign.Value = 1;
     
     fileEntries = {};
-    for fileNum = 1:length(handles.sound_files)
-        fileEntries{fileNum} = makeFileEntry(handles, handles.sound_files(fileNum).name, true);
+    for filenum = 1:length(handles.sound_files)
+        fileEntries{filenum} = makeFileEntry(handles, handles.sound_files(filenum).name, true);
     end
     handles.list_Files.String = fileEntries;
     
