@@ -9,75 +9,37 @@ if isempty(answer)
     return
 end
 
-fls = eval(answer{1});
+fileNums = eval(answer{1});
 for c = 1:length(handles.menu_Segmenter)
     if strcmp(get(handles.menu_Segmenter(c),'checked'),'on')
         alg = get(handles.menu_Segmenter(c),'label');
     end
 end
 
-subplot(handles.axes_Sonogram);
-txt = text(mean(xlim),mean(ylim),'Detecting events... Click to quit.','horizontalalignment','center','fontsize',14,'color','r','backgroundcolor','w');
-set(txt,'ButtonDownFcn','set(gco,''color'',''g''); drawnow;');
-for j = 1:length(fls)
-    cnt = j;
-    if sum(get(txt,'color')==[0 1 0])==3
-        cnt = cnt-1;
+txt = text(handles.axes_Sonogram, mean(xlim), mean(ylim), ...
+    'Detecting events... Click to quit.', 'HorizontalAlignment', 'center', ...
+    'FontSize', 14, 'Color', 'r', 'BackgroundColor', 'w');
+txt.ButtonDownFcn = @(varargin)set(txt, 'Color', 'g');
+
+for fileIdx = 1:length(fileNums)
+    fileNum = fileNums(fileIdx);
+    if all(txt.Color==[0 1 0])
         break
     end
 
-    handles.FileLength(fls(j)) = 0;
+    handles.FileLength(fileNum) = 0;
     for axnum = 1:2
-        val = get(handles.(['popup_Channel',num2str(axnum)]),'value');
-        str = get(handles.(['popup_Channel',num2str(axnum)]),'string');
-        nums = [];
-        for c = 1:length(handles.EventTimes);
-            nums(c) = size(handles.EventTimes{c},1);
-        end
-        if val <= length(str)-sum(nums) & val > 1
-            if length(str{val})>4 & strcmp(str{val}(1:5),'Sound')
-                [chan, fs, dt, lab, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.DefaultRootPath, handles.sound_files(fls(j)).name), true);
-            else
-                chan = str2num(str{val}(9:end));
-                [chan, fs, dt, lab, props] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{chan}, fullfile(handles.DefaultRootPath, handles.chan_files{chan}(fls(j)).name), true);
-            end
-            handles.FileLength(fls(j)) = length(chan);
-            handles.DatesAndTimes(fls(j)) = dt;
-            if get(handles.(['popup_Function',num2str(axnum)]),'value') > 1
-                str = get(handles.(['popup_Function',num2str(axnum)]),'string');
-                str = str{get(handles.(['popup_Function',num2str(axnum)]),'value')};
-                f = findstr(str,' - ');
-                if isempty(f) % regular function
-                    [chan, lab] = eg_runPlugin(handles.plugins.filters, str, chan, handles.fs, handles.FunctionParams{axnum});
-                else % multiple-value function
-                    [chan, lab] = eg_runPlugin(handles.plugins.filters, str(1:f-1), chan, handles.fs, handles.FunctionParams{axnum});
-                end
-            end
-
-            str = get(handles.(['popup_EventDetector' num2str(axnum)]),'string');
-            dtr = str{get(handles.(['popup_EventDetector' num2str(axnum)]),'value')};
-            if ~strcmp(dtr,'(None)')
-                indx = handles.EventCurrentIndex(axnum);
-                thres = handles.EventCurrentThresholds(indx);
-                [events, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, chan, handles.fs, thres, handles.EventParams{axnum});
-                
-                for c = 1:length(events)
-                    handles.EventThresholds(indx,fls(j)) = thres;
-                    handles.EventTimes{indx}{c,fls(j)} = events{c};
-                    handles.EventSelected{indx}{c,fls(j)} = ones(1,length(events{c}));
-                end
-            end
-        else
-            % no events for the given plot number
+        eventSourceIdx = electro_gui('GetChannelAxesEventSourceIdx', handles, axnum);
+        if ~isempty(eventSourceIdx)
+            handles = electro_gui('DetectEvents', handles, eventSourceIdx, fileNum);
         end
     end
     
-    
-
-    set(txt,'string',['Detected events in file ' num2str(fls(j)) ' (' num2str(j) '/' num2str(length(fls)) '). Click to quit.']);
+    txt.String = sprintf('Detected events in file %d (%d/%d). Click to quit.', fileNum, fileIdx, length(fileNums));
     drawnow;
 end
 
 delete(txt);
 
-msgbox(['Detected events in ' num2str(cnt) ' files.'],'Detection complete');
+msgbox(['Detected events in ' num2str(fileIdx-1) ' files.'],'Detection complete');
+
