@@ -1601,10 +1601,32 @@ function handles = eg_LoadChannel(handles,axnum)
     % Update event viewer in case it was showing data from this axes
     handles = UpdateEventViewer(handles);
     
-function [handles, numSamples] = eg_GetNumSamples(handles)
-    [handles, sound] = eg_GetSound(handles, false);
+function [handles, numSamples] = eg_GetNumSamples(handles, filenum)
+    if ~exist('filenum', 'var') || isempty(filenum)
+        filenum = getCurrentFileNum(handles);
+    end
+    [handles, sound] = eg_GetRawSound(handles, filenum);
     numSamples = length(sound);
     
+function [handles, sound, fs] = eg_GetRawSound(handles, filenum)
+    if ~exist('filenum', 'var') || isempty(filenum)
+        filenum = getCurrentFileNum(handles);
+    end
+
+    filePath = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
+    loader = handles.sound_loader;
+
+    if handles.EnableFileCaching
+        [handles, data] = retrieveFileFromCache(handles, filePath, loader);
+        [sound, fs] = data{:};
+    else
+        [sound, fs] = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
+    end
+
+    if size(sound,2)>size(sound,1)
+        sound = sound';
+    end
+
 function [handles, sound] = eg_GetSound(handles, filtered, soundChannel)
     % Get the timeseries specified by handles.SoundChannel to use as sound for
     %   the purposes of plotting the spectrogram, etc
@@ -1630,20 +1652,7 @@ function [handles, sound] = eg_GetSound(handles, filtered, soundChannel)
             else
                 % User just wants unfiltered sound
                 if isempty(handles.sound)
-                    filenum = getCurrentFileNum(handles);
-                    filePath = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
-                    loader = handles.sound_loader;
-    
-                    if handles.EnableFileCaching
-                        [handles, data] = retrieveFileFromCache(handles, filePath, loader);
-                        [handles.sound, handles.fs] = data{:};
-                    else
-                        [handles.sound, handles.fs] = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
-                    end
-    
-                    if size(handles.sound,2)>size(handles.sound,1)
-                        handles.sound = handles.sound';
-                    end
+                    [handles, handles.sound, handles.fs] = eg_GetRawSound(handles, filenum);
                 end
                 sound = handles.sound;
             end
@@ -1667,7 +1676,6 @@ function [handles, sound] = eg_GetSound(handles, filtered, soundChannel)
                     if strcmp(varName, 'sound')
                         [handles, data] = eg_GetSound(handles, false, 0);
                     else
-                        filenum = getCurrentFileNum(handles);
                         filePath = fullfile(handles.DefaultRootPath, handles.chan_files{channelIdx}(filenum).name);
                         loader = handles.chan_loader{channelIdx};
     
@@ -1691,7 +1699,6 @@ function [handles, sound] = eg_GetSound(handles, filtered, soundChannel)
             end
         otherwise
             % Use some other not-already-loaded channel data as sound
-            filenum = getCurrentFileNum(handles);
             filePath = fullfile(handles.DefaultRootPath, handles.chan_files{soundChannel}(filenum).name);
             loader = handles.chan_loader{soundChannel};
     
@@ -5006,7 +5013,7 @@ function menu_EventAutoDetect1_Callback(hObject, ~, handles)
         handles.menu_EventAutoDetect1.Checked = 'off';
     else
         handles.menu_EventAutoDetect1.Checked = 'on';
-        handles = DetectEvents(handles,1);
+        handles = DetectEventsInAxes(handles,1);
         if handles.menu_AutoDisplayEvents.Checked
             handles = UpdateEventViewer(handles);
         end
@@ -5062,7 +5069,7 @@ function menu_EventAutoDetect2_Callback(hObject, ~, handles)
         handles.menu_EventAutoDetect2.Checked = 'off';
     else
         handles.menu_EventAutoDetect2.Checked = 'on';
-        handles = DetectEvents(handles,2);
+        handles = DetectEventsInAxes(handles,2);
         if handles.menu_AutoDisplayEvents.Checked
             handles = UpdateEventViewer(handles);
         end
@@ -5108,7 +5115,7 @@ function push_Detect1_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    handles = DetectEvents(handles,1);
+    handles = DetectEventsInAxes(handles,1);
     
     if handles.menu_AutoDisplayEvents.Checked
         handles = UpdateEventViewer(handles);
@@ -5137,7 +5144,7 @@ function push_Detect2_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    handles = DetectEvents(handles,2);
+    handles = DetectEventsInAxes(handles,2);
     
     if handles.menu_AutoDisplayEvents.Checked
         handles = UpdateEventViewer(handles);
@@ -5199,7 +5206,7 @@ function handles = SetEventThreshold(handles, axnum, threshold)
 
     % Update events for the event source configuration of this
     % channel axes.
-    [handles, eventSourceIdx] = DetectEvents(handles, axnum);
+    [handles, eventSourceIdx] = DetectEventsInAxes(handles, axnum);
 
     for axn = 1:2
         if GetChannelAxesEventSourceIdx(handles, axn)==eventSourceIdx
@@ -5324,7 +5331,51 @@ function handles = UpdateEventSourceList(handles)
     handles.popup_EventListAlign.String = eventListItems;
     handles.popup_EventListAlign.UserData = eventListInfo;
 
-function [handles, eventSourceIdx] = DetectEvents(handles, axnum)
+function handles = DetectEvents(handles, eventSourceIdx, filenum, chanData)
+    % Detect events given an event source index
+    % Optionally provide pre-filtered channel data for speed
+
+    if ~exist('chanData', 'var')
+        % No pre-filtered channel data provided
+        chanData = [];
+    end
+    if ~exist('filenum', 'var') || isempty(filenum)
+        % Use current filenum
+        filenum = getCurrentFileNum(handles);
+    end
+
+    % Get info about the specified event source
+    [channelNum, filterName, eventDetectorName, eventParameters, filterParameters] = GetEventSourceInfo(handles, eventSourceIdx);
+
+    if isempty(chanData)
+        % Load and filter channel data
+        [handles, chanData, ~] = loadChannelData(handles, channelNum, filterName, filterParameters, filenum);
+    end
+
+    % Get event threshold
+    threshold = handles.EventThresholds(eventSourceIdx, filenum);
+
+    % Run event detector plugin to get a list of detected event times
+    [eventTimes, ~] = eg_runPlugin(handles.plugins.eventDetectors, eventDetectorName, chanData, handles.fs, threshold, eventParameters);
+
+    % Store event info in relevant data structures
+    for eventPartNum = 1:length(eventTimes)
+        handles.EventTimes{eventSourceIdx}{eventPartNum, filenum} = eventTimes{eventPartNum};
+        handles.EventSelected{eventSourceIdx}{eventPartNum, filenum} = true(1,length(eventTimes{eventPartNum}));
+    end
+
+function numEvents = CheckEventCount(handles, eventSourceIdx, filenum)
+    % Check how many events have been detected for the given event source
+    % and filenum
+    if isempty(handles.EventTimes{eventSourceIdx})
+        numEvents = 0;
+    elseif filenum > size(handles.EventTimes{eventSourceIdx}, 2)
+        numEvents = 0;
+    else
+        numEvents = length(handles.EventTimes{eventSourceIdx}{1, filenum});
+    end
+
+function [handles, eventSourceIdx] = DetectEventsInAxes(handles, axnum)
     % Use the configuration of the given channel axes to either create a
     % new event source, or update an existing one, with detected events.
 
@@ -5336,35 +5387,29 @@ function [handles, eventSourceIdx] = DetectEvents(handles, axnum)
         handles = UpdateEventSourceList(handles);
     end
 
-    % Remove any active event
-    handles.ActiveEventNum = [];
-    handles.ActiveEventPartNum = [];
-    handles.ActiveEventSourceIdx = [];
-
-    % Remove active event cursor
-    delete(handles.ActiveEventCursors);
-    
-    % Get channel data
-    chanData = handles.loadedChannelData{axnum};
-
-    [~, ~, eventDetectorName, eventParameters] = GetEventSourceInfo(handles, eventSourceIdx);
-
-    filenum = getCurrentFileNum(handles);
-    threshold = handles.EventThresholds(eventSourceIdx, filenum);
-
+    [~, ~, eventDetectorName] = GetEventSourceInfo(handles, eventSourceIdx);
     if strcmp(eventDetectorName, '(None)')
         % No event detector selected
         return
     end
-
-    % Run event detector plugin to get a list of detected event times
-    [eventTimes, ~] = eg_runPlugin(handles.plugins.eventDetectors, eventDetectorName, chanData, handles.fs, threshold, eventParameters);
-
-    for eventPartNum = 1:length(eventTimes)
-        handles.EventTimes{eventSourceIdx}{eventPartNum, filenum} = eventTimes{eventPartNum};
-        handles.EventSelected{eventSourceIdx}{eventPartNum, filenum} = true(1,length(eventTimes{eventPartNum}));
-    end
     
+    % Get channel data
+    chanData = handles.loadedChannelData{axnum};
+
+    filenum = getCurrentFileNum(handles);
+    
+    % Detect events
+    handles = DetectEvents(handles, eventSourceIdx, filenum, chanData);
+
+    % Remove any active event
+    handles.ActiveEventNum = [];
+    handles.ActiveEventPartNum = [];
+    handles.ActiveEventSourceIdx = [];
+    
+    % Remove active event cursor, in case it already exists
+    delete(handles.ActiveEventCursors);
+
+    % Update GUI
     handles = UpdateChannelEventDisplay(handles, axnum);
     handles = UpdateEventSourceList(handles);
 
@@ -7331,7 +7376,8 @@ function context_Macros_Callback(hObject, ~, handles)
     
     
     
-function MacrosMenuclick(hObject, ~, handles)
+function MacrosMenuclick(hObject, event)
+    handles = guidata(hObject);
     
     handles.dbase = GetDBase(handles);
     
@@ -7640,7 +7686,7 @@ function handles = menu_EventParams(handles,axnum)
     ud{v} = handles.ChannelAxesEventParameters{axnum};
     handles.popup_EventDetectors(axnum).UserData = ud;
     
-    handles = DetectEvents(handles,axnum);
+    handles = DetectEventsInAxes(handles,axnum);
     
     
 % --------------------------------------------------------------------
@@ -7689,7 +7735,7 @@ function handles = menu_FunctionParams(handles,axnum)
     
     if isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
         handles = eg_LoadChannel(handles,axnum);
-        handles = DetectEvents(handles, axnum);
+        handles = DetectEventsInAxes(handles, axnum);
     end
     
     
