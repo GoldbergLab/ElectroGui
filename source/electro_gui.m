@@ -929,7 +929,7 @@ function slider_Time_Callback(hObject, ~, handles)
     end
     shift = handles.slider_Time.Value - handles.TLim(1);
     handles.TLim = handles.TLim + shift;
-    handles = eg_EditTimescale(handles);
+    handles = UpdateTimescaleView(handles);
     
     guidata(hObject, handles);
     
@@ -1082,12 +1082,12 @@ function edit_Timescale_Callback(hObject, ~, handles)
 
     tscale = str2double(handles.edit_Timescale.String);
     handles.TLim = [handles.TLim(1), handles.TLim(1) + tscale];
-    handles = eg_EditTimescale(handles);
+    handles = UpdateTimescaleView(handles);
     guidata(hObject, handles);
     
 function handles = centerTimescale(handles, centerTime, radiusTime)
     handles.TLim = [centerTime - radiusTime, centerTime + radiusTime];
-    handles = eg_EditTimescale(handles);
+    handles = UpdateTimescaleView(handles);
     
 % --- Executes during object creation, after setting all properties.
 function edit_Timescale_CreateFcn(hObject, ~, handles)
@@ -1299,7 +1299,7 @@ function handles = eg_LoadFile(handles)
 
 %    handles = disableAxesPopupToolbars(handles);
 
-    handles = eg_EditTimescale(handles);
+    handles = UpdateTimescaleView(handles);
 
 function handles = setClickSoundCallback(handles, ax)
     % Set click_sound as button down callback for axes and children
@@ -2295,7 +2295,7 @@ function handles = updateXLimBox(handles)
         handles.xlimbox.YData = ydata;
     end
 
-function handles = eg_EditTimescale(handles)
+function handles = UpdateTimescaleView(handles)
     % Function that handles updating all the axes to show the appropriate
     % timescale together, based on the value in handles.TLim
     
@@ -2468,7 +2468,7 @@ function click_sound(hObject, event)
             handles.TLim = [rect(1), rect(1)+rect(3)];
         end
         % Update spectrogram scales
-        handles = eg_EditTimescale(handles);
+        handles = UpdateTimescaleView(handles);
     elseif strcmp(handles.figure_Main.SelectionType, 'extend')
         % Shift-click
         %   Shift zoom box so the right side aligns with click location
@@ -2486,7 +2486,7 @@ function click_sound(hObject, event)
         [handles, numSamples] = eg_GetNumSamples(handles);
     
         handles.TLim = [0, numSamples/handles.fs];
-        handles = eg_EditTimescale(handles);
+        handles = UpdateTimescaleView(handles);
 
         if handles.menu_FrequencyZoom.Checked
             % We're resetting y-axis (frequency) zoom too
@@ -2744,7 +2744,7 @@ function click_segmentaxes(hObject, event)
         [handles, numSamples] = eg_GetNumSamples(handles);
     
         handles.TLim = [0, numSamples/handles.fs];
-        handles = eg_EditTimescale(handles);
+        handles = UpdateTimescaleView(handles);
     elseif strcmp(handles.figure_Main.SelectionType,'extend')
         if sum(handles.SegmentSelection{filenum})==length(handles.SegmentSelection{filenum})
             handles.SegmentSelection{filenum} = zeros(size(handles.SegmentSelection{filenum}));
@@ -3930,7 +3930,7 @@ function click_Amplitude(hObject, event)
     if strcmp(handles.figure_Main.SelectionType,'open')
         [handles, numSamples] = eg_GetNumSamples(handles);
         handles.TLim = [0, numSamples/handles.fs];
-        handles = eg_EditTimescale(handles);
+        handles = UpdateTimescaleView(handles);
     
     elseif strcmp(handles.figure_Main.SelectionType,'normal')
         handles.axes_Amplitude.Units = 'pixels';
@@ -3951,7 +3951,7 @@ function click_Amplitude(hObject, event)
         else
             handles.TLim = [rect(1), rect(1)+rect(3)];
         end
-        handles = eg_EditTimescale(handles);
+        handles = UpdateTimescaleView(handles);
     elseif strcmp(handles.figure_Main.SelectionType,'extend')
         pos = handles.axes_Amplitude.CurrentPoint;
         handles.CurrentThreshold = pos(1,2);
@@ -4042,7 +4042,11 @@ function scrollHandler(source, event)
     y = xy(2);
     if areCoordinatesIn(x, y, [handles.axes_Sonogram, handles.axes_Sound, handles.axes_Amplitude, handles.axes_Channel])
         [t, ~] = convertFigCoordsToChildAxesCoords(x, y, handles.axes_Sonogram);
-        handles = zoomSonogram(handles, t, event.VerticalScrollCount);
+        if handles.ShiftDown
+            handles = shiftInTime(handles, event.VerticalScrollCount);
+        else
+            handles = zoomInTime(handles, t, event.VerticalScrollCount);
+        end
     elseif areCoordinatesIn(x, y, handles.axes_Events)
         visibleEventMask = isgraphics(handles.EventWaveHandles);
         newActiveEventNum = findNextTrueIdx(visibleEventMask, handles.ActiveEventNum, event.VerticalScrollCount);
@@ -4068,14 +4072,21 @@ function nextIdx = findNextTrueIdx(mask, startIdx, direction)
 
     nextIdx = idx(1);
 
+function handles = shiftInTime(handles, shiftLevel)
+    % Shift view back/forward in time
+    shiftDelta = diff(handles.TLim) * 0.1;
+    shiftAmount = - shiftDelta * shiftLevel;
+    handles.TLim = handles.TLim + shiftAmount;
+    handles = UpdateTimescaleView(handles);
 
-function handles = zoomSonogram(handles, tCenter, zoomLevels)
+function handles = zoomInTime(handles, tCenter, zoomLevels)
+    % Zoom view in/out in time
     zoomFactor = 2^(zoomLevels/3);
     currentTWidth = diff(handles.TLim);
     tFraction = (tCenter - handles.TLim(1))/currentTWidth;
     newTWidth = currentTWidth*zoomFactor;
     handles.TLim = [tCenter - tFraction * newTWidth, tCenter + (1-tFraction) * newTWidth];
-    handles = eg_EditTimescale(handles);
+    handles = UpdateTimescaleView(handles);
 
 function exportView(handles)
     f_export = figure();
@@ -4655,7 +4666,7 @@ function click_Channel(hObject, event)
             end
         end
         handles.TLim = [0, numSamples/handles.fs];
-        handles = eg_EditTimescale(handles);
+        handles = UpdateTimescaleView(handles);
     
     elseif strcmp(handles.figure_Main.SelectionType,'normal')
         % Left click
@@ -4684,7 +4695,7 @@ function click_Channel(hObject, event)
                 ylim([rect(2) rect(4)+rect(2)]);
             end
         end
-        handles = eg_EditTimescale(handles);
+        handles = UpdateTimescaleView(handles);
     
     elseif strcmp(handles.figure_Main.SelectionType, 'alt')
         % Control-click or right click
