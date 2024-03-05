@@ -1682,6 +1682,10 @@ function [handles, sound, fs, timestamp] = getSound(handles, soundChannel, filen
     end
 
 function [handles, filteredSound, fs, timestamp] = getFilteredSound(handles, sound, algorithm, filterParams, filenum)
+    if ~exist('filenum', 'var') || isempty(filenum)
+        % Use current filenum
+        filenum = getCurrentFileNum(handles);
+    end
     if ~exist('sound', 'var') || isempty(sound)
         [handles, sound, fs, timestamp] = getSound(handles, [], filenum);
     else
@@ -1701,12 +1705,8 @@ function [handles, filteredSound, fs, timestamp] = getFilteredSound(handles, sou
         % Use current sound filter parameters
         filterParams = handles.FilterParams;
     end
-    if ~exist('filenum', 'var') || isempty(filenum)
-        % Use current filenum
-        filenum = getCurrentFileNum(handles);
-    end
 
-    [handles, filteredSound] = filterSound(handles, sound, fs, algorithm, filterParams, filenum);
+    [handles, filteredSound] = filterSound(handles, sound, fs, algorithm, filterParams);
 
 function [handles, calculatedSound, timestamp] = getCalculatedSound(handles, filenum, useFilter)
     % Calculate a sound vector based on the user-supplied
@@ -7933,7 +7933,13 @@ function handles = updateAmplitude(handles, forceRedraw)
     plt = findobj('Parent', handles.axes_Amplitude, 'LineStyle', '-');
 
     % Recalculate amplitude data
-    [handles.amplitude, labels] = eg_CalculateAmplitude(handles);
+    if handles.menu_DontPlot.Checked
+        handles.amplitude = zeros(size(handles.filtered_sound));
+        labels = '';
+    else
+        handles = UpdateFilteredSound(handles);
+        [handles.amplitude, labels] = calculateAmplitude(handles);
+    end
 
     if (isempty(plt) || forceRedraw) && ~isempty(handles.amplitude)
         [handles, numSamples] = eg_GetNumSamples(handles);
@@ -7969,41 +7975,41 @@ function handles = updateAmplitude(handles, forceRedraw)
         ylabel(handles.axes_Amplitude, labels);
     end
 
+function [amp, labels] = calculateAmplitude(handles, filenum)
+    if ~exist('filenum', 'var') || isempty(filenum)
+        filenum = getCurrentFileNum(handles);
+    end
 
-function [amp, labels] = eg_CalculateAmplitude(handles)
+    [handles, filteredSound, fs] = getFilteredSound(handles, [], [], [], filenum);
     
+
     handles = UpdateFilteredSound(handles);
     
-    windowSize = round(handles.SmoothWindow*handles.fs);
-    if handles.menu_DontPlot.Checked
-        amp = zeros(size(handles.filtered_sound));
-        labels = '';
+    windowSize = round(handles.SmoothWindow*fs);
+    if handles.menu_SourceSoundAmplitude.Checked
+        amp = smooth(10*log10(filteredSound.^2+eps), windowSize);
+        amp = amp-min(amp(windowSize:length(amp)-windowSize));
+        amp(amp<0)=0;
+        labels = 'Loudness (dB)';
     else
-        if handles.menu_SourceSoundAmplitude.Checked
-            amp = smooth(10*log10(handles.filtered_sound.^2+eps), windowSize);
-            amp = amp-min(amp(windowSize:length(amp)-windowSize));
-            amp(amp<0)=0;
-            labels = 'Loudness (dB)';
+        if handles.menu_SourceTopPlot.Checked
+            axnum = 1;
+        elseif handles.menu_SourceBottomPlot.Checked
+            axnum = 2;
         else
-            if handles.menu_SourceTopPlot.Checked
-                axnum = 1;
-            elseif handles.menu_SourceBottomPlot.Checked
-                axnum = 2;
-            else
-                error('Nothing selected for amplitude source');
-            end
+            error('Nothing selected for amplitude source');
+        end
 
-            if handles.axes_Channel(axnum).Visible
-                channelNum = getSelectedChannel(handles, axnum);
-                filterName = getSelectedFilter(handles, axnum);
-                filterParams = getSelectedFunctionParameters(handles, axnum);
-                [handles, channelData] = loadChannelData(handles, channelNum, filterName, filterParams, filenum);
-                amp = smooth(channelData, windowSize);
-                labels = handles.axes_Channel1.YLabel.String;
-            else
-                amp = zeros(size(handles.filtered_sound));
-                labels = '';
-            end
+        if handles.axes_Channel(axnum).Visible
+            channelNum = getSelectedChannel(handles, axnum);
+            filterName = getSelectedFilter(handles, axnum);
+            filterParams = getSelectedFunctionParameters(handles, axnum);
+            [handles, channelData] = loadChannelData(handles, channelNum, filterName, filterParams, filenum);
+            amp = smooth(channelData, windowSize);
+            labels = handles.axes_Channel1.YLabel.String;
+        else
+            amp = zeros(size(handles.filtered_sound));
+            labels = '';
         end
     end
     
