@@ -1193,33 +1193,22 @@ function handles = eg_LoadFile(handles)
     
     soundFilePath = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
 
-    if handles.EnableFileCaching
-        [handles, data] = retrieveFileFromCache(handles, soundFilePath, handles.sound_loader);
-        [handles.sound, handles.fs, dt] = data{:};
-    else
-        try
-            soundFilePath = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
-            [handles.sound, handles.fs, dt, ~, ~] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, soundFilePath, true);
-        catch ME
-            if ~exist(soundFilePath, 'file')
-                error('File not found: %s', soundFilePath);
-            else
-                rethrow(ME);
-            end
+    try
+        handles = UpdateFilteredSound(handles);
+    catch ME
+        if ~exist(soundFilePath, 'file')
+            error('File not found: %s', soundFilePath);
+        else
+            rethrow(ME);
         end
     end
     
-    handles.DatesAndTimes(filenum) = dt;
     [handles, numSamples] = eg_GetNumSamples(handles);
     
     handles.FileLength(filenum) = numSamples;
-    handles.text_DateAndTime.String = string(datetime(dt, 'ConvertFrom', 'datenum'));
+    handles.text_DateAndTime.String = string(datetime(handles.DatesAndTimes(filenum), 'ConvertFrom', 'datenum'));
     
-    handles = eg_FilterSound(handles);
-    
-    [handles, filtered_sound] = eg_GetSound(handles, true);
-    
-    h = eg_peak_detect(handles.axes_Sound, linspace(0, numSamples/handles.fs, numSamples), filtered_sound);
+    h = eg_peak_detect(handles.axes_Sound, linspace(0, numSamples/handles.fs, numSamples), handles.filtered_sound);
 
     [h.Color] = deal('c');
     handles.axes_Sound.XTick = [];
@@ -1501,12 +1490,12 @@ function [handles, isValidEventFunction] = updateEventFunctionInfo(handles, chan
         handles = setEventFunction(handles, filenum, channelNum, newEventFunction);
     end
 
-function [handles, channelData, channelLabels] = loadChannelData(handles, channelNum, filterName, filterParams, filenum)
+function [handles, channelData, channelLabels, timestamp] = loadChannelData(handles, channelNum, filterName, filterParams, filenum)
     if ~exist('filenum', 'var') || isempty(filenum)
         % No file number provided, use the current one
         filenum = getCurrentFileNum(handles);
     end
-    if ~exist('filterName', 'var')
+    if ~exist('filterName', 'var') || isempty(filterName)
         % No filter info provided, assume we want unfiltered data
         filterName = '';
         filterParams = [];
@@ -1523,14 +1512,16 @@ function [handles, channelData, channelLabels] = loadChannelData(handles, channe
         loader = handles.chan_loader{channelNum};
         filePath = fullfile(handles.DefaultRootPath, handles.chan_files{channelNum}(filenum).name);
     end
+
     if handles.EnableFileCaching
         % File is already cached - retrieve data
         [handles, data] = retrieveFileFromCache(handles, filePath, loader);
-        [rawChannelData, ~, ~, channelLabels, ~] = data{:};
+        [rawChannelData, ~, timestamp, channelLabels, ~] = data{:};
     else
         % File is not cached - load data
-        [rawChannelData, ~, ~, channelLabels, ~] = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
+        [rawChannelData, ~, timestamp, channelLabels, ~] = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
     end
+
     if isempty(filterName)
         % Raw data requested
         channelData = rawChannelData;
@@ -1605,125 +1596,157 @@ function [handles, numSamples] = eg_GetNumSamples(handles, filenum)
     if ~exist('filenum', 'var') || isempty(filenum)
         filenum = getCurrentFileNum(handles);
     end
-    [handles, sound] = eg_GetRawSound(handles, filenum);
+    [handles, sound] = getSound(handles, [], filenum);
     numSamples = length(sound);
     
-function [handles, sound, fs] = eg_GetRawSound(handles, filenum)
+function [handles, sound, fs, timestamp] = getSound(handles, soundChannel, filenum)
     if ~exist('filenum', 'var') || isempty(filenum)
         filenum = getCurrentFileNum(handles);
-    end
-
-    filePath = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
-    loader = handles.sound_loader;
-
-    if handles.EnableFileCaching
-        [handles, data] = retrieveFileFromCache(handles, filePath, loader);
-        [sound, fs] = data{:};
-    else
-        [sound, fs] = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
-    end
-
-    if size(sound,2)>size(sound,1)
-        sound = sound';
-    end
-
-function [handles, sound] = eg_GetSound(handles, filtered, soundChannel)
-    % Get the timeseries specified by handles.SoundChannel to use as sound for
-    %   the purposes of plotting the spectrogram, etc
-    
-    if ~exist('filtered', 'var') || isempty(filtered)
-        filtered = false;
     end
     if ~exist('soundChannel', 'var') || isempty(soundChannel)
         soundChannel = handles.SoundChannel;
     end
-
-    filenum = getCurrentFileNum(handles);
     
     switch soundChannel
+        % Fetch sound based on which sound channel was selected
         case 0
             % Use channel 0 (the normal sound channel)
-            if filtered
-                % User requested filtered sound
-                if isempty(handles.filtered_sound)
-                    handles = eg_FilterSound(handles);
-                end
-                sound = handles.filtered_sound;
-            else
-                % User just wants unfiltered sound
-                if isempty(handles.sound)
-                    [handles, handles.sound, handles.fs] = eg_GetRawSound(handles, filenum);
-                end
-                sound = handles.sound;
-            end
-        case getSelectedChannel(handles, 1)
-            % Use whatever is loaded in channel axes #1 as sound
-            sound = handles.loadedChannelData{2};
-        case getSelectedChannel(handles, 2)
-            % Use whatever is loaded in channel axes #2 as sound
-            sound = handles.loadedChannelData{2};
-        case 'calculated'
-            sourceIndices = handles.popup_SoundSource.UserData;
-            for k = 1:(length(sourceIndices)-1)
-                channelIdx = sourceIndices{k};
-                switch channelIdx
-                    case 0
-                        varName = 'sound';
-                    otherwise
-                        varName = sprintf('chan%d', channelIdx);
-                end
-                if regexp(handles.SoundExpression, varName)
-                    if strcmp(varName, 'sound')
-                        [handles, data] = eg_GetSound(handles, false, 0);
-                    else
-                        filePath = fullfile(handles.DefaultRootPath, handles.chan_files{channelIdx}(filenum).name);
-                        loader = handles.chan_loader{channelIdx};
-    
-                        if handles.EnableFileCaching
-                            [handles, data] = retrieveFileFromCache(handles, filePath, loader);
-                            data = data{1};
-                        else
-                            data = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
-                        end
-    
-                    end
-                    assignin('base', varName, data);
-                end
-                try
-                    sound = evalin('base', handles.SoundExpression);
-                catch ME
-                    fprintf('Error evaluating calculated channel: %s\n', handles.SoundExpression);
-                    disp(ME)
-                end
-    
-            end
-        otherwise
-            % Use some other not-already-loaded channel data as sound
-            filePath = fullfile(handles.DefaultRootPath, handles.chan_files{soundChannel}(filenum).name);
-            loader = handles.chan_loader{soundChannel};
-    
+            filePath = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
+            loader = handles.sound_loader;
+        
             if handles.EnableFileCaching
                 [handles, data] = retrieveFileFromCache(handles, filePath, loader);
-                sound = data{:};
+                [sound, fs, timestamp] = data{:};
             else
-                sound = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
+                [sound, fs, timestamp] = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
             end
-    
-            if size(handles.sound,2)>size(handles.sound,1)
-                handles.sound = handles.sound';
-            end
+        case 'calculated'
+            % Calculate a sound vector based on the user-supplied
+            % expression in handles.SoundExpression
+            [handles, sound, timestamp] = getCalculatedSound(handles, filenum);
+            fs = handles.fs;
+        otherwise
+            % Use some other not-already-loaded channel data as sound
+            [handles, sound, timestamp] = loadChannelData(handles, soundChannel, [], [], filenum);
+            fs = handles.fs;
     end
-    
-function handles = eg_FilterSound(handles)
-    for c = 1:length(handles.menu_Filter)
-        if handles.menu_Filter(c).Checked
-            alg = handles.menu_Filter(c).Label;
+
+    if size(sound,2) > size(sound,1)
+        sound = sound'; 
+    end
+
+function [handles, filteredSound, fs, timestamp] = getFilteredSound(handles, sound, algorithm, filterParams, filenum)
+    if ~exist('sound', 'var') || isempty(sound)
+        [handles, sound, fs, timestamp] = getSound(handles, [], filenum);
+    else
+        fs = handles.fs;
+        timestamp = [];
+    end
+    if ~exist('algorithm', 'var') || isempty(algorithm)
+        % Get currently selected sound filter algorithm
+        for k = 1:length(handles.menu_Filter)
+            if handles.menu_Filter(k).Checked
+                algorithm = handles.menu_Filter(k).Label;
+                break;
+            end
         end
     end
+    if ~exist('filterParams', 'var') || isempty(filterParams)
+        % Use current sound filter parameters
+        filterParams = handles.FilterParams;
+    end
+    if ~exist('filenum', 'var') || isempty(filenum)
+        % Use current filenum
+        filenum = getCurrentFileNum(handles);
+    end
+
+    [handles, filteredSound] = filterSound(handles, sound, fs, algorithm, filterParams, filenum);
+
+function [handles, calculatedSound, timestamp] = getCalculatedSound(handles, filenum, useFilter)
+    % Calculate a sound vector based on the user-supplied
+    % expression in handles.SoundExpression
+    if ~exist('filenum', 'var') || isempty(filenum)
+        filenum = getCurrentFileNum(handles);
+    end
+    if ~exist('useFilter', 'var') || isempty(useFilter)
+        useFilter = false;
+    end
+
+    % Define all the variables used in the user-supplied expression
+    sourceIndices = handles.popup_SoundSource.UserData;
+    for k = 1:(length(sourceIndices)-1)
+        channelNum = sourceIndices{k};
+        switch channelNum
+            case 0
+                varName = 'sound';
+            otherwise
+                varName = sprintf('chan%d', channelNum);
+        end
+        if regexp(handles.SoundExpression, varName)
+            if strcmp(varName, 'sound')
+                if useFilter
+                    [handles, data, timestamp] = getFilteredSound(handles, [], [], [], filenum);
+                else
+                    [handles, data, timestamp] = getSound(handles, [], filenum);
+                end
+            else
+                [handles, data, timestamp] = loadChannelData(handles, channelNum, [], [], filenum);
+            end
+            assignin('base', varName, data);
+        end
+    end
+    % Evaluate the user-supplied expression
+    try
+        calculatedSound = evalin('base', handles.SoundExpression);
+    catch ME
+        fprintf('Error evaluating calculated channel: %s\n', handles.SoundExpression);
+        disp(ME)
+        fprintf('Using default sound instead.\n');
+        [handles, calculatedSound, ~, timestamp] = getFilteredSound(handles, [], [], [], filenum);
+    end
     
-    [handles, sound] = eg_GetSound(handles, false);
-    
-    handles.filtered_sound = eg_runPlugin(handles.plugins.filters, alg, sound, handles.fs, handles.FilterParams);
+function handles = UpdateSound(handles, soundChannel)
+    % Update the handles.sound field with the timeseries specified by 
+    %   soundChannel to use as sound for the purposes of plotting the 
+    %   spectrogram, etc.
+    if ~exist('soundChannel', 'var') || isempty(soundChannel)
+        soundChannel = handles.SoundChannel;
+    end
+
+    [handles, sound, fs, timestamp] = getSound(handles, soundChannel);
+    handles.sound = sound;
+    handles.fs = fs;
+    filenum = getCurrentFileNum(handles);
+    handles.DatesAndTimes(filenum) = timestamp;
+
+function [handles, filtered_sound] = filterSound(handles, sound, fs, algorithm, filterParams)
+    % Apply a filtering algorithm to a sound vector
+
+    if ~exist('algorithm', 'var') || isempty(algorithm)
+        % Get sound filter algorithm currently selected in the GUI
+        for k = 1:length(handles.menu_Filter)
+            if handles.menu_Filter(k).Checked
+                algorithm = handles.menu_Filter(k).Label;
+                break;
+            end
+        end
+    end
+    if ~exist('filterParams', 'var') || isempty(filterParams)
+        % Use current sound filter parameters
+        filterParams = handles.FilterParams;
+    end
+    if ~exist('fs', 'var') || isempty(fs)
+        % Use current sampling rate
+        fs = handles.fs;
+    end
+
+    % Run sound through filter algorithm
+    filtered_sound = eg_runPlugin(handles.plugins.filters, algorithm, sound, fs, filterParams);
+
+function handles = UpdateFilteredSound(handles)
+    % Update the handles.filtered_sound field
+    handles = UpdateSound(handles);
+    [handles, handles.filtered_sound] = filterSound(handles, handles.sound);
     
 function handles = eg_PlotChannel(handles, axnum)
     if ~handles.axes_Channel(axnum).Visible
@@ -1807,7 +1830,10 @@ function handles = SetSegmentThreshold(handles)
     handles.axes_Segments.UIContextMenu = handles.context_Segments;
     handles.axes_Segments.ButtonDownFcn = @click_segmentaxes;
     
-function handles = SegmentSounds(handles)
+function handles = SegmentSounds(handles, updateGUI)
+    if ~exist('updateGUI', 'var') || isempty(updateGUI)
+        updateGUI = true;
+    end
     
     if ~isempty(findobj('Parent',handles.axes_Sonogram,'Type','text'))
         return
@@ -1815,19 +1841,21 @@ function handles = SegmentSounds(handles)
     
     for c = 1:length(handles.menu_Segmenter)
         if handles.menu_Segmenter(c).Checked
-            alg = handles.menu_Segmenter(c).Label;
+            segmentationAlgorithmName = handles.menu_Segmenter(c).Label;
         end
     end
     
     filenum = getCurrentFileNum(handles);
     handles.SegmenterParams.IsSplit = 0;
     handles.SegmentTimes{filenum} = eg_runPlugin(handles.plugins.segmenters, ...
-        alg, handles.amplitude, handles.fs, handles.CurrentThreshold, ...
+        segmentationAlgorithmName, handles.amplitude, handles.fs, handles.CurrentThreshold, ...
         handles.SegmenterParams);
     handles.SegmentTitles{filenum} = cell(1,size(handles.SegmentTimes{filenum},1));
     handles.SegmentSelection{filenum} = ones(1,size(handles.SegmentTimes{filenum},1));
     
-    handles = PlotAnnotations(handles);
+    if updateGUI
+        handles = PlotAnnotations(handles);
+    end
     
 function [annotationHandles, labelHandles] = CreateAnnotations(handles, ax, times, titles, selects, selectColor, unselectColor, activeColor, inactiveColor, yExtent, activeIndex)
     % Create the annotations for a set of timed segments (used for plotting both
@@ -2175,12 +2203,12 @@ function FilterMenuClick(hObject, event)
         handles.FilterParams = hObject.UserData;
     end
     
-    handles = eg_FilterSound(handles);
+    handles = UpdateFilteredSound(handles);
     
     cla(handles.axes_Sound);
-    [handles, filtered_sound] = eg_GetSound(handles, true);
+    handles = UpdateFilteredSound(handles);
     [handles, numSamples] = eg_GetNumSamples(handles);
-    h = eg_peak_detect(handles.axes_Sound, linspace(0, numSamples/handles.fs, numSamples), filtered_sound);
+    h = eg_peak_detect(handles.axes_Sound, linspace(0, numSamples/handles.fs, numSamples), handles.filtered_sound);
     [h.Color] = deal('c');
     set(handles.axes_Sound,'XTick',[],'YTick',[]);
     handles.axes_Sound.Color = [0 0 0];
@@ -2279,7 +2307,7 @@ function handles = eg_EditTimescale(handles)
     handles = eg_Overlay(handles);
     
 function handles = eg_PlotSonogram(handles)
-    [handles, sound] = eg_GetSound(handles);
+    handles = UpdateFilteredSound(handles);
     
     sampleLims = round(handles.TLim * handles.fs);
     % Ensure sample numbers are in range
@@ -2307,7 +2335,7 @@ function handles = eg_PlotSonogram(handles)
         ylim(handles.axes_Sonogram, handles.FreqLim);
     end
     handles.ispower = eg_runPlugin(handles.plugins.spectrums, alg, ...
-        handles.axes_Sonogram, sound(sampleLims(1):sampleLims(2)), handles.fs, ...
+        handles.axes_Sonogram, handles.sound(sampleLims(1):sampleLims(2)), handles.fs, ...
         handles.SonogramParams);
     handles.axes_Sonogram.Units = 'normalized';
     handles.axes_Sonogram.YDir = 'normal';
@@ -6929,10 +6957,10 @@ function push_WorksheetAppend_Callback(hObject, ~, handles)
             end
         end
     
-        [handles, sound] = eg_GetSound(handles);
+        handles = UpdateFilteredSound(handles);
     
         eg_runPlugin(handles.plugins.spectrums, alg, ax, ...
-            sound(xlp(1):xlp(2)), handles.fs, handles.SonogramParams);
+            handles.filtered_sound(xlp(1):xlp(2)), handles.fs, handles.SonogramParams);
         ax.YDir = 'normal';
         handles.NewSlope = handles.DerivativeSlope;
         handles.DerivativeSlope = 0;
@@ -7898,39 +7926,40 @@ function handles = updateAmplitude(handles, forceRedraw)
 
 function [amp, labels] = eg_CalculateAmplitude(handles)
     
-    [handles, sound] = eg_GetSound(handles);
+    handles = UpdateFilteredSound(handles);
     
-    wind = round(handles.SmoothWindow*handles.fs);
+    windowSize = round(handles.SmoothWindow*handles.fs);
     if handles.menu_DontPlot.Checked
-        amp = zeros(size(sound));
+        amp = zeros(size(handles.filtered_sound));
         labels = '';
     else
         if handles.menu_SourceSoundAmplitude.Checked
-            [~, filtered_sound] = eg_GetSound(handles, true);
-            amp = smooth(10*log10(filtered_sound.^2+eps),wind);
-            amp = amp-min(amp(wind:length(amp)-wind));
+            amp = smooth(10*log10(handles.filtered_sound.^2+eps), windowSize);
+            amp = amp-min(amp(windowSize:length(amp)-windowSize));
             amp(amp<0)=0;
             labels = 'Loudness (dB)';
-        elseif handles.menu_SourceTopPlot.Checked
-            if handles.axes_Channel1.Visible
-                amp = smooth(handles.loadedChannelData{1},wind);
+        else
+            if handles.menu_SourceTopPlot.Checked
+                axnum = 1;
+            elseif handles.menu_SourceBottomPlot.Checked
+                axnum = 2;
+            else
+                error('Nothing selected for amplitude source');
+            end
+
+            if handles.axes_Channel(axnum).Visible
+                channelNum = getSelectedChannel(handles, axnum);
+                filterName = getSelectedFilter(handles, axnum);
+                filterParams = getSelectedFunctionParameters(handles, axnum);
+                [handles, channelData] = loadChannelData(handles, channelNum, filterName, filterParams, filenum);
+                amp = smooth(channelData, windowSize);
                 labels = handles.axes_Channel1.YLabel.String;
             else
-                amp = zeros(size(sound));
-                labels = '';
-            end
-        elseif handles.menu_SourceBottomPlot.Checked
-            if handles.axes_Channel2.Visible
-                amp = smooth(handles.loadedChannelData{2},wind);
-                labels = handles.axes_Channel2.YLabel.String;
-            else
-                amp = zeros(size(sound));
+                amp = zeros(size(handles.filtered_sound));
                 labels = '';
             end
         end
-    
     end
-    
     
 % --------------------------------------------------------------------
 function menu_Concatenate_Callback(hObject, ~, handles)
@@ -7990,16 +8019,16 @@ function menu_DontPlot_Callback(hObject, ~, handles)
     
     guidata(hObject, handles);
         
-function snd = GenerateSound(handles,sound_type)
+function snd = GenerateSound(handles, sound_type)
     % Generate sound with the selected options. Sound_type is either 'snd' or
     % 'mix'
     
-    [handles, sound] = eg_GetSound(handles, false);
-    [handles, filtered_sound] = eg_GetSound(handles, true);
+    [handles, sound] = getSound(handles);
     
     snd = zeros(size(sound));
     if handles.playback_SoundInMix.Checked==1 || strcmp(sound_type,'snd')
         if handles.playback_FilteredSound.Checked
+            [handles, filtered_sound] = filterSound(handles, sound);
             snd = snd + filtered_sound * handles.SoundWeights(1);
         else
             snd = snd + sound * handles.SoundWeights(1);
@@ -8076,14 +8105,12 @@ function menu_FilterParameters_Callback(hObject, ~, handles)
         end
     end
     
-    handles = eg_FilterSound(handles);
-    
-    [handles, filtered_sound] = eg_GetSound(handles, true);
+    handles = UpdateFilteredSound(handles);
     
     cla(handles.axes_Sound);
     [handles, numSamples] = eg_GetNumSamples(handles);
     
-    h = eg_peak_detect(handles.axes_Sound, linspace(0, numSamples/handles.fs, numSamples), filtered_sound);
+    h = eg_peak_detect(handles.axes_Sound, linspace(0, numSamples/handles.fs, numSamples), handles.filtered_sound);
     h.Color = 'c';
     handles.axes_Sound.XTick = [];
     handles.axes_Sound.YTick = [];
@@ -9870,7 +9897,7 @@ function action_Export_Callback(hObject, eventdata, handles)
     
     %%%
     
-    [handles, sound] = eg_GetSound(handles);
+    handles = UpdateFilteredSound(handles);
     
     exportAs = getMenuGroupValue(handles.menu_ExportAs.Children');
     exportTo = getMenuGroupValue(handles.menu_ExportTo.Children');
@@ -9963,7 +9990,7 @@ function action_Export_Callback(hObject, eventdata, handles)
                         str = [str(1:j-1) indx str(j+3:end)];
                     end
     
-                    wav = sound(handles.SegmentTimes{filenum}(c,1):handles.SegmentTimes{filenum}(c,2));
+                    wav = handles.filtered_sound(handles.SegmentTimes{filenum}(c,1):handles.SegmentTimes{filenum}(c,2));
     
                     audiowrite(fullfile(path, [str, '.wav']), wav, handles.fs, 'BitsPerSample', 16);
                 end
@@ -10017,7 +10044,7 @@ function action_Export_Callback(hObject, eventdata, handles)
                     end
                 end
                 eg_runPlugin(handles.plugins.spectrums, alg, handles.axes_Sonogram, ...
-                    sound(xlp(1):xlp(2)), handles.fs, handles.SonogramParams);
+                    handles.filtered_sound(xlp(1):xlp(2)), handles.fs, handles.SonogramParams);
                 handles.axes_Sonogram.YDir = 'normal';
                 handles.NewSlope = handles.DerivativeSlope;
                 handles.DerivativeSlope = 0;
@@ -10489,7 +10516,7 @@ function action_Export_Callback(hObject, eventdata, handles)
                                         end
                                     end
                                     eg_runPlugin(handles.plugins.spectrums, ...
-                                        alg, ax, sound(xlp(1):xlp(2)), ...
+                                        alg, ax, handles.filtered_sound(xlp(1):xlp(2)), ...
                                         handles.fs, handles.SonogramParams);
                                     ax.YDir = 'normal';
                                     handles.NewSlope = handles.DerivativeSlope;
