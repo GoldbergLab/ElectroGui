@@ -269,8 +269,6 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
         end
     end
     
-    handles = disableAxesPopupToolbars(handles);
-
     % Initialize event-related variables
     handles.EventSources = {};      % Array of event source channel names
     handles.EventChannels = [];     % Array of event source channel numbers
@@ -298,6 +296,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.figure_Main.WindowButtonMotionFcn = @MouseMotionHandler;
 
 %     handles = CloseProgressPopup(handles);
+    handles = disableAxesPopupToolbars(handles);
 
     % Update handles structure
     guidata(hObject, handles);
@@ -346,13 +345,14 @@ function handles = CloseProgressPopup(handles, progress)
 
 function handles = disableAxesPopupToolbars(handles)
     % Turn off the pop-up tool buttons for axes
-    handles.axes_Sound.Toolbar.Visible = 'off';
-    handles.axes_Sonogram.Toolbar.Visible = 'off';
-    handles.axes_Amplitude.Toolbar.Visible = 'off';
-    handles.axes_Channel1.Toolbar.Visible = 'off';
-    handles.axes_Channel2.Toolbar.Visible = 'off';
-    handles.axes_Segments.Toolbar.Visible = 'off';
-    handles.axes_Events.Toolbar.Visible = 'off';
+    delete(handles.axes_Sound.Toolbar);
+    delete(handles.axes_Sonogram.Toolbar);
+    delete(handles.axes_Amplitude.Toolbar);
+    delete(handles.axes_Channel1.Toolbar);
+    delete(handles.axes_Channel2.Toolbar);
+    delete(handles.axes_Segments.Toolbar);
+    delete(handles.axes_Events.Toolbar);
+
 
 function handles = loadTempFile(handles)
     % Get temp file
@@ -1297,7 +1297,7 @@ function handles = eg_LoadFile(handles)
     
     cd(curr);
 
-    handles = disableAxesPopupToolbars(handles);
+%    handles = disableAxesPopupToolbars(handles);
 
     handles = eg_EditTimescale(handles);
 
