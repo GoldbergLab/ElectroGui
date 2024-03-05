@@ -85,9 +85,14 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % Prompt user to choose a defaults file, then load it.
     handles = chooseAndLoadDefaultsFile(handles);
 
+    % Prepare variable to hold reference to progress popup
+%     handles.ProgressPopup = gobjects().empty;
+
+%     handles = OpenProgressPopup(handles, 'electro_gui initialzing - please wait...');
+
     % Gather all electro_gui plugins
     handles = gatherPlugins(handles);
-    
+
     % Default sound to display is the designated sound channel
     handles.SoundChannel = 0;
     handles.SoundExpression = '';
@@ -290,11 +295,52 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.figure_Main.KeyReleaseFcn = @keyReleaseHandler;
     handles.figure_Main.WindowButtonMotionFcn = @MouseMotionHandler;
 
+%     handles = CloseProgressPopup(handles);
+
     % Update handles structure
     guidata(hObject, handles);
     
     % UIWAIT makes electro_gui wait for user response (see UIRESUME)
     % uiwait(handles.figure_Main);
+
+function handles = OpenProgressPopup(handles, title)
+    % Create a modal progress popup
+    handles.ProgressPopup = figure('Name', '', 'WindowStyle', 'modal', ...
+        'NumberTitle', 'off', 'Toolbar', 'none', 'Menu', 'none', 'Units', 'pixels');
+    width = 300;
+    height = 50;
+    if isfield(handles, 'main_Figure')
+        mainPosition = handles.main_Figure.Position;
+        handles.ProgressPopup.Position(1) = mainPosition(1) + mainPosition(3)/2 - width/2;
+        handles.ProgressPopup.Position(2) = mainPosition(2) + mainPosition(4)/2 - height/2;
+        handles.ProgressPopup.Position(3) = width;
+        handles.ProgressPopup.Position(4) = height;
+    else
+        handles.ProgressPopup.Position(3) = width;
+        handles.ProgressPopup.Position(4) = height;
+    end
+    txt = uicontrol("Style", "text", "String", title, "Position", [0, 0.5, 1, 0.5], 'Parent', handles.ProgressPopup);
+    ax = axes(handles.ProgressPopup, 'Units', 'normalized', 'Position', [0, 0, 1, 0.5]);
+    progressBar = patch([], [], 'b', 'Parent', ax);
+    handles.ProgressPopup.UserData.txt = txt;
+    handles.ProgressPopup.UserData.ax = ax;
+    handles.ProgressPopup.UserData.bar = progressBar;
+    drawnow();
+function handles = UpdateProgressPopup(handles, progress)
+    % Update the progress popup
+    ax = handles.ProgressPopup.UserData.ax;
+    progressBar = handles.ProgressPopup.UserData.progressBar;
+    xl = xlim(ax);
+    yl = ylim(ax);
+    x0 = 0;
+    x1 = xl(1) + progress*diff(xl);
+    y0 = yl(1);
+    y1 = yl(2);
+    progressBar.XData = [x0, x0, x1, x1, x0];
+    progressBar.YData = [y0, y1, y1, y0, y0];
+function handles = CloseProgressPopup(handles, progress)
+    % Destroy progress popup
+    delete(handles.ProgressPopup);
 
 function handles = disableAxesPopupToolbars(handles)
     % Turn off the pop-up tool buttons for axes
