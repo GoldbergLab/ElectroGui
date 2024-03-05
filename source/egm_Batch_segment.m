@@ -9,52 +9,45 @@ if isempty(answer)
     return
 end
 
-fls = eval(answer{1});
-for c = 1:length(handles.menu_Segmenter)
-    if strcmp(get(handles.menu_Segmenter(c),'checked'),'on')
-        alg = get(handles.menu_Segmenter(c),'label');
+filenums = eval(answer{1});
+for filenum = 1:length(handles.menu_Segmenter)
+    if handles.menu_Segmenter(filenum).Checked
+        segmenterAlgorithmName = handles.menu_Segmenter(filenum).Label;
     end
 end
+x = mean(xlim(handles.axes_Sonogram));
+y = mean(ylim(handles.axes_Sonogram));
+txt = text(handles.axes_Sonogram, x, y, ...
+    'Segmenting... Click to quit.', 'HorizontalAlignment', 'center', ...
+    'FontSize', 14, 'Color', 'r', 'BackgroundColor', 'w');
+txt.ButtonDownFcn = @(varargin)set(txt, 'Color', 'g');
 
-subplot(handles.axes_Sonogram);
-txt = text(mean(xlim),mean(ylim),'Segmenting... Click to quit.','horizontalalignment','center','fontsize',14,'color','r','backgroundcolor','w');
-set(txt,'ButtonDownFcn','set(gco,''color'',''g''); drawnow;');
-for j = 1:length(fls)
-    cnt = j;
-    c = fls(j);
-    if sum(get(txt,'color')==[0 1 0])==3
-        cnt = cnt-1;
+for fileIdx = 1:length(filenums)
+    filenum = filenums(fileIdx);
+    if all(txt.Color==[0 1 0])
         break
     end
-    
-    [snd, fs, dt, label, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.DefaultRootPath, handles.sound_files(c).name), true);
-    if size(snd,2)>size(snd,1)
-        snd = snd';
-    end
 
-    back = handles.sound;
-    handles.sound = snd;
-    amp = eg_CalculateAmplitude(handles);
-    handles.sound = back;
+    [handles, amp, ~, fs] = electro_gui('calculateAmplitude', handles, filenum);
 
-    if strcmp(get(handles.menu_AutoThreshold,'checked'),'on')
-        handles.SoundThresholds(c) = eg_AutoThreshold(amp);
+    if handles.menu_AutoThreshold.Checked
+        handles.SoundThresholds(filenum) = eg_AutoThreshold(amp);
     else
-        handles.SoundThresholds(c) = handles.CurrentThreshold;
+        handles.SoundThresholds(filenum) = handles.CurrentThreshold;
     end
-    curr = handles.SoundThresholds(c);
+    curr = handles.SoundThresholds(filenum);
     
-    handles.SegmentTimes{c} = eg_runPlugin(handles.plugins.segmenters, alg, amp,fs,curr,handles.SegmenterParams);
-    handles.SegmentTitles{c} = cell(1,size(handles.SegmentTimes{c},1));
-    handles.SegmentSelection{c} = ones(1,size(handles.SegmentTimes{c},1));
+    handles.SegmentTimes{filenum} = eg_runPlugin(handles.plugins.segmenters, segmenterAlgorithmName, amp, fs, curr, handles.SegmenterParams);
+    handles.SegmentTitles{filenum} = cell(1,size(handles.SegmentTimes{filenum},1));
+    handles.SegmentSelection{filenum} = ones(1,size(handles.SegmentTimes{filenum},1));
 
-    set(txt,'string',['Segmented file ' num2str(fls(j)) ' (' num2str(j) '/' num2str(length(fls)) '). Click to quit.']);
+    txt.String = sprintf('Segmented file %d (%d/%d). Click to quit.', filenum, fileIdx, length(filenums));
     drawnow;
 end
 
 delete(txt);
 
-msgbox(['Segmented ' num2str(cnt) ' files.'],'Segmentation complete')
+msgbox(sprintf('Segmented %d files. Segmentation complete', fileIdx));
 
 function amp = eg_CalculateAmplitude(handles)
 

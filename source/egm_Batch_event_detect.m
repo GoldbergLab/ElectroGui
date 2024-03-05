@@ -9,37 +9,33 @@ if isempty(answer)
     return
 end
 
-fileNums = eval(answer{1});
-for c = 1:length(handles.menu_Segmenter)
-    if strcmp(get(handles.menu_Segmenter(c),'checked'),'on')
-        alg = get(handles.menu_Segmenter(c),'label');
-    end
-end
-
-txt = text(handles.axes_Sonogram, mean(xlim), mean(ylim), ...
+filenums = eval(answer{1});
+x = mean(xlim(handles.axes_Sonogram));
+y = mean(ylim(handles.axes_Sonogram));
+txt = text(handles.axes_Sonogram, x, y, ...
     'Detecting events... Click to quit.', 'HorizontalAlignment', 'center', ...
     'FontSize', 14, 'Color', 'r', 'BackgroundColor', 'w');
 txt.ButtonDownFcn = @(varargin)set(txt, 'Color', 'g');
 
-for fileIdx = 1:length(fileNums)
-    fileNum = fileNums(fileIdx);
+for fileIdx = 1:length(filenums)
+    filenum = filenums(fileIdx);
     if all(txt.Color==[0 1 0])
         break
     end
 
-    handles.FileLength(fileNum) = 0;
+    handles.FileLength(filenum) = 0;
     for axnum = 1:2
         eventSourceIdx = electro_gui('GetChannelAxesEventSourceIdx', handles, axnum);
         if ~isempty(eventSourceIdx)
-            handles = electro_gui('DetectEvents', handles, eventSourceIdx, fileNum);
+            handles = electro_gui('DetectEvents', handles, eventSourceIdx, filenum);
         end
     end
     
-    txt.String = sprintf('Detected events in file %d (%d/%d). Click to quit.', fileNum, fileIdx, length(fileNums));
+    txt.String = sprintf('Detected events in file %d (%d/%d). Click to quit.', filenum, fileIdx, length(filenums));
     drawnow;
 end
 
 delete(txt);
 
-msgbox(['Detected events in ' num2str(fileIdx-1) ' files.'],'Detection complete');
+msgbox(sprintf('Detected events in %d files. Detection complete', fileIdx));
 
