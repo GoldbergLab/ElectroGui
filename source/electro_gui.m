@@ -112,6 +112,8 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.FileEntryOpenTag = '<HTML><FONT COLOR=000000>';
     handles.FileEntryCloseTag = '</FONT></HTML>';
     
+    handles.AmplitudePlotHandle = gobjects(); % Handle to amplitude plot
+    handles.SegmentThresholdHandle = gobjects();  % Handle for audio segment threshold line
     handles.SegmentHandles = gobjects().empty;
     handles.MarkerHandles = gobjects().empty;
     handles.SegmentLabelHandles = gobjects().empty;
@@ -1837,17 +1839,16 @@ function handles = SetSegmentThreshold(handles)
     % Clear segments axes
     cla(handles.axes_Segments);
     
-    % Find threshold line handle on amplitude axes
-    thr = findobj('Parent',handles.axes_Amplitude,'LineStyle',':');
-    if isempty(thr)
+    if isempty(handles.SegmentThresholdHandle) || ~isvalid(handles.SegmentThresholdHandle) || ~isgraphics(handles.SegmentThresholdHandle)
         % No threshold line has been created yet
         ax = handles.axes_Amplitude;
         hold(ax, 'on')
         xl = xlim(ax);
         % Create new threshold line
         [handles, numSamples] = eg_GetNumSamples(handles);
-        plot(ax, [0, numSamples/handles.fs],[handles.CurrentThreshold handles.CurrentThreshold],':',...
-            'Color',handles.AmplitudeThresholdColor);
+        handles.SegmentThresholdHandle = plot(ax, [0, numSamples/handles.fs], ...
+            [handles.CurrentThreshold handles.CurrentThreshold], ...
+            ':', 'Color',handles.AmplitudeThresholdColor);
         xlim(ax, xl);
         hold(ax, 'off');
     
@@ -1865,7 +1866,7 @@ function handles = SetSegmentThreshold(handles)
         end
     else
         % Threshold line already exists, just update its Y position
-        thr.YData = [handles.CurrentThreshold handles.CurrentThreshold];
+        handles.SegmentThresholdHandle.YData = [handles.CurrentThreshold handles.CurrentThreshold];
         if handles.menu_AutoSegment.Checked
             % User has requested auto-segmentation. Auto-segment!
             handles = SegmentSounds(handles);
@@ -6581,8 +6582,10 @@ function menu_AmplitudeColor_Callback(hObject, ~, handles)
     
     c = uisetcolor(handles.AmplitudeColor, 'Select color');
     handles.AmplitudeColor = c;
-    obj = findobj('Parent',handles.axes_Amplitude,'LineStyle','-');
-    obj.Color = c;
+
+    if isempty(handles.AmplitudePlotHandle) || ~isgraphics(handles.AmplitudePlotHandle)
+        handles.AmplitudePlotHandle.Color = c;
+    end
     
     guidata(hObject, handles);
     
@@ -6596,8 +6599,9 @@ function menu_AmplitudeThresholdColor_Callback(hObject, ~, handles)
     
     c = uisetcolor(handles.AmplitudeThresholdColor, 'Select color');
     handles.AmplitudeThresholdColor = c;
-    obj = findobj('Parent',handles.axes_Amplitude,'LineStyle',':');
-    obj.Color = c;
+    if ~isempty(handles.SegmentThresholdHandle) && isgraphics(handles.SegmentThresholdHandle)
+        handles.SegmentThresholdHandle.Color = c;
+    end
     
     guidata(hObject, handles);
         
@@ -7929,23 +7933,21 @@ function handles = updateAmplitude(handles, forceRedraw)
         forceRedraw = false;
     end
 
-    % Check if amplitude plot already exists
-    plt = findobj('Parent', handles.axes_Amplitude, 'LineStyle', '-');
-
     % Recalculate amplitude data
     if handles.menu_DontPlot.Checked
         handles.amplitude = zeros(size(handles.filtered_sound));
         labels = '';
     else
         handles = UpdateFilteredSound(handles);
-        [handles.amplitude, labels] = calculateAmplitude(handles);
+        [handles, handles.amplitude, labels] = calculateAmplitude(handles);
     end
 
-    if (isempty(plt) || forceRedraw) && ~isempty(handles.amplitude)
+    if (isempty(handles.AmplitudePlotHandle) || ~isgraphics(handles.AmplitudePlotHandle) || forceRedraw) ...
+            && ~isempty(handles.amplitude)
         [handles, numSamples] = eg_GetNumSamples(handles);
         filenum = getCurrentFileNum(handles);
 
-        plot(handles.axes_Amplitude, linspace(0, numSamples/handles.fs, numSamples),handles.amplitude,'Color',handles.AmplitudeColor);
+        handles.AmplitudePlotHandle = plot(handles.axes_Amplitude, linspace(0, numSamples/handles.fs, numSamples),handles.amplitude,'Color',handles.AmplitudeColor);
         handles.axes_Amplitude.XTickLabel  = [];
         ylim(handles.axes_Amplitude, handles.AmplitudeLims);
         box(handles.axes_Amplitude, 'off');
@@ -7971,19 +7973,16 @@ function handles = updateAmplitude(handles, forceRedraw)
         handles = SetSegmentThreshold(handles);
     else
         % Just update y values
-        plt.YData = handles.amplitude;
+        handles.AmplitudePlotHandle.YData = handles.amplitude;
         ylabel(handles.axes_Amplitude, labels);
     end
 
-function [amp, labels] = calculateAmplitude(handles, filenum)
+function [handles, amp, labels, fs] = calculateAmplitude(handles, filenum)
     if ~exist('filenum', 'var') || isempty(filenum)
         filenum = getCurrentFileNum(handles);
     end
 
     [handles, filteredSound, fs] = getFilteredSound(handles, [], [], [], filenum);
-    
-
-    handles = UpdateFilteredSound(handles);
     
     windowSize = round(handles.SmoothWindow*fs);
     if handles.menu_SourceSoundAmplitude.Checked
