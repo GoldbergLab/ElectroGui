@@ -1678,7 +1678,7 @@ function [handles, sound, fs, timestamp] = getSound(handles, soundChannel, filen
             fs = handles.fs;
         otherwise
             % Use some other not-already-loaded channel data as sound
-            [handles, sound, timestamp] = loadChannelData(handles, soundChannel, [], [], filenum);
+            [handles, sound, ~, timestamp] = loadChannelData(handles, soundChannel, [], [], filenum);
             fs = handles.fs;
     end
 
