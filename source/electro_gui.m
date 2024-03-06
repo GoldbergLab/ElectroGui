@@ -111,7 +111,10 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.UnreadFileMarker = '> ';
     handles.FileEntryOpenTag = '<HTML><FONT COLOR=000000>';
     handles.FileEntryCloseTag = '</FONT></HTML>';
-    
+
+    handles.TimeResolutionBarHandle = gobjects();
+    handles.TimeResolutionBarText = gobjects();
+
     handles.AmplitudePlotHandle = gobjects(); % Handle to amplitude plot
     handles.SegmentThresholdHandle = gobjects();  % Handle for audio segment threshold line
     handles.SegmentHandles = gobjects().empty;
@@ -1022,9 +1025,9 @@ function push_TimescaleRight_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
-        return
-    end
+%     if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
+%         return
+%     end
     
     tscale = str2double(handles.edit_Timescale.String);
     ord = 10^floor(log(tscale)/log(10));
@@ -1076,9 +1079,9 @@ function edit_Timescale_Callback(hObject, ~, handles)
     % Hints: hObject.String returns contents of edit_Timescale as text
     %        str2double(hObject.String) returns contents of edit_Timescale as a double
     
-    if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
-        return
-    end
+%     if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
+%         return
+%     end
 
     tscale = str2double(handles.edit_Timescale.String);
     handles.TLim = [handles.TLim(1), handles.TLim(1) + tscale];
@@ -1882,9 +1885,9 @@ function handles = SegmentSounds(handles, updateGUI)
         updateGUI = true;
     end
     
-    if ~isempty(findobj('Parent',handles.axes_Sonogram,'Type','text'))
-        return
-    end
+%     if ~isempty(findobj('Parent',handles.axes_Sonogram,'Type','text'))
+%         return
+%     end
     
     for c = 1:length(handles.menu_Segmenter)
         if handles.menu_Segmenter(c).Checked
@@ -2295,21 +2298,57 @@ function handles = updateXLimBox(handles)
         handles.xlimbox.YData = ydata;
     end
 
-function handles = UpdateTimescaleView(handles)
+function handles = fixTLim(handles, maxSeconds)
+    % Record width of viewing window
+    tWidth = diff(handles.TLim);
+
+    % Adjust view time limits if they exceed the boundaries of the data
+    handles.TLim(handles.TLim < 0) = 0;
+    handles.TLim(handles.TLim > maxSeconds) = maxSeconds;
+
+    % Ensure second time limit is greater than first
+    if tWidth < 0
+        handles.TLim = flip(handles.TLim);
+    elseif tWidth == 0
+        handles.TLim = [0, maxSeconds];
+    end
+
+function handles = UpdateTimescaleView(handles, maintainViewWidth)
     % Function that handles updating all the axes to show the appropriate
     % timescale together, based on the value in handles.TLim
+    
+    % maintainViewWidth:
+    %   If handles.TLim is out of bounds, try to make it in bounds such
+    %   that the width of the viewing window stays the same.
+    if ~exist('maintainViewWidth', 'var') || isempty(maintainViewWidth)
+        maintainViewWidth = false;
+    end
     
     [handles, numSamples] = eg_GetNumSamples(handles);
     numSeconds = numSamples / handles.fs;
 
-    % Adjust view time limits if they exceed the boundaries of the data
-    handles.TLim(handles.TLim < 0) = 0;
-    handles.TLim(handles.TLim > numSeconds) = numSeconds;
-    % Ensure second time limit is greater than first
-    if diff(handles.TLim) < 0
-        handles.TLim = flip(handles.TLim);
-    elseif diff(handles.TLim) == 0
-        handles.TLim = [0, numSeconds];
+    % Record width of viewing window
+    tWidth = abs(diff(handles.TLim));
+
+    if maintainViewWidth
+        originalTLim = handles.TLim;
+    end
+
+    handles = fixTLim(handles, numSeconds);
+
+    if maintainViewWidth
+        matches = handles.TLim == originalTLim;
+        if all(matches == [0, 1])
+            % First limit has changed
+            handles.TLim(2) = handles.TLim(1) + tWidth;
+            % Fix TLim again in case this messed them up.
+            handles = fixTLim(handles, numSeconds);
+        elseif all(matches == [1, 0])
+            % Second limit has changed
+            handles.TLim(1) = handles.TLim(2) - tWidth;
+            % Fix TLim again in case this messed them up.
+            handles = fixTLim(handles, numSeconds);
+        end
     end
 
     xlim(handles.axes_Sound, [0, numSeconds]);
@@ -2353,6 +2392,56 @@ function handles = UpdateTimescaleView(handles)
     
     handles = eg_Overlay(handles);
     
+function handles = UpdateTimeResolutionBar(handles, timeResolution)
+    % Update the bar in the sonogram axes that shows the time resolution of
+    % the spectrogram.
+    % timeResolution is in seconds
+
+    delete(handles.TimeResolutionBarHandle);
+    delete(handles.TimeResolutionBarText);
+
+    if ~isempty(timeResolution) && ~isnan(timeResolution)
+        % Get spectrogram axes data limits
+        xl = xlim(handles.axes_Sonogram);
+        yl = ylim(handles.axes_Sonogram);
+
+        % Calculate bar coordinates (except the one determined by the text
+        % height)
+        xA = xl(2)-timeResolution;
+        xB = xl(2);
+        yB = yl(2);
+
+        % Change number presentation style/units based on order of
+        % magnitude of timeResolution
+        if timeResolution >= 1
+            numText = sprintf('Δt=%0.01f s', timeResolution);
+        elseif timeResolution >= 0.01
+            numText = sprintf('Δt=%d ms', round(timeResolution*1000));
+        elseif timeResolution > 0.001
+            numText = sprintf('Δt=%0.01f ms', timeResolution*1000);
+        else
+            numText = sprintf('Δt=%d us', round(timeResolution*1000000));
+        end
+
+        % Create the time resolution text label
+        handles.TimeResolutionBarText = text(handles.axes_Sonogram, xB, yB, numText, 'VerticalAlignment', 'top', 'HorizontalAlignment' , 'right', 'Color', [0.5, 0.5, 0.5], 'FontSize', 8);
+
+        % Get the height of the text
+        handles.TimeResolutionBarText.Units = 'data';
+        h = handles.TimeResolutionBarText.Extent(4);
+
+        % Determine the final coordinates of the bar
+        yA = yl(2) - h;
+        xdata = [xA, xA, xB, xB];
+        ydata = [yA, yB, yB, yA];
+
+        % Create bar
+        handles.TimeResolutionBarHandle = patch(xdata, ydata, 'w', 'Parent', handles.axes_Sonogram, 'FaceColor', 'w', 'EdgeColor', 'none');
+
+        % Raise up text above bar
+        uistack(handles.TimeResolutionBarText);
+    end
+
 function handles = eg_PlotSonogram(handles)
     handles = UpdateFilteredSound(handles);
     
@@ -2381,13 +2470,15 @@ function handles = eg_PlotSonogram(handles)
     else
         ylim(handles.axes_Sonogram, handles.FreqLim);
     end
-    handles.ispower = eg_runPlugin(handles.plugins.spectrums, alg, ...
+    [handles.ispower, timeResolution] = eg_runPlugin(handles.plugins.spectrums, alg, ...
         handles.axes_Sonogram, handles.sound(sampleLims(1):sampleLims(2)), handles.fs, ...
         handles.SonogramParams);
     handles.axes_Sonogram.Units = 'normalized';
     handles.axes_Sonogram.YDir = 'normal';
     handles.axes_Sonogram.UIContextMenu = handles.context_Sonogram;
-    
+
+    handles = UpdateTimeResolutionBar(handles, timeResolution);
+
     handles.NewSlope = handles.DerivativeSlope;
     handles.DerivativeSlope = 0;
     handles = SetSonogramColors(handles);
@@ -2403,6 +2494,7 @@ function handles = eg_PlotSonogram(handles)
 
     handles = setClickSoundCallback(handles, handles.axes_Sonogram);
     xlim(handles.axes_Sonogram, handles.TLim);
+    handles.axes_Sonogram.Box = 'off';
     
 function click_sound(hObject, event)
     % Callback for a mouse click on any of the sound axes
@@ -3212,9 +3304,9 @@ function push_Calculate_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
-        return
-    end
+%     if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
+%         return
+%     end
     
     handles = eg_PlotSonogram(handles);
     
@@ -4077,7 +4169,7 @@ function handles = shiftInTime(handles, shiftLevel)
     shiftDelta = diff(handles.TLim) * 0.1;
     shiftAmount = - shiftDelta * shiftLevel;
     handles.TLim = handles.TLim + shiftAmount;
-    handles = UpdateTimescaleView(handles);
+    handles = UpdateTimescaleView(handles, true);
 
 function handles = zoomInTime(handles, tCenter, zoomLevels)
     % Zoom view in/out in time
@@ -4413,10 +4505,10 @@ function handles = popup_Functions_Callback(handles, axnum)
     
     % I think this is checking if theres a "data too long" message on the
     % axes. Probably should remove that check
-    if isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
+%     if isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
         handles.popup_EventDetectors(axnum).Value = 1;
         handles = eg_LoadChannel(handles, axnum);
-    end
+%     end
     str = handles.popup_Channels(axnum).String;
     str = str{handles.popup_Channels(axnum).Value};
     if contains(str,' - ') || strcmp(str,'(None)')
@@ -4485,12 +4577,12 @@ function popup_Function2_CreateFcn(hObject, ~, handles)
 function handles = popup_Channels_Callback(handles, axnum)
     % Handle change in value of either channel source menu
     
-    if isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
+%     if isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
         % ?? is this for the long file thing?
         handles.popup_Functions(axnum).Value = 1;
         handles.popup_EventDetectors(axnum).Value = 1;
         handles = eg_LoadChannel(handles, axnum);
-    end
+%     end
 
     channelNum = getSelectedChannel(handles, axnum);
     if isempty(channelNum)
@@ -5036,10 +5128,10 @@ function popup_EventDetector1_Callback(hObject, ~, handles)
     % Hints: contents = hObject.String returns popup_EventDetector1 contents as cell array
     %        contents{hObject.Value} returns selected item from popup_EventDetector1
     
-    if isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
+%     if isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
         handles = UpdateChannelEventDisplay(handles, 1);
 %        handles = eg_clickEventDetector(handles,1);
-    end
+%     end
     
     guidata(hObject, handles);
     
@@ -5064,10 +5156,10 @@ function popup_EventDetector2_Callback(hObject, ~, handles)
     % Hints: contents = hObject.String returns popup_EventDetector2 contents as cell array
     %        contents{hObject.Value} returns selected item from popup_EventDetector2
     
-    if isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
+%     if isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
         handles = UpdateChannelEventDisplay(handles, 2);
 %        handles = eg_clickEventDetector(handles,2);
-    end
+%     end
     
     guidata(hObject, handles);
     
@@ -6499,9 +6591,9 @@ function push_BrightnessUp_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
-        return
-    end
+%     if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
+%         return
+%     end
     
     if handles.ispower == 1
         if handles.SonogramClim(2) > handles.SonogramClim(1)+0.5
@@ -6521,9 +6613,9 @@ function push_BrightnessDown_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
-        return
-    end
+%     if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
+%         return
+%     end
     
     if handles.ispower == 1
         handles.SonogramClim(2) = handles.SonogramClim(2)+0.5;
@@ -6542,9 +6634,9 @@ function push_OffsetUp_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
-        return
-    end
+%     if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
+%         return
+%     end
     
     if handles.ispower == 1
         if handles.SonogramClim(1) < handles.SonogramClim(2)-0.5
@@ -6564,9 +6656,9 @@ function push_OffsetDown_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
-        return
-    end
+%     if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
+%         return
+%     end
     
     if handles.ispower == 1
         handles.SonogramClim(1) = handles.SonogramClim(1)-0.5;
@@ -7822,10 +7914,10 @@ function handles = menu_FunctionParams(handles,axnum)
     ud{v} = handles.ChannelAxesFunctionParams{axnum};
     handles.popup_Functions(axnum).UserData = ud;
     
-    if isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
+%     if isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
         handles = eg_LoadChannel(handles,axnum);
         handles = DetectEventsInAxes(handles, axnum);
-    end
+%     end
     
     
 % --------------------------------------------------------------------
@@ -7834,9 +7926,9 @@ function menu_Split_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
-        return
-    end
+%     if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
+%         return
+%     end
     
     % ginput(1);
     myginput(1); %mod by VG

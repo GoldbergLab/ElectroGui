@@ -1,4 +1,4 @@
-function ispower = egs_AAquick_sonogram(ax,wv,fs,params)
+function [ispower, timeResolution] = egs_AAquick_sonogram(ax,wv,fs,params)
 % ElectroGui spectrum algorithm
 % Aaron Andalman's algorithm that accounts for screen resolution
 
@@ -7,6 +7,9 @@ if isstr(ax) & strcmp(ax,'params')
     ispower.Values = {};
     return
 end
+
+% Temporal resolution of the spectrogram, in seconds
+timeResolution = 0.01;
 
 originalAxesUnits = ax.Units;
 
