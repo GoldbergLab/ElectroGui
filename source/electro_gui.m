@@ -2034,18 +2034,37 @@ function handles = UpdateActiveAnnotationDisplay(handles, oldAnnotationNum, oldA
         otherwise
             error('Invalid annotation type: %s', annotationType);
     end
+
+    filenum = getCurrentFileNum(handles);
+
     switch newAnnotationType
         case 'segment'
             handles.SegmentHandles(newAnnotationNum).EdgeColor = handles.SegmentActiveColor;
             handles.SegmentHandles(newAnnotationNum).LineWidth = 2;
             handles.SegmentHandles(oldAnnotationNum).LineStyle = '-';
+            activeAnnotationTimes = handles.SegmentTimes{filenum}(newAnnotationNum, :) / handles.fs;
         case 'marker'
             handles.MarkerHandles(newAnnotationNum).EdgeColor = handles.MarkerActiveColor;
             handles.MarkerHandles(newAnnotationNum).LineWidth = 2;
             handles.MarkerHandles(oldAnnotationNum).LineStyle = '-';
+            activeAnnotationTimes = handles.MarkerTimes{filenum}(newAnnotationNum, :) / handles.fs;
         otherwise
             error('Invalid annotation type: %s', annotationType);
     end
+    
+    % Make sure active annotation is not off-screen
+    if any(min(handles.TLim) > activeAnnotationTimes)
+        % Active annotation is off screen to the left
+        activeAnnotationEdge = activeAnnotationTimes(1);
+        handles = setTimeViewEdge(handles, activeAnnotationEdge, 'left');
+        handles = UpdateTimescaleView(handles);
+    elseif any(max(handles.TLim) < activeAnnotationTimes)
+        % Active annotation is off screen to the right
+        activeAnnotationEdge = activeAnnotationTimes(2);
+        handles = setTimeViewEdge(handles, activeAnnotationEdge, 'right');
+        handles = UpdateTimescaleView(handles);
+    end
+
 function handles = PlotAnnotations(handles, modes)
     % Get segment axes
     ax = handles.axes_Segments;
@@ -4163,6 +4182,29 @@ function nextIdx = findNextTrueIdx(mask, startIdx, direction)
     end
 
     nextIdx = idx(1);
+
+function handles = setTimeViewEdge(handles, edgeTime, edgeSide)
+    % Shift view so that the specified edge of the viewing window is at the
+    % given time, without changing the width of the viewing window
+    % edgeSide should be "left" or "right"
+    switch edgeSide
+        case 'left'
+            currentEdgeTime = handles.TLim(1);
+        case 'right'
+            currentEdgeTime = handles.TLim(2);
+        otherwise
+            error('edgeSide should be either ''left'' or ''right''');
+    end
+    shiftAmount = edgeTime - currentEdgeTime;
+    handles.TLim = handles.TLim + shiftAmount;
+    handles = UpdateTimescaleView(handles);
+
+function handles = centerTime(handles, centerTime)
+    % Shift view so that the given time is centered
+    currentCenter = mean(handles.TLim);
+    shiftAmount = centerTime - currentCenter;
+    handles.TLim = handles.TLim + shiftAmount;
+    handles = UpdateTimescaleView(handles);
 
 function handles = shiftInTime(handles, shiftLevel)
     % Shift view back/forward in time
