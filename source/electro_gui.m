@@ -988,7 +988,7 @@ function progress_play(handles,wav)
         sound(wav,fs);
     else
         for c = length(axs):-1:1
-            if strcmp(axs(c).Visible,'off')
+            if ~axs(c).Visible
                 axs(c) = [];
             end
         end
@@ -4349,7 +4349,7 @@ function MouseMotionHandler(hObject, event)
                     delete(handles.Cursors(k));
                     if ax.Visible
                         yl = ylim(ax);
-                        handles.Cursors(k) = line([t, t], yl, 'Parent', ax, 'Color', 'green');
+                        handles.Cursors(k) = line([t, t], yl, 'Parent', ax, 'Color', 'green', 'PickableParts', 'none', 'HitTest', 'off');
                     end
                 else
                     % Cursor is valid, update its values
@@ -5732,103 +5732,57 @@ function handles = UpdateChannelEventDisplay(handles, axnum)
     % Update event threshold line
     handles = UpdateEventThresholdDisplay(handles, eventSourceIdx);
 
-function ClickEventSymbol(hObject, event)
+function ClickEventSymbol(eventMarker, event)
     % Handle a click on an event marker in one of the channel axes
-    handles = guidata(hObject);
-    
+    handles = guidata(eventMarker);
+
     % Determine which axes the clicked marker was in
-    if hObject.Parent==handles.axes_Channel1
+    if eventMarker.Parent==handles.axes_Channel1
         axnum = 1;
     else
         axnum = 2;
     end
 
+    ax = handles.axes_Channel(axnum);
+
     eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
     filenum = getCurrentFileNum(handles);
     for eventPartNum = 1:length(handles.EventHandles{axnum})
-        eventNum = find(handles.EventHandles{axnum}{eventPartNum}==hObject, 1);
+        eventNum = find(handles.EventHandles{axnum}{eventPartNum}==eventMarker, 1);
         if ~isempty(eventNum)
             break;
         end
     end
 
     if isempty(eventNum)
-        error('Could not find clicked event marker in list');
+        error('Could not find clicked event marker in list - this shouldn''t happen');
     end
     
-    if strcmp(handles.figure_Main.SelectionType,'extend')
-        % User clicked event marker with shift held down
+    switch handles.figure_Main.SelectionType
+        case 'extend'
+            % User clicked event marker with shift held down
+        
+            % Clear previously highlighted event
+            handles.ActiveEventNum = [];
+            handles.ActiveEventPartNum = [];
+            handles.ActiveEventSourceIdx = [];
 
-        % Clear previously highlighted event
-        handles.ActiveEventNum = [];
-        handles.ActiveEventPartNum = [];
-        handles.ActiveEventSourceIdx = [];
-        % Delete highlighted event markers
-        delete(handles.ActiveEventCursors);
-    
-        handles.EventSelected{eventSourceIdx}{eventPartNum, filenum}(eventNum) = false;
-    
-        for axn = 1:2
-            handles = UpdateChannelEventDisplay(handles, axnum);
-        end
-
-        % ?????
-        val = handles.popup_Channels(3-axnum).Value;
-        str = handles.popup_Channels(3-axnum).String;
-        nums = [];
-        for eventPartNum = 1:length(handles.EventTimes)
-            nums(eventPartNum) = size(handles.EventTimes{eventPartNum},1);
-        end
-        if val > length(str)-sum(nums)
-            indx = val-(length(str)-sum(nums));
-            cs = cumsum(nums);
-            f = length(find(cs<indx))+1;
-            if f == handles.EventCurrentIndex(axnum)
-                handles = eg_LoadChannel(handles,3-axnum);
+            % Delete highlighted event markers
+            delete(handles.ActiveEventCursors);
+        
+            % Toggle whether or not the clicked event is selected
+            for eventPartNum = 1:size(handles.EventSelected{eventSourceIdx}, 1)
+                handles.EventSelected{eventSourceIdx}{eventPartNum, filenum}(eventNum) = ~handles.EventSelected{eventSourceIdx}{eventPartNum, filenum}(eventNum);
             end
-        end
-    
-        if strcmp(handles.axes_Channel(3-axnum).Visible','on') && handles.EventCurrentIndex(1)==handles.EventCurrentIndex(2)
-            handles = UpdateChannelEventDisplay(handles,3-axnum);
-        end
-    
-        if handles.menu_AutoDisplayEvents.Checked
-            handles = UpdateEventViewer(handles);
-        end
-    
-    
-    elseif strcmp(handles.figure_Main.SelectionType,'normal') && sum(hObject.MarkerFaceColor==[1 1 1])~=3
-        indx = handles.popup_EventListAlign.Value-1;
-        if indx==0
-            return
-        end
-        nums = [];
-        for eventPartNum = 1:length(handles.EventTimes)
-            nums(eventPartNum) = size(handles.EventTimes{eventPartNum},1);
-        end
-        cs = cumsum(nums);
-        f = length(find(cs<indx))+1;
-        if f>1
-            g = indx-cs(f-1);
-        else
-            g = indx;
-        end
-        filenum = getCurrentFileNum(handles);
-        tm = handles.EventTimes{f}{g,filenum};
-        sel = handles.EventSelected{f}{g,filenum};
-    
-        [handles, numSamples] = eg_GetNumSamples(handles);
-    
-        xs = linspace(0, numSamples/handles.fs, numSamples);
-        tm = xs(tm(sel==1));
-        xclick = hObject.XData(1);
-        [~, j] = min(abs(tm-xclick));
-        handles = SetActiveEventDisplay(handles, j);
-%        handles = ActivateEvent(handles,j);
-    
+        
+            % Update display
+            handles = UpdateAnythingShowingEventSource(handles, eventSourceIdx);
+
+        case 'normal'
+            handles = SetActiveEventDisplay(handles, eventNum, eventPartNum, eventSourceIdx);
     end
     
-    guidata(hObject, handles);
+    guidata(ax, handles);
 
 function EventPartDisplayClick(hObject, event)
     % Handle a click on one of the event part display submenu
@@ -6107,7 +6061,7 @@ function matchingEventSourceIdx = WhichEventSourceIdxMatch(handles, channelNum, 
             matchingEventSourceIdx(end+1) = eventSourceIdx;
         end
     end
-function matchingAxes = WhichChannelAxesMatchEventSource(handles, eventSourceIdx)
+function matchingAxnum = WhichChannelAxesMatchEventSource(handles, eventSourceIdx)
     % Return a list of axes indices indicating whether each of the channel
     % axes match the given event source index, or if that is not provided,
     % the currently displayed event viewer source.
@@ -6116,7 +6070,7 @@ function matchingAxes = WhichChannelAxesMatchEventSource(handles, eventSourceIdx
         eventSourceIdx = GetEventViewerEventSourceIdx(handles);
     end
 
-    matchingAxes = [];
+    matchingAxnum = [];
     for axnum = 1:2
         [channelNum, filterName, eventDetectorName] = GetEventSourceInfo(handles, eventSourceIdx);
         [axChannelNum, axFilterName, axEventDetectorName] = GetChannelAxesInfo(handles, axnum);
@@ -6124,7 +6078,7 @@ function matchingAxes = WhichChannelAxesMatchEventSource(handles, eventSourceIdx
             if channelNum == axChannelNum && ...
                strcmp(filterName, axFilterName) && ...
                strcmp(eventDetectorName, axEventDetectorName)
-                matchingAxes(end+1) = axnum;
+                matchingAxnum(end+1) = axnum;
             end
         end
     end
@@ -6179,6 +6133,23 @@ function numEvents = GetNumEvents(handles, eventSourceIdx, eventPartNum)
         numEvents = length(handles.EventTimes{eventSourceIdx}{eventPartNum});
     end
 
+function handles = UpdateAnythingShowingEventSource(handles, eventSourceIdx)
+    % Update any event-related stuff that is currently displaying the given
+    % event source index
+
+    matchingAxnums = WhichChannelAxesMatchEventSource(handles, eventSourceIdx);
+    viewerEventSourceIdx = GetEventViewerEventSourceIdx(handles);
+
+    % Update any channel axes that are showing that event source index
+    for axnum = matchingAxnums
+        handles = UpdateChannelEventDisplay(handles, axnum);
+    end
+
+    % Update the event viewer if it is showing that event source index
+    if eventSourceIdx == viewerEventSourceIdx
+        handles = UpdateEventViewer(handles);
+    end
+
 function handles = SetActiveEventDisplay(handles, newActiveEventNum, newActiveEventPart, newEventSourceIdx)
     if ~exist('newActiveEventPart', 'var') || isempty(newActiveEventPart)
         % If not provided, assume we're not switching to a new event part
@@ -6205,14 +6176,14 @@ function handles = SetEventDisplayActiveState(handles, eventNum, eventPartNum, e
     % set it to the given active state (either true => active or false =>
     % inactive
 
-    if isempty(eventNum) || isempty(eventPartNum) || isempty(eventSourceIdx) || ~isgraphics(handles.EventWaveHandles(eventNum))
+    if isempty(eventNum) || isempty(eventPartNum) || isempty(eventSourceIdx)
         % Can't make an event active if it doesn't exist or isn't visible, now can we
         return
     end
 
     % Check if event viewer is currently displaying this event
     eventViewerEventSourceIdx = GetEventViewerEventSourceIdx(handles);
-    if eventViewerEventSourceIdx == eventSourceIdx
+    if ~isempty(eventViewerEventSourceIdx) && eventViewerEventSourceIdx == eventSourceIdx && isgraphics(handles.EventWaveHandles(eventNum))
         % Event viewer is displaying this event's source
         % Update active event wave plot (in the event axes)
         if activeState
@@ -6226,7 +6197,7 @@ function handles = SetEventDisplayActiveState(handles, eventNum, eventPartNum, e
     end
 
     % Update active event marker (in any channel axes that are displaying this event)
-    matchingAxes = WhichChannelAxesMatchEventSource(handles);
+    matchingAxes = WhichChannelAxesMatchEventSource(handles, eventSourceIdx);
     for axnum = matchingAxes
         eventMarkerHandle = handles.EventHandles{axnum}{eventPartNum}(eventNum);
         if activeState
