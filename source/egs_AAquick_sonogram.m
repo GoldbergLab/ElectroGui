@@ -8,9 +8,6 @@ if isstr(ax) & strcmp(ax,'params')
     return
 end
 
-% Temporal resolution of the spectrogram, in seconds
-timeResolution = 0.01;
-
 originalAxesUnits = ax.Units;
 
 NFFT = 512;
@@ -43,6 +40,10 @@ else
     wv = decimate(wv, ratio);
     fs = fs / ratio;
 end
+
+
+% Temporal resolution of the spectrogram, in seconds
+timeResolution = (windowSize - windowOverlap) / fs;
 
 %Compute the spectrogram
 %[S,F,T,P] = spectrogram(sss,windowSize,windowOverlap,NFFT,Fs);
