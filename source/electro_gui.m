@@ -1168,7 +1168,7 @@ function handles = refreshFileCache(handles)
         loadersInCache{end+1} = handles.sound_loader;
     
         % Add whatever channel is selected in axes1 to list
-        if ~isempty(selectedChannelNum1)
+        if ~isempty(selectedChannelNum1) && selectedChannelNum1 ~= 0
             filesInCache{end+1} = fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum1}(filenum).name);
             if isSound1
                 loadersInCache{end+1} = handles.sound_loader;
@@ -1177,7 +1177,7 @@ function handles = refreshFileCache(handles)
             end
         end
     
-        if ~isempty(selectedChannelNum2)
+        if ~isempty(selectedChannelNum2) && selectedChannelNum2 ~= 0
             % Add whatever channel is selected in axes2 to list
             filesInCache{end+1} = fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum2}(filenum).name);
             if isSound2
@@ -4448,7 +4448,7 @@ function keyPressHandler(hObject, event)
     else
         % User pressed a key without control down
         switch event.Key
-            case ','
+            case 'comma'
                 % Keypress is a "comma" - load previous file
                 filenum = getCurrentFileNum(handles);
                 filenum = filenum-1;
@@ -4460,7 +4460,7 @@ function keyPressHandler(hObject, event)
                 handles = eg_LoadFile(handles);
                 guidata(hObject, handles);
                 return
-            case '.'
+            case 'period'
                 % Keypress is a "period" - load next file
                 filenum = getCurrentFileNum(handles);
                 filenum = filenum+1;
