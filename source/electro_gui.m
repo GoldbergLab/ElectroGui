@@ -23,7 +23,7 @@ function varargout = electro_gui(varargin)
     
     % Edit the above text to modify the response to help electro_gui
     
-    % Last Modified by GUIDE v2.5 26-Feb-2024 23:11:20
+    % Last Modified by GUIDE v2.5 07-Mar-2024 22:52:07
     
     % Begin initialization code - DO NOT EDIT
     gui_Singleton = 1;
@@ -681,7 +681,7 @@ function handles = populatePluginMenus(handles)
     [handles, handles.menu_ColormapList] = populatePluginMenuList(handles, 'egc', '(Default)', handles.menu_Colormap, @ColormapClick);
 
     % Populate macro plugin menu
-    [handles, handles.menu_Macros] = populatePluginMenuList(handles, 'egm', [], handles.context_Macros, @MacrosMenuclick);
+    [handles, handles.menu_Macros] = populatePluginMenuList(handles, 'egm', [], handles.menu_Macros, @MacrosMenuclick);
 
     % Populate x-axis event feature algorithm plugin menu
     [handles, handles.menu_XAxis_List] = populatePluginMenuList(handles, 'ega', handles.DefaultEventFeatureX, handles.menu_XAxis, @XAxisMenuClick);
@@ -896,56 +896,7 @@ function list_Files_CreateFcn(hObject, ~, handles)
     if ispc && isequal(hObject.BackgroundColor, get(0,'defaultUicontrolBackgroundColor'))
         hObject.BackgroundColor = 'white';
     end
-    
-% --- Executes on button press in push_Properties.
-function push_Properties_Callback(hObject, ~, handles)
-    % hObject    handle to push_Properties (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    import java.awt.*;
-    import java.awt.event.*;
-    
-    handles.push_Properties.UIContextMenu = handles.context_Properties;
-    
-    % Trigger a right-click event
-    try
-        rob = Robot;
-        rob.mousePress(InputEvent.BUTTON3_MASK);
-        pause(0.01);
-        rob.mouseRelease(InputEvent.BUTTON3_MASK);
-    catch
-        errordlg('Java is not working properly. You must right-click the button.','Java error');
-    end
-    
-% --- Executes on slider movement.
-function slider_Time_Callback(hObject, ~, handles)
-    % hObject    handle to slider_Time (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    % Hints: hObject.Value returns position of slider
-    %        hObject.Min and hObject.Max to determine range of slider
-    
-    if ~isfield(handles, 'xlimbox')
-        % No xlimbox yet, probably nothing to slide.
-        return;
-    end
-    shift = handles.slider_Time.Value - handles.TLim(1);
-    handles.TLim = handles.TLim + shift;
-    handles = UpdateTimescaleView(handles);
-    
-    guidata(hObject, handles);
-    
-% --- Executes during object creation, after setting all properties.
-function slider_Time_CreateFcn(hObject, ~, handles)
-    % hObject    handle to slider_Time (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    empty - handles not created until after all CreateFcns called
-    
-    % Hint: slider controls usually have a light gray background.
-    if isequal(hObject.BackgroundColor, get(0,'defaultUicontrolBackgroundColor'))
-        hObject.BackgroundColor = [.5 .5 .5];
-    end
+        
 
 % --------------------------------------------------------------------
 function menu_Experiment_Callback(hObject, ~, handles)
@@ -1018,58 +969,6 @@ function progress_play(handles,wav)
         delete(h);
         hold(handles.axes_Sonogram, 'off');
     end
-    
-% --- Executes on button press in push_TimescaleRight.
-function push_TimescaleRight_Callback(hObject, ~, handles)
-    % hObject    handle to push_TimescaleRight (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-%     if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
-%         return
-%     end
-    
-    tscale = str2double(handles.edit_Timescale.String);
-    ord = 10^floor(log(tscale)/log(10));
-    mult = tscale/ord;
-    if mult == 1
-        tscale = 0.5 * ord;
-    elseif mult > 1 && mult <= 2
-        tscale = ord;
-    elseif mult > 2 && mult <= 5
-        tscale = 2 * ord;
-    elseif mult > 5
-        tscale = 5 * ord;
-    end
-    handles.edit_Timescale.String  = num2str(tscale,4);
-    electro_gui('edit_Timescale_Callback',gcbo,[],guidata(gcbo));
-    
-    guidata(hObject, handles);
-    
-% --- Executes on button press in push_TimescaleLeft.
-function push_TimescaleLeft_Callback(hObject, ~, handles)
-    % hObject    handle to push_TimescaleLeft (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    if ~isempty(findobj('Parent', handles.axes_Sonogram, 'type', 'text'))
-        return
-    end
-    
-    tscale = str2double(handles.edit_Timescale.String);
-    ord = 10^floor(log(tscale)/log(10));
-    mult = tscale/ord;
-    if mult >= 5
-        tscale = 10 * ord;
-    elseif mult >= 2 && mult < 5
-        tscale = 5 * ord;
-    elseif mult >= 1 && mult < 2
-        tscale = 2 * ord;
-    end
-    handles.edit_Timescale.String = num2str(tscale,4);
-    electro_gui('edit_Timescale_Callback',gcbo,[],guidata(gcbo));
-    
-    guidata(hObject, handles);
     
 function edit_Timescale_Callback(hObject, ~, handles)
     % hObject    handle to edit_Timescale (see GCBO)
@@ -2402,13 +2301,7 @@ function handles = UpdateTimescaleView(handles, maintainViewWidth)
         end
         ylim(handles.axes_Channel(axnum), yl);
     end
-    
-    handles.slider_Time.Min = 0;
-    handles.slider_Time.Max = numSeconds - diff(handles.TLim) + eps;
-    handles.slider_Time.Value = handles.TLim(1);
-    stp = min([1 diff(handles.TLim)/((numSeconds-diff(handles.TLim))+eps)]);
-    handles.slider_Time.SliderStep = [0.1*stp 0.5*stp];
-    
+        
     handles = eg_Overlay(handles);
     
 function handles = UpdateTimeResolutionBar(handles, timeResolution)
@@ -7027,26 +6920,6 @@ function YAxisMenuClick(hObject, ~, handles)
     
     guidata(hObject, handles);
     
-% --- Executes on button press in push_UpdateFileList.
-function push_UpdateFileList_Callback(hObject, ~, handles)
-    % hObject    handle to push_UpdateFileList (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    import java.awt.*;
-    import java.awt.event.*;
-    
-    handles.push_UpdateFileList.UIContextMenu = handles.context_UpdateList;
-    
-    % Trigger a right-click event
-    try
-        rob = Robot;
-        rob.mousePress(InputEvent.BUTTON3_MASK);
-        pause(0.01);
-        rob.mouseRelease(InputEvent.BUTTON3_MASK);
-    catch
-        errordlg('Java is not working properly. You must right-click the button.','Java error');
-    end
-    
 function txt = addWorksheetTextBox(handles, newslide, text, fontSize, x, y, horizontalAnchor, verticalAnchor, paragraphAlignment, rotation)
     txt = invoke(newslide.Shapes,'AddTextBox',1,0,0,0,0);
     txt.TextFrame.TextRange.Text = text;
@@ -7538,36 +7411,6 @@ function ViewWorksheet(handles)
     axis(ax, 'tight');
     axis(ax, 'off');
     fig.Visible = 'on';
-    
-    
-% --- Executes on button press in push_Macros.
-function push_Macros_Callback(hObject, ~, handles)
-    % hObject    handle to push_Macros (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    import java.awt.*;
-    import java.awt.event.*;
-    
-    handles.push_Macros.UIContextMenu = handles.context_Macros;
-    
-    % Trigger a right-click event
-    try
-        rob = Robot;
-        rob.mousePress(InputEvent.BUTTON3_MASK);
-        pause(0.01);
-        rob.mouseRelease(InputEvent.BUTTON3_MASK);
-    catch
-        errordlg('Java is not working properly. You must right-click the button.','Java error');
-    disp('end')
-    end
-    
-    
-% --------------------------------------------------------------------
-function context_Macros_Callback(hObject, ~, handles)
-    % hObject    handle to context_Macros (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
     
     
 function MacrosMenuclick(hObject, event)
@@ -8529,7 +8372,13 @@ function handles = eg_LoadProperties(handles)
         end
     end
     
-    
+% --------------------------------------------------------------------
+function menu_Properties_Callback(hObject, eventdata, handles)
+    % hObject    handle to menu_Properties (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+
 % --------------------------------------------------------------------
 function menu_AddProperty_Callback(hObject, ~, handles)
     % hObject    handle to menu_AddProperty (see GCBO)
@@ -8585,6 +8434,7 @@ function handles = eg_AddProperty(handles,type)
     button = questdlg(['Add a new ' typestr{type} ' property to'],'Add property','Current file','Some files...','All files','All files');
     switch button
         case ''
+            % User cancelled, do nothing
             return
         case 'Current file'
             indx = filenum;
@@ -9175,14 +9025,7 @@ function menu_ScalebarHeight_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    
-% --------------------------------------------------------------------
-function context_UpdateList_Callback(hObject, ~, handles) %#ok<*INUSD>
-    % hObject    handle to context_UpdateList (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    
+        
 % --------------------------------------------------------------------
 function menu_ChangeFiles_Callback(hObject, ~, handles)
     % hObject    handle to menu_ChangeFiles (see GCBO)
@@ -9465,12 +9308,7 @@ function suppressStupidCallbackWarnings()
     push_NextFile_Callback;
     list_Files_Callback;
     list_Files_CreateFcn;
-    push_Properties_Callback;
-    slider_Time_Callback;
-    slider_Time_CreateFcn;
     menu_Experiment_Callback;
-    push_TimescaleRight_Callback;
-    push_TimescaleLeft_Callback;
     edit_Timescale_Callback;
     edit_Timescale_CreateFcn;
     context_Sonogram_Callback;
@@ -9571,7 +9409,6 @@ function suppressStupidCallbackWarnings()
     menu_YAxis_Callback;
     XAxisMenuClick;
     YAxisMenuClick;
-    push_UpdateFileList_Callback;
     push_WorksheetAppend_Callback;
     UpdateWorksheet;
     click_Worksheet;
@@ -9590,8 +9427,6 @@ function suppressStupidCallbackWarnings()
     menu_ClearWorksheet_Callback;
     menu_WorksheetView_Callback;
     ViewWorksheet;
-    push_Macros_Callback;
-    context_Macros_Callback;
     MacrosMenuclick;
     menu_Portrait_Callback;
     menu_Orientation_Callback;
@@ -9634,13 +9469,12 @@ function suppressStupidCallbackWarnings()
     menu_DefaultPropertyValue_Callback;
     menu_CleanUpList_Callback;
     menu_ScalebarHeight_Callback;
-    context_UpdateList_Callback;
     menu_ChangeFiles_Callback;
     menu_DeleteFiles_Callback;
     menu_AutoApplyYLim_Callback;
         
 % --------------------------------------------------------------------
-function center_Timescale_Callback(hObject, eventdata, handles)
+function center_Timescale_Callback(hObject, eventdata, handles) %#ok<*INUSD> 
     % hObject    handle to center_Timescale (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
@@ -11592,5 +11426,21 @@ function openRecent_None_Callback(hObject, eventdata, handles)
 % --------------------------------------------------------------------
 function menu_Help_Callback(hObject, eventdata, handles)
 % hObject    handle to menu_Help (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+
+
+% --------------------------------------------------------------------
+function menu_Macros_Callback(hObject, eventdata, handles)
+% hObject    handle to menu_Macros (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function menu_AlterFileList_Callback(hObject, eventdata, handles)
+% hObject    handle to menu_AlterFileList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
