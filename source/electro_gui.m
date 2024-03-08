@@ -8311,10 +8311,14 @@ function handles = eg_RestartProperties(handles)
     end
     
     if ~isempty(handles.PropertyObjectHandles)
-        handles.PropertyObjectHandles.Callback = @ChangeProperty;
+        for k = 1:length(handles.PropertyObjectHandles)
+            handles.PropertyObjectHandles(k).Callback = @ChangeProperty;
+        end
     end
     if ~isempty(handles.PropertyTextHandles)
-        handles.PropertyTextHandles.ButtonDownFcn = @ClickPropertyText;
+        for k = 1:length(handles.PropertyTextHandles)
+            handles.PropertyTextHandles(k).ButtonDownFcn = @ClickPropertyText;
+        end
     end
     
 function ChangeProperty(hObject, ~, handles)
