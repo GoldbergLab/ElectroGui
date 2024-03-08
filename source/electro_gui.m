@@ -1895,6 +1895,9 @@ function handles = UpdateAnnotationTitleDisplay(handles, annotationNums, annotat
             for annotationNum = annotationNums
                 handles.MarkerLabelHandles(annotationNum).String = handles.MarkerTitles{filenum}(annotationNum);
             end
+        case 'none'
+            % Do nothing
+            return;
         otherwise
             error('Invalid annotation type: %s', annotationType);
     end
@@ -1930,6 +1933,8 @@ function handles = UpdateActiveAnnotationDisplay(handles, oldAnnotationNum, oldA
             handles.MarkerHandles(oldAnnotationNum).EdgeColor = handles.MarkerInactiveColor;
             handles.MarkerHandles(oldAnnotationNum).LineWidth = 1;
             handles.MarkerHandles(oldAnnotationNum).LineStyle = '-';
+        case 'none'
+            % Do nothing
         otherwise
             error('Invalid annotation type: %s', annotationType);
     end
@@ -1947,6 +1952,9 @@ function handles = UpdateActiveAnnotationDisplay(handles, oldAnnotationNum, oldA
             handles.MarkerHandles(newAnnotationNum).LineWidth = 2;
             handles.MarkerHandles(oldAnnotationNum).LineStyle = '-';
             activeAnnotationTimes = handles.MarkerTimes{filenum}(newAnnotationNum, :) / handles.fs;
+        case 'none'
+            % Do nothing
+            return;
         otherwise
             error('Invalid annotation type: %s', annotationType);
     end
@@ -2776,6 +2784,8 @@ function handles = ToggleAnnotationSelect(handles, filenum, annotationNum, annot
             handles = ToggleSegmentSelect(handles, filenum, annotationNum);
         case 'marker'
             handles = ToggleMarkerSelect(handles, filenum, annotationNum);
+        case 'none'
+            % Do nothing
     end
 function handles = ToggleSegmentSelect(handles, filenum, segmentNum)
     handles.SegmentSelection{filenum}(segmentNum) = ~handles.SegmentSelection{filenum}(segmentNum);
@@ -2852,6 +2862,9 @@ function [newAnnotationNum, newAnnotationType] = FindClosestAnnotationOfOtherTyp
             % to that active segment.
             [~, newAnnotationNum] = min(abs(segmentTimes - markerTime));
             newAnnotationType = 'segment';    
+        case 'none'
+        otherwise
+            error('Invalid annotation type: %s', annotationType);
     end
 
 function [handles, annotationNums, annotationType] = PasteAnnotationTitles(handles, annotationStartNum, annotationType, filenum)
@@ -2865,6 +2878,10 @@ function [handles, annotationNums, annotationType] = PasteAnnotationTitles(handl
     if ~exist('annotationType', 'var') || isempty(annotationType)
         % No annotation type provided - use the currently active type
         [~, annotationType] = FindActiveAnnotation(handles);
+        if strcmp(annotationType, 'none')
+            % No active annotation
+            return;
+        end
     end
     if ~exist('filenum', 'var') || isempty(filenum)
         filenum = getCurrentFileNum(handles);
@@ -2897,6 +2914,10 @@ function [handles, changedAnnotationNums] = InsertBlankAnnotationTitle(handles, 
             remainingTitles = handles.SegmentTitles{filenum}(annotationNum:end);
         case 'marker'
             remainingTitles = handles.MarkerTitles{filenum}(annotationNum:end);
+        case 'none'
+            % No active annotation
+            changedAnnotationNums = [];
+            return
         otherwise
             error('Invalid annotation type: %s', annotationType);
     end
@@ -2977,8 +2998,11 @@ function handles = SetAnnotationTitle(handles, title, filenum, annotationNum, an
         case 'marker'
             % Set the marker title
             handles.MarkerTitles{filenum}{annotationNum} = title;
+        case 'none'
+            % Do nothing
+            return
         otherwise
-            % Do nothing for 'none' or invalid type
+            error('Invalid annotation type: %s', annotationType);
     end
 
 function handles = JoinSegmentWithNext(handles, filenum, segmentNum)
@@ -3024,7 +3048,11 @@ function handles = DeleteAnnotation(handles, filenum, annotationNum, annotationT
         case 'marker'
             % Delete the specified marker
             handles = DeleteMarker(handles, filenum, annotationNum);
+        case 'none'
+            % Do nothing
+            return;
         otherwise
+            error('Invalid annotation type: %s', annotationType);
     end
 function handles = DeleteMarker(handles, filenum, markerNum)
     % Delete the specified marker
@@ -3075,6 +3103,8 @@ function handles = SetActiveAnnotation(handles, annotationNum, annotationType)
             handles = SetActiveSegment(handles, annotationNum);
         case 'marker'
             handles = SetActiveMarker(handles, annotationNum);
+        case 'none'
+            return;
         otherwise
             error('Invalid annotation type: %s', annotationType);
     end
@@ -3108,6 +3138,10 @@ function [handles, oldAnnotationNum, newAnnotationNum] = IncrementActiveAnnotati
     % Get currently active annotation number and type
     [oldAnnotationNum, oldAnnotationType] = FindActiveAnnotation(handles);
 
+    if strcmp(oldAnnotationType, 'none')
+        return;
+    end
+
     if ~exist('annotationType', 'var') || isempty(annotationType)
         % No annotation type provided - use the currently active type
         annotationType = oldAnnotationType;
@@ -3135,7 +3169,10 @@ function [handles, newAnnotationNum, newAnnotationType] = ConvertAnnotationType(
         case 'marker'
             [handles, newAnnotationNum] = ConvertMarkerToSegment(handles, filenum, annotationNum);
             newAnnotationType = 'segment';
+        case 'none'
+            return;
         otherwise
+            error('Invalid annotation type: %s', annotationType);
     end
 function [handles, newSegmentNum] = ConvertMarkerToSegment(handles, filenum, markerNum)
     activeMarkerNum = FindActiveMarker(handles);
@@ -4399,6 +4436,8 @@ function keyPressHandler(hObject, event)
                         handles = PlotAnnotations(handles);
                     case 'marker'
                         % Don't really need to do this with markers
+                    case 'none'
+                        % Do nothing
                 end
             case 'return'
                 % User pressed "enter" key - toggle active segment "selection"
