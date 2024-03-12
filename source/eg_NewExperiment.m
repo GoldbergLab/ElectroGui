@@ -1,4 +1,4 @@
-function [handles ischanged] = eg_NewExperiment(handles)
+function [handles, ischanged] = eg_NewExperiment(handles)
 
 if handles.IsUpdating == 0
     if isfield(handles,'DefaultRootPath')
@@ -7,8 +7,8 @@ if handles.IsUpdating == 0
         root_path = pwd();
     end
     path_name = uigetdir(root_path, 'Experiment Directory');
-    if ~isstr(path_name)
-        ischanged = 0;
+    if ~ischar(path_name)
+        ischanged = false;
         return
     end
 
@@ -32,12 +32,17 @@ figure_height = screen_size(4)*(0.035*(num_chan+2));
 figure_width = screen_size(3)*.3;
 
 try
-    fig = figure();
-    set(fig,'visible','on');
-    set(fig,'Name',titleString,'NumberTitle','off','MenuBar','none','doublebuffer','on','units','pixels','resize','off');
-    set(fig,'position',[(screen_size(3)-figure_width)/2 (screen_size(4)-figure_height)/2 figure_width figure_height]);
-    set(fig,'closerequestfcn',@CloseFig);
-    set(fig, 'KeyPressFcn', @DialogKeyPress);
+    fig = figure('Name',titleString,'NumberTitle','off','MenuBar','none','doublebuffer','on','units','pixels','resize','off');
+    fig.Visible = 'on';
+    fig.Position = [(screen_size(3)-figure_width)/2 (screen_size(4)-figure_height)/2 figure_width figure_height];
+    fig.CloseRequestFcn = @CloseFig;
+    fig.KeyPressFcn = @DialogKeyPress;
+    fig.UserData.textlabels = gobjects(1, num_chan+1);
+    fig.UserData.textboxes = gobjects(1, num_chan+1);
+    fig.UserData.popups = gobjects(1, num_chan+1);
+    fig.UserData.ischanged = false;
+    fig.UserData.DefaultRootPath = handles.DefaultRootPath;
+    fig.UserData.NumChannels = num_chan;
 
     % Find all loader files
     loader_files = dir('egl_*.m');
@@ -58,35 +63,41 @@ try
         default_loader_indices(1:num_chan+1) = find(strcmp(loader_names, handles.DefaultFileLoader));
     end
 
+    legacyWarningGiven = false;
+
     % Put objects into figure
-    for c = 1:num_chan+1
+    for chanNum = 1:num_chan+1
         if iscell(handles.FileString)
             % Defaults file has a different file string for each channel
-            file_string_pattern = handles.FileString{c};
+            file_string_pattern = handles.FileString{chanNum};
         else
             % Defaults file has only one file string for all channels
             file_string_pattern = handles.FileString;
         end
-        file_string = sprintf(file_string_pattern, c-1);
+        file_string = sprintf(file_string_pattern, chanNum-1);
 
-        if strcmp(file_string, file_string_pattern) && ~isempty(strfind(file_string_pattern, '#'))
+        if strcmp(file_string, file_string_pattern) && contains(file_string_pattern, '#')
             % fstr is the same as handles.FileString, so it must not contain a
             % formatting pattern, and it does contain ##, which indicates this
             % is the legacy format.
-            msgbox('Legacy FileString specification detected. Please edit your defaults_*.m file to update the ''handles.FileString'' to the new format. handles.FileString should be a string containing a standard string formatting pattern such as %02d or %d', 'Legacy FileString detected!');
+            if ~legacyWarningGiven
+                msgbox('Legacy FileString specification detected. Please edit your defaults_*.m file to update the ''handles.FileString'' to the new format. handles.FileString should be a string containing a standard string formatting pattern such as %02d or %d', 'Legacy FileString detected!');
+                % Only warn once
+                legacyWarningGiven = true;
+            end
             file_string_pattern = regexprep(file_string_pattern, '\#\#', '%02d');
-            file_string = sprintf(file_string_pattern, c-1);
+            file_string = sprintf(file_string_pattern, chanNum-1);
         end
 
-        textlabel(c) = uicontrol('Style','text','units','normalized','string','',...
-            'position',[0.05 (num_chan-c+2+0.5)/(num_chan+2) 0.5 0.3/(num_chan+2)],'FontSize',10,...
+        fig.UserData.textlabels(chanNum) = uicontrol('Style','text','units','normalized','string','',...
+            'position',[0.05 (num_chan-chanNum+2+0.5)/(num_chan+2) 0.5 0.3/(num_chan+2)],'FontSize',10,...
             'horizontalalignment','left','backgroundcolor',[.8 .8 .8]);
-        textbox(c) = uicontrol('Style','edit','units','normalized','string',file_string,...
-            'position',[0.05 (num_chan-c+2)/(num_chan+2) 0.5 0.4/(num_chan+2)],'FontSize',10,...
+        fig.UserData.textboxes(chanNum) = uicontrol('Style','edit','units','normalized','string',file_string,...
+            'position',[0.05 (num_chan-chanNum+2)/(num_chan+2) 0.5 0.4/(num_chan+2)],'FontSize',10,...
             'horizontalalignment','left','backgroundcolor',[1 1 1],'callback',@ChangeText);
-        popup(c) = uicontrol('Style','popupmenu','units','normalized','string',loader_names,...
-            'position',[0.6 (num_chan-c+2)/(num_chan+2) 0.35 0.4/(num_chan+2)],'FontSize',10,...
-            'backgroundcolor',[1 1 1],'value',default_loader_indices(c));
+        fig.UserData.popups(chanNum) = uicontrol('Style','popupmenu','units','normalized','string',loader_names,...
+            'position',[0.6 (num_chan-chanNum+2)/(num_chan+2) 0.35 0.4/(num_chan+2)],'FontSize',10,...
+            'backgroundcolor',[1 1 1],'value',default_loader_indices(chanNum));
     end
 
     uicontrol('Style','pushbutton','units','normalized','string','OK',...
@@ -94,59 +105,53 @@ try
     uicontrol('Style','pushbutton','units','normalized','string','Cancel',...
         'position',[.55 .13/(num_chan+3) 0.2 0.7/(num_chan+3)],'callback',@CloseFig);
 
-    ChangeText([], []);
+    ChangeText(fig, []);
 
-    ischanged = -1;
-    drawnow;
+    drawnow();
     uiwait(fig);
 
-    curr = pwd;
-    cd(handles.DefaultRootPath);
-    handles.sound_files = dir(get(textbox(1),'string'));
-    handles.sound_loader = loader_names{get(popup(1),'value')};
+    ischanged = fig.UserData.ischanged;
+
+    handles.sound_files = dir(fullfile(handles.DefaultRootPath, fig.UserData.textboxes(1).String));
+    handles.sound_loader = loader_names{fig.UserData.popups(1).Value};
     handles.chan_files = {};
     handles.chan_loader = {};
-    for c = 2:num_chan+1
-        handles.chan_files{c-1} = dir(get(textbox(c),'string'));
-        handles.chan_loader{c-1} = loader_names{get(popup(c),'value')};
+    for chanNum = 2:num_chan+1
+        handles.chan_files{chanNum-1} = dir(fullfile(handles.DefaultRootPath, fig.UserData.textboxes(chanNum).String));
+        handles.chan_loader{chanNum-1} = loader_names{fig.UserData.popups(chanNum).Value'};
     end
-    cd(curr);
     delete(fig)
 catch ME
     getReport(ME)
     delete(fig)
 end
 
-    function PushOK(hObject, eventdata)
-        ischanged = 1;
-        uiresume()
+function PushOK(src, ~)
+    src = ancestor(src, 'figure');
+    src.UserData.ischanged = true;
+    uiresume()
+
+function DialogKeyPress(src, event)
+    src = ancestor(src, 'figure');
+    if strcmp(event.Key, 'return') && any(strcmp('shift', event.Modifier))
+        PushOK(src);
     end
 
-    function DialogKeyPress(src, event)
-        if strcmp(event.Key, 'return') && any(strcmp('shift', event.Modifier))
-            PushOK();
+function CloseFig(src, ~)
+    src = ancestor(src, 'figure');
+    src.UserData.ischanged = false;
+    src.CloseRequestFcn = '%';
+    uiresume()
+
+function ChangeText(src, ~)
+    src = ancestor(src, 'figure');
+    root = src.UserData.DefaultRootPath;
+    for chanNum = 1:src.UserData.NumChannels+1
+        if chanNum == 1
+            titleString = 'Sound - ';
+        else
+            titleString = sprintf('Channel %d - ', chanNum-1);
         end
+        mt = dir(fullfile(root, src.UserData.textboxes(chanNum).String));
+        src.UserData.textlabels(chanNum).String = [titleString, num2str(length(mt)), ' files'];
     end
-
-    function CloseFig(hObject, eventdata)
-        ischanged = 0;
-        set(fig,'closerequestfcn','%');
-        uiresume()
-    end
-
-    function ChangeText(hObject, eventdata)
-        curr = pwd;
-        cd(handles.DefaultRootPath);
-        for c = 1:num_chan+1
-            if c == 1
-                titleString = 'Sound - ';
-            else
-                titleString = ['Channel ' num2str(c-1) ' - '];
-            end
-            mt = dir(get(textbox(c),'string'));
-            set(textlabel(c),'string',[titleString num2str(length(mt)) ' files']);
-        end
-        cd(curr);
-    end
-
-end
