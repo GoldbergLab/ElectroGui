@@ -23,7 +23,7 @@ function varargout = electro_gui(varargin)
     
     % Edit the above text to modify the response to help electro_gui
     
-    % Last Modified by GUIDE v2.5 07-Mar-2024 22:52:07
+    % Last Modified by GUIDE v2.5 12-Mar-2024 12:27:51
     
     % Begin initialization code - DO NOT EDIT
     gui_Singleton = 1;
@@ -110,9 +110,14 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.FileInfoBrowser.CellSelectionCallback = @(src, event)HandleFileListChange(src.Parent, event);
     handles.FileInfoBrowser.CellEditCallback = @UpdatePropertyValuesFromGUI;
 
-    % Initialize shuffle order
-    handles.ShuffleOrder = [];
-    handles.InverseShuffleOrder = [];
+    handles.FileReadState = logical.empty();
+
+    % Initialize sort order stuff
+    handles.popup_FileSortOrder.String = {'File number', 'Random', 'Property', 'Read status'};
+    handles.popup_FileSortOrder.Value = 1;
+    handles.FileSortPropertyName = '';   % In the case that we're sorting by Property, this stores which one
+    handles.FileSortOrder = [];
+    handles.InverseFileSortOrder = [];
 
     % Create properties info
     handles.Properties = logical.empty();
@@ -865,7 +870,7 @@ function edit_FileNumber_CreateFcn(hObject, ~, handles)
 function handles = changeFile(handles, delta)
     % Switch file number by delta
     filenum = getCurrentFileNum(handles);
-    if ~areFilesShuffled(handles)
+    if ~areFilesSorted(handles)
         % Decrement file number
         filenum = filenum + delta;
         if filenum < 1 || filenum > handles.TotalFileNumber
@@ -873,12 +878,12 @@ function handles = changeFile(handles, delta)
         end
     else
         % Decrement file number in shuffled order
-        shufflenum = handles.InverseShuffleOrder(filenum);
+        shufflenum = handles.InverseFileSortOrder(filenum);
         shufflenum = shufflenum + delta;
         if shufflenum < 1 || shufflenum > handles.TotalFileNumber
             shufflenum = mod(shufflenum-1, handles.TotalFileNumber)+1;
         end
-        filenum = handles.ShuffleOrder(shufflenum);
+        filenum = handles.FileSortOrder(shufflenum);
     end
     handles.edit_FileNumber.String = num2str(filenum);
     
@@ -1133,38 +1138,6 @@ function handles = resetFileCache(handles)
     handles.file_cache(1).data_future = parallel.FevalFuture;
     handles.file_cache(:) = [];
     
-function fileNames = getFileNames(handles)
-    fileNames = {handles.sound_files.name};
-    
-function handles = setUnreadFiles(handles, unreadMask)
-    unreadColor = [1, 0.8, 0.8];
-    readColor = [0.8, 1, 0.8];
-    backgroundColors = repmat(readColor, handles.TotalFileNumber, 1);
-    backgroundColors(unreadMask, :) = repmat(unreadColor, sum(unreadMask), 1);
-    handles.FileInfoBrowser.BackgroundColor = backgroundColors;
-
-function handles = setFileNames(handles, fileList)
-    % Set the filenames in the the file browser
-    if areFilesShuffled(handles)
-        fileList = fileList(handles.ShuffleOrder);
-    end    
-    handles.FileInfoBrowser.Data(:, 2) = getMinimalFilenmes(fileList);
-
-function handles = setFileReadState(handles, filenums, readState)
-    % Set background color of the given filenums to indicate the given
-    % read/unread state of the files.
-    unreadColor = [1, 0.8, 0.8];
-    if readState
-        color = [1, 1, 1];
-    else
-        color = unreadColor;
-    end
-    backgroundColors = repmat(color, length(filenums), 1);
-    if areFilesShuffled(handles)
-        filenums = handles.ShuffleOrder(filenums);
-    end
-    handles.FileInfoBrowser.BackgroundColor(filenums, :) = backgroundColors;
-
 function handles = eg_LoadFile(handles)
     if handles.EnableFileCaching
         handles = refreshFileCache(handles);
@@ -3382,7 +3355,7 @@ function handles = eg_NewDbase(handles)
     
     handles = loadProperties(handles);
     
-    handles = RefreshShuffleOrder(handles);
+    handles = RefreshSortOrder(handles);
 
     handles.text_TotalFileNumber.String = ['of ' num2str(handles.TotalFileNumber)];
     handles.edit_FileNumber.String = '1';
@@ -3700,6 +3673,24 @@ function handles = eg_OpenDbase(handles, filePath)
     
     handles.TotalFileNumber = length(handles.sound_files);
     
+    % Load file sorting info from dbase
+    if isfield(dbase.AnalysisState, 'FileSortMethod')
+        fileSortMethod = dbase.FileSortMethod;
+    else
+        fileSortMethod = getFileSortMethod(handles);
+    end
+    if isfield(dbase.AnalysisState, 'FileSortPropertyName')
+        fileSortPropertyName = dbase.FileSortPropertyName;
+    else
+        fileSortPropertyName = handles.FileSortPropertyName;
+    end
+    if isfield(dbase.AnalysisState, 'FileSortReversed')
+        fileSortReversed = dbase.FileSortReversed;
+    else
+        fileSortReversed = false;
+    end
+    handles = setFileSortInfo(handles, fileSortMethod, fileSortPropertyName, fileSortReversed);
+
     if isstruct(dbase.Properties)
         % This is a legacy format for properties - import it
         % Get every property name across dbase
@@ -3721,11 +3712,24 @@ function handles = eg_OpenDbase(handles, filePath)
                 end
             end
         end
-        handles = setProperties(handles, propertyValues, propertyNames);
+        % Set properties
+        handles = setProperties(handles, propertyValues, propertyNames, false);
     else
-        handles.Properties = dbase.Properties;
+        % Set properties
+        handles = setProperties(handles, dbase.Properties, dbase.PropertyNames);
     end
 
+    % Update file browser
+    handles = UpdateFileInfoBrowser(handles);
+
+    % Update file read state
+    if isfield(dbase.AnalysisState, 'FileReadState')
+        handles = setFileReadState(handles, 1:handles.TotalFileNumber, dbase.AnalysisState.FileReadState);
+    else
+        handles = setFileReadState(handles, 1:handles.TotalFileNumber, false(1, handles.TotalFileNumber));
+    end
+
+    % Load segment/marker info from dbase
     if isfield(dbase, 'MarkerTimes')
         handles.MarkerTimes = dbase.MarkerTimes;
     else
@@ -3745,7 +3749,7 @@ function handles = eg_OpenDbase(handles, filePath)
         handles.MarkerSelection = cell(1,handles.TotalFileNumber);
     end
     
-    handles = RefreshShuffleOrder(handles);
+    handles = RefreshSortOrder(handles);
     
     handles.text_TotalFileNumber.String = ['of ' num2str(handles.TotalFileNumber)];
     handles.popup_Function1.Value = 1;
@@ -8254,27 +8258,76 @@ function menu_FilterParameters_Callback(hObject, ~, handles)
     guidata(hObject, handles);
     
 
-function shuffled = areFilesShuffled(handles)
-    shuffled = handles.check_Shuffle.Value;
+function sorted = areFilesSorted(handles)
+    % Check if files are sorted in some way other than as normal (by file
+    % number)
+    sortMethod = getFileSortMethod(handles);
+    sorted = ~strcmp(sortMethod, 'File number');
 
-% --- Executes on button press in check_Shuffle.
-function check_Shuffle_Callback(hObject, ~, handles)
-    % hObject    handle to check_Shuffle (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
+function sortMethod = getFileSortMethod(handles)
+    sortMethodIdx = handles.popup_FileSortOrder.Value;
+    sortMethod = handles.popup_FileSortOrder.String{sortMethodIdx};
+
+function handles = setFileSortMethod(handles, sortMethod, updateGUI)
+    if ~exist('updateGUI', 'var') || isempty(updateGUI)
+        updateGUI = true;
+    end
+
+    sortMethodIdx = find(strcmp(sortMethod, handles.popup_FileSortOrder.String), 1);
+    if isempty(sortMethodIdx)
+        error('Invalid sort method: ''%s''', sortMethod);
+    end
+    handles.popup_FileSortOrder.Value = sortMethodIdx;
+    if updateGUI
+        handles = RefreshSortOrder(handles);
+    end
+
+function handles = setFileSortInfo(handles, fileSortMethod, fileSortPropertyName, fileSortReversed, updateGUI)
+    % Set all the file sort info at once, then update
+    if ~exist('updateGUI', 'var') || isempty(updateGUI)
+        updateGUI = true;
+    end
+
+    handles = setFileSortMethod(handles, fileSortMethod, false);
+    handles.FileSortPropertyName = fileSortPropertyName;
+    handles = setFileSortReversed(handles, fileSortReversed);
     
-    % Hint: hObject.Value returns toggle state of check_Shuffle
+    if updateGUI
+        handles = RefreshSortOrder(handles);
+    end
 
-    handles = RefreshShuffleOrder(handles);
+function sortReversed = isFileSortReversed(handles)
+    sortReversed = handles.check_ReverseSort.Value;
 
-    guidata(hObject, handles);
+function handles = setFileSortReversed(handles, reversed)
+    handles.check_ReverseSort.Value = reversed;
 
-function handles = RefreshShuffleOrder(handles)
+function handles = RefreshSortOrder(handles)
     % Create a new random order for the files
-    if areFilesShuffled(handles)
-        handles.ShuffleOrder = randperm(handles.TotalFileNumber);
-        handles.InverseShuffleOrder = zeros(size(handles.ShuffleOrder));
-        handles.InverseShuffleOrder(handles.ShuffleOrder) = 1:handles.TotalFileNumber;
+    sortMethod = getFileSortMethod(handles);
+    sortReversed = isFileSortReversed(handles);
+
+    switch sortMethod
+        case 'File number'
+            handles.FileSortOrder = [];
+        case 'Random'
+            handles.FileSortOrder = randperm(handles.TotalFileNumber);
+        case 'Property'
+            propertyValues = getPropertyValue(handles, handles.FileSortPropertyName, 1:handle.TotalFileNumber);
+            [~, handles.FileSortOrder] = sort(propertyValues);
+        case 'ReadStatus'
+
+        otherwise
+            error('Unknown sort method: ''%s''', sortMethod)
+    end
+    if sortReversed
+        handles.FileSortOrder = reverse(handles.FileSortOrder);
+    end
+    if isempty(handles.FileSortOrder)
+        handles.InverseFileSortOrder = [];
+    else
+        handles.InverseFileSortOrder = zeros(size(handles.FileSortOrder));
+        handles.InverseFileSortOrder(handles.FileSortOrder) = 1:handles.TotalFileNumber;
     end
     handles = UpdateFileInfoBrowser(handles);
     
@@ -8348,7 +8401,7 @@ function handles = setProperties(handles, properties, propertyNames, updateGUI)
     end
 
 function propertyValue = getPropertyValue(handles, propertyName, filenum)
-    % Get the property value for the given property name and file
+    % Get the property value for the given property name and file(s)
     if ~exist('filenum', 'var') || isempty(filenum)
         filenum = getCurrentFileNum(handles);
     end
@@ -8567,10 +8620,10 @@ function handles = SearchProperties(handles,search_type)
 %     
 %     handles.list_XXFiles.String = str;
 %     
-%     handles.ShuffleOrder = [found setdiff(1:handles.TotalFileNumber,found)];
+%     handles.FileSortOrder = [found setdiff(1:handles.TotalFileNumber,found)];
 %     handles.check_Shuffle.Value = 1;
 %     handles.check_Shuffle.String = 'Searched';
-%     handles.edit_FileNumber.String = num2str(handles.ShuffleOrder(1));
+%     handles.edit_FileNumber.String = num2str(handles.FileSortOrder(1));
 %     
 %     handles = eg_LoadFile(handles);
     
@@ -8626,10 +8679,10 @@ function menu_SearchNot_Callback(hObject, ~, handles)
 %     
 %     handles.list_XXFiles.String = str;
 %     
-%     handles.ShuffleOrder = [found setdiff(1:handles.TotalFileNumber,found)];
+%     handles.FileSortOrder = [found setdiff(1:handles.TotalFileNumber,found)];
 %     handles.check_Shuffle.Value = 1;
 %     handles.check_Shuffle.String = 'Searched';
-%     handles.edit_FileNumber.String = num2str(handles.ShuffleOrder(1));
+%     handles.edit_FileNumber.String = num2str(handles.FileSortOrder(1));
 %     
 %     handles = eg_LoadFile(handles);
 %     
@@ -8834,6 +8887,50 @@ function shortFilenames = getMinimalFilenmes(filenames)
     shortFilenames = cellfun(reassembler, filenameChunks, chunkDelimiters, 'UniformOutput', false);
     shortFilenames = cellfun(@(x)x{1}, shortFilenames, 'UniformOutput', false);
 
+function fileNames = getFileNames(handles)
+    fileNames = {handles.sound_files.name};
+    
+function handles = setFileNames(handles, fileList)
+    % Set the filenames in the the file browser
+    if areFilesSorted(handles)
+        fileList = fileList(handles.FileSortOrder);
+    end    
+    handles.FileInfoBrowser.Data(:, 2) = getMinimalFilenmes(fileList);
+
+function handles = setFileReadState(handles, filenums, readState)
+    % Set background color of the given filenums to indicate the given
+    % read/unread state of the files.
+    if ~exist('filenums', 'var') && ~exist('readState', 'var')
+        % Update the whole thing
+        filenums = 1:handles.TotalFileNumber;
+        readState = handles.FileReadState;
+    end
+
+    unreadColor = [1, 0.8, 0.8];
+    if readState
+        color = [1, 1, 1];
+    else
+        color = unreadColor;
+    end
+
+    % Check if we need to extend handles.FileReadState
+    maxFilenum = handles.TotalFileNumber;
+    if maxFilenum > length(handles.FileReadState)
+        % Extend file read state list
+        numToAdd = maxFilenum - length(handles.FileReadState);
+        handles.FileReadState(end+1:end+numToAdd) = false;
+    elseif maxFilenum < length(handles.FileReadstate)
+        % Shorten file read state list
+        handles.FileReadState(maxFileNum+1:end) = [];
+    end
+
+    handles.FileReadState(filenums) = readState;
+    backgroundColors = repmat(color, length(filenums), 1);
+    if areFilesSorted(handles)
+        filenums = handles.FileSortOrder(filenums);
+    end
+    handles.FileInfoBrowser.BackgroundColor(filenums, :) = backgroundColors;
+    
 function handles = UpdateFileInfoBrowser(handles, updateValues, updateNames, update)
     % Initialize table data
     % Column 1 is filenames
@@ -8843,9 +8940,9 @@ function handles = UpdateFileInfoBrowser(handles, updateValues, updateNames, upd
     data(:, 2) = getMinimalFilenmes({handles.sound_files.name});
     [propertyArray, propertyNames] = getProperties(handles);
     data(:, 3:end) = num2cell(propertyArray);
-    if areFilesShuffled(handles)
+    if areFilesSorted(handles)
         % Shuffle data
-        data = data(handles.ShuffleOrder, :);
+        data = data(handles.FileSortOrder, :);
     end
     handles.FileInfoBrowser.Data = data;
     handles.FileInfoBrowser.ColumnName = [{'#', 'Name'}, propertyNames];
@@ -8861,8 +8958,8 @@ function handles = UpdateFiles(handles, old_sound_files)
     end
     
     handles.text_TotalFileNumber.String = sprintf('of %s', handles.TotalFileNumber);
-    if areFilesShuffled(handles)
-        oldSelectedFilenum = handles.ShuffleOrder(handles.FileInfoBrowser.SelectedRow);
+    if areFilesSorted(handles)
+        oldSelectedFilenum = handles.FileSortOrder(handles.FileInfoBrowser.SelectedRow);
     else
         oldSelectedFilenum = handles.FileInfoBrowser.SelectedRow;
     end
@@ -8893,9 +8990,9 @@ function handles = UpdateFiles(handles, old_sound_files)
     handles = setFileNames(handles, fileList);
     if ~isempty(newSelectedFilenum)
         handles.edit_FileNumber.String = num2str(newSelectedFilenum);
-        if areFilesShuffled(handles)
-            handles = RefreshShuffleOrder(handles);
-            handles.FileInfoBrowser.SelectedRow = handles.InverseShuffleOrder(newSelectedFilenum);
+        if areFilesSorted(handles)
+            handles = RefreshSortOrder(handles);
+            handles.FileInfoBrowser.SelectedRow = handles.InverseFileSortOrder(newSelectedFilenum);
         else
             handles.FileInfoBrowser.SelectedRow = newSelectedFilenum;
         end
@@ -9032,6 +9129,10 @@ function dbase = GetDBase(handles)
     dbase.AnalysisState.CurrentFile = getCurrentFileNum(handles);
     dbase.AnalysisState.EventWhichPlot = handles.EventWhichPlot;
     dbase.AnalysisState.EventLims = handles.EventXLims;
+    dbase.AnalysisState.FileReadState = handles.FileReadState;
+    dbase.AnalysisState.FileSortMethod = getFileSortMethod(handles);
+    dbase.AnalysisState.FileSortPropertyName = handles.FileSortPropertyName;
+    dbase.AnalysisState.FileSortReversed = isFileSortReversed(handles);
     
     % Add any other custom fields from the original dbase that might exist to
     % the exported dbase
@@ -11165,22 +11266,84 @@ function openRecent_None_Callback(hObject, eventdata, handles)
 
 % --------------------------------------------------------------------
 function menu_Help_Callback(hObject, eventdata, handles)
-% hObject    handle to menu_Help (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-
-
+    % hObject    handle to menu_Help (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
 
 % --------------------------------------------------------------------
 function menu_Macros_Callback(hObject, eventdata, handles)
-% hObject    handle to menu_Macros (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+    % hObject    handle to menu_Macros (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
 function menu_AlterFileList_Callback(hObject, eventdata, handles)
-% hObject    handle to menu_AlterFileList (see GCBO)
+    % hObject    handle to menu_AlterFileList (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes on selection change in popup_FileSortOrder.
+function popup_FileSortOrder_Callback(hObject, eventdata, handles)
+    % hObject    handle to popup_FileSortOrder (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    
+    % Hints: contents = cellstr(get(hObject,'String')) returns popup_FileSortOrder contents as cell array
+    %        contents{get(hObject,'Value')} returns selected item from popup_FileSortOrder
+
+    sortMethod = getFileSortMethod(handles);
+
+    % If we're switching to Property sorting, have to ask user which
+    % property to sort by
+    if strcmp(sortMethod, 'Property')
+        % Ask user which property
+        if isempty(handles.PropertyNames)
+            msgbox('No properties to sort by yet - please add one first')
+            return;
+        end
+        % Determine what default property name to offer the user
+        defaultProperty = handles.FileSortPropertyName;  % Try the previously used sort property first
+        if isempty(defaultProperty) || ~any(strcmp(defaultProperty, handles.PropertyNames))
+            % That one's empty, go with the first one
+            defaultProperty = handles.PropertyNames{1};
+        end
+        % Query the user
+        inputs = getInputs('Sort by which property?', {'Property name'}, {defaultProperty}, {''});
+
+        % Use user's choice
+        if ~isempty(inputs)
+            handles.FileSortPropertyName = inputs{1};
+        else
+            % User cancelled - go back to File number sort order
+            handles = setFileSortMethod(handles, 'File number');
+        end
+    end
+
+    handles = RefreshSortOrder(handles);
+
+    guidata(hObject, handles);
+
+
+% --- Executes during object creation, after setting all properties.
+function popup_FileSortOrder_CreateFcn(hObject, eventdata, handles)
+    % hObject    handle to popup_FileSortOrder (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    empty - handles not created until after all CreateFcns called
+    
+    % Hint: popupmenu controls usually have a white background on Windows.
+    %       See ISPC and COMPUTER.
+    if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+        set(hObject,'BackgroundColor','white');
+    end
+
+
+% --- Executes on button press in check_ReverseSort.
+function check_ReverseSort_Callback(hObject, eventdata, handles)
+% hObject    handle to check_ReverseSort (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of check_ReverseSort
