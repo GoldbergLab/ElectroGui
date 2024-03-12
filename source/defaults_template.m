@@ -43,7 +43,7 @@ handles.AmplitudeDontPlot = 0; % Should the amplitude plot and segmentation be o
 % SEGMENTATION SETTINGS
 handles.AmplitudeSource = 0; % What should be used as the curve for segmentation? 0 - sound amplitude; 1 - top plot; 2 - bottom plot
 handles.AmplitudeAutoThreshold = 1; % Should the threshold for segmentation be chosen automatically, or carry over the current threshold?
-handles.DefaultSegmenter = 'DA_segmenter'; % Algorithm to use for segmentation. Choose from egg_* files.
+handles.DefaultSegmenter = 'fast_DA_segmenter'; % Algorithm to use for segmentation. Choose from egg_* files.
 handles.AutoSegment = 1; % Automatically segment when a new file is loaded or a different threshold is chosen?
 
 % CHANNEL PLOT SETTINGS
