@@ -110,6 +110,10 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.FileInfoBrowser.CellSelectionCallback = @(src, event)HandleFileListChange(src.Parent, event);
     handles.FileInfoBrowser.CellEditCallback = @UpdatePropertyValuesFromGUI;
 
+    % Initialize shuffle order
+    handles.ShuffleOrder = [];
+    handles.InverseShuffleOrder = [];
+
     % Create properties info
     handles.Properties = logical.empty();
     handles.PropertyNames = {};
@@ -861,7 +865,7 @@ function edit_FileNumber_CreateFcn(hObject, ~, handles)
 function handles = changeFile(handles, delta)
     % Switch file number by delta
     filenum = getCurrentFileNum(handles);
-    if ~handles.check_Shuffle.Value
+    if ~areFilesShuffled(handles)
         % Decrement file number
         filenum = filenum + delta;
         if filenum < 1 || filenum > handles.TotalFileNumber
@@ -869,7 +873,7 @@ function handles = changeFile(handles, delta)
         end
     else
         % Decrement file number in shuffled order
-        shufflenum = find(handles.ShuffleOrder==filenum);
+        shufflenum = handles.InverseShuffleOrder(filenum);
         shufflenum = shufflenum + delta;
         if shufflenum < 1 || shufflenum > handles.TotalFileNumber
             shufflenum = mod(shufflenum-1, handles.TotalFileNumber)+1;
@@ -1140,16 +1144,26 @@ function handles = setUnreadFiles(handles, unreadMask)
     handles.FileInfoBrowser.BackgroundColor = backgroundColors;
 
 function handles = setFileNames(handles, fileList)
+    % Set the filenames in the the file browser
+    if areFilesShuffled(handles)
+        fileList = fileList(handles.ShuffleOrder);
+    end    
     handles.FileInfoBrowser.Data(:, 2) = getMinimalFilenmes(fileList);
 
 function handles = setFileReadState(handles, filenums, readState)
+    % Set background color of the given filenums to indicate the given
+    % read/unread state of the files.
     unreadColor = [1, 0.8, 0.8];
     if readState
         color = [1, 1, 1];
     else
         color = unreadColor;
     end
-    handles.FileInfoBrowser.BackgroundColor(filenums, :) = repmat(color, length(filenums), 1);
+    backgroundColors = repmat(color, length(filenums), 1);
+    if areFilesShuffled(handles)
+        filenums = handles.ShuffleOrder(filenums);
+    end
+    handles.FileInfoBrowser.BackgroundColor(filenums, :) = backgroundColors;
 
 function handles = eg_LoadFile(handles)
     if handles.EnableFileCaching
@@ -3368,8 +3382,8 @@ function handles = eg_NewDbase(handles)
     
     handles = loadProperties(handles);
     
-    handles.ShuffleOrder = randperm(handles.TotalFileNumber);
-    
+    handles = RefreshShuffleOrder(handles);
+
     handles.text_TotalFileNumber.String = ['of ' num2str(handles.TotalFileNumber)];
     handles.edit_FileNumber.String = '1';
     
@@ -3731,7 +3745,7 @@ function handles = eg_OpenDbase(handles, filePath)
         handles.MarkerSelection = cell(1,handles.TotalFileNumber);
     end
     
-    handles.ShuffleOrder = randperm(handles.TotalFileNumber);
+    handles = RefreshShuffleOrder(handles);
     
     handles.text_TotalFileNumber.String = ['of ' num2str(handles.TotalFileNumber)];
     handles.popup_Function1.Value = 1;
@@ -5387,6 +5401,11 @@ function handles = SetEventThreshold(handles, axnum, threshold)
     if isempty(eventSourceIdx)
         [handles, eventSourceIdx] = addNewEventSourceFromChannelAxes(handles, axnum);
     end
+    if isempty(eventSourceIdx)
+        % Still no event source - axes must not be ready
+        msgbox('Please select a channel number and an event detector before setting the threshold.')
+        return;
+    end
 
     filenum = getCurrentFileNum(handles);
 
@@ -5480,6 +5499,12 @@ function [handles, eventSourceIdx] = addNewEventSourceFromChannelAxes(handles, a
     eventParameters = getSelectedEventParameters(handles, axnum);
     eventXLims = getSelectedEventLims(handles, axnum);
     eventParts = getSelectedEventParts(handles, axnum);
+    if isempty(channelNum) || isempty(eventDetectorName)
+        % Can't create an event source without a channel number and an
+        % event detector
+        eventSourceIdx = [];
+        return;
+    end
     [handles, eventSourceIdx] = addNewEventSource(handles, channelNum, channelName, filterName, eventDetectorName, filterParameters, eventParameters, eventXLims, eventParts);
 
 function [handles, eventSourceIdx] = addNewEventSource(handles, channelNum, ...
@@ -5963,11 +5988,11 @@ function [channelNum, filterName, eventDetectorName, eventParameters, filterPara
     % Return the channel number, filter name, and event detector name for
     % the given event source index
     channelNum = handles.EventChannels(eventSourceIdx);
-    filterName = handles.EventFunctions(eventSourceIdx);
-    filterParameters = handles.EventFunctionParameters(eventSourceIdx);
+    filterName = handles.EventFunctions{eventSourceIdx};
+    filterParameters = handles.EventFunctionParameters{eventSourceIdx};
     eventDetectorName = handles.EventDetectors(eventSourceIdx);
     eventParameters = handles.EventParameters{eventSourceIdx};
-    eventLims = handles.EventXLims(eventSourceIdx);
+    eventLims = handles.EventXLims(eventSourceIdx, :);
     eventParts = handles.EventParts{eventSourceIdx};
 function [channelNum, filterName, eventDetectorName] = GetChannelAxesInfo(handles, axnum)
     % Return the current settings of specified channel axes
@@ -6003,7 +6028,7 @@ function eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum)
     % Get the event source index that matches the current settings of the
     % given channel axes. If there is no match, return an empty array
     [axChannelNum, axFilterName, axEventDetectorName] = GetChannelAxesInfo(handles, axnum);
-    if ~isempty(axChannelNum) && ~isempty(axFilterName) && ~isempty(axEventDetectorName)
+    if ~isempty(axChannelNum) && ~isempty(axEventDetectorName)
         for eventSourceIdx = 1:length(handles.EventSources)
             [channelNum, filterName, eventDetectorName] = GetEventSourceInfo(handles, eventSourceIdx);
             if axChannelNum == channelNum && ...
@@ -6069,7 +6094,8 @@ function axnum = GetAxnum(handles, obj)
     axnum = find(obj==handles.handles.axes_Channel, 1);
 
 function click_eventwave(eventWaveHandle, event)
-    handles = guidata(eventWaveHandle);
+    hObject = ancestor(eventWaveHandle, 'figure');
+    handles = guidata(hObject);
     
     newActiveEventNum = find(handles.EventWaveHandles==eventWaveHandle);
     newActiveEventPart = GetEventViewerEventPartIdx(handles);
@@ -6077,7 +6103,6 @@ function click_eventwave(eventWaveHandle, event)
 
     if strcmp(handles.figure_Main.SelectionType,'normal')
         handles = SetActiveEventDisplay(handles, newActiveEventNum, newActiveEventPart, newEventSourceIdx);
-        guidata(eventWaveHandle, handles);
     elseif strcmp(handles.figure_Main.SelectionType,'extend')
         eventWaveHandle.XData = [];
         eventWaveHandle.YData = [];
@@ -6086,9 +6111,9 @@ function click_eventwave(eventWaveHandle, event)
         handles.EventWaveHandles(handles.ActiveEventNum) = plot(handles.axes_Events, mean(xlim(handles.axes_Events)),mean(ylim(handles.axes_Events)),'w.');
         hold(handles.axes_Events, 'off');
         handles = UnselectEvents(handles,handles.ActiveEventNum);
-        guidata(eventWaveHandle, handles);
         delete(eventWaveHandle);
     end
+    guidata(hObject, handles);
 
 function handles = DeactivateEventDisplay(handles)
     
@@ -8228,7 +8253,10 @@ function menu_FilterParameters_Callback(hObject, ~, handles)
     
     guidata(hObject, handles);
     
-    
+
+function shuffled = areFilesShuffled(handles)
+    shuffled = handles.check_Shuffle.Value;
+
 % --- Executes on button press in check_Shuffle.
 function check_Shuffle_Callback(hObject, ~, handles)
     % hObject    handle to check_Shuffle (see GCBO)
@@ -8236,21 +8264,19 @@ function check_Shuffle_Callback(hObject, ~, handles)
     % handles    structure with handles and user data (see GUIDATA)
     
     % Hint: hObject.Value returns toggle state of check_Shuffle
-    
-    error('File shuffling not implemented yet')
-    
-%     if handles.check_Shuffle.Value==1
-%         handles.ShuffleOrder = randperm(handles.TotalFileNumber);
-%     else
-%         str = handles.list_XXFiles.String;
-%         for c = 1:handles.TotalFileNumber
-%             str{c}(19:20) = '00';
-%         end
-%         handles.list_XXFiles.String = str;
-%         handles.check_Shuffle.String = 'Random';
-%     end
-%     guidata(hObject, handles);
-    
+
+    handles = RefreshShuffleOrder(handles);
+
+    guidata(hObject, handles);
+
+function handles = RefreshShuffleOrder(handles)
+    % Create a new random order for the files
+    if areFilesShuffled(handles)
+        handles.ShuffleOrder = randperm(handles.TotalFileNumber);
+        handles.InverseShuffleOrder = zeros(size(handles.ShuffleOrder));
+        handles.InverseShuffleOrder(handles.ShuffleOrder) = 1:handles.TotalFileNumber;
+    end
+    handles = UpdateFileInfoBrowser(handles);
     
 % --------------------------------------------------------------------
 function menu_AmplitudeAutoRange_Callback(hObject, ~, handles)
@@ -8373,7 +8399,7 @@ function handles = removeProperty(handles, propertyName, updateGUI)
         updateGUI = true;
     end
 
-    propertyIdx = find(strcmp(propertyName, handles.PropertyNames), 1);
+    propertyIdx = find(strcmp(char(propertyName), handles.PropertyNames), 1);
     if isempty(propertyIdx)
         error('Unknown property name: %s', propertyName);
     end
@@ -8414,7 +8440,6 @@ function handles = eg_AddProperty(handles,type)
     if ~isempty(input)
         handles = addProperty(handles, input{1}, input{2});
     end
-    guidata(hObject, handles);
     
 % --------------------------------------------------------------------
 function menu_RemoveProperty_Callback(hObject, ~, handles)
@@ -8423,7 +8448,12 @@ function menu_RemoveProperty_Callback(hObject, ~, handles)
     % handles    structure with handles and user data (see GUIDATA)
 
     [~, propertyNames] = getProperties(handles);
-    propertyName = categorical(propertyNames{1}, propertyNames);
+    if isempty(propertyNames)
+        % No properties to remove, do nothing
+        msgbox('No properties to remove');
+        return;
+    end
+    propertyName = categorical(propertyNames(1), propertyNames);
     input = getInputs('Remove property', {'Property name'}, {propertyName}, {'Name of property to remove'});
     if ~isempty(input)
         handles = removeProperty(handles, input{1});
@@ -8813,6 +8843,10 @@ function handles = UpdateFileInfoBrowser(handles, updateValues, updateNames, upd
     data(:, 2) = getMinimalFilenmes({handles.sound_files.name});
     [propertyArray, propertyNames] = getProperties(handles);
     data(:, 3:end) = num2cell(propertyArray);
+    if areFilesShuffled(handles)
+        % Shuffle data
+        data = data(handles.ShuffleOrder, :);
+    end
     handles.FileInfoBrowser.Data = data;
     handles.FileInfoBrowser.ColumnName = [{'#', 'Name'}, propertyNames];
     handles.FileInfoBrowser.ColumnEditable = [false, false, true(1, length(propertyNames))];
@@ -8826,10 +8860,12 @@ function handles = UpdateFiles(handles, old_sound_files)
         return
     end
     
-    handles.ShuffleOrder = randperm(handles.TotalFileNumber);
-    
     handles.text_TotalFileNumber.String = sprintf('of %s', handles.TotalFileNumber);
-    oldSelectedFilenum = handles.FileInfoBrowser.SelectedRow;
+    if areFilesShuffled(handles)
+        oldSelectedFilenum = handles.ShuffleOrder(handles.FileInfoBrowser.SelectedRow);
+    else
+        oldSelectedFilenum = handles.FileInfoBrowser.SelectedRow;
+    end
     handles.edit_FileNumber.String = '1';
     handles.FileInfoBrowser.SelectedRow = 1;
     
@@ -8857,7 +8893,12 @@ function handles = UpdateFiles(handles, old_sound_files)
     handles = setFileNames(handles, fileList);
     if ~isempty(newSelectedFilenum)
         handles.edit_FileNumber.String = num2str(newSelectedFilenum);
-        handles.FileInfoBrowser.SelectedRow = newSelectedFilenum;
+        if areFilesShuffled(handles)
+            handles = RefreshShuffleOrder(handles);
+            handles.FileInfoBrowser.SelectedRow = handles.InverseShuffleOrder(newSelectedFilenum);
+        else
+            handles.FileInfoBrowser.SelectedRow = newSelectedFilenum;
+        end
     end
     
     % Initialize variables for new files
