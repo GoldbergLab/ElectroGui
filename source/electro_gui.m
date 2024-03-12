@@ -104,6 +104,15 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % Min and max time to display on axes
     handles.TLim = [0, 1];
 
+    % Create new file browser thing
+    handles.FileInfoBrowser = uitable2(handles.panel_experiment, 'Units', 'normalized', 'Position', [0.025, 0.045, 0.944, 0.803], 'Data', {}, 'RowName', {}, "ColumnRearrangeable", true);
+    handles.FileInfoBrowser.CellSelectionCallback = @(src, event)HandleFileListChange(src.Parent, event);
+    handles.FileInfoBrowser.CellEditCallback = @UpdatePropertyValuesFromGUI;
+
+    % Create properties info
+    handles.Properties = logical.empty();
+    handles.PropertyNames = {};
+
     % Handle for box showing time viewing window
     handles.xlimbox = gobjects().empty;
 
@@ -864,39 +873,21 @@ function push_NextFile_Callback(hObject, ~, handles)
 
     handles = changeFile(handles, 1);
     guidata(hObject, handles);
-    
-% --- Executes on selection change in list_Files.
-function list_Files_Callback(hObject, ~, handles)
-    % hObject    handle to list_Files (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    % Hints: contents = hObject.String returns list_Files contents as cell array
-    %        contents{hObject.Value} returns selected item from list_Files
-    
-    if strcmp(handles.figure_Main.SelectionType, 'open')
-        % Double click
-        handles.edit_FileNumber.String = num2str(handles.list_Files.Value);
-    else
+
+function HandleFileListChange(hObject, event)
+    handles = guidata(hObject);
+    if isempty(handles.FileInfoBrowser)
+        return;
+    end
+    % Only switch files if selected cell is actually on the filename
+    fileNameColumn = 2;
+    if any(handles.FileInfoBrowser.Selection(:, 2) ~= fileNameColumn)
+        % Do nothing
         return
     end
-    
+    handles.edit_FileNumber.String = num2str(handles.FileInfoBrowser.SelectedRow);
     handles = eg_LoadFile(handles);
-    
     guidata(hObject, handles);
-    
-% --- Executes during object creation, after setting all properties.
-function list_Files_CreateFcn(hObject, ~, handles)
-    % hObject    handle to list_Files (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    empty - handles not created until after all CreateFcns called
-    
-    % Hint: listbox controls usually have a white background on Windows.
-    %       See ISPC and COMPUTER.
-    if ispc && isequal(hObject.BackgroundColor, get(0,'defaultUicontrolBackgroundColor'))
-        hObject.BackgroundColor = 'white';
-    end
-        
 
 % --------------------------------------------------------------------
 function menu_Experiment_Callback(hObject, ~, handles)
@@ -1114,29 +1105,44 @@ function handles = resetFileCache(handles)
     handles.file_cache(1).data_future = parallel.FevalFuture;
     handles.file_cache(:) = [];
     
+function fileNames = getFileNames(handles)
+    fileNames = {handles.sound_files.name};
+    
+function handles = setUnreadFiles(handles, unreadMask)
+    unreadColor = [1, 0.8, 0.8];
+    readColor = [0.8, 1, 0.8];
+    backgroundColors = repmat(readColor, handles.TotalFileNumber, 1);
+    backgroundColors(unreadMask, :) = repmat(unreadColor, sum(unreadMask), 1);
+    handles.FileInfoBrowser.BackgroundColor = backgroundColors;
+
+function handles = setFileNames(handles, fileList)
+    handles.FileInfoBrowser.Data(:, 2) = getMinimalFilenmes(fileList);
+
+function handles = setFileReadState(handles, filenums, readState)
+    unreadColor = [1, 0.8, 0.8];
+    if readState
+        color = [1, 1, 1];
+    else
+        color = unreadColor;
+    end
+    handles.FileInfoBrowser.BackgroundColor(filenums, :) = repmat(color, length(filenums), 1);
+
 function handles = eg_LoadFile(handles)
     if handles.EnableFileCaching
         handles = refreshFileCache(handles);
     end
     
     filenum = getCurrentFileNum(handles);
-    handles.list_Files.Value = filenum;
-    fileList = handles.list_Files.String;
+    handles.FileInfoBrowser.SelectedRow = filenum;
     
     % Remove unread file marker from filename
-    if isFileUnread(handles, fileList{filenum})
-        fileList{filenum} = removeUnreadFileMarker(handles, fileList{filenum});
-        handles.list_Files.String = fileList;
-    end
+    handles = setFileReadState(handles, filenum, true);
     
-    curr = pwd();
-    cd(handles.DefaultRootPath);
+%     curr = pwd();
+%     cd(handles.DefaultRootPath);
     
     % Label
     handles.text_FileName.String = handles.sound_files(filenum).name;
-    
-    % Load properties
-    handles = eg_LoadProperties(handles);
     
     % Load sound
     handles.sound = [];
@@ -1175,17 +1181,7 @@ function handles = eg_LoadFile(handles)
     tmax = numSamples/handles.fs;
     handles.TLim = [0, tmax];
     
-    % If file too long
-    if numSamples > handles.TooLong
-        txt = text(mean(xlim),mean(ylim), 'Long file. Click to load.',...
-            'HorizontalAlignment', 'center', 'Color', 'r', 'fontsize', 14, 'Parent', handles.axes_Sonogram);
-        txt.ButtonDownFcn = @click_loadfile;
-        cd(curr);
-    
-        handles = PlotAnnotations(handles);
-    
-        return
-    end
+    handles = PlotAnnotations(handles);
     
     % Define callbacks
     handles = setClickSoundCallback(handles, handles.axes_Sonogram);
@@ -1197,7 +1193,7 @@ function handles = eg_LoadFile(handles)
     
     handles = updateAmplitude(handles, true);
     
-    cd(curr);
+%     cd(curr);
 
 %    handles = disableAxesPopupToolbars(handles);
 
@@ -2141,7 +2137,8 @@ function menu_AutoCalculate_Callback(hObject, ~, handles)
     guidata(hObject, handles);
     
     
-function AlgorithmMenuClick(hObject, ~, handles)
+function AlgorithmMenuClick(hObject, event)
+    handles = guidata(hObject);
     
     for c = 1:length(handles.menu_Algorithm)
         handles.menu_Algorithm.Checked = 'off';
@@ -2687,7 +2684,8 @@ function menu_SegmentParameters_Callback(hObject, ~, handles)
     
     guidata(hObject, handles);
     
-function SegmenterMenuClick(hObject, ~, handles)
+function SegmenterMenuClick(hObject, event)
+    handles = guidata(hObject);
     
     for c = 1:length(handles.menu_Segmenter)
         handles.menu_Segmenter(c).Checked = 'off';
@@ -3325,7 +3323,7 @@ function menu_FreqLimits_Callback(hObject, ~, handles)
 function handles = eg_NewDbase(handles)
     handles.IsUpdating = 0;
     [handles, ischanged] = eg_NewExperiment(handles);
-    if ischanged == 0
+    if ~ischanged
         return
     end
     
@@ -3351,7 +3349,7 @@ function handles = eg_NewDbase(handles)
     handles.text_TotalFileNumber.String = ['of ' num2str(handles.TotalFileNumber)];
     handles.edit_FileNumber.String = '1';
     
-    handles.list_Files.Value = 1;
+    handles.FileInfoBrowser.SelectedRow = 1;
     handles.popup_Channel1.Value = 1;
     handles.popup_Channel2.Value = 1;
     handles.popup_Function1.Value = 1;
@@ -3360,11 +3358,8 @@ function handles = eg_NewDbase(handles)
     handles.popup_EventDetector2.Value = 1;
     handles.popup_EventListAlign.Value = 1;
     
-    fileEntries = {};
-    for filenum = 1:length(handles.sound_files)
-        fileEntries{filenum} = makeFileEntry(handles, handles.sound_files(filenum).name, true);
-    end
-    handles.list_Files.String = fileEntries;
+    handles = setFileNames(handles, {handles.sound_files.name});
+    handles = setFileReadState(handles, 1:handles.TotalFileNumber, false(1, handles.TotalFileNumber));
     
     sourceStrings = {'(None)','Sound'};
     for chanNum = 1:length(handles.chan_files)
@@ -3655,9 +3650,6 @@ function handles = eg_OpenDbase(handles, filePath)
         end
     end
     
-    
-    handles.Properties = dbase.Properties;
-    
     handles.popup_Channel1.Value = 1;
     handles.popup_Channel2.Value = 1;
     handles.popup_EventListAlign.Value = 1;
@@ -3670,6 +3662,32 @@ function handles = eg_OpenDbase(handles, filePath)
     
     handles.TotalFileNumber = length(handles.sound_files);
     
+    if isstruct(dbase.Properties)
+        % This is a legacy format for properties - import it
+        % Get every property name across dbase
+        propertyNames = unique([dbase.Properties.Names{:}], 'stable');
+        propertyValues = false(handles.TotalFileNumber, length(propertyNames));
+        for filenum = 1:handles.TotalFileNumber
+            for oldPropertyIdx = 1:length(dbase.Properties.Names{filenum})
+                propertyType = dbase.Properties.Types{filenum}(oldPropertyIdx);
+                switch propertyType
+                    case 1
+                        %
+                    case 2
+                        % Boolean
+                        propertyName = dbase.Properties.Names{filenum}{oldPropertyIdx};
+                        newPropertyIdx = find(strcmp(propertyName, propertyNames), 1);
+                        propertyValues(filenum, newPropertyIdx) = dbase.Properties.Values{filenum}{oldPropertyIdx};
+                    case 3
+                        %
+                end
+            end
+        end
+        handles = setProperties(handles, propertyValues, propertyNames);
+    else
+        handles.Properties = dbase.Properties;
+    end
+
     if isfield(dbase, 'MarkerTimes')
         handles.MarkerTimes = dbase.MarkerTimes;
     else
@@ -3698,12 +3716,9 @@ function handles = eg_OpenDbase(handles, filePath)
     handles.popup_EventDetector2.Value = 1;
     
     handles.edit_FileNumber.String = '1';
-    handles.list_Files.Value = 1;
-    str = {};
-    for c = 1:length(handles.sound_files)
-        str{c} = makeFileEntry(handles, handles.sound_files(c).name, handles.FileLength(c) <= 0);
-    end
-    handles.list_Files.String = str;
+    handles.FileInfoBrowser.SelectedRow = 1;
+    handles = setFileNames(handles, {handles.sound_files.name});
+    handles = setFileReadState(handles, 1:handles.TotalFileNumber, false(1, handles.TotalFileNumber));
     
     if isfield(dbase,'AnalysisState')
         handles.EventCurrentThresholds = inf*ones(1,length(dbase.AnalysisState.EventList)-1);
@@ -3711,7 +3726,7 @@ function handles = eg_OpenDbase(handles, filePath)
         handles.popup_Channel2.String = dbase.AnalysisState.SourceList;
 %         handles.popup_EventListAlign.String = dbase.AnalysisState.EventList;
         handles.edit_FileNumber.String = num2str(dbase.AnalysisState.CurrentFile);
-        handles.list_Files.Value = dbase.AnalysisState.CurrentFile;
+        handles.FileInfoBrowser.SelectedRow = dbase.AnalysisState.CurrentFile;
         handles.EventWhichPlot = dbase.AnalysisState.EventWhichPlot;
         handles.EventXLims = dbase.AnalysisState.EventLims;
     else
@@ -3781,8 +3796,6 @@ function handles = eg_OpenDbase(handles, filePath)
 %     handles = fillData(handles);
 
     handles = eg_PopulateSoundSources(handles);
-    
-    handles = eg_RestartProperties(handles);
     
     handles = UpdateEventSourceList(handles);
 
@@ -4022,16 +4035,16 @@ function menu_SetThreshold_Callback(hObject, ~, handles)
     guidata(hObject, handles);
     
     
-function click_loadfile(hObject, ~, handles)
-    
-    temp = handles.TooLong;
-    handles.TooLong = inf;
-    cla(handles.axes_Sonogram);
-    drawnow;
-    handles = eg_LoadFile(handles);
-    handles.TooLong = temp;
-    
-    guidata(hObject, handles);
+% function click_loadfile(hObject, ~, handles)
+%     
+%     temp = handles.TooLong;
+%     handles.TooLong = inf;
+%     cla(handles.axes_Sonogram);
+%     drawnow;
+%     handles = eg_LoadFile(handles);
+%     handles.TooLong = temp;
+%     
+%     guidata(hObject, handles);
     
     
 % --------------------------------------------------------------------
@@ -4362,7 +4375,12 @@ function keyPressHandler(hObject, event)
                 handles = UpdateAnnotationTitleDisplay(handles, changedAnnotationNums, annotationType);
             case 'o'
                 % User pressed control-o - activate open dbase dialog
-                handles = eg_OpenDbase(handles);
+                if any(strcmp('shift', event.Modifier)) && ~isempty(handles.tempSettings.recentFiles)
+                    % Shift is also down - open the most recent one
+                    handles = eg_OpenDbase(handles, handles.tempSettings.recentFiles{1});
+                else
+                    handles = eg_OpenDbase(handles);
+                end
             case 'n'
                 % User pressed control-n - activate new dbase dialog
                 handles = eg_NewDbase(handles);
@@ -5936,7 +5954,7 @@ function [channelNum, filterName, eventDetectorName] = GetChannelAxesInfo(handle
 % 
 function handles = SetEventViewerEventListElement(handles, eventListIdx, eventSourceText, eventSourceIdx, eventPartIdx)
     % Set the specified element of the event viewer event source list
-    if ~exists('eventListIdx', 'var') || isempty(eventListIdx)
+    if ~exist('eventListIdx', 'var') || isempty(eventListIdx)
         % Add element on to the end if no list index is provided
         eventListIdx = length(handles.popup_EventListAlign.String)+1;
     end
@@ -6941,8 +6959,9 @@ function menu_YAxis_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-function XAxisMenuClick(hObject, ~, handles)
-    
+function XAxisMenuClick(hObject, event)
+    handles = guidata(hObject);
+
     handles.menu_XAxis_List.Checked = 'off';
     hObject.Checked = 'on';
     
@@ -6950,8 +6969,9 @@ function XAxisMenuClick(hObject, ~, handles)
     
     guidata(hObject, handles);
     
-function YAxisMenuClick(hObject, ~, handles)
-    
+function YAxisMenuClick(hObject, event)
+    handles = guidata(hObject);
+
     handles.menu_YAxis_List.Checked = 'off';
     hObject.Checked = 'on';
     
@@ -7576,8 +7596,9 @@ function menu_Colormap_Callback(hObject, ~, handles)
     % handles    structure with handles and user data (see GUIDATA)
     
     
-function ColormapClick(hObject, ~, handles)
-    
+function ColormapClick(hObject, event)
+    handles = guidata(hObject);
+
     if strcmp(hObject.Label,'(Default)')
         colormap('parula');
         cmap = colormap;
@@ -8188,18 +8209,19 @@ function check_Shuffle_Callback(hObject, ~, handles)
     
     % Hint: hObject.Value returns toggle state of check_Shuffle
     
+    error('File shuffling not implemented yet')
     
-    if handles.check_Shuffle.Value==1
-        handles.ShuffleOrder = randperm(handles.TotalFileNumber);
-    else
-        str = handles.list_Files.String;
-        for c = 1:handles.TotalFileNumber
-            str{c}(19:20) = '00';
-        end
-        handles.list_Files.String = str;
-        handles.check_Shuffle.String = 'Random';
-    end
-    guidata(hObject, handles);
+%     if handles.check_Shuffle.Value==1
+%         handles.ShuffleOrder = randperm(handles.TotalFileNumber);
+%     else
+%         str = handles.list_XXFiles.String;
+%         for c = 1:handles.TotalFileNumber
+%             str{c}(19:20) = '00';
+%         end
+%         handles.list_XXFiles.String = str;
+%         handles.check_Shuffle.String = 'Random';
+%     end
+%     guidata(hObject, handles);
     
     
 % --------------------------------------------------------------------
@@ -8215,205 +8237,128 @@ function menu_AmplitudeAutoRange_Callback(hObject, ~, handles)
     handles.axes_Amplitude.YLim = handles.AmplitudeLims;
     
     guidata(hObject, handles);
-    
-    
-function handles = eg_RestartProperties(handles)
-    
-    if isfield(handles,'DefaultPropertyValues')
-        bck_def = handles.DefaultPropertyValues;
-        bck_nm = handles.PropertyNames;
-        lst_menus = {};
-        for c = 1:length(handles.PropertyNames)
-            lst_menus{c} = handles.PropertyObjectHandles(c).String';
-            lst_menus{c} = lst_menus{c}(1:end-1);
-        end
-    
-    else
-        bck_def = {};
-        bck_nm = {};
-        lst_menus = [];
-    end
-    
-    names = {};
-    values = {};
-    types = [];
-    for c = 1:length(handles.Properties.Names)
-        names = [names handles.Properties.Names{c}];
-        values = [values handles.Properties.Values{c}];
-        types = [types handles.Properties.Types{c}];
-    end
-    
-    [handles.PropertyNames, pos, indx] = unique(names);
-    handles.PropertyTypes = types(pos);
-    
-    if isfield(handles,'PropertyTextHandles')
-        delete(handles.PropertyTextHandles);
-    end
-    handles.PropertyTextHandles = gobjects().empty;
-    if isfield(handles,'PropertyObjectHandles')
-        delete(handles.PropertyObjectHandles);
-    end
-    handles.PropertyObjectHandles = gobjects().empty();
-    
-    handles.DefaultPropertyValues = {};
-    
-    lns = linspace(0,1,2*length(handles.PropertyNames)+1);
-    lns = lns(2:2:end);
-    for c = 1:length(handles.PropertyNames)
-        wd = min([0.95*(1/7) 0.95*(1/length(handles.PropertyNames))]);
-        x = lns(c)-wd/2;
-    
-        switch handles.PropertyTypes(c)
-            case 1 % string
-                handles.PropertyObjectHandles(c) = uicontrol(handles.panel_Properties,'Style','edit',...
-                    'Units','normalized','String','','Position',[x 0.1 wd 0.55],...
-                    'FontSize',10,'HorizontalAlignment','left','backgroundcolor',[1 1 1]);
-                handles.DefaultPropertyValues{c} = '';
-            case 2 % boolean
-                handles.PropertyObjectHandles(c) = uicontrol(handles.panel_Properties,'Style','checkbox',...
-                    'Units','normalized','String','a','Position',[x 0.1 wd/2 0.55],'FontSize',8);
-                ext = handles.PropertyObjectHandles(c).Extent;
-                set(handles.PropertyObjectHandles(c),'String','','Position',[x+wd/2-ext(4)/2 0.1 ext(4) 0.55]);
-                handles.DefaultPropertyValues{c} = 0;
-            case 3 % list
-                str = values(indx==c);
-                for d = 1:length(bck_nm)
-                    if strcmp(bck_nm{d},handles.PropertyNames{c})
-                        str = [str lst_menus{d}];
-                    end
-                end
-    
-                for d = 1:length(bck_nm)
-                    if strcmp(bck_nm{d},handles.PropertyNames{c})
-                        str{end+1} = bck_def{d};
-                    end
-                end
-    
-                str = unique(str);
-                str{end+1} = 'New value...';
-                handles.PropertyObjectHandles(c) = uicontrol(handles.panel_Properties,'Style','popupmenu',...
-                    'Units','normalized','String',str,'Position',[x 0.1 wd 0.55],...
-                    'FontSize',10,'HorizontalAlignment','center','backgroundcolor',[1 1 1]);
-                handles.DefaultPropertyValues{c} = str{1};
-        end
-    
-        handles.PropertyTextHandles(c) = uicontrol(handles.panel_Properties,'Style','text',...
-            'Units','normalized','String',handles.PropertyNames{c},'Position',[x 0.65 wd 0.3],...
-            'FontSize',8,'HorizontalAlignment','center');
-    end
-    
-    for c = 1:length(bck_def)
-        for d = 1:length(handles.PropertyNames)
-            if strcmp(bck_nm{c},handles.PropertyNames{d})
-                handles.DefaultPropertyValues{d} = bck_def{c};
-            end
-        end
-    end
-    
-    if ~isempty(handles.PropertyObjectHandles)
-        for k = 1:length(handles.PropertyObjectHandles)
-            handles.PropertyObjectHandles(k).Callback = @ChangeProperty;
-        end
-    end
-    if ~isempty(handles.PropertyTextHandles)
-        for k = 1:length(handles.PropertyTextHandles)
-            handles.PropertyTextHandles(k).ButtonDownFcn = @ClickPropertyText;
-        end
-    end
-    
-function ChangeProperty(hObject, ~, handles)
-    
-    filenum = getCurrentFileNum(handles);
-    f = find(handles.PropertyObjectHandles==hObject);
-    
-    for d = 1:length(handles.Properties.Names{filenum})
-        if strcmp(handles.Properties.Names{filenum}{d},handles.PropertyTextHandles(f).String)
-            indx = d;
-        end
-    end
-    
-    switch handles.PropertyTypes(f)
-        case 1
-            handles.Properties.Values{filenum}{indx} = handles.PropertyObjectHandles(f).String;
-        case 2
-            handles.Properties.Values{filenum}{indx} = handles.PropertyObjectHandles(f).Value;
-        case 3
-            str = handles.PropertyObjectHandles(f).String;
-            if handles.PropertyObjectHandles(f).Value == length(str)
-                % new value
-                answer = inputdlg({'New list value'},'New value',1,{''});
-                if ~isempty(answer)
-                    handles.Properties.Values{filenum}{indx} = answer{1};
-                end
-    
-                str = handles.PropertyObjectHandles(f).String;
-                str = str(1:end-1);
-                str{end+1} = handles.Properties.Values{filenum}{indx};
-                str = unique(str);
-                str{end+1} = 'New value...';
-                set(handles.PropertyObjectHandles(f),'Value',1,'String',str);
-                for c = 1:length(str)
-                    if strcmp(str{c},handles.Properties.Values{filenum}{indx})
-                        handles.PropertyObjectHandles(f).Value = c;
-                    end
-                end
-            else
-                handles.Properties.Values{filenum}{indx} = str{handles.PropertyObjectHandles(f).Value};
-            end
-    end
-    
-    guidata(hObject, handles);
-    
-    
-function ClickPropertyText(hObject, ~, handles)
-    
-    if strcmp(hObject.Enable,'off')
+
+function note = getNote(handles, filenum)
+    % Get the note for the given file
+    if ~exist('filenum', 'var') || isempty(filenum)
         filenum = getCurrentFileNum(handles);
-    
-        handles.Properties.Names{filenum}{end+1} = hObject.String;
-    
-        f = find(handles.PropertyTextHandles==hObject);
-        handles.Properties.Values{filenum}{end+1} = handles.DefaultPropertyValues{f};
-        handles.Properties.Types{filenum}(end+1) = handles.PropertyTypes(f);
-    
-        handles = eg_LoadProperties(handles);
     end
-    
-    guidata(hObject, handles);
-    
-    
-function handles = eg_LoadProperties(handles)
-    
-    filenum = getCurrentFileNum(handles);
-    
-    for c = 1:length(handles.PropertyNames)
-        indx = [];
-        for d = 1:length(handles.Properties.Names{filenum})
-            if strcmp(handles.PropertyNames{c},handles.Properties.Names{filenum}{d})
-                indx = d;
-            end
-        end
-        if isempty(indx)
-            set(handles.PropertyTextHandles(c),'Enable','off')
-            set(handles.PropertyObjectHandles(c),'Visible','off')
-        else
-            set(handles.PropertyTextHandles(c),'Enable','on')
-            set(handles.PropertyObjectHandles(c),'Visible','on')
-            switch handles.PropertyObjectHandles(c).Style
-                case 'edit'
-                    handles.PropertyObjectHandles(c).String = handles.Properties.Values{filenum}{indx};
-                case 'checkbox'
-                    handles.PropertyObjectHandles(c).Value = handles.Properties.Values{filenum}{indx};
-                case 'popupmenu'
-                    str = handles.PropertyObjectHandles(c).String;
-                    for d = 1:length(str)
-                        if strcmp(str{d},handles.Properties.Values{filenum}{indx})
-                            handles.PropertyObjectHandles(c).Value = d;
-                        end
-                    end
-            end
-        end
+
+    note = handles.Notes{filenum};
+
+function handles = setNote(handles, note, filenum)
+    % Set the note for the given file
+    if ~exist('filenum', 'var') || isempty(filenum)
+        filenum = getCurrentFileNum(handles);
     end
+
+    handles.Notes{filenum} = note;
+
+function numProperties = getNumProperties(handles)
+    numProperties = length(handles.PropertyNames);
+
+function [propertyArray, propertyNames] = getProperties(handles)
+    % Get the all properties info
+    propertyArray = handles.Properties;
+    propertyNames = handles.PropertyNames;
+
+function handles = modifyProperties(handles, filenums, propertyNames, propertyValues, updateGUI)
+    % Update only a subset of the property
+    if ~exist('updateGUI', 'var') || isempty(updateGUI)
+        updateGUI = true;
+    end
+
+    if ~iscell(propertyNames)
+        % If only one property name char array is passed in, convert to
+        % cell array
+        propertyNames = {propertyNames};
+    end
+
+    propertyIdx = cellfun(@(name)find(strcmp(name, handles.PropertyNames), 1), propertyNames);
+    handles.Properties(filenums, 2 + propertyIdx) = propertyValues;
+    if updateGUI
+        handles.FileInfoBrowser.Data(filenums, 2 + propertyIdx) = propertyValues;
+    end
+
+function handles = setProperties(handles, properties, propertyNames, updateGUI)
+    % Set all property info
+    if ~exist('updateGUI', 'var') || isempty(updateGUI)
+        updateGUI = true;
+    end
+
+    handles.Properties = properties;
+    handles.PropertyNames = propertyNames;
+
+    if updateGUI
+        handles = UpdateFileInfoBrowser(handles);
+    end
+
+function propertyValue = getPropertyValue(handles, propertyName, filenum)
+    % Get the property value for the given property name and file
+    if ~exist('filenum', 'var') || isempty(filenum)
+        filenum = getCurrentFileNum(handles);
+    end
+
+    propertyIdx = find(strcmp(propertyName, handles.PropertyNames), 1);
+    if isempty(propertyIdx)
+        error('Unknown property name: %s', propertyName);
+    end
+    propertyValue = handles.Properties(filenum, propertyIdx);
+    
+function handles = setPropertyValue(handles, propertyName, propertyValue, filenum, updateGUI)
+    % Set the property value for the given property name and file
+    if ~exist('filenum', 'var') || isempty(filenum)
+        filenum = getCurrentFileNum(handles);
+    end
+    if ~exist('updateGUI', 'var') || isempty(updateGUI)
+        updateGUI = true;
+    end
+
+    propertyIdx = find(strcmp(propertyName, handles.PropertyNames), 1);
+    if isempty(propertyIdx)
+        error('Unknown property name: %s', propertyName);
+    end
+    handles.Properties(filenum, propertyIdx) = propertyValue;
+    if updateGUI
+        handles = UpdateFileInfoBrowser(handles);
+    end
+
+function handles = addProperty(handles, propertyName, initialPropertyValue, updateGUI)
+    % Add a new property
+    if ~exist('updateGUI', 'var') || isempty(updateGUI)
+        updateGUI = true;
+    end
+
+    [propertyArray, propertyNames] = getProperties(handles);
+    numProperties = length(propertyNames);
+    propertyArray(:, numProperties + 1) = initialPropertyValue;
+    propertyNames{end+1} = propertyName;
+    handles.Properties = propertyArray;
+    handles.PropertyNames = propertyNames;
+    if updateGUI
+        handles = UpdateFileInfoBrowser(handles);
+    end
+
+function handles = removeProperty(handles, propertyName, updateGUI)
+    % Remove a property
+    if ~exist('updateGUI', 'var') || isempty(updateGUI)
+        updateGUI = true;
+    end
+
+    propertyIdx = find(strcmp(propertyName, handles.PropertyNames), 1);
+    if isempty(propertyIdx)
+        error('Unknown property name: %s', propertyName);
+    end
+    handles.Properties(:, propertyIdx) = [];
+    handles.PropertyNames(propertyIdx) = [];
+    if updateGUI
+        handles = UpdateFileInfoBrowser(handles);
+    end
+
+function handles = eg_RestartProperties(handles)
+    handles.Properties = logical.empty();
+    handles.PropertyNames = {};
+    handles = UpdateFileInfoBrowser(handles);
     
 % --------------------------------------------------------------------
 function menu_Properties_Callback(hObject, eventdata, handles)
@@ -8427,7 +8372,8 @@ function menu_AddProperty_Callback(hObject, ~, handles)
     % hObject    handle to menu_AddProperty (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
-    
+    handles = eg_AddProperty(handles);
+    guidata(hObject, handles);
     
 % --------------------------------------------------------------------
 function context_Properties_Callback(hObject, ~, handles)
@@ -8435,196 +8381,26 @@ function context_Properties_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    
-% --------------------------------------------------------------------
-function menu_AddPropertyString_Callback(hObject, ~, handles)
-    % hObject    handle to menu_AddPropertyString (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles = eg_AddProperty(handles,1);
-    
-    guidata(hObject, handles);
-    
-    
-% --------------------------------------------------------------------
-function menu_AddPropertyBoolean_Callback(hObject, ~, handles)
-    % hObject    handle to menu_AddPropertyBoolean (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles = eg_AddProperty(handles,2);
-    
-    guidata(hObject, handles);
-    
-    
-% --------------------------------------------------------------------
-function menu_AddPropertyList_Callback(hObject, ~, handles)
-    % hObject    handle to menu_AddPropertyList (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    handles = eg_AddProperty(handles,3);
-    
-    guidata(hObject, handles);
-    
-    
 function handles = eg_AddProperty(handles,type)
-    
-    filenum = getCurrentFileNum(handles);
-    
-    typestr = {'String','boolean','list'};
-    button = questdlg(['Add a new ' typestr{type} ' property to'],'Add property','Current file','Some files...','All files','All files');
-    switch button
-        case ''
-            % User cancelled, do nothing
-            return
-        case 'Current file'
-            indx = filenum;
-            selstr = 'current file';
-        case 'Some files...'
-            str = handles.list_Files.String;
-            for c = 1:length(str)
-                str{c} = [num2str(c), '. ', extractFileNameFromEntry(handles, str{c}, true)];
-            end
-            [indx,ok] = listdlg('ListString',str,'InitialValue',filenum,'ListSize',[300 450],'Name','Select files','PromptString','Files to add new property to');
-            if ok == 0
-                return
-            end
-            selstr = 'selected files';
-        case 'All files'
-            indx = 1:handles.TotalFileNumber;
-            selstr = 'all files';
+    input = getInputs('Add new property', {'Property name', 'Default value'}, {'newProperty', false}, {'Name of property to add', 'Default value to fill each file''s property with'});
+    if ~isempty(input)
+        handles = addProperty(handles, input{1}, input{2});
     end
-    
-    
-    switch type
-        case 1
-            answer = inputdlg({'Property name',['Value for ' selstr]},'Add property',1,{'',''});
-            if isempty(answer)
-                return
-            end
-            name = answer{1};
-            val = answer{2};
-        case 2
-            answer = inputdlg({'Property name'},'Add property',1,{''});
-            if isempty(answer)
-                return
-            end
-            name = answer{1};
-            button = questdlg(['Value for ' selstr],'Add property','On','Off','Off');
-            switch button
-                case ''
-                    return
-                case 'On'
-                    val = 1;
-                case 'Off'
-                    val = 0;
-            end
-        case 3
-            answer = inputdlg({'Property name','List of possible values'},'Add property',[1; 5],{'',''});
-            if isempty(answer)
-                return
-            end
-            name = answer{1};
-            lst = answer{2};
-            str = {};
-            for c = 1:size(lst,1)
-                str{c} = strtrim(lst(c,:));
-            end
-    
-            [val,ok] = listdlg('ListString',str,'Name','Add property','PromptString',['Value for ' selstr],'SelectionMode','single');
-            if ok == 0
-                return
-            end
-            val = str{val};
-    
-            str{end+1} = 'Dummy';
-            handles.PropertyNames{end+1} = name;
-            handles.PropertyObjectHandles(end+1) = uicontrol(handles.panel_Properties,'Style','popupmenu',...
-                'Units','normalized','String',str,'Position',[0 0 .1 .1],'Visible','off',...
-                'FontSize',10,'HorizontalAlignment','center','backgroundcolor',[1 1 1]);
-            handles.DefaultPropertyValues{end+1} = str{1};
-    end
-    
-    for c = 1:length(indx)
-        isthere = 0;
-        for d = 1:length(handles.Properties.Names{indx(c)})
-            if strcmp(handles.Properties.Names{indx(c)}{d},name)
-                isthere = 1;
-            end
-        end
-        if isthere == 0
-            handles.Properties.Names{indx(c)}{end+1} = name;
-            handles.Properties.Values{indx(c)}{end+1} = val;
-            handles.Properties.Types{indx(c)}(end+1) = type;
-        end
-    end
-    
-    
-    handles = eg_RestartProperties(handles);
-    handles = eg_LoadProperties(handles);
-    
+    guidata(hObject, handles);
     
 % --------------------------------------------------------------------
 function menu_RemoveProperty_Callback(hObject, ~, handles)
     % hObject    handle to menu_RemoveProperty (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
-    
-    filenum = getCurrentFileNum(handles);
-    
-    if ~isfield(handles,'PropertyNames') || isempty(handles.PropertyNames)
-        errordlg('No properties to remove!','Error');
-        return
+
+    [~, propertyNames] = getProperties(handles);
+    propertyName = categorical(propertyNames{1}, propertyNames);
+    input = getInputs('Remove property', {'Property name'}, {propertyName}, {'Name of property to remove'});
+    if ~isempty(input)
+        handles = removeProperty(handles, input{1});
     end
-    
-    button = questdlg('Remove property from', 'Remove property', 'Current file', 'Some files...', 'All files', 'All files');
-    switch button
-        case ''
-            return
-        case 'Current file'
-            indx = filenum;
-    %         selstr = 'current file';
-        case 'Some files...'
-            str = handles.list_Files.String;
-            for c = 1:length(str)
-                str{c} = [num2str(c) '. ' extractFileNameFromEntry(handles, str{c}, true)];
-            end
-            [indx,ok] = listdlg('ListString',str,'InitialValue',filenum,'ListSize',[300 450],'Name','Select files','PromptString','Files to remove property from');
-            if ok == 0
-                return
-            end
-    %         selstr = 'selected files';
-        case 'All files'
-            indx = 1:handles.TotalFileNumber;
-    %         selstr = 'all files';
-    end
-    
-    [delindx,ok] = listdlg('ListString',handles.PropertyNames,'InitialValue',[],'Name','Select propertries','PromptString','Remove properties');
-    if ok == 0
-        return
-    end
-    
-    for c = 1:length(indx)
-        todel = [];
-        for d = 1:length(handles.Properties.Names{indx(c)})
-            for e = 1:length(delindx)
-                if strcmp(handles.Properties.Names{indx(c)}{d},handles.PropertyNames{delindx(e)})
-                    todel = [todel d];
-                end
-            end
-        end
-        handles.Properties.Names{indx(c)}(todel) = [];
-        handles.Properties.Values{indx(c)}(todel) = [];
-        handles.Properties.Types{indx(c)}(todel) = [];
-    end
-    
-    handles = eg_RestartProperties(handles);
-    handles = eg_LoadProperties(handles);
-    
     guidata(hObject, handles);
-    
     
 % --------------------------------------------------------------------
 function menu_Search_Callback(hObject, ~, handles)
@@ -8634,108 +8410,111 @@ function menu_Search_Callback(hObject, ~, handles)
     
     
 function handles = SearchProperties(handles,search_type)
-    
-    if ~isfield(handles,'PropertyNames') || isempty(handles.PropertyNames)
-        errordlg('No properties to search!','Error');
-        return
-    end
-    
-    [indx,ok] = listdlg('ListString',handles.PropertyNames,'InitialValue',[],'Name','Select property','SelectionMode','single','PromptString','Select property to search');
-    if ok == 0
-        return
-    end
-    
-    prev_search = [];
-    str = handles.list_Files.String;
-    for c = 1:handles.TotalFileNumber
-        if strcmp(str{c}(19),'F')
-            prev_search = [prev_search c];
-        end
-    end
-    
-    nw = [];
-    switch handles.PropertyTypes(indx)
-        case 1
-            answer = inputdlg({['String to search for in "' handles.PropertyNames{indx} '"']},'Search property',1,handles.DefaultPropertyValues(indx));
-            if isempty(answer)
-                return
-            end
-            for d = 1:handles.TotalFileNumber
-                for e = 1:length(handles.Properties.Names{d})
-                    if strcmp(handles.Properties.Names{d}{e},handles.PropertyNames{indx})
-                        fnd = regexpi(handles.Properties.Values{d}{e},answer{1}, 'once');
-                        if ~isempty(fnd)
-                            nw = [nw d];
-                        end
-                    end
-                end
-            end
-        case 2
-            button = questdlg(['Value to search for in "' handles.PropertyNames{indx} '"'],'Search property','On','Off','Either','On');
-            switch button
-                case ''
-                    return
-                case 'On'
-                    valnear = 1.5;
-                case 'Off'
-                    valnear = -0.5;
-                case 'Either'
-                    valnear = 0.5;
-            end
-            for d = 1:handles.TotalFileNumber
-                for e = 1:length(handles.Properties.Names{d})
-                    if strcmp(handles.Properties.Names{d}{e},handles.PropertyNames{indx})
-                        if abs(handles.Properties.Values{d}{e}-valnear)<1
-                            nw = [nw d];
-                        end
-                    end
-                end
-            end
-        case 3
-            str = handles.PropertyObjectHandles(indx).String;
-            str = str(1:end-1);
-            [val,ok] = listdlg('ListString',str,'InitialValue',[],'Name','Select values','PromptString',['Values to search for in "' handles.PropertyNames{indx} '"']);
-            if ok == 0
-                return
-            end
-            for d = 1:handles.TotalFileNumber
-                for e = 1:length(handles.Properties.Names{d})
-                    if strcmp(handles.Properties.Names{d}{e},handles.PropertyNames{indx})
-                        for f = 1:length(val)
-                            if strcmp(handles.Properties.Values{d}{e},str{val(f)})
-                                nw = [nw d];
-                            end
-                        end
-                    end
-                end
-            end
-    end
-    
-    switch search_type
-        case 1 % new search
-            found = nw;
-        case 2 % AND
-            found = intersect(prev_search,nw);
-        case 3 % OR
-            found = union(prev_search,nw);
-    end
-    
-    str = handles.list_Files.String;
-    for c = 1:handles.TotalFileNumber
-        str{c}(19:20) = '00';
-    end
-    for c = 1:length(found)
-        str{found(c)}(19:20) = 'FF';
-    end
-    
-    handles.list_Files.String = str;
-    
-    handles.ShuffleOrder = [found setdiff(1:handles.TotalFileNumber,found)];
-    handles.check_Shuffle.Value = 1;
-    handles.check_Shuffle.String = 'Searched';
-    handles.edit_FileNumber.String = num2str(handles.ShuffleOrder(1));
-    
-    handles = eg_LoadFile(handles);
+    error('Searching properties not implemented yet')
+
+
+%     if ~isfield(handles,'PropertyNames') || isempty(handles.PropertyNames)
+%         errordlg('No properties to search!','Error');
+%         return
+%     end
+%     
+%     [indx,ok] = listdlg('ListString',handles.PropertyNames,'InitialValue',[],'Name','Select property','SelectionMode','single','PromptString','Select property to search');
+%     if ok == 0
+%         return
+%     end
+%     
+%     prev_search = [];
+%     fileNames = getFileNames(handles);
+%     str = handles.list_Files.String;
+%     for c = 1:handles.TotalFileNumber
+%         if strcmp(str{c}(19),'F')
+%             prev_search = [prev_search c];
+%         end
+%     end
+%     
+%     nw = [];
+%     switch handles.PropertyTypes(indx)
+%         case 1
+%             answer = inputdlg({['String to search for in "' handles.PropertyNames{indx} '"']},'Search property',1,handles.DefaultPropertyValues(indx));
+%             if isempty(answer)
+%                 return
+%             end
+%             for d = 1:handles.TotalFileNumber
+%                 for e = 1:length(handles.Properties.Names{d})
+%                     if strcmp(handles.Properties.Names{d}{e},handles.PropertyNames{indx})
+%                         fnd = regexpi(handles.Properties.Values{d}{e},answer{1}, 'once');
+%                         if ~isempty(fnd)
+%                             nw = [nw d];
+%                         end
+%                     end
+%                 end
+%             end
+%         case 2
+%             button = questdlg(['Value to search for in "' handles.PropertyNames{indx} '"'],'Search property','On','Off','Either','On');
+%             switch button
+%                 case ''
+%                     return
+%                 case 'On'
+%                     valnear = 1.5;
+%                 case 'Off'
+%                     valnear = -0.5;
+%                 case 'Either'
+%                     valnear = 0.5;
+%             end
+%             for d = 1:handles.TotalFileNumber
+%                 for e = 1:length(handles.Properties.Names{d})
+%                     if strcmp(handles.Properties.Names{d}{e},handles.PropertyNames{indx})
+%                         if abs(handles.Properties.Values{d}{e}-valnear)<1
+%                             nw = [nw d];
+%                         end
+%                     end
+%                 end
+%             end
+%         case 3
+%             str = handles.PropertyObjectHandles(indx).String;
+%             str = str(1:end-1);
+%             [val,ok] = listdlg('ListString',str,'InitialValue',[],'Name','Select values','PromptString',['Values to search for in "' handles.PropertyNames{indx} '"']);
+%             if ok == 0
+%                 return
+%             end
+%             for d = 1:handles.TotalFileNumber
+%                 for e = 1:length(handles.Properties.Names{d})
+%                     if strcmp(handles.Properties.Names{d}{e},handles.PropertyNames{indx})
+%                         for f = 1:length(val)
+%                             if strcmp(handles.Properties.Values{d}{e},str{val(f)})
+%                                 nw = [nw d];
+%                             end
+%                         end
+%                     end
+%                 end
+%             end
+%     end
+%     
+%     switch search_type
+%         case 1 % new search
+%             found = nw;
+%         case 2 % AND
+%             found = intersect(prev_search,nw);
+%         case 3 % OR
+%             found = union(prev_search,nw);
+%     end
+%     
+%     str = handles.list_Files.String;
+%     for c = 1:handles.TotalFileNumber
+%         str{c}(19:20) = '00';
+%     end
+%     for c = 1:length(found)
+%         str{found(c)}(19:20) = 'FF';
+%     end
+%     
+%     handles.list_XXFiles.String = str;
+%     
+%     handles.ShuffleOrder = [found setdiff(1:handles.TotalFileNumber,found)];
+%     handles.check_Shuffle.Value = 1;
+%     handles.check_Shuffle.String = 'Searched';
+%     handles.edit_FileNumber.String = num2str(handles.ShuffleOrder(1));
+%     
+%     handles = eg_LoadFile(handles);
     
     
 % --------------------------------------------------------------------
@@ -8774,27 +8553,29 @@ function menu_SearchNot_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    str = handles.list_Files.String;
-    found = [];
-    for c = 1:handles.TotalFileNumber
-        if strcmp(str{c}(19),'F')
-            str{c}(19:20) = '00';
-        else
-            str{c}(19:20) = 'FF';
-            found = [found c];
-        end
-    end
-    
-    handles.list_Files.String = str;
-    
-    handles.ShuffleOrder = [found setdiff(1:handles.TotalFileNumber,found)];
-    handles.check_Shuffle.Value = 1;
-    handles.check_Shuffle.String = 'Searched';
-    handles.edit_FileNumber.String = num2str(handles.ShuffleOrder(1));
-    
-    handles = eg_LoadFile(handles);
-    
-    guidata(hObject, handles);
+    error('Searching not implemented yet')
+
+%     str = handles.list_XXFiles.String;
+%     found = [];
+%     for c = 1:handles.TotalFileNumber
+%         if strcmp(str{c}(19),'F')
+%             str{c}(19:20) = '00';
+%         else
+%             str{c}(19:20) = 'FF';
+%             found = [found c];
+%         end
+%     end
+%     
+%     handles.list_XXFiles.String = str;
+%     
+%     handles.ShuffleOrder = [found setdiff(1:handles.TotalFileNumber,found)];
+%     handles.check_Shuffle.Value = 1;
+%     handles.check_Shuffle.String = 'Searched';
+%     handles.edit_FileNumber.String = num2str(handles.ShuffleOrder(1));
+%     
+%     handles = eg_LoadFile(handles);
+%     
+%     guidata(hObject, handles);
     
     
 % --------------------------------------------------------------------
@@ -8803,37 +8584,26 @@ function menu_RenameProperty_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if ~isfield(handles,'PropertyNames') || isempty(handles.PropertyNames)
-        errordlg('No properties to rename!','Error');
-        return
+    if getNumProperties(handles) == 0
+        % No properties to rename, do nothing
+        return;
     end
-    
-    [indx,ok] = listdlg('ListString',handles.PropertyNames,'InitialValue',[],'Name','Select property','SelectionMode','single','PromptString','Select property to rename');
-    if ok == 0
-        return
+
+    defaultProperty = categorical(handles.PropertyNames(1), handles.PropertyNames);
+
+    inputs = getInputs('Rename property', {'Property to rename', 'New property name'}, {defaultProperty, char(defaultProperty)}, {'', ''});
+    if isempty(inputs)
+        % User cancelled, do nothing
+        return;
     end
-    
-    answer = inputdlg({['New name to replace "' handles.PropertyNames{indx} '"']},'Rename property',1,handles.PropertyNames(indx));
-    if isempty(answer)
-        return
-    end
-    
-    for c = 1:handles.TotalFileNumber
-        for d = 1:length(handles.Properties.Names{c})
-            if strcmp(handles.Properties.Names{c}{d},handles.PropertyNames{indx})
-                handles.Properties.Names{c}{d} = answer{1};
-            end
-        end
-    end
-    
-    handles.PropertyNames{indx} = answer{1};
-    handles.PropertyTextHandles(indx).String = answer{1};
-    
-    handles = eg_RestartProperties(handles);
-    handles = eg_LoadProperties(handles);
-    
+
+    propertyToRename = char(inputs{1});
+    newPropertyName = char(inputs{2});
+
+    propertyIdx = find(strcmp(propertyToRename, handles.PropertyNames), 1);
+    handles.PropertyNames{propertyIdx} = newPropertyName;
+    handles = UpdateFileInfoBrowser(handles);
     guidata(hObject, handles);
-    
     
 % --------------------------------------------------------------------
 function menu_FillProperty_Callback(hObject, ~, handles)
@@ -8841,227 +8611,29 @@ function menu_FillProperty_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if ~isfield(handles,'PropertyNames') || isempty(handles.PropertyNames)
-        errordlg('No properties to fill!','Error');
-        return
+    if getNumProperties(handles) == 0
+        % No properties to fill, do nothing
+        return;
     end
-    
-    filenum = getCurrentFileNum(handles);
-    
-    [indx,ok] = listdlg('ListString',handles.PropertyNames,'InitialValue',[],'Name','Select property','SelectionMode','single','PromptString','Select property to fill');
-    if ok == 0
-        return
+
+    defaultProperty = categorical(handles.PropertyNames(1), handles.PropertyNames);
+    defaultValue = false;
+
+    inputs = getInputs('Fill property with value', {'Property to fill', 'Fill value'}, {defaultProperty, defaultValue}, {'', ''});
+    if isempty(inputs)
+        % User cancelled, do nothing
+        return;
     end
-    
-    str = handles.list_Files.String;
-    for c = 1:length(str)
-        str{c} = [num2str(c) '. ' extractFileNameFromEntry(handles, str{c}, true)];
-    end
-    [files, ~] = listdlg('ListString',str,'InitialValue',filenum,'ListSize',[300 450],'Name','Select files','PromptString',['Files in which to fill property "' handles.PropertyNames{indx} '"']);
-    if isempty(files)
-        return
-    end
-    
-    
-    switch handles.PropertyTypes(indx)
-        case 1
-            answer = inputdlg({['Fill property "' handles.PropertyNames{indx} '" with value']},'Fill property',1,handles.DefaultPropertyValues(indx));
-            if isempty(answer)
-                return
-            end
-            fill = answer{1};
-        case 2
-            switch handles.DefaultPropertyValues{indx}
-                case 1
-                    def = 'On';
-                case 0
-                    def = 'Off';
-            end
-            button = questdlg(['Fill property "' handles.PropertyNames{indx} '" with value'],'Fill property','On','Off',def);
-            switch button
-                case ''
-                    return
-                case 'On'
-                    fill = 1;
-                case 'Off'
-                    fill = 0;
-            end
-        case 3
-            str = handles.PropertyObjectHandles(indx).String;
-            for c = 1:length(str)
-                if strcmp(str{c},handles.DefaultPropertyValues{indx})
-                    def = c;
-                end
-            end
-            [val, ~] = listdlg('ListString',str,'InitialValue',def,'Name','Select value','SelectionMode','single','PromptString',['Fill property "' handles.PropertyNames{indx} '" with value']);
-            if val==length(str)
-                answer = inputdlg({['New value for "' handles.PropertyNames{indx} '"']},'Fill property',1,{''});
-                if isempty(answer)
-                    return
-                end
-                fill = answer{1};
-                str = str(1:end-1);
-                str{end+1} = fill;
-                str{end+1} = 'New value...';
-                handles.PropertyObjectHandles(indx).String = str;
-            else
-                fill = str{val};
-            end
-    end
-    
-    shouldadd = -1;
-    for c = 1:length(files)
-        f = [];
-        for d = 1:length(handles.Properties.Names{files(c)})
-            if strcmp(handles.Properties.Names{files(c)}{d},handles.PropertyNames{indx})
-                f = d;
-            end
-        end
-        if ~isempty(f)
-            handles.Properties.Values{files(c)}{f} = fill;
-        else
-            switch shouldadd
-                case -1
-                    button = questdlg(['Not all selected files have property "' handles.PropertyNames{indx} '". Add property to these files?'],'Fill property');
-                    switch button
-                        case {'','Cancel'}
-                            return
-                        case 'Yes'
-                            handles.Properties.Names{files(c)}{end+1} = handles.PropertyNames{indx};
-                            handles.Properties.Values{files(c)}{end+1} = fill;
-                            handles.Properties.Types{files(c)}(end+1) = handles.PropertyTypes(indx);
-                            shouldadd = 1;
-                        case 'No'
-                            shouldadd = 0;
-                    end
-                case 0
-                    % do nothing
-                case 1
-                    handles.Properties.Names{files(c)}{end+1} = handles.PropertyNames{indx};
-                    handles.Properties.Values{files(c)}{end+1} = fill;
-                    handles.Properties.Types{files(c)}(end+1) = handles.PropertyTypes(indx);
-            end
-        end
-    end
-    
-    handles = eg_RestartProperties(handles);
-    handles = eg_LoadProperties(handles);
-    
+
+    propertyToFill = char(inputs{1});
+    fillValue = inputs{2};
+
+    propertyIdx = find(strcmp(propertyToFill, handles.PropertyNames), 1);
+    handles.Properties(:, propertyIdx) = fillValue;
+    handles = UpdateFileInfoBrowser(handles);
     guidata(hObject, handles);
-    
-    
-    
-% --------------------------------------------------------------------
-function menu_DefaultPropertyValue_Callback(hObject, ~, handles)
-    % hObject    handle to menu_DefaultPropertyValue (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    if ~isfield(handles,'PropertyNames') || isempty(handles.PropertyNames)
-        errordlg('There are no properties!','Error');
-        return
-    end
-    
-    [indx,ok] = listdlg('ListString',handles.PropertyNames,'InitialValue',[],'Name','Select property','SelectionMode','single','PromptString','Set default value to property');
-    if ok == 0
-        return
-    end
-    
-    switch handles.PropertyTypes(indx)
-        case 1
-            answer = inputdlg({['Default value for "' handles.PropertyNames{indx} '"']},'Default value',1,handles.DefaultPropertyValues(indx));
-            if isempty(answer)
-                return
-            end
-            defval = answer{1};
-        case 2
-            switch handles.DefaultPropertyValues{indx}
-                case 1
-                    def = 'On';
-                case 0
-                    def = 'Off';
-            end
-            button = questdlg(['Default value for "' handles.PropertyNames{indx} '"'],'Default value','On','Off',def);
-            switch button
-                case ''
-                    return
-                case 'On'
-                    defval = 1;
-                case 'Off'
-                    defval = 0;
-            end
-        case 3
-            str = handles.PropertyObjectHandles(indx).String;
-            for c = 1:length(str)
-                if strcmp(str{c},handles.DefaultPropertyValues{indx})
-                    def = c;
-                end
-            end
-            [val,ok] = listdlg('ListString',str,'InitialValue',def,'Name','Select value','SelectionMode','single','PromptString',['Default value for "' handles.PropertyNames{indx} '"']);
-            if ok == 0
-                return
-            end
-            if val==length(str)
-                answer = inputdlg({['New value for "' handles.PropertyNames{indx} '"']},'Default value',1,{''});
-                if isempty(answer)
-                    return
-                end
-                defval = answer{1};
-                str = str(1:end-1);
-                str{end+1} = defval;
-                str{end+1} = 'New value...';
-                handles.PropertyObjectHandles(indx).String = str;
-            else
-                defval = str{val};
-            end
-    end
-    
-    handles.DefaultPropertyValues{indx} = defval;
-    
-    handles = eg_RestartProperties(handles);
-    handles = eg_LoadProperties(handles);
-    
-    guidata(hObject, handles);
-    
-    
-% --------------------------------------------------------------------
-function menu_CleanUpList_Callback(hObject, ~, handles)
-    % hObject    handle to menu_CleanUpList (see GCBO)
-    % eventdata  reserved - to be defined in a future version of MATLAB
-    % handles    structure with handles and user data (see GUIDATA)
-    
-    if ~isfield(handles,'PropertyNames') || isempty(handles.PropertyNames)
-        errordlg('No lists to clean up!','Error');
-        return
-    end
-    
-    f = find(handles.PropertyTypes==3);
-    if isempty(f)
-        errordlg('No lists to clean up!','Error');
-        return
-    end
-    
-    str = {};
-    for c = 1:length(f)
-        str{end+1} = handles.PropertyNames{f(c)};
-    end
-    
-    [indx,ok] = listdlg('ListString',str,'InitialValue',1:length(str),'Name','Select lists','PromptString','Select lists to clean up');
-    if ok == 0
-        return
-    end
-    
-    for c = 1:length(indx)
-        str = handles.PropertyObjectHandles(f(indx(c))).String;
-        str(1:end-1) = [];
-        handles.PropertyObjectHandles(f(indx(c))).String = str;
-    end
-    
-    handles = eg_RestartProperties(handles);
-    handles = eg_LoadProperties(handles);
-    
-    guidata(hObject, handles);
-    
+
+        
 % --------------------------------------------------------------------
 function menu_ScalebarHeight_Callback(hObject, ~, handles)
     % hObject    handle to menu_ScalebarHeight (see GCBO)
@@ -9079,7 +8651,7 @@ function menu_ChangeFiles_Callback(hObject, ~, handles)
     handles.IsUpdating = 1;
     old_sound_files = handles.sound_files;
     [handles, ischanged] = eg_NewExperiment(handles);
-    if ischanged == 0
+    if ~ischanged
         return
     end
     
@@ -9096,19 +8668,19 @@ function menu_DeleteFiles_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    str = handles.list_Files.String;
+    fileNames = getFileNames(handles);
     
-    [val,ok] = listdlg('ListString',str,'Name','Delete files','PromptString','Select files to DELETE','InitialValue',[],'ListSize',[300 450]);
+    [fileNumsToDelete,ok] = listdlg('ListString',fileNames,'Name','Delete files','PromptString','Select files to DELETE','InitialValue',[],'ListSize',[300 450]);
     if ok == 0
         return
     end
     
     old_sound_files = handles.sound_files;
     
-    handles.sound_files(val) = [];
-    for c = 1:length(handles.chan_files)
-        if ~isempty(handles.chan_files{c})
-            handles.chan_files{c}(val) = [];
+    handles.sound_files(fileNumsToDelete) = [];
+    for channelNum = 1:length(handles.chan_files)
+        if ~isempty(handles.chan_files{channelNum})
+            handles.chan_files{channelNum}(fileNumsToDelete) = [];
         end
     end
     
@@ -9119,14 +8691,14 @@ function menu_DeleteFiles_Callback(hObject, ~, handles)
     guidata(hObject, handles);
     
     
-function fileEntry = makeFileEntry(handles, fileName, unread)
-    % Construct a file entry
-    % filename = name of file
-    % unread = boolean - has it been read or not?
-    if strcmp(fileName(1:length(handles.UnreadFileMarker)), handles.UnreadFileMarker)
-        warning('Loaded a file that starts with the same character in use as the unread file marker character. This will probably cause some problems.');
-    end
-    fileEntry = [handles.FileEntryOpenTag, repmat(handles.UnreadFileMarker, [1, unread]), fileName, handles.FileEntryCloseTag];
+% function fileEntry = makeFileEntry(handles, fileName, unread)
+%     % Construct a file entry
+%     % filename = name of file
+%     % unread = boolean - has it been read or not?
+%     if strcmp(fileName(1:length(handles.UnreadFileMarker)), handles.UnreadFileMarker)
+%         warning('Loaded a file that starts with the same character in use as the unread file marker character. This will probably cause some problems.');
+%     end
+%     fileEntry = [handles.FileEntryOpenTag, repmat(handles.UnreadFileMarker, [1, unread]), fileName, handles.FileEntryCloseTag];
     
 function fileName = extractFileNameFromEntry(handles, fileEntry, includeUnreadMarker)
     % Get the filename from the file entry (which may include the unread file
@@ -9155,7 +8727,68 @@ function isUnread = isFileUnread(handles, fileEntry)
     unreadFileMarkerStart = length(handles.FileEntryOpenTag)+1;
     unreadFileMarkerEnd = unreadFileMarkerStart+length(handles.UnreadFileMarker)-1;
     isUnread = strcmp(fileEntry(unreadFileMarkerStart:unreadFileMarkerEnd), handles.UnreadFileMarker);
-    
+
+function UpdatePropertyValuesFromGUI(hObject, event)
+    % Update stored property values from GUI
+    handles = guidata(hObject);
+    if handles.ShiftDown && ~isempty(handles.FileInfoBrowser.PreviousSelection)
+        % User was holding shift down - set all values in that range
+        previousColumn = handles.FileInfoBrowser.PreviousSelection(1, 2);
+        previousRow = handles.FileInfoBrowser.PreviousSelection(1, 1);
+        previousValue = handles.FileInfoBrowser.Data{previousRow, previousColumn};
+        newRows = unique(handles.FileInfoBrowser.Selection(:, 1));
+        handles.FileInfoBrowser.Data(newRows, previousColumn) = num2cell(repmat(~previousValue, length(newRows), 1));
+        handles = UpdateFileInfoBrowser(handles);
+    end
+    handles.Properties = handles.FileInfoBrowser.Data(:, 3:end);
+    guidata(hObject, handles);
+
+function shortFilenames = getMinimalFilenmes(filenames)
+    % Look through a list of filenames and discard chunks at the beginning
+    % and/or end that are the same for all of them. A chunk is delimited by
+    % '_', '-', '.', or ' '
+    delimiters = {'_', '-', '.', ' '};
+    [filenameChunks, chunkDelimiters] = cellfun(@(filename)split(filename, delimiters), filenames, 'UniformOutput', false);
+    numChunks = cellfun(@length, filenameChunks);
+    numStartChunksToDiscard = 0;
+    numEndChunksToDiscard = 0;
+    minChunkNum = min(numChunks);
+    for chunkNum = 1:minChunkNum
+        chunks = cellfun(@(chunks)chunks{chunkNum}, filenameChunks, 'UniformOutput', false);
+        if ~all(strcmp(chunks{1}, chunks))
+            % This chunk differs
+            numStartChunksToDiscard = chunkNum - 1;
+            break;
+        end
+    end
+    for chunkNum = 1:minChunkNum
+        chunks = cellfun(@(chunks)chunks{end-chunkNum+1}, filenameChunks, 'UniformOutput', false);
+        if ~all(strcmp(chunks{1}, chunks))
+            % This chunk differs
+            numEndChunksToDiscard = chunkNum - 1;
+            break;
+        end
+    end
+    reassembler = @(chunks, chunkDelims) ...
+        join(chunks(numStartChunksToDiscard+1:end-numEndChunksToDiscard), ...
+             chunkDelims(numStartChunksToDiscard+1:end-numEndChunksToDiscard));
+    shortFilenames = cellfun(reassembler, filenameChunks, chunkDelimiters, 'UniformOutput', false);
+    shortFilenames = cellfun(@(x)x{1}, shortFilenames, 'UniformOutput', false);
+
+function handles = UpdateFileInfoBrowser(handles, updateValues, updateNames, update)
+    % Initialize table data
+    % Column 1 is filenames
+    % Rest of the columns are properties
+    data = cell(handles.TotalFileNumber, getNumProperties(handles) + 2);
+    data(:, 1) = num2cell(1:handles.TotalFileNumber);
+    data(:, 2) = getMinimalFilenmes({handles.sound_files.name});
+    [propertyArray, propertyNames] = getProperties(handles);
+    data(:, 3:end) = num2cell(propertyArray);
+    handles.FileInfoBrowser.Data = data;
+    handles.FileInfoBrowser.ColumnName = [{'#', 'Name'}, propertyNames];
+    handles.FileInfoBrowser.ColumnEditable = [false, false, true(1, length(propertyNames))];
+    handles.FileInfoBrowser.ColumnWidth = num2cell([20, 135, repmat(30, 1, length(propertyNames))]);
+    handles.FileInfoBrowser.ColumnSelectable = [true, true, false(1, length(propertyNames))];
     
 function handles = UpdateFiles(handles, old_sound_files)
     
@@ -9166,103 +8799,100 @@ function handles = UpdateFiles(handles, old_sound_files)
     
     handles.ShuffleOrder = randperm(handles.TotalFileNumber);
     
-    handles.text_TotalFileNumber.String = ['of ' num2str(handles.TotalFileNumber)];
-    oldfilenum = handles.list_Files.Value;
+    handles.text_TotalFileNumber.String = sprintf('of %s', handles.TotalFileNumber);
+    oldSelectedFilenum = handles.FileInfoBrowser.SelectedRow;
     handles.edit_FileNumber.String = '1';
-    handles.list_Files.Value = 1;
+    handles.FileInfoBrowser.SelectedRow = 1;
     
-    bck = handles.list_Files.String;
-    str = {};
-    for c = 1:length(handles.sound_files)
-        str{c} = makeFileEntry(handles, handles.sound_files(c).name, true);
-    end
+    originalList = getFileNames(handles);
+    fileList = {handles.sound_files.name};
     
-    % Generate translation lists
+    % Generate translation lists to map old file index to new file index,
+    % after some files have been added somewhere in the list
     oldnum = [];
     newnum = [];
-    newfilenum = 0;
-    for c = 1:length(old_sound_files)
-        for d = 1:length(handles.sound_files)
-            if strcmp(old_sound_files(c).name,handles.sound_files(d).name)
-                oldnum(end+1) = c;
-                newnum(end+1) = d;
-                str{d} = removeUnreadFileMarker(handles, str{d});
-                if c==oldfilenum
-                    newfilenum = d;
+    newSelectedFilenum = [];
+    for oldIdx = 1:length(old_sound_files)
+        for newIdx = 1:length(handles.sound_files)
+            if strcmp(old_sound_files(oldIdx).name,handles.sound_files(newIdx).name)
+                oldnum(end+1) = oldIdx;
+                newnum(end+1) = newIdx;
+                if oldIdx==oldSelectedFilenum
+                    newSelectedFilenum = newIdx;
                 end
             end
         end
     end
     
-    str(newnum) = bck(oldnum);
-    handles.list_Files.String = str;
-    if newfilenum > 0
-        handles.edit_FileNumber.String = num2str(newfilenum);
-        handles.list_Files.Value = newfilenum;
+    fileList(newnum) = originalList(oldnum);
+    handles = setFileNames(handles, fileList);
+    if ~isempty(newSelectedFilenum)
+        handles.edit_FileNumber.String = num2str(newSelectedFilenum);
+        handles.FileInfoBrowser.SelectedRow = newSelectedFilenum;
     end
-    
     
     % Initialize variables for new files
-    bck = handles.SoundThresholds(oldnum);
+    originalList = handles.SoundThresholds(oldnum);
     handles.SoundThresholds = inf(1,handles.TotalFileNumber);
-    handles.SoundThresholds(newnum) = bck;
+    handles.SoundThresholds(newnum) = originalList;
     
-    bck = handles.DatesAndTimes(oldnum);
+    % Shouldn't we be setting the correct date for the new files??
+    originalList = handles.DatesAndTimes(oldnum);
     handles.DatesAndTimes = zeros(1,handles.TotalFileNumber);
-    handles.DatesAndTimes(newnum) = bck;
+    handles.DatesAndTimes(newnum) = originalList;
     
-    bck = handles.SegmentTimes(oldnum);
+    originalList = handles.SegmentTimes(oldnum);
     handles.SegmentTimes = cell(1,handles.TotalFileNumber);
-    handles.SegmentTimes(newnum) = bck;
+    handles.SegmentTimes(newnum) = originalList;
     
-    bck = handles.SegmentTitles(oldnum);
+    originalList = handles.SegmentTitles(oldnum);
     handles.SegmentTitles = cell(1,handles.TotalFileNumber);
-    handles.SegmentTitles(newnum) = bck;
+    handles.SegmentTitles(newnum) = originalList;
     
-    bck = handles.SegmentSelection(oldnum);
+    originalList = handles.SegmentSelection(oldnum);
     handles.SegmentSelection = cell(1,handles.TotalFileNumber);
-    handles.SegmentSelection(newnum) = bck;
+    handles.SegmentSelection(newnum) = originalList;
     
-    bck = handles.EventThresholds(:,oldnum);
-    handles.EventThresholds = inf*ones(size(bck,1),handles.TotalFileNumber);
-    handles.EventThresholds(:,newnum) = bck;
+    originalList = handles.EventThresholds(:,oldnum);
+    handles.EventThresholds = inf*ones(size(originalList,1),handles.TotalFileNumber);
+    handles.EventThresholds(:,newnum) = originalList;
     
-    bck = handles.MarkerTimes(oldnum);
+    originalList = handles.MarkerTimes(oldnum);
     handles.MarkerTimes = cell(1,handles.TotalFileNumber);
-    handles.MarkerTimes(newnum) = bck;
+    handles.MarkerTimes(newnum) = originalList;
     
-    bck = handles.MarkerTitles(oldnum);
+    originalList = handles.MarkerTitles(oldnum);
     handles.MarkerTitles = cell(1,handles.TotalFileNumber);
-    handles.MarkerTitles(newnum) = bck;
+    handles.MarkerTitles(newnum) = originalList;
     
-    bck = handles.MarkerSelection(oldnum);
+    originalList = handles.MarkerSelection(oldnum);
     handles.MarkerSelection = cell(1,handles.TotalFileNumber);
-    handles.MarkerSelection(newnum) = bck;
+    handles.MarkerSelection(newnum) = originalList;
     
     
-    bck = handles.EventTimes;
-    for c = 1:length(bck)
-        handles.EventTimes{c} = cell(size(bck{c},1),handles.TotalFileNumber);
-        handles.EventTimes{c}(:,newnum) = bck{c}(:,oldnum);
+    originalList = handles.EventTimes;
+    for c = 1:length(originalList)
+        handles.EventTimes{c} = cell(size(originalList{c},1),handles.TotalFileNumber);
+        handles.EventTimes{c}(:,newnum) = originalList{c}(:,oldnum);
     end
     
-    bck = handles.EventSelected;
-    for c = 1:length(bck)
-        handles.EventSelected{c} = cell(size(bck{c},1),handles.TotalFileNumber);
-        handles.EventSelected{c}(:,newnum) = bck{c}(:,oldnum);
+    originalList = handles.EventSelected;
+    for c = 1:length(originalList)
+        handles.EventSelected{c} = cell(size(originalList{c},1),handles.TotalFileNumber);
+        handles.EventSelected{c}(:,newnum) = originalList{c}(:,oldnum);
     end
     
-    bck = handles.Properties;
+    originalList = handles.Properties;
     
     handles = loadProperties(handles);
     
-    handles.Properties.Names(newnum) = bck.Names(oldnum);
-    handles.Properties.Values(newnum) = bck.Values(oldnum);
-    handles.Properties.Types(newnum) = bck.Types(oldnum);
+    handles.Properties.Names(newnum) = originalList.Names(oldnum);
+    handles.Properties.Values(newnum) = originalList.Values(oldnum);
+    handles.Properties.Types(newnum) = originalList.Types(oldnum);
     
-    bck = handles.FileLength(:,oldnum);
+    originalList = handles.FileLength(:,oldnum);
     handles.FileLength = zeros(1,handles.TotalFileNumber);
-    handles.FileLength(newnum) = bck;
+    handles.FileLength(newnum) = originalList;
     
     
 % --------------------------------------------------------------------
@@ -9325,6 +8955,7 @@ function dbase = GetDBase(handles)
     dbase.EventParts = handles.EventParts;
 
     dbase.Properties = handles.Properties;
+    % Maybe also output in legacy format?
     
     dbase.AnalysisState.SourceList = handles.popup_Channel1.String;
     dbase.AnalysisState.EventList = handles.popup_EventListAlign.String;
@@ -9349,8 +8980,6 @@ function suppressStupidCallbackWarnings()
     edit_FileNumber_CreateFcn;
     push_PreviousFile_Callback;
     push_NextFile_Callback;
-    list_Files_Callback;
-    list_Files_CreateFcn;
     menu_Experiment_Callback;
     edit_Timescale_Callback;
     edit_Timescale_CreateFcn;
@@ -9368,7 +8997,6 @@ function suppressStupidCallbackWarnings()
     menu_SmoothingWindow_Callback;
     click_Amplitude;
     menu_SetThreshold_Callback;
-    click_loadfile;
     menu_LongFiles_Callback;
     context_Segments_Callback;
     menu_SegmenterList_Callback;
@@ -9510,7 +9138,6 @@ function suppressStupidCallbackWarnings()
     menu_RenameProperty_Callback;
     menu_FillProperty_Callback;
     menu_DefaultPropertyValue_Callback;
-    menu_CleanUpList_Callback;
     menu_ScalebarHeight_Callback;
     menu_ChangeFiles_Callback;
     menu_DeleteFiles_Callback;
