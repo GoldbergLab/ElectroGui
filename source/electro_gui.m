@@ -98,8 +98,9 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.SoundExpression = '';
     
     % Keep track of whether or not the shift and control keys are down
-    handles.ShiftDown = false;
-    handles.CtrlDown = false;
+    keyInfo.ShiftDown = false;
+    keyInfo.CtrlDown = false;
+    setKeyInfo(handles.figure_Main, keyInfo);
 
     % Min and max time to display on axes
     handles.TLim = [0, 1];
@@ -150,8 +151,6 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
 
     % General cursor
     handles.Cursors = gobjects().empty;
-    handles.ShiftDown = false;
-    handles.CtrlDown = false;
 
     % File caching settings
     handles.EnableFileCaching = true;
@@ -316,6 +315,31 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % UIWAIT makes electro_gui wait for user response (see UIRESUME)
     % uiwait(handles.figure_Main);
 
+function setKeyInfo(hObject, newKeyInfo)
+    % Create/update a separate mini app data store just for key info,
+    % because guidata takes so long it's unsuitable for MouseMotionHandler
+    if ~exist('newKeyInfo', 'var') || isempty(newKeyInfo)
+        newKeyInfo = struct();
+    end
+    hObject = ancestor(hObject, 'figure');
+    keyInfo = getKeyInfo(hObject);
+    if isfield(newKeyInfo, 'ShiftDown')
+        keyInfo.ShiftDown = newKeyInfo.ShiftDown;
+    end
+    if isfield(newKeyInfo, 'CtrlDown')
+        keyInfo.CtrlDown = newKeyInfo.CtrlDown;
+    end
+    setappdata(hObject, 'KeyInfo', keyInfo);
+
+function keyInfo = getKeyInfo(hObject)
+    % Retrieve info from mini app data store just for key info
+    hObject = ancestor(hObject, 'figure');
+    keyInfo = getappdata(hObject, 'KeyInfo');
+    if isempty(keyInfo)
+        keyInfo.ShiftDown = false;
+        keyInfo.CtrlDown = false;
+    end
+
 function handles = OpenProgressPopup(handles, title)
     % Create a modal progress popup
     handles.ProgressPopup = figure('Name', '', 'WindowStyle', 'modal', ...
@@ -323,7 +347,7 @@ function handles = OpenProgressPopup(handles, title)
     width = 300;
     height = 50;
     if isfield(handles, 'main_Figure')
-        mainPosition = handles.main_Figure.Position;
+        mainPosition = handles.figure_Main.Position;
         handles.ProgressPopup.Position(1) = mainPosition(1) + mainPosition(3)/2 - width/2;
         handles.ProgressPopup.Position(2) = mainPosition(2) + mainPosition(4)/2 - height/2;
         handles.ProgressPopup.Position(3) = width;
@@ -4096,7 +4120,8 @@ function scrollHandler(source, event)
     y = xy(2);
     if areCoordinatesIn(x, y, [handles.axes_Sonogram, handles.axes_Sound, handles.axes_Amplitude, handles.axes_Channel])
         [t, ~] = convertFigCoordsToChildAxesCoords(x, y, handles.axes_Sonogram);
-        if handles.ShiftDown
+        keyInfo = getKeyInfo(handles.figure_Main);
+        if keyInfo.ShiftDown
             handles = shiftInTime(handles, event.VerticalScrollCount);
         else
             handles = zoomInTime(handles, t, event.VerticalScrollCount);
@@ -4220,9 +4245,10 @@ function exportView(handles)
 function MouseMotionHandler(hObject, event)
     % Callback to handle mouse motion
 
-    handles = guidata(hObject);
-    if handles.ShiftDown
+    keyInfo = getKeyInfo(hObject);
+    if keyInfo.ShiftDown
         % User is holding the shift key down
+        handles = guidata(hObject);
 
         % Get coordinates of mouse
         xy = handles.figure_Main.CurrentPoint;
@@ -4313,25 +4339,24 @@ function MouseMotionHandler(hObject, event)
         end
     end
 
-    delete(handles.Cursors);
-    handles.Cursors = gobjects().empty;
-
 function keyReleaseHandler(hObject, event)
     % Callback to handle a key release
 
     handles = guidata(hObject);
+    keyInfo = getKeyInfo(hObject);
 
     if strcmp(event.Key, 'control')
-        handles.CtrlDown = false;
+        keyInfo.CtrlDown = false;
     end
     if strcmp(event.Key, 'shift')
-        handles.ShiftDown = false;
+        keyInfo.ShiftDown = false;
 
         % Delete cursor objects, if they exist
         delete(handles.Cursors);
         handles.Cursors = gobjects().empty;
     end
 
+    setKeyInfo(hObject, keyInfo);
     guidata(hObject, handles);
 
 
@@ -4339,12 +4364,13 @@ function keyPressHandler(hObject, event)
     % Callback to handle a key press
 
     handles = guidata(hObject);
+    keyInfo = getKeyInfo(hObject);
 
     if strcmp(event.Key, 'control')
-        handles.CtrlDown = true;
+        keyInfo.CtrlDown = true;
     end
     if strcmp(event.Key, 'shift')
-        handles.ShiftDown = true;
+        keyInfo.ShiftDown = true;
     end
 
     % Get currently loaded file num
@@ -4475,6 +4501,7 @@ function keyPressHandler(hObject, event)
         end
     end
     
+    setKeyInfo(hObject, keyInfo);
     guidata(hObject, handles);
 
 function handles = popup_Functions_Callback(handles, axnum)
@@ -4720,6 +4747,7 @@ function menu_PeakDetect2_Callback(hObject, ~, handles)
 function click_Channel(hObject, event)
     % Handle a click on the channel axes
     handles = guidata(hObject);
+    keyInfo = getKeyInfo(hObject);
 
     obj = hObject;
     if ~strcmp(obj.Type,'axes')
@@ -4783,7 +4811,7 @@ function click_Channel(hObject, event)
     
     elseif strcmp(handles.figure_Main.SelectionType, 'alt')
         % Control-click or right click
-        if ~handles.CtrlDown
+        if ~keyInfo.CtrlDown
             % False alarm, this is just a right click, stand down
             return;
         end
@@ -4989,7 +5017,7 @@ function handles = UpdateEventThresholdDisplay(handles, eventSourceIdx)
                 plot(handles.axes_Channel(axnum), ...
                      [0, numSamples/handles.fs], ...
                      [threshold, threshold], ...
-                     ':', 'Color', handles.ChannelThresholdColor(axnum,:));
+                     ':', 'Color', handles.ChannelThresholdColor(axnum,:), 'HitTest', 'off', 'PickableParts', 'none');
             hold(handles.axes_Channel(axnum), 'off');
         else
             % Update threshold line y data
@@ -8731,7 +8759,8 @@ function isUnread = isFileUnread(handles, fileEntry)
 function UpdatePropertyValuesFromGUI(hObject, event)
     % Update stored property values from GUI
     handles = guidata(hObject);
-    if handles.ShiftDown && ~isempty(handles.FileInfoBrowser.PreviousSelection)
+    keyInfo = getKeyInfo(hObject);
+    if keyInfo.ShiftDown && ~isempty(handles.FileInfoBrowser.PreviousSelection)
         % User was holding shift down - set all values in that range
         previousColumn = handles.FileInfoBrowser.PreviousSelection(1, 2);
         previousRow = handles.FileInfoBrowser.PreviousSelection(1, 1);
