@@ -108,7 +108,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % Create new file browser thing
     handles.FileInfoBrowser = uitable2(handles.panel_experiment, 'Units', 'normalized', 'Position', [0.025, 0.045, 0.944, 0.803], 'Data', {}, 'RowName', {}, "ColumnRearrangeable", true);
     handles.FileInfoBrowser.CellSelectionCallback = @(src, event)HandleFileListChange(src.Parent, event);
-    handles.FileInfoBrowser.CellEditCallback = @UpdatePropertyValuesFromGUI;
+    handles.FileInfoBrowser.CellEditCallback = @GUIPropertyChangeHandler;
 
     handles.FileReadState = logical.empty();
 
@@ -1323,6 +1323,9 @@ function [selectedChannelNum, selectedChannelName, isSound] = getSelectedChannel
     %   axis. If the name is not a valid channel, selectedChannelNum will be
     %   empty.
     channelOptionList = handles.popup_Channels(axnum).String;
+    if ischar(channelOptionList)
+        channelOptionList = {channelOptionList};
+    end
     selectedChannelName = channelOptionList{handles.popup_Channels(axnum).Value};
     selectedChannelNum = channelNameToNum(selectedChannelName);
     isSound = isChannelSound(selectedChannelNum);
@@ -1366,6 +1369,9 @@ function handles = setSelectedFilter(handles, axnum, filterName)
 function handles = setSelectedChannel(handles, axnum, channelName)
     % Set the currently selected filter for the selected axis
     channelOptionList = handles.popup_Channels(axnum).String;
+    if ischar(channelOptionList)
+        channelOptionList = {channelOptionList};
+    end
     newIndex = find(strcmp(channelOptionList, channelName));
     if isempty(newIndex)
         error('Error: Could not set selected channel to ''%s'', as it is not in the option list.', filter);
@@ -8839,13 +8845,14 @@ function isUnread = isFileUnread(handles, fileEntry)
     unreadFileMarkerEnd = unreadFileMarkerStart+length(handles.UnreadFileMarker)-1;
     isUnread = strcmp(fileEntry(unreadFileMarkerStart:unreadFileMarkerEnd), handles.UnreadFileMarker);
 
-function UpdatePropertyValuesFromGUI(hObject, event)
+function GUIPropertyChangeHandler(hObject, event)
     % Update stored property values from GUI
     handles = guidata(hObject);
     keyInfo = getKeyInfo(hObject);
     if keyInfo.ShiftDown && ~isempty(handles.FileInfoBrowser.PreviousSelection)
         % User was holding shift down - set all values in that range
-        previousColumn = handles.FileInfoBrowser.PreviousSelection(1, 2);
+        firstPropertyColumn = 3;
+        previousColumn = max(firstPropertyColumn, handles.FileInfoBrowser.PreviousSelection(1, 2));
         previousRow = handles.FileInfoBrowser.PreviousSelection(1, 1);
         previousValue = handles.FileInfoBrowser.Data{previousRow, previousColumn};
         newRows = unique(handles.FileInfoBrowser.Selection(:, 1));
@@ -8919,7 +8926,7 @@ function handles = setFileReadState(handles, filenums, readState)
         % Extend file read state list
         numToAdd = maxFilenum - length(handles.FileReadState);
         handles.FileReadState(end+1:end+numToAdd) = false;
-    elseif maxFilenum < length(handles.FileReadstate)
+    elseif maxFilenum < length(handles.FileReadState)
         % Shorten file read state list
         handles.FileReadState(maxFileNum+1:end) = [];
     end
