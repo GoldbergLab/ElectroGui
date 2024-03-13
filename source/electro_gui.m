@@ -52,7 +52,6 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % handles    structure with handles and user data (see GUIDATA)
     % varargin   command line arguments to electro_gui (see VARARGIN)
     
-    
     % Allow macros to call individual functions within ElectroGui
     if ~isempty(varargin)
 %         str = ['''' varargin{1} ''','];
@@ -85,11 +84,8 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % Prompt user to choose a defaults file, then load it.
     handles = chooseAndLoadDefaultsFile(handles);
 
-    % Prepare variable to hold reference to progress popup
-%     handles.ProgressPopup = gobjects().empty;
-
-%     handles = OpenProgressPopup(handles, 'electro_gui initialzing - please wait...');
-
+    progressBar = waitbar(0, 'Initializing...');
+    
     % Gather all electro_gui plugins
     handles = gatherPlugins(handles);
 
@@ -278,6 +274,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % Choose default command line output for electro_gui
     handles.output = hObject;
     
+    waitbar(0.1, progressBar);
     if handles.EnableFileCaching
         try
             % Start up parallel pool for caching purposes
@@ -288,6 +285,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
             handles.EnableFileCaching = false;
         end
     end
+    waitbar(0.8, progressBar);
     
     % Initialize event-related variables
     handles.EventSources = {};      % Array of event source channel names
@@ -315,11 +313,13 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.figure_Main.KeyReleaseFcn = @keyReleaseHandler;
     handles.figure_Main.WindowButtonMotionFcn = @MouseMotionHandler;
 
-%     handles = CloseProgressPopup(handles);
     handles = disableAxesPopupToolbars(handles);
 
     % Update handles structure
     guidata(hObject, handles);
+
+    waitbar(1, progressBar);
+    close(progressBar);
     
     % UIWAIT makes electro_gui wait for user response (see UIRESUME)
     % uiwait(handles.figure_Main);
@@ -348,45 +348,6 @@ function keyInfo = getKeyInfo(hObject)
         keyInfo.ShiftDown = false;
         keyInfo.CtrlDown = false;
     end
-
-function handles = OpenProgressPopup(handles, title)
-    % Create a modal progress popup
-    handles.ProgressPopup = figure('Name', '', 'WindowStyle', 'modal', ...
-        'NumberTitle', 'off', 'Toolbar', 'none', 'Menu', 'none', 'Units', 'pixels');
-    width = 300;
-    height = 50;
-    if isfield(handles, 'main_Figure')
-        mainPosition = handles.figure_Main.Position;
-        handles.ProgressPopup.Position(1) = mainPosition(1) + mainPosition(3)/2 - width/2;
-        handles.ProgressPopup.Position(2) = mainPosition(2) + mainPosition(4)/2 - height/2;
-        handles.ProgressPopup.Position(3) = width;
-        handles.ProgressPopup.Position(4) = height;
-    else
-        handles.ProgressPopup.Position(3) = width;
-        handles.ProgressPopup.Position(4) = height;
-    end
-    txt = uicontrol("Style", "text", "String", title, "Position", [0, 0.5, 1, 0.5], 'Parent', handles.ProgressPopup);
-    ax = axes(handles.ProgressPopup, 'Units', 'normalized', 'Position', [0, 0, 1, 0.5]);
-    progressBar = patch([], [], 'b', 'Parent', ax);
-    handles.ProgressPopup.UserData.txt = txt;
-    handles.ProgressPopup.UserData.ax = ax;
-    handles.ProgressPopup.UserData.bar = progressBar;
-    drawnow();
-function handles = UpdateProgressPopup(handles, progress)
-    % Update the progress popup
-    ax = handles.ProgressPopup.UserData.ax;
-    progressBar = handles.ProgressPopup.UserData.progressBar;
-    xl = xlim(ax);
-    yl = ylim(ax);
-    x0 = 0;
-    x1 = xl(1) + progress*diff(xl);
-    y0 = yl(1);
-    y1 = yl(2);
-    progressBar.XData = [x0, x0, x1, x1, x0];
-    progressBar.YData = [y0, y1, y1, y0, y0];
-function handles = CloseProgressPopup(handles, progress)
-    % Destroy progress popup
-    delete(handles.ProgressPopup);
 
 function handles = disableAxesPopupToolbars(handles)
     % Turn off the pop-up tool buttons for axes
@@ -1138,9 +1099,21 @@ function handles = resetFileCache(handles)
     handles.file_cache(1).data_future = parallel.FevalFuture;
     handles.file_cache(:) = [];
     
-function handles = eg_LoadFile(handles)
+function handles = eg_LoadFile(handles, showWaitBar)
+    if ~exist('showWaitBar', 'var') || isempty(showWaitBar)
+        showWaitBar = true;
+    end
+
+    if showWaitBar
+        progressBar = waitbar(0, 'Loading file...', 'WindowStyle', 'modal');
+    end
+
     if handles.EnableFileCaching
         handles = refreshFileCache(handles);
+    end
+
+    if showWaitBar
+        waitbar(0.3, progressBar);
     end
     
     filenum = getCurrentFileNum(handles);
@@ -1169,7 +1142,10 @@ function handles = eg_LoadFile(handles)
             rethrow(ME);
         end
     end
-    
+    if showWaitBar
+        waitbar(0.5, progressBar);
+    end
+
     [handles, numSamples] = eg_GetNumSamples(handles);
     
     handles.FileLength(filenum) = numSamples;
@@ -1193,6 +1169,10 @@ function handles = eg_LoadFile(handles)
     handles.TLim = [0, tmax];
     
     handles = PlotAnnotations(handles);
+
+    if showWaitBar
+        waitbar(0.6, progressBar);
+    end
     
     % Define callbacks
     handles = setClickSoundCallback(handles, handles.axes_Sonogram);
@@ -1201,6 +1181,10 @@ function handles = eg_LoadFile(handles)
     % Plot channels
     handles = eg_LoadChannel(handles,1);
     handles = eg_LoadChannel(handles,2);
+
+    if showWaitBar
+        waitbar(0.7, progressBar);
+    end
     
     handles = updateAmplitude(handles, true);
     
@@ -1209,6 +1193,11 @@ function handles = eg_LoadFile(handles)
 %    handles = disableAxesPopupToolbars(handles);
 
     handles = UpdateTimescaleView(handles);
+
+    if showWaitBar
+        waitbar(1, progressBar);
+        close(progressBar);
+    end
 
 function handles = setClickSoundCallback(handles, ax)
     % Set click_sound as button down callback for axes and children
@@ -3555,6 +3544,7 @@ function handles = InitializeVariables(handles)
 %     end
 
 function handles = eg_OpenDbase(handles, filePath)
+    progressBar = waitbar(0, 'Opening dbase...', 'WindowStyle', 'modal');
     if ~exist('filePath', 'var') || isempty(filePath)
         % Prompt user to select dbase .mat file
         [file, path] = uigetfile(fullfile(handles.tempSettings.lastDirectory, '*.mat'), 'Load analysis');
@@ -3572,6 +3562,7 @@ function handles = eg_OpenDbase(handles, filePath)
     
     % Load dbase into 'dbase' variable
     load(fullfile(path, file),'dbase');
+    waitbar(0.26, progressBar)
     
     handles.DefaultRootPath = dbase.PathName;
     if ~isfolder(dbase.PathName)
@@ -3585,7 +3576,7 @@ function handles = eg_OpenDbase(handles, filePath)
         end
         handles.DefaultRootPath = newDbasePathName;
     end
-    
+    waitbar(0.30, progressBar)
 
     % Save the selected directory in temporary settings for next time
     handles.tempSettings.lastDirectory = path;
@@ -3701,6 +3692,7 @@ function handles = eg_OpenDbase(handles, filePath)
         fileSortReversed = false;
     end
     handles = setFileSortInfo(handles, fileSortMethod, fileSortPropertyName, fileSortReversed);
+    waitbar(0.38, progressBar)
 
     if isstruct(dbase.Properties)
         % This is a legacy format for properties - import it
@@ -3732,6 +3724,7 @@ function handles = eg_OpenDbase(handles, filePath)
 
     % Update file browser
     handles = UpdateFileInfoBrowser(handles);
+    waitbar(0.45, progressBar)
 
     % Update file read state
     if isfield(dbase.AnalysisState, 'FileReadState')
@@ -3761,6 +3754,7 @@ function handles = eg_OpenDbase(handles, filePath)
     end
     
     handles = RefreshSortOrder(handles);
+    waitbar(0.51, progressBar)
     
     handles.text_TotalFileNumber.String = ['of ' num2str(handles.TotalFileNumber)];
     handles.popup_Function1.Value = 1;
@@ -3772,6 +3766,7 @@ function handles = eg_OpenDbase(handles, filePath)
     handles.FileInfoBrowser.SelectedRow = 1;
     handles = setFileNames(handles, {handles.sound_files.name});
     handles = setFileReadState(handles, 1:handles.TotalFileNumber, false(1, handles.TotalFileNumber));
+    waitbar(0.57, progressBar)
     
     if isfield(dbase,'AnalysisState')
         handles.EventCurrentThresholds = inf*ones(1,length(dbase.AnalysisState.EventList)-1);
@@ -3852,8 +3847,11 @@ function handles = eg_OpenDbase(handles, filePath)
     
     handles = UpdateEventSourceList(handles);
 
-    handles = eg_LoadFile(handles);
+    handles = eg_LoadFile(handles, false);
 
+    waitbar(1, progressBar)
+    close(progressBar)
+    
 function handles = eg_SaveDbase(handles)
     if ~isfield(handles, 'DefaultFile')
         msgbox('Please create a new experiment or open an existing one before saving.');
@@ -8267,7 +8265,6 @@ function menu_FilterParameters_Callback(hObject, ~, handles)
     handles = updateAmplitude(handles);
     
     guidata(hObject, handles);
-    
 
 function sorted = areFilesSorted(handles)
     % Check if files are sorted in some way other than as normal (by file
