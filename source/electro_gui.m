@@ -2373,7 +2373,12 @@ function handles = UpdateTimeResolutionBar(handles, timeResolution)
         handles.TimeResolutionBarHandle = patch(xdata, ydata, 'w', 'Parent', handles.axes_Sonogram, 'FaceColor', 'w', 'EdgeColor', 'none');
 
         % Raise up text above bar
-        uistack(handles.TimeResolutionBarText);
+%         uistack(handles.TimeResolutionBarText);
+        % Apparently this is equivalent to and faster than uistack?! Didn't
+        %   know the Children property was writable
+        barIdx =  find(handles.axes_Sonogram.Children == handles.TimeResolutionBarHandle, 1);
+        textIdx = find(handles.axes_Sonogram.Children == handles.TimeResolutionBarText, 1);
+        handles.axes_Sonogram.Children([barIdx, textIdx]) = handles.axes_Sonogram.Children([textIdx, barIdx]);
     end
 
 function handles = eg_PlotSonogram(handles)
