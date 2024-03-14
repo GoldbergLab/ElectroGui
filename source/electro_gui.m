@@ -78,14 +78,6 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     f = regexpi(user,'[A-Z1-9]');
     user = user(f);
     
-    % Ensure a defaults file exists for the user
-    handles = ensureDefaultsFileExists(handles, user);
-    
-    % Prompt user to choose a defaults file, then load it.
-    handles = chooseAndLoadDefaultsFile(handles);
-
-    progressBar = waitbar(0, 'Initializing...');
-    
     % Gather all electro_gui plugins
     handles = gatherPlugins(handles);
 
@@ -103,6 +95,8 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
 
     % Create new file browser thing
     handles.FileInfoBrowser = uitable2(handles.panel_experiment, 'Units', 'normalized', 'Position', [0.025, 0.045, 0.944, 0.803], 'Data', {}, 'RowName', {}, "ColumnRearrangeable", true);
+    handles.FileInfoBrowser.KeyPressFcn = @keyPressHandler;
+    handles.FileInfoBrowser.KeyReleaseFcn = @keyReleaseHandler;
     handles.FileInfoBrowser.CellSelectionCallback = @(src, event)HandleFileListChange(src.Parent, event);
     handles.FileInfoBrowser.CellEditCallback = @GUIPropertyChangeHandler;
 
@@ -161,6 +155,17 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.EnableFileCaching = true;
     handles.BackwardFileCacheSize = 1;
     handles.ForwardFileCacheSize = 3;
+
+    % Ensure a defaults file exists for the user
+    handles = ensureDefaultsFileExists(handles, user);
+    
+    % Prompt user to choose a defaults file, then load it.
+    handles = chooseAndLoadDefaultsFile(handles);
+
+    progressBar = waitbar(0, 'Initializing electro_gui...');
+    progressBar.Children.Title.Interpreter = 'none';
+
+    % Initialize file cache
     handles = resetFileCache(handles);
 
     % Load temp file, or use defaults if it doesn't exist
@@ -338,6 +343,14 @@ function setKeyInfo(hObject, newKeyInfo)
     if isfield(newKeyInfo, 'CtrlDown')
         keyInfo.CtrlDown = newKeyInfo.CtrlDown;
     end
+    if keyInfo.ShiftDown
+        % Record time that shift was last pressed
+        keyInfo.ShiftDownTime = datetime('now');
+    end
+    if keyInfo.CtrlDown
+        % Record time that ctrl was last pressed
+        keyInfo.CtrlDownTime = datetime('now');
+    end
     setappdata(hObject, 'KeyInfo', keyInfo);
 
 function keyInfo = getKeyInfo(hObject)
@@ -347,7 +360,14 @@ function keyInfo = getKeyInfo(hObject)
     if isempty(keyInfo)
         keyInfo.ShiftDown = false;
         keyInfo.CtrlDown = false;
+        keyInfo.ShiftDownTime = datetime('now');
+        keyInfo.CtrlDownTime = datetime('now');
     end
+    now = datetime('now');
+    shiftDelta = seconds(now - keyInfo.ShiftDownTime);
+    ctrlDelta = seconds(now - keyInfo.CtrlDownTime);
+    keyInfo.ShiftDown = keyInfo.ShiftDown && shiftDelta < 0.2;
+    keyInfo.CtrlDown = keyInfo.CtrlDown && ctrlDelta < 0.2;
 
 function handles = disableAxesPopupToolbars(handles)
     % Turn off the pop-up tool buttons for axes
@@ -545,10 +565,10 @@ function handles = chooseAndLoadDefaultsFile(handles)
     currentUserDefaultIndex = find(strcmp(handles.userfile, {defaultsFileList.name}));
     
     [chosenDefaultIndex, ok] = listdlg('ListString', userList, 'Name', 'Defaults', 'PromptString', 'Select default settings', 'SelectionMode', 'single', 'InitialValue', currentUserDefaultIndex);
-    if ok || chosenDefaultIndex == 1
+    if ~ok || chosenDefaultIndex == 1
         handles = eg_Get_Defaults(handles);
     else
-        handles = eval(['defaults_' userList{val} '(handles)']);
+        handles = eval(['defaults_' userList{chosenDefaultIndex} '(handles)']);
     end
 
 function handles = setGUIValues(handles)
@@ -1947,12 +1967,12 @@ function handles = UpdateActiveAnnotationDisplay(handles, oldAnnotationNum, oldA
         case 'segment'
             handles.SegmentHandles(newAnnotationNum).EdgeColor = handles.SegmentActiveColor;
             handles.SegmentHandles(newAnnotationNum).LineWidth = 2;
-            handles.SegmentHandles(oldAnnotationNum).LineStyle = '-';
+            handles.SegmentHandles(newAnnotationNum).LineStyle = '-';
             activeAnnotationTimes = handles.SegmentTimes{filenum}(newAnnotationNum, :) / handles.fs;
         case 'marker'
             handles.MarkerHandles(newAnnotationNum).EdgeColor = handles.MarkerActiveColor;
             handles.MarkerHandles(newAnnotationNum).LineWidth = 2;
-            handles.MarkerHandles(oldAnnotationNum).LineStyle = '-';
+            handles.MarkerHandles(newAnnotationNum).LineStyle = '-';
             activeAnnotationTimes = handles.MarkerTimes{filenum}(newAnnotationNum, :) / handles.fs;
         case 'none'
             % Do nothing
@@ -3277,6 +3297,7 @@ function menu_ColorScale_Callback(hObject, ~, handles)
     % handles    structure with handles and user data (see GUIDATA)
     
     if handles.ispower == 1
+
         answer = inputdlg({'Offset','Brightness'},'Color scale',1,{num2str(handles.SonogramClim(1)),num2str(handles.SonogramClim(2))});
         if isempty(answer)
             return
@@ -3370,7 +3391,8 @@ function handles = eg_NewDbase(handles)
     handles.popup_EventListAlign.Value = 1;
     
     handles = setFileNames(handles, {handles.sound_files.name});
-    handles = setFileReadState(handles, 1:handles.TotalFileNumber, false(1, handles.TotalFileNumber));
+    handles.FileReadState = false(1, handles.TotalFileNumber);
+    handles = UpdateFileInfoBrowserReadState(handles);
     
     sourceStrings = {'(None)','Sound'};
     for chanNum = 1:length(handles.chan_files)
@@ -3728,10 +3750,11 @@ function handles = eg_OpenDbase(handles, filePath)
 
     % Update file read state
     if isfield(dbase.AnalysisState, 'FileReadState')
-        handles = setFileReadState(handles, 1:handles.TotalFileNumber, dbase.AnalysisState.FileReadState);
+        handles.FileReadState = dbase.AnalysisState.FileReadState;
     else
-        handles = setFileReadState(handles, 1:handles.TotalFileNumber, false(1, handles.TotalFileNumber));
+        handles.FileReadState = false(1, handles.TotalFileNumber);
     end
+    handles = UpdateFileInfoBrowserReadState(handles);
 
     % Load segment/marker info from dbase
     if isfield(dbase, 'MarkerTimes')
@@ -3765,7 +3788,6 @@ function handles = eg_OpenDbase(handles, filePath)
     handles.edit_FileNumber.String = '1';
     handles.FileInfoBrowser.SelectedRow = 1;
     handles = setFileNames(handles, {handles.sound_files.name});
-    handles = setFileReadState(handles, 1:handles.TotalFileNumber, false(1, handles.TotalFileNumber));
     waitbar(0.57, progressBar)
     
     if isfield(dbase,'AnalysisState')
@@ -8321,10 +8343,10 @@ function handles = RefreshSortOrder(handles)
         case 'Random'
             handles.FileSortOrder = randperm(handles.TotalFileNumber);
         case 'Property'
-            propertyValues = getPropertyValue(handles, handles.FileSortPropertyName, 1:handle.TotalFileNumber);
-            [~, handles.FileSortOrder] = sort(propertyValues);
-        case 'ReadStatus'
-
+            propertyValues = getPropertyValue(handles, handles.FileSortPropertyName, 1:handles.TotalFileNumber);
+            [~, handles.FileSortOrder] = sort(~propertyValues);
+        case 'Read status'
+            [~, handles.FileSortOrder] = sort(handles.FileReadState);
         otherwise
             error('Unknown sort method: ''%s''', sortMethod)
     end
@@ -8338,7 +8360,8 @@ function handles = RefreshSortOrder(handles)
         handles.InverseFileSortOrder(handles.FileSortOrder) = 1:handles.TotalFileNumber;
     end
     handles = UpdateFileInfoBrowser(handles);
-    
+    handles = UpdateFileInfoBrowserReadState(handles);
+
 % --------------------------------------------------------------------
 function menu_AmplitudeAutoRange_Callback(hObject, ~, handles)
     % hObject    handle to menu_AmplitudeAutoRange (see GCBO)
@@ -8390,7 +8413,7 @@ function handles = modifyProperties(handles, filenums, propertyNames, propertyVa
     end
 
     propertyIdx = cellfun(@(name)find(strcmp(name, handles.PropertyNames), 1), propertyNames);
-    handles.Properties(filenums, 2 + propertyIdx) = propertyValues;
+    handles.Properties(filenums, propertyIdx) = propertyValues;
     if updateGUI
         handles.FileInfoBrowser.Data(filenums, 2 + propertyIdx) = propertyValues;
     end
@@ -8851,17 +8874,18 @@ function GUIPropertyChangeHandler(hObject, event)
     % Update stored property values from GUI
     handles = guidata(hObject);
     keyInfo = getKeyInfo(hObject);
+    firstPropertyColumn = 3;
     if keyInfo.ShiftDown && ~isempty(handles.FileInfoBrowser.PreviousSelection)
         % User was holding shift down - set all values in that range
-        firstPropertyColumn = 3;
-        previousColumn = max(firstPropertyColumn, handles.FileInfoBrowser.PreviousSelection(1, 2));
+        previousColumn = max(firstPropertyColumn, handles.FileInfoBrowser.PreviousSelection(1, 2))
         previousRow = handles.FileInfoBrowser.PreviousSelection(1, 1);
         previousValue = handles.FileInfoBrowser.Data{previousRow, previousColumn};
-        newRows = unique(handles.FileInfoBrowser.Selection(:, 1));
+        newRows = unique(handles.FileInfoBrowser.Selection(:, 1))
+        num2cell(repmat(~previousValue, length(newRows), 1))
         handles.FileInfoBrowser.Data(newRows, previousColumn) = num2cell(repmat(~previousValue, length(newRows), 1));
         handles = UpdateFileInfoBrowser(handles);
     end
-    handles.Properties = handles.FileInfoBrowser.Data(:, 3:end);
+    handles.Properties = handles.FileInfoBrowser.Data{:, firstPropertyColumn:end};
     guidata(hObject, handles);
 
 function shortFilenames = getMinimalFilenmes(filenames)
@@ -8909,15 +8933,11 @@ function handles = setFileNames(handles, fileList)
 function handles = setFileReadState(handles, filenums, readState)
     % Set background color of the given filenums to indicate the given
     % read/unread state of the files.
-    if ~exist('filenums', 'var') && ~exist('readState', 'var')
-        % Update the whole thing
-        filenums = 1:handles.TotalFileNumber;
-        readState = handles.FileReadState;
-    end
 
+    readColor = [1, 1, 1];
     unreadColor = [1, 0.8, 0.8];
     if readState
-        color = [1, 1, 1];
+        color = readColor;
     else
         color = unreadColor;
     end
@@ -8939,6 +8959,22 @@ function handles = setFileReadState(handles, filenums, readState)
         filenums = handles.FileSortOrder(filenums);
     end
     handles.FileInfoBrowser.BackgroundColor(filenums, :) = backgroundColors;
+    
+function handles = UpdateFileInfoBrowserReadState(handles)
+    % Update background color of all filenames in FileInfoBrowser to match
+    % the read/unread state of the file, as stored in handles.FileReadState
+    readColor = [1, 1, 1];
+    unreadColor = [1, 0.8, 0.8];
+    readFilenums = find(handles.FileReadState);
+    unreadFilenums = find(~handles.FileReadState);
+    if areFilesSorted(handles)
+        readFilenums = handles.InverseFileSortOrder(readFilenums);
+        unreadFilenums = handles.InverseFileSortOrder(unreadFilenums);
+    end
+    backgroundColors = zeros(handles.TotalFileNumber, 3);
+    backgroundColors(readFilenums, :) =    repmat(readColor,   length(readFilenums),   1);
+    backgroundColors(unreadFilenums, :) =  repmat(unreadColor, length(unreadFilenums), 1);
+    handles.FileInfoBrowser.BackgroundColor = backgroundColors;
     
 function handles = UpdateFileInfoBrowser(handles, updateValues, updateNames, update)
     % Initialize table data
@@ -11305,10 +11341,9 @@ function popup_FileSortOrder_Callback(hObject, eventdata, handles)
 
     sortMethod = getFileSortMethod(handles);
 
-    % If we're switching to Property sorting, have to ask user which
-    % property to sort by
     if strcmp(sortMethod, 'Property')
-        % Ask user which property
+        % If we're switching to Property sorting, have to ask user which
+        % property to sort by
         if isempty(handles.PropertyNames)
             msgbox('No properties to sort by yet - please add one first')
             return;
@@ -11320,11 +11355,12 @@ function popup_FileSortOrder_Callback(hObject, eventdata, handles)
             defaultProperty = handles.PropertyNames{1};
         end
         % Query the user
+        defaultProperty = categorical({defaultProperty}, handles.PropertyNames);
         inputs = getInputs('Sort by which property?', {'Property name'}, {defaultProperty}, {''});
-
+        
         % Use user's choice
         if ~isempty(inputs)
-            handles.FileSortPropertyName = inputs{1};
+            handles.FileSortPropertyName = char(inputs{1});
         else
             % User cancelled - go back to File number sort order
             handles = setFileSortMethod(handles, 'File number');
