@@ -3594,6 +3594,7 @@ function handles = eg_OpenDbase(handles, filePath)
             sprintf('Directory ''%s'' not found. Find the new location.', dbase.PathName));
         if ~ischar(path)
             % User cancelled
+            close(progressBar);
             return
         end
         handles.DefaultRootPath = newDbasePathName;
@@ -3616,7 +3617,15 @@ function handles = eg_OpenDbase(handles, filePath)
     handles.chan_files = dbase.ChannelFiles;
     handles.sound_loader = dbase.SoundLoader;
     handles.chan_loader = dbase.ChannelLoader;
-    
+
+    handles.TotalFileNumber = length(handles.sound_files);
+
+    if isfield(dbase, 'AnalysisState') && isfield(dbase.AnalysisState, 'FileReadState')
+        handles.FileReadState = dbase.AnalysisState.FileReadState;
+    else
+        handles.FileReadState = false(1, handles.TotalFileNumber);
+    end
+
     handles.SoundThresholds = dbase.SegmentThresholds;
     handles.SegmentTimes = dbase.SegmentTimes;
     handles.SegmentTitles = dbase.SegmentTitles;
@@ -3695,25 +3704,6 @@ function handles = eg_OpenDbase(handles, filePath)
         handles.WorksheetTitle = handles.DefaultRootPath(f(end)+1:end);
     end
     
-    handles.TotalFileNumber = length(handles.sound_files);
-    
-    % Load file sorting info from dbase
-    if isfield(dbase.AnalysisState, 'FileSortMethod')
-        fileSortMethod = dbase.FileSortMethod;
-    else
-        fileSortMethod = getFileSortMethod(handles);
-    end
-    if isfield(dbase.AnalysisState, 'FileSortPropertyName')
-        fileSortPropertyName = dbase.FileSortPropertyName;
-    else
-        fileSortPropertyName = handles.FileSortPropertyName;
-    end
-    if isfield(dbase.AnalysisState, 'FileSortReversed')
-        fileSortReversed = dbase.FileSortReversed;
-    else
-        fileSortReversed = false;
-    end
-    handles = setFileSortInfo(handles, fileSortMethod, fileSortPropertyName, fileSortReversed);
     waitbar(0.38, progressBar)
 
     if isstruct(dbase.Properties)
@@ -3743,6 +3733,24 @@ function handles = eg_OpenDbase(handles, filePath)
         % Set properties
         handles = setProperties(handles, dbase.Properties, dbase.PropertyNames);
     end
+
+    % Load file sorting info from dbase
+    if isfield(dbase.AnalysisState, 'FileSortMethod')
+        fileSortMethod = dbase.FileSortMethod;
+    else
+        fileSortMethod = getFileSortMethod(handles);
+    end
+    if isfield(dbase.AnalysisState, 'FileSortPropertyName')
+        fileSortPropertyName = dbase.FileSortPropertyName;
+    else
+        fileSortPropertyName = handles.FileSortPropertyName;
+    end
+    if isfield(dbase.AnalysisState, 'FileSortReversed')
+        fileSortReversed = dbase.FileSortReversed;
+    else
+        fileSortReversed = false;
+    end
+    handles = setFileSortInfo(handles, fileSortMethod, fileSortPropertyName, fileSortReversed);
 
     % Update file browser
     handles = UpdateFileInfoBrowser(handles);
