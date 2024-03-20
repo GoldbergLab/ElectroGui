@@ -1855,7 +1855,6 @@ else
     hold off
 end
 xlim(xl);
-disp('hi')
 
 % --------------------------------------------------------------------
 function context_Sonogram_Callback(hObject, ~, handles)
