@@ -1,0 +1,7 @@
+Pre-Reqs to run ElectroGui in MATLAB 2023b (as of 3/21/2024, Last Updated by LMC)
+
+Curve Fitting Toolbox
+Statistics and Machine Learning Toolbox
+Signal Processing Toolbox
+
+Optional: Parallel Computing Toolbox (this pre-loads files in electrogui, making it faster to navigate between files)
