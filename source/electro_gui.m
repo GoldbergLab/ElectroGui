@@ -4429,6 +4429,7 @@ function keyPressHandler(hObject, event)
     if strcmp(event.Key, 'shift')
         keyInfo.ShiftDown = true;
     end
+    setKeyInfo(hObject, keyInfo);
 
     % Get currently loaded file num
     filenum = getCurrentFileNum(handles);
@@ -4558,7 +4559,6 @@ function keyPressHandler(hObject, event)
         end
     end
     
-    setKeyInfo(hObject, keyInfo);
     guidata(hObject, handles);
 
 function handles = popup_Functions_Callback(handles, axnum)
