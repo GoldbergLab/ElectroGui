@@ -1578,6 +1578,11 @@ function [handles, sound, fs, timestamp] = getSound(handles, soundChannel, filen
     if ~exist('soundChannel', 'var') || isempty(soundChannel)
         soundChannel = handles.SoundChannel;
     end
+    if ischar(soundChannel)
+        % User must have passed a channel name here - convert to channel
+        % num instead
+        soundChannel = channelNameToNum(soundChannel);
+    end
     
     switch soundChannel
         % Fetch sound based on which sound channel was selected
@@ -2439,7 +2444,7 @@ function handles = eg_PlotSonogram(handles)
         auxiliary_spectrogram_handles = gobjects().empty;
         hold(handles.axes_Sonogram, 'on');
         for k = 1:length(auxiliarySoundSources)
-            [handles, auxiliarySound] = getFilteredSound(handles, auxiliarySoundSources{k});
+            [handles, auxiliarySound] = getSound(handles, auxiliarySoundSources{k});
             [handles.ispower, timeResolution, auxiliary_spectrogram_handles(k)] = eg_runPlugin(handles.plugins.spectrums, alg, ...
                 handles.axes_Sonogram, auxiliarySound(sampleLims(1):sampleLims(2)), handles.fs, ...
                 handles.SonogramParams);
@@ -3799,6 +3804,11 @@ function handles = eg_OpenDbase(handles, filePath)
         handles.FileReadState = false(1, handles.TotalFileNumber);
     end
     handles = UpdateFileInfoBrowserReadState(handles);
+
+    % Update auxiliary sound sources
+    if isfield(dbase.AnalysisState, 'AuxiliarySoundSources')
+        handles = setAuxiliarySoundSources(handles, dbase.AnalysisState.AuxiliarySoundSources, false);
+    end
 
     % Load segment/marker info from dbase
     if isfield(dbase, 'MarkerTimes')
@@ -9222,6 +9232,7 @@ function dbase = GetDBase(handles)
     dbase.AnalysisState.FileSortMethod = getFileSortMethod(handles);
     dbase.AnalysisState.FileSortPropertyName = handles.FileSortPropertyName;
     dbase.AnalysisState.FileSortReversed = isFileSortReversed(handles);
+    dbase.AnalysisState.AuxiliarySoundSources = getAuxiliarySoundSources(handles);
     
     % Add any other custom fields from the original dbase that might exist to
     % the exported dbase
@@ -9459,7 +9470,27 @@ function handles = eg_PopulateSoundSources(handles)
     for k = 1:length(sourceStrings)
         uimenu(handles.menu_AuxiliarySoundSources, 'Label', sourceStrings{k}, 'Callback', @HandleAuxiliarySoundSourceClick);
     end
-    
+
+function handles = setAuxiliarySoundSources(handles, auxiliarySoundSources, updateSonogram)
+    % Set sound sources programmatically (this will update the checked menu
+    % items in the relevant axes_Sonogram context submenu, and optionally
+    % update the sonogram too.
+    if ~exist('updateSonogram', 'var') || isempty(updateSonogram)
+        updateSonogram = false;
+    end
+    menuItems = handles.menu_AuxiliarySoundSources.Children;
+    for k = 1:length(menuItems)
+        if any(strcmp(menuItems(k).Text, auxiliarySoundSources))
+            menuItems(k).Checked = true;
+        else
+            menuItems(k).Checked = false;
+        end
+    end
+    if updateSonogram
+        handles = eg_PlotSonogram(handles);        
+        handles = eg_Overlay(handles);
+    end
+
 function auxiliarySoundSources = getAuxiliarySoundSources(handles)
     % Get a list of auxiliary sound source names from the checked values in the
     % Sonogram context submenu "Auxiliary sound sources"
