@@ -2454,7 +2454,7 @@ function handles = eg_PlotSonogram(handles)
             % Arrange spectrograms
             freqRange = handles.axes_Sonogram.YLim;
             freqBounds = linspace(freqRange(1), freqRange(2), nSpectrograms+1);
-            allSpectrograms = [spectrogram_handle, auxiliary_spectrogram_handles];
+            allSpectrograms = [auxiliary_spectrogram_handles, spectrogram_handle];
             for k = 1:nSpectrograms
                 allSpectrograms(k).YData = freqBounds(k:k+1);
             end
