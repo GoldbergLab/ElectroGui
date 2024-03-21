@@ -81,6 +81,9 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % Gather all electro_gui plugins
     handles = gatherPlugins(handles);
 
+    % Initialize TotalFileNumber
+    handles.TotalFileNumber = [];
+
     % Default sound to display is the designated sound channel
     handles.SoundChannel = 0;
     handles.SoundExpression = '';
@@ -95,6 +98,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
 
     % Create new file browser thing
     handles.FileInfoBrowser = uitable2(handles.panel_experiment, 'Units', 'normalized', 'Position', [0.025, 0.045, 0.944, 0.803], 'Data', {}, 'RowName', {}, "ColumnRearrangeable", true);
+    handles.FileInfoBrowserFirstPropertyColumn = 3;  % First column that contains boolean property checkboxes
     handles.FileInfoBrowser.KeyPressFcn = @keyPressHandler;
     handles.FileInfoBrowser.KeyReleaseFcn = @keyReleaseHandler;
     handles.FileInfoBrowser.CellSelectionCallback = @(src, event)HandleFileListChange(src.Parent, event);
@@ -328,6 +332,10 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     
     % UIWAIT makes electro_gui wait for user response (see UIRESUME)
     % uiwait(handles.figure_Main);
+
+function isLoaded = isDataLoaded(handles)
+    % Check if data is loaded yet
+    isLoaded = ~isempty(handles.TotalFileNumber);
 
 function setKeyInfo(hObject, newKeyInfo)
     % Create/update a separate mini app data store just for key info,
@@ -832,6 +840,12 @@ function edit_FileNumber_Callback(hObject, ~, handles)
     % Hints: hObject.String returns contents of edit_FileNumber as text
     %        str2double(hObject.String) returns contents of edit_FileNumber as a double
     
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        handles.edit_FileNumber.String = '0';
+        return;
+    end
+
     handles = eg_LoadFile(handles);
     
     guidata(hObject, handles);
@@ -876,6 +890,11 @@ function push_PreviousFile_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return;
+    end
+
     handles = changeFile(handles, -1);
     guidata(hObject, handles);
     
@@ -884,6 +903,11 @@ function push_NextFile_Callback(hObject, ~, handles)
     % hObject    handle to push_NextFile (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
+
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return;
+    end
 
     handles = changeFile(handles, 1);
     guidata(hObject, handles);
@@ -2169,6 +2193,11 @@ function menu_AutoCalculate_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return;
+    end
+
     if handles.menu_AutoCalculate.Checked
         handles.menu_AutoCalculate.Checked = 'off';
     else
@@ -2683,6 +2712,11 @@ function menu_DeleteAll_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return;
+    end
+
     filenum = getCurrentFileNum(handles);
     handles.SegmentSelection{filenum} = zeros(size(handles.SegmentSelection{filenum}));
     
@@ -2696,6 +2730,11 @@ function menu_UndeleteAll_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return;
+    end
+
     filenum = getCurrentFileNum(handles);
     handles.SegmentSelection{filenum} = ones(size(handles.SegmentSelection{filenum}));
     
@@ -2708,6 +2747,11 @@ function push_Segment_Callback(hObject, ~, handles)
     % hObject    handle to push_Segment (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
+
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return;
+    end
     
     handles = SegmentSounds(handles);
     
@@ -3323,10 +3367,11 @@ function push_Calculate_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-%     if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
-%         return
-%     end
-    
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return;
+    end
+
     handles = eg_PlotSonogram(handles);
     
     guidata(hObject, handles);
@@ -3938,11 +3983,13 @@ function handles = eg_SaveDbase(handles)
     if ~ischar(file)
         return
     end
+    savePath = fullfile(path, file);
     
     dbase = GetDBase(handles);
     
-    save([path file],'dbase');
-    handles.DefaultFile = [path file];
+    save(savePath,'dbase');
+    handles.DefaultFile = savePath;
+    handles = addRecentFile(handles, savePath);
 
 % --- Executes on button press in push_Cancel.
 function push_Cancel_Callback(hObject, ~, handles)
@@ -4525,6 +4572,10 @@ function keyPressHandler(hObject, event)
         end
     else
         % User pressed a key without control down
+        if ~isDataLoaded(handles)
+            % No data, none of the other key handlers should be attempted.
+            return
+        end
         switch event.Key
             case 'comma'
                 % Keypress is a "comma" - load previous file
@@ -6696,9 +6747,10 @@ function push_BrightnessUp_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-%     if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
-%         return
-%     end
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return;
+    end
     
     if handles.ispower == 1
         if handles.SonogramClim(2) > handles.SonogramClim(1)+0.5
@@ -6718,9 +6770,10 @@ function push_BrightnessDown_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-%     if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
-%         return
-%     end
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return;
+    end
     
     if handles.ispower == 1
         handles.SonogramClim(2) = handles.SonogramClim(2)+0.5;
@@ -6739,9 +6792,10 @@ function push_OffsetUp_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-%     if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
-%         return
-%     end
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return;
+    end
     
     if handles.ispower == 1
         if handles.SonogramClim(1) < handles.SonogramClim(2)-0.5
@@ -6761,9 +6815,10 @@ function push_OffsetDown_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-%     if ~isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
-%         return
-%     end
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return;
+    end
     
     if handles.ispower == 1
         handles.SonogramClim(1) = handles.SonogramClim(1)-0.5;
@@ -6803,7 +6858,6 @@ function menu_AmplitudeThresholdColor_Callback(hObject, ~, handles)
     % hObject    handle to menu_AmplitudeThresholdColor (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
-    
     
     c = uisetcolor(handles.AmplitudeThresholdColor, 'Select color');
     handles.AmplitudeThresholdColor = c;
@@ -7156,6 +7210,11 @@ function push_WorksheetAppend_Callback(hObject, ~, handles)
     % hObject    handle to push_WorksheetAppend (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
+
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return;
+    end
     
     xl = handles.axes_Sonogram.XLim;
     yl = handles.axes_Sonogram.YLim;
@@ -8454,6 +8513,9 @@ function [propertyArray, propertyNames] = getProperties(handles)
     propertyArray = handles.Properties;
     propertyNames = handles.PropertyNames;
 
+function propertyExists = isProperty(handles, propertyName)
+    
+
 function handles = modifyProperties(handles, filenums, propertyNames, propertyValues, updateGUI)
     % Update only a subset of the property
     if ~exist('updateGUI', 'var') || isempty(updateGUI)
@@ -8564,6 +8626,12 @@ function menu_AddProperty_Callback(hObject, ~, handles)
     % hObject    handle to menu_AddProperty (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
+
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return;
+    end
+
     handles = eg_AddProperty(handles);
     guidata(hObject, handles);
     
@@ -8584,6 +8652,11 @@ function menu_RemoveProperty_Callback(hObject, ~, handles)
     % hObject    handle to menu_RemoveProperty (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
+
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return;
+    end
 
     [~, propertyNames] = getProperties(handles);
     if isempty(propertyNames)
@@ -8928,7 +9001,7 @@ function GUIPropertyChangeHandler(hObject, event)
     % Update stored property values from GUI
     handles = guidata(hObject);
     keyInfo = getKeyInfo(hObject);
-    firstPropertyColumn = 3;
+    firstPropertyColumn = handles.FileInfoBrowserFirstPropertyColumn;
     if keyInfo.ShiftDown && ~isempty(handles.FileInfoBrowser.PreviousSelection)
         % User was holding shift down - set all values in that range
         previousColumn = max(firstPropertyColumn, handles.FileInfoBrowser.PreviousSelection(1, 2))
@@ -9397,9 +9470,6 @@ function suppressStupidCallbackWarnings()
     menu_FilterParameters_Callback;
     menu_AddProperty_Callback;
     context_Properties_Callback;
-    menu_AddPropertyString_Callback;
-    menu_AddPropertyBoolean_Callback;
-    menu_AddPropertyList_Callback;
     menu_RemoveProperty_Callback;
     menu_Search_Callback;
     menu_SearchNew_Callback;
@@ -9522,6 +9592,11 @@ function popup_SoundSource_Callback(hObject, eventdata, handles)
     % Handle a user change of the "Sound source" popup menu.
     % This menu controls the handles.SoundChannel variable, which determines
     % which channel is used for displaying the spectrogram etc.
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return;
+    end
+
     sourceIndices = handles.popup_SoundSource.UserData;
     idx = handles.popup_SoundSource.Value;
     handles.SoundChannel = sourceIndices{idx};
@@ -9693,6 +9768,11 @@ function menu_PlaySound_Callback(hObject, eventdata, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
 
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return;
+    end
+
     snd = GenerateSound(handles,'snd');
     progress_play(handles,snd);
 
@@ -9702,6 +9782,11 @@ function menu_PlayMix_Callback(hObject, eventdata, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return;
+    end
+
     snd = GenerateSound(handles,'mix');
     progress_play(handles,snd);
 
@@ -9873,6 +9958,11 @@ function action_Export_Callback(hObject, eventdata, handles)
     % hObject    handle to action_Export (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
+
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return;
+    end
 
     txtexp = text(mean(xlim(handles.axes_Sonogram)),mean(ylim(handles.axes_Sonogram)),'Exporting...',...
         'HorizontalAlignment','center','Color','r','backgroundcolor',[1 1 1],'fontsize',14);
@@ -11437,6 +11527,11 @@ function popup_FileSortOrder_Callback(hObject, eventdata, handles)
     % Hints: contents = cellstr(get(hObject,'String')) returns popup_FileSortOrder contents as cell array
     %        contents{get(hObject,'Value')} returns selected item from popup_FileSortOrder
 
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return;
+    end
+    
     sortMethod = getFileSortMethod(handles);
 
     if strcmp(sortMethod, 'Property')
