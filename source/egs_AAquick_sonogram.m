@@ -1,4 +1,4 @@
-function [ispower, timeResolution] = egs_AAquick_sonogram(ax,wv,fs,params)
+function [ispower, timeResolution, spectrogram_handle] = egs_AAquick_sonogram(ax,wv,fs,params)
 % ElectroGui spectrum algorithm
 % Aaron Andalman's algorithm that accounts for screen resolution
 
@@ -58,6 +58,6 @@ f = linspace(freqRange(1),freqRange(2),size(p,1));
 set(ax,'units',originalAxesUnits);
 
 xl = xlim(ax);
-imagesc(ax, linspace(xl(1),xl(2),size(p,2)),f,p);
+spectrogram_handle = imagesc(ax, linspace(xl(1),xl(2),size(p,2)),f,p);
 
 ispower = 1;

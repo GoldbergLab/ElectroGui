@@ -23,7 +23,7 @@ function varargout = electro_gui(varargin)
     
     % Edit the above text to modify the response to help electro_gui
     
-    % Last Modified by GUIDE v2.5 12-Mar-2024 12:27:51
+    % Last Modified by GUIDE v2.5 21-Mar-2024 14:02:18
     
     % Begin initialization code - DO NOT EDIT
     gui_Singleton = 1;
@@ -1615,8 +1615,19 @@ function [handles, filteredSound, fs, timestamp] = getFilteredSound(handles, sou
     if ~exist('sound', 'var') || isempty(sound)
         [handles, sound, fs, timestamp] = getSound(handles, [], filenum);
     else
-        fs = handles.fs;
-        timestamp = [];
+        if ischar(sound)
+            % User passed in a channel name - get raw sound
+            soundChannel = channelNameToNum(sound);
+            [handles, sound, fs, timestamp] = getSound(handles, soundChannel, filenum);
+        elseif isnumeric(sound) && length(sound) == 1
+            % User passed in a channel number - get raw sound
+            soundChannel = sound;
+            [handles, sound, fs, timestamp] = getSound(handles, soundChannel, filenum);
+        else
+            % User passed in a sound time series
+            fs = handles.fs;
+            timestamp = [];
+        end
     end
     if ~exist('algorithm', 'var') || isempty(algorithm)
         % Get currently selected sound filter algorithm
@@ -2418,9 +2429,34 @@ function handles = eg_PlotSonogram(handles)
     else
         ylim(handles.axes_Sonogram, handles.FreqLim);
     end
-    [handles.ispower, timeResolution] = eg_runPlugin(handles.plugins.spectrums, alg, ...
+    [handles.ispower, timeResolution, spectrogram_handle] = eg_runPlugin(handles.plugins.spectrums, alg, ...
         handles.axes_Sonogram, handles.sound(sampleLims(1):sampleLims(2)), handles.fs, ...
         handles.SonogramParams);
+
+    auxiliarySoundSources = getAuxiliarySoundSources(handles);
+    if ~isempty(auxiliarySoundSources)
+        % User has one or more selected auxiliary sound sources
+        auxiliary_spectrogram_handles = gobjects().empty;
+        hold(handles.axes_Sonogram, 'on');
+        for k = 1:length(auxiliarySoundSources)
+            [handles, auxiliarySound] = getFilteredSound(handles, auxiliarySoundSources{k});
+            [handles.ispower, timeResolution, auxiliary_spectrogram_handles(k)] = eg_runPlugin(handles.plugins.spectrums, alg, ...
+                handles.axes_Sonogram, auxiliarySound(sampleLims(1):sampleLims(2)), handles.fs, ...
+                handles.SonogramParams);
+        end
+        nSpectrograms = 1 + length(auxiliary_spectrogram_handles);
+        if nSpectrograms > 1
+            % Arrange spectrograms
+            freqRange = handles.axes_Sonogram.YLim;
+            freqBounds = linspace(freqRange(1), freqRange(2), nSpectrograms+1);
+            allSpectrograms = [spectrogram_handle, auxiliary_spectrogram_handles];
+            for k = 1:nSpectrograms
+                allSpectrograms(k).YData = freqBounds(k:k+1);
+            end
+        end
+        hold(handles.axes_Sonogram, 'off');
+    end
+
     handles.axes_Sonogram.Units = 'normalized';
     handles.axes_Sonogram.YDir = 'normal';
     handles.axes_Sonogram.UIContextMenu = handles.context_Sonogram;
@@ -9419,6 +9455,29 @@ function handles = eg_PopulateSoundSources(handles)
     handles.popup_SoundSource.String = sourceStrings;
     handles.popup_SoundSource.UserData = sourceIndices;
     
+    delete(handles.menu_AuxiliarySoundSources.Children);
+    for k = 1:length(sourceStrings)
+        uimenu(handles.menu_AuxiliarySoundSources, 'Label', sourceStrings{k}, 'Callback', @HandleAuxiliarySoundSourceClick);
+    end
+    
+function auxiliarySoundSources = getAuxiliarySoundSources(handles)
+    % Get a list of auxiliary sound source names from the checked values in the
+    % Sonogram context submenu "Auxiliary sound sources"
+    % Used to plot multiple sonograms
+    sources = {handles.menu_AuxiliarySoundSources.Children.Text};
+    selected = [handles.menu_AuxiliarySoundSources.Children.Checked];
+    auxiliarySoundSources = sources(selected);
+
+function HandleAuxiliarySoundSourceClick(src, event)
+    % Handle a click on an auxiliary sound source menu
+    handles = guidata(src);
+    src.Checked = ~src.Checked;
+
+    handles = eg_PlotSonogram(handles);
+    
+    handles = eg_Overlay(handles);
+
+    guidata(src, handles);
     
 % --- Executes on selection change in popup_SoundSource.
 function popup_SoundSource_Callback(hObject, eventdata, handles)
@@ -11400,3 +11459,10 @@ function check_ReverseSort_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hint: get(hObject,'Value') returns toggle state of check_ReverseSort
+
+
+% --------------------------------------------------------------------
+function menu_AuxiliarySoundSources_Callback(hObject, eventdata, handles)
+% hObject    handle to menu_AuxiliarySoundSources (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)

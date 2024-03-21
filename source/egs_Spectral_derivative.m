@@ -1,6 +1,8 @@
-function ispower = egs_Spectral_derivative(ax,wv,fs,params)
+function [ispower, timeResolution, spectrogram_handle] = egs_Spectral_derivative(ax,wv,fs,params)
 % ElectroGui spectrum algorithm
 % Multi-taper spectral derivative
+
+timeResolution = NaN;
 
 if isstr(ax) & strcmp(ax,'params')
     ispower.Names = {};
@@ -17,7 +19,7 @@ yl = ylim;
 numstp = fix(length(wv)/fs);
 if numstp == 0;
     if length(wv)<10000
-        imagesc(xl,yl,zeros(2));
+        spectrogram_handle = imagesc(xl,yl,zeros(2));
         return
     else
         numstp = 1;
@@ -45,9 +47,9 @@ for c = 1:length(wind)-1
     p = p(i,:);
     hold on;
     if c>1
-        imagesc(linspace(xs(c)-0.1*(xs(c)-xs(c-1)),xs(c+1),size(p,2)),f,atan(p/10^6));
+        spectrogram_handle = imagesc(linspace(xs(c)-0.1*(xs(c)-xs(c-1)),xs(c+1),size(p,2)),f,atan(p/10^6));
     else
-        imagesc(linspace(xs(c),xs(c+1),size(p,2)),f,atan(p/10^6));
+        spectrogram_handle = imagesc(linspace(xs(c),xs(c+1),size(p,2)),f,atan(p/10^6));
     end
     colormap(gray);
     set(gca,'clim',[-pi/2 pi/2]);
