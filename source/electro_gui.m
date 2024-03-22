@@ -9035,7 +9035,7 @@ function GUIPropertyChangeHandler(hObject, event)
         handles.FileInfoBrowser.Data(newRows, previousColumn) = num2cell(repmat(~previousValue, length(newRows), 1));
         handles = UpdateFileInfoBrowser(handles);
     end
-    handles.Properties = handles.FileInfoBrowser.Data{:, firstPropertyColumn:end};
+    handles.Properties = cell2mat(handles.FileInfoBrowser.Data(:, firstPropertyColumn:end));
     guidata(hObject, handles);
 
 function shortFilenames = getMinimalFilenmes(filenames)
