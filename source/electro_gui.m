@@ -9027,13 +9027,16 @@ function GUIPropertyChangeHandler(hObject, event)
     firstPropertyColumn = handles.FileInfoBrowserFirstPropertyColumn;
     if keyInfo.ShiftDown && ~isempty(handles.FileInfoBrowser.PreviousSelection)
         % User was holding shift down - set all values in that range
-        previousColumn = max(firstPropertyColumn, handles.FileInfoBrowser.PreviousSelection(1, 2))
-        previousRow = handles.FileInfoBrowser.PreviousSelection(1, 1);
-        previousValue = handles.FileInfoBrowser.Data{previousRow, previousColumn};
-        newRows = unique(handles.FileInfoBrowser.Selection(:, 1))
-        num2cell(repmat(~previousValue, length(newRows), 1))
-        handles.FileInfoBrowser.Data(newRows, previousColumn) = num2cell(repmat(~previousValue, length(newRows), 1));
-        handles = UpdateFileInfoBrowser(handles);
+
+        changeIndices = event.Indices - [0, firstPropertyColumn - 1];
+
+        selection = handles.FileInfoBrowser.Selection;
+        if any(all(changeIndices == selection, 2))
+            % Change was inside selection
+            
+            handles.Properties(unique(selection(:, 1)), changeIndices(2)) = event.NewData;
+            handles = UpdateFileInfoBrowser(handles);
+        end
     end
     handles.Properties = cell2mat(handles.FileInfoBrowser.Data(:, firstPropertyColumn:end));
     guidata(hObject, handles);
