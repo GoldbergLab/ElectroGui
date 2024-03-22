@@ -3387,12 +3387,9 @@ function menu_ColorScale_Callback(hObject, ~, handles)
     % handles    structure with handles and user data (see GUIDATA)
     
     if handles.ispower == 1
-
-        answer = inputdlg({'Offset','Brightness'},'Color scale',1,{num2str(handles.SonogramClim(1)),num2str(handles.SonogramClim(2))});
-        if isempty(answer)
-            return
-        end
-        handles.SonogramClim = [str2double(answer{1}) str2double(answer{2})];
+        climGUI = CLimGUI(handles.axes_Sonogram);
+        uiwait(climGUI.ParentFigure);
+        handles.SonogramClim = climGUI.CLim;
     else
         answer = inputdlg({'Offset','Brightness'},'Color scale',1,{num2str(handles.DerivativeOffset),num2str(handles.DerivativeSlope)});
         if isempty(answer)
