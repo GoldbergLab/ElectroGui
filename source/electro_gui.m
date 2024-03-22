@@ -23,7 +23,7 @@ function varargout = electro_gui(varargin)
     
     % Edit the above text to modify the response to help electro_gui
     
-    % Last Modified by GUIDE v2.5 21-Mar-2024 14:02:18
+    % Last Modified by GUIDE v2.5 21-Mar-2024 21:38:35
     
     % Begin initialization code - DO NOT EDIT
     gui_Singleton = 1;
@@ -97,7 +97,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.TLim = [0, 1];
 
     % Create new file browser thing
-    handles.FileInfoBrowser = uitable2(handles.panel_experiment, 'Units', 'normalized', 'Position', [0.025, 0.045, 0.944, 0.803], 'Data', {}, 'RowName', {}, "ColumnRearrangeable", true);
+    handles.FileInfoBrowser = uitable2(handles.panel_files, 'Units', 'normalized', 'Position', [0.025, 0.132, 0.944, 0.716], 'Data', {}, 'RowName', {}, "ColumnRearrangeable", true);
     handles.FileInfoBrowserFirstPropertyColumn = 3;  % First column that contains boolean property checkboxes
     handles.FileInfoBrowser.KeyPressFcn = @keyPressHandler;
     handles.FileInfoBrowser.KeyReleaseFcn = @keyReleaseHandler;
@@ -1176,6 +1176,9 @@ function handles = eg_LoadFile(handles, showWaitBar)
     % Load sound
     handles.sound = [];
     
+    % Update file notes
+    handles = updateFileNotes(handles);
+
     soundFilePath = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
 
     try
@@ -3463,6 +3466,10 @@ function handles = eg_NewDbase(handles)
     
     handles = loadProperties(handles);
     
+    % Create blank notes
+    handles.Notes = repmat({''}, 1, handles.TotalFileNumber);
+    handles = updateFileNotes(handles);
+
     handles = RefreshSortOrder(handles);
 
     handles.text_TotalFileNumber.String = ['of ' num2str(handles.TotalFileNumber)];
@@ -3838,6 +3845,14 @@ function handles = eg_OpenDbase(handles, filePath)
         fileSortReversed = false;
     end
     handles = setFileSortInfo(handles, fileSortMethod, fileSortPropertyName, fileSortReversed);
+
+    if isfield(dbase, 'Notes')
+        % Load file notes
+        handles.Notes = dbase.Notes;
+    else
+        % Legacy dbase - create empty notes
+        handles.Notes = repmat({''}, 1, handles.TotalFileNumber);
+    end
 
     % Update file browser
     handles = UpdateFileInfoBrowser(handles);
@@ -9299,6 +9314,8 @@ function dbase = GetDBase(handles)
     dbase.PropertyNames = handles.PropertyNames;
     % Maybe also output in legacy format?
     
+    dbase.Notes = handles.Notes;
+
     dbase.AnalysisState.SourceList = handles.popup_Channel1.String;
     dbase.AnalysisState.EventList = handles.popup_EventListAlign.String;
     dbase.AnalysisState.CurrentFile = getCurrentFileNum(handles);
@@ -11595,3 +11612,46 @@ function menu_AuxiliarySoundSources_Callback(hObject, eventdata, handles)
 % hObject    handle to menu_AuxiliarySoundSources (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+
+
+function edit_FileNotes_Callback(hObject, eventdata, handles)
+% hObject    handle to edit_FileNotes (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of edit_FileNotes as text
+%        str2double(get(hObject,'String')) returns contents of edit_FileNotes as a double
+
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return;
+    end
+
+    filenum = getCurrentFileNum(handles);
+    handles.Notes{filenum} = handles.edit_FileNotes.String;
+    guidata(hObject, handles);
+
+function handles = updateFileNotes(handles)
+    % Update FileNotes text box with currently stored note
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        handles.edit_FileNotes.Enable = 'off';
+        return;
+    end
+    
+    handles.edit_FileNotes.Enable = 'on';
+    filenum = getCurrentFileNum(handles);
+    handles.edit_FileNotes.String = handles.Notes{filenum};
+
+% --- Executes during object creation, after setting all properties.
+function edit_FileNotes_CreateFcn(hObject, eventdata, handles)
+    % hObject    handle to edit_FileNotes (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    empty - handles not created until after all CreateFcns called
+    
+    % Hint: edit controls usually have a white background on Windows.
+    %       See ISPC and COMPUTER.
+    if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+        set(hObject,'BackgroundColor','white');
+    end
