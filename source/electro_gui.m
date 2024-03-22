@@ -8658,9 +8658,17 @@ function context_Properties_Callback(hObject, ~, handles)
     % handles    structure with handles and user data (see GUIDATA)
     
 function handles = eg_AddProperty(handles,type)
-    input = getInputs('Add new property', {'Property name', 'Default value'}, {'newProperty', false}, {'Name of property to add', 'Default value to fill each file''s property with'});
+    defaultName = getUniqueName('newProperty', handles.PropertyNames, 'PadLength', 0);
+    input = getInputs('Add new property', {'Property name', 'Default value'}, {defaultName, false}, {'Name of property to add', 'Default value to fill each file''s property with'});
     if ~isempty(input)
-        handles = addProperty(handles, input{1}, input{2});
+        newProperty = input{1};
+        newValue = input{2};
+        if any(strcmp(newProperty, handles.PropertyNames))
+            % Property name already exists
+            warndlg(sprintf('Property name ''%s'' is already in use - please choose another.', newProperty), 'Property name already in use');
+            return;
+        end
+        handles = addProperty(handles, newProperty, newValue);
     end
     
 % --------------------------------------------------------------------
