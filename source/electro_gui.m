@@ -7904,19 +7904,21 @@ function handles = eg_Overlay(handles)
         
         for axnum = axnums
             y = handles.loadedChannelData{axnum};
-            % Scale data to fit nicely on top of sonogram
-            yl1 = handles.axes_Channel(axnum).YLim;
-            yl2 = handles.axes_Sonogram.YLim;
-            y = (y - yl1(1)) / diff(yl1);
-            y = y * diff(yl2) + yl2(1);
-            if isvalid(handles.Sonogram_Overlays(axnum))
-                handles.Sonogram_Overlays(axnum).YData = y;
-            else
-                [handles, numSamples] = eg_GetNumSamples(handles);
-                t = linspace(0, numSamples/handles.fs, numSamples);
-                handles.Sonogram_Overlays(axnum) = plot(handles.axes_Sonogram, t, y, 'Color', 'b', 'LineWidth', 1);
-                handles.Sonogram_Overlays(axnum).UIContextMenu = handles.axes_Sonogram.UIContextMenu;
-                handles.Sonogram_Overlays(axnum).ButtonDownFcn = handles.axes_Sonogram.ButtonDownFcn;
+            if ~isempty(y)
+                % Scale data to fit nicely on top of sonogram
+                yl1 = handles.axes_Channel(axnum).YLim;
+                yl2 = handles.axes_Sonogram.YLim;
+                y = (y - yl1(1)) / diff(yl1);
+                y = y * diff(yl2) + yl2(1);
+                if isvalid(handles.Sonogram_Overlays(axnum))
+                    handles.Sonogram_Overlays(axnum).YData = y;
+                else
+                    [handles, numSamples] = eg_GetNumSamples(handles);
+                    t = linspace(0, numSamples/handles.fs, numSamples);
+                    handles.Sonogram_Overlays(axnum) = plot(handles.axes_Sonogram, t, y, 'Color', 'b', 'LineWidth', 1);
+                    handles.Sonogram_Overlays(axnum).UIContextMenu = handles.axes_Sonogram.UIContextMenu;
+                    handles.Sonogram_Overlays(axnum).ButtonDownFcn = handles.axes_Sonogram.ButtonDownFcn;
+                end
             end
         end
         
