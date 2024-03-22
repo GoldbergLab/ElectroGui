@@ -458,6 +458,7 @@ function handles = addRecentFile(handles, filePath)
     numFiles = min(maxFiles, length(handles.tempSettings.recentFiles));
     handles.tempSettings.recentFiles = handles.tempSettings.recentFiles(1:numFiles);
     handles = updateRecentFileList(handles);
+    updateTempFile(handles);
 
 function handles = setUpWorksheet(handles)
     sz = handles.figure_Main.PaperSize;
@@ -3822,17 +3823,17 @@ function handles = eg_OpenDbase(handles, filePath)
 
     % Load file sorting info from dbase
     if isfield(dbase.AnalysisState, 'FileSortMethod')
-        fileSortMethod = dbase.FileSortMethod;
+        fileSortMethod = dbase.AnalysisState.FileSortMethod;
     else
         fileSortMethod = getFileSortMethod(handles);
     end
     if isfield(dbase.AnalysisState, 'FileSortPropertyName')
-        fileSortPropertyName = dbase.FileSortPropertyName;
+        fileSortPropertyName = dbase.AnalysisState.FileSortPropertyName;
     else
         fileSortPropertyName = handles.FileSortPropertyName;
     end
     if isfield(dbase.AnalysisState, 'FileSortReversed')
-        fileSortReversed = dbase.FileSortReversed;
+        fileSortReversed = dbase.AnalysisState.FileSortReversed;
     else
         fileSortReversed = false;
     end
@@ -9293,7 +9294,9 @@ function dbase = GetDBase(handles)
     dbase.EventXLims = handles.EventXLims;
     dbase.EventParts = handles.EventParts;
 
+    % Save properties
     dbase.Properties = handles.Properties;
+    dbase.PropertyNames = handles.PropertyNames;
     % Maybe also output in legacy format?
     
     dbase.AnalysisState.SourceList = handles.popup_Channel1.String;
