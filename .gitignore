@@ -1,3 +1,8 @@
+# Ignore MATLAB autosave files
 *.asv
+# Ignore all electro_gui defaults files...
 defaults_*.m
+# ...except don't ignore the template defaults file.
 !defaults_template.m
+# Ignore sorted raster preset files
+egsr_preset_*.mat

@@ -14,7 +14,13 @@ handles.DefaultProperties.Names = {'bSorted', 'bDirected', 'bContainsStim', 'bUn
 handles.DefaultProperties.Values = {false, false, false, false};  % Corresponding default values for /\
 handles.DefaultProperties.Types = [2, 2, 2, 2];   % Corresponding default types for /\  (1=string, 2=boolean, 3=list)
 
+% FILE CACHING
+handles.EnableFileCaching = true;   % Enable file caching - electrogui will load several files in the background around current file to improve loading time. Note that the first time MATLAB will need time to start parallel pool.
+handles.BackwardFileCacheSize = 2;  % Number of files to load before the current file in case user goes backwards
+handles.ForwardFileCacheSize = 4;   % Number of files to load after the current file in case user goes forwards
+
 % SONOGRAM SETTINGS
+handles.Colormap = 'parula';  % Default coloramp
 handles.SonogramAutoCalculate = 1; % Automatically calculate and plot the sonogram when a file is loaded or axes changed?
 handles.FreqLim = [500 7500]; % Frequency axis limits (Hz)
 handles.AllowFrequencyZoom = 0; % Allow user to zoom along the frequency axis by dragging a box over the sonogram?

@@ -1,4 +1,4 @@
-function convertIntanTxtToNc(pathToTxts, recursive, regex)
+function convertIntanTxtToNc(pathInput, recursive, regex, skipPreexisting)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % convertIntanNcToTxt: A function for converting Intan legacy .txt channel
 %   files to new .nc binary channel files.
@@ -6,15 +6,20 @@ function convertIntanTxtToNc(pathToTxts, recursive, regex)
 %   convertIntanNcToTxt(pathToNcs)
 %   convertIntanNcToTxt(pathToNcs, recursive)
 %   convertIntanNcToTxt(pathToNcs, recursive, regex)
+%   convertIntanNcToTxt(pathToNcs, recursive, regex, skipPreexisting)
 %
 % where,
-%    pathToTxts is a char array representing a path to either a single .txt
-%       file, or a directory containing them.
+%    pathInput is a char array representing a path to either a single .txt
+%       file, or a directory containing them, or a cell array containing
+%       multiple of those.
 %    recursive is an optional boolean flag indicating whether or not to 
 %       look in subdirectories. You can also specify a positive integer 
 %       indicating how many levels deep to look. Default is true.
 %    regex is an optional char array representing a regular expression to
 %       use to filter the files found. Default is '.*\.[Tt][Xx][Tt]$'
+%    skipPreexisting is an optional boolean flag indicating whether or not
+%       to skip converting txt files if the corresponding nc file already 
+%       exists. Default is true.
 %
 % This function can be used to convert old .txt Intan channel files (which
 %   were created from .rhd files), to the new .nc format. This function can
@@ -29,26 +34,52 @@ function convertIntanTxtToNc(pathToTxts, recursive, regex)
 % Real_email = regexprep(Email,{'=','*'},{'@','.'})
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-if ~exist('regex', 'var')
-    regex = '.*\.[Tt][Xx][Tt]$';
+if ~exist('regex', 'var') || isempty(regex)
+    regex = '.*\.[Nn][Cc]$';
 end
-if ~exist('recursive', 'var')
+if ~exist('recursive', 'var') || isempty(recursive)
     recursive = true;
 end
-
-if exist(pathToTxts, 'dir')
-    pathToTxts = findFilesByRegex(pathToTxts, regex, false, recursive);
-elseif exist(pathToTxts, 'file')
-    pathToTxts = {pathToTxts};
-else
-    error('''%s'' is not a valid file or directory.', pathToTxts);
+if ~exist('skipPreexisting', 'var') || iseempty(skipPreexisting)
+    skipPreexisting = true;
 end
 
-fprintf('Found %d txt files to convert. Converting...\n', length(pathToTxts));
-for k = 1:length(pathToTxts)
-    pathToTxt = pathToTxts{k};
+if ~iscell(pathInput)
+    % If user provides a single file/dir char array, wrap it in a cell
+    % array for consistency with other input patterns.
+    pathInput = {pathInput};
+end
+pathsToFiles = {};
+for k = 1:length(pathInput)
+    path = pathInput{k};
+    if exist(path, 'dir')
+        pathsToFiles = [pathsToFiles, findFilesByRegex(path, regex, false, recursive)];
+    elseif exist(path, 'file')
+        pathsToFiles{end+1} = path;
+    else
+        error('''%s'' is not a valid file or directory.', path);
+    end
+end
+
+skipCount = 0;
+
+fprintf('Found %d txt files to convert. Converting...\n', length(pathInput));
+for k = 1:length(pathsToFiles)
+    displayProgress('\tCompleted %d of %d\n', k, length(pathsToFiles), 20);
+    pathToTxt = pathsToFiles{k};
     
     [path, name, ~] = fileparts(pathToTxt);
+
+    pathToNc = fullfile(path, [name, '.nc']);
+    if skipPreexisting
+        if exist(pathToNc, 'file')
+            % Nc file already exists, and user requested to skip
+            % preexisting nc files, so skip it.
+            skipCount = skipCount + 1;
+            continue;
+        end
+    end
+
     chanTxt = regexp(name, 'chan([0-9]+)$', 'tokens');
     if isempty(chanTxt)
         warning('Could not extract channel number from path name - defaulting to channel 0.');
@@ -79,8 +110,7 @@ for k = 1:length(pathToTxts)
     deltaT = str2double(deltaTString{1});
     metaData = textData{metaDataLine};
 
-    newPath = fullfile(path, [name, '.nc']);
-
-    writeIntanNcFile(newPath, timeStampVector, deltaT, channel, metaData, data, true);
-    fprintf('\tCompleted %d of %d\n', k, length(pathToTxts));
+    writeIntanNcFile(pathToNc, timeStampVector, deltaT, channel, metaData, data, true);
 end
+
+fprintf('\nFound %d files, converted %d files and skipped %d preexisting files.\n', length(pathsToFiles), length(pathsToFiles) - skipCount, skipCount);

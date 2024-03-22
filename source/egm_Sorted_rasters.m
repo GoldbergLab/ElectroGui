@@ -22,7 +22,7 @@ function varargout = egm_Sorted_rasters(varargin)
 
 % Edit the above text to modify the response to help egm_Sorted_rasters
 
-% Last Modified by GUIDE v2.5 05-Oct-2021 16:00:04
+% Last Modified by GUIDE v2.5 05-Dec-2021 12:23:37
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -45,7 +45,7 @@ end
 
 
 % --- Executes just before egm_Sorted_rasters is made visible.
-function egm_Sorted_rasters_OpeningFcn(hObject, eventdata, handles, varargin)
+function egm_Sorted_rasters_OpeningFcn(hObject, ~, handles, varargin)
 % This function has no output args, see OutputFcn.
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -58,6 +58,10 @@ set(handles.popup_HistUnits,'position',get(handles.popup_PSTHUnits,'position'));
 set(handles.popup_HistCount,'position',get(handles.popup_PSTHCount,'position'));
     
 handles.BackupHandles = [];
+
+handles.preset_prefix = 'egsr_preset_';
+handles.no_presets_found = '<No presets found>';
+handles = loadPresets(handles);
 
 if length(varargin)==1
     % Copy ElectroGui handles
@@ -229,7 +233,7 @@ guidata(hObject, handles);
 
 
 % --- Outputs from this function are returned to the command line.
-function varargout = egm_Sorted_rasters_OutputFcn(hObject, eventdata, handles) 
+function varargout = egm_Sorted_rasters_OutputFcn(~, ~, handles) 
 % varargout  cell array for returning output args (see VARARGOUT);
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -240,7 +244,7 @@ varargout{1} = handles.BackupHandles;
 
 
 % --- Executes on selection change in popup_TriggerSource.
-function popup_TriggerSource_Callback(hObject, eventdata, handles)
+function popup_TriggerSource_Callback(hObject, ~, handles)
 % hObject    handle to popup_TriggerSource (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -259,7 +263,7 @@ guidata(hObject, handles);
 
 
 % --- Executes during object creation, after setting all properties.
-function popup_TriggerSource_CreateFcn(hObject, eventdata, handles)
+function popup_TriggerSource_CreateFcn(hObject, ~, ~)
 % hObject    handle to popup_TriggerSource (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -272,7 +276,7 @@ end
 
 
 % --- Executes on selection change in popup_TriggerType.
-function popup_TriggerType_Callback(hObject, eventdata, handles)
+function popup_TriggerType_Callback(~, ~, ~)
 % hObject    handle to popup_TriggerType (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -282,7 +286,7 @@ function popup_TriggerType_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function popup_TriggerType_CreateFcn(hObject, eventdata, handles)
+function popup_TriggerType_CreateFcn(hObject, ~, ~)
 % hObject    handle to popup_TriggerType (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -295,7 +299,7 @@ end
 
 
 % --- Executes on button press in push_TriggerOptions.
-function push_TriggerOptions_Callback(hObject, eventdata, handles)
+function push_TriggerOptions_Callback(hObject, ~, handles)
 % hObject    handle to push_TriggerOptions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -309,15 +313,7 @@ end
 guidata(hObject, handles);
 
 
-% --- Executes on selection change in popup_EventSource.
-function popup_EventSource_Callback(hObject, eventdata, handles)
-% hObject    handle to popup_EventSource (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: contents = get(hObject,'String') returns popup_EventSource contents as cell array
-%        contents{get(hObject,'Value')} returns selected item from popup_EventSource
-
+function handles = respondToEventSourceChange(handles)
 set(handles.popup_EventType,'value',1);
 set(handles.popup_PSTHUnits,'value',1);
 if get(handles.popup_EventSource,'value') == 1
@@ -343,12 +339,22 @@ else
     set(handles.popup_HistCount,'string',{'All time points'});
 end
 
+% --- Executes on selection change in popup_EventSource.
+function popup_EventSource_Callback(hObject, ~, handles)
+% hObject    handle to popup_EventSource (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = get(hObject,'String') returns popup_EventSource contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from popup_EventSource
+
+handles = respondToEventSourceChange(handles);
 guidata(hObject, handles);
 
 
 
 % --- Executes during object creation, after setting all properties.
-function popup_EventSource_CreateFcn(hObject, eventdata, handles)
+function popup_EventSource_CreateFcn(hObject, ~, ~)
 % hObject    handle to popup_EventSource (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -361,7 +367,7 @@ end
 
 
 % --- Executes on selection change in popup_EventType.
-function popup_EventType_Callback(hObject, eventdata, handles)
+function popup_EventType_Callback(~, ~, ~)
 % hObject    handle to popup_EventType (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -371,7 +377,7 @@ function popup_EventType_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function popup_EventType_CreateFcn(hObject, eventdata, handles)
+function popup_EventType_CreateFcn(hObject, ~, ~)
 % hObject    handle to popup_EventType (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -384,7 +390,7 @@ end
 
 
 % --- Executes on button press in push_EventOptions.
-function push_EventOptions_Callback(hObject, eventdata, handles)
+function push_EventOptions_Callback(hObject, ~, handles)
 % hObject    handle to push_EventOptions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -399,7 +405,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on selection change in popup_StartReference.
-function popup_StartReference_Callback(hObject, eventdata, handles)
+function popup_StartReference_Callback(~, ~, ~)
 % hObject    handle to popup_StartReference (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -409,7 +415,7 @@ function popup_StartReference_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function popup_StartReference_CreateFcn(hObject, eventdata, handles)
+function popup_StartReference_CreateFcn(hObject, ~, ~)
 % hObject    handle to popup_StartReference (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -422,7 +428,7 @@ end
 
 
 % --- Executes on selection change in popup_StopReference.
-function popup_StopReference_Callback(hObject, eventdata, handles)
+function popup_StopReference_Callback(~, ~, ~)
 % hObject    handle to popup_StopReference (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -432,7 +438,7 @@ function popup_StopReference_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function popup_StopReference_CreateFcn(hObject, eventdata, handles)
+function popup_StopReference_CreateFcn(hObject, ~, ~)
 % hObject    handle to popup_StopReference (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -443,9 +449,8 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
     set(hObject,'BackgroundColor','white');
 end
 
-
 % --- Executes on button press in push_WindowLimits.
-function push_WindowLimits_Callback(hObject, eventdata, handles)
+function push_WindowLimits_Callback(hObject, ~, handles)
 % hObject    handle to push_WindowLimits (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -456,14 +461,14 @@ if isempty(answer)
 end
 bckPre = handles.P.preStartRef;
 bckPost = handles.P.postStopRef;
-handles.P.preStartRef = str2num(answer{1});
-handles.P.postStopRef = str2num(answer{2});
+handles.P.preStartRef = str2double(answer{1});
+handles.P.postStopRef = str2double(answer{2});
 
 guidata(hObject, handles);
 
 
 % --- Executes on button press in push_FileRange.
-function push_FileRange_Callback(hObject, eventdata, handles)
+function push_FileRange_Callback(hObject, ~, handles)
 % hObject    handle to push_FileRange (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -483,7 +488,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on selection change in popup_PrimarySort.
-function popup_PrimarySort_Callback(hObject, eventdata, handles)
+function popup_PrimarySort_Callback(hObject, ~, handles)
 % hObject    handle to popup_PrimarySort (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -495,7 +500,7 @@ handles = AutoInclude(handles);
 guidata(hObject, handles);
 
 % --- Executes during object creation, after setting all properties.
-function popup_PrimarySort_CreateFcn(hObject, eventdata, handles)
+function popup_PrimarySort_CreateFcn(hObject, ~, ~)
 % hObject    handle to popup_PrimarySort (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -508,7 +513,7 @@ end
 
 
 % --- Executes on selection change in popup_SecondarySort.
-function popup_SecondarySort_Callback(hObject, eventdata, handles)
+function popup_SecondarySort_Callback(hObject, ~, handles)
 % hObject    handle to popup_SecondarySort (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -520,7 +525,7 @@ handles = AutoInclude(handles);
 guidata(hObject, handles);
 
 % --- Executes during object creation, after setting all properties.
-function popup_SecondarySort_CreateFcn(hObject, eventdata, handles)
+function popup_SecondarySort_CreateFcn(hObject, ~, ~)
 % hObject    handle to popup_SecondarySort (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -533,7 +538,7 @@ end
 
 
 % --- Executes on button press in check_PrimaryDescending.
-function check_PrimaryDescending_Callback(hObject, eventdata, handles)
+function check_PrimaryDescending_Callback(~, ~, ~)
 % hObject    handle to check_PrimaryDescending (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -542,7 +547,7 @@ function check_PrimaryDescending_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on button press in check_SecondaryDescending.
-function check_SecondaryDescending_Callback(hObject, eventdata, handles)
+function check_SecondaryDescending_Callback(~, ~, ~)
 % hObject    handle to check_SecondaryDescending (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -551,7 +556,7 @@ function check_SecondaryDescending_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on button press in check_CopyEvents.
-function check_CopyEvents_Callback(hObject, eventdata, handles)
+function check_CopyEvents_Callback(hObject, ~, handles)
 % hObject    handle to check_CopyEvents (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -565,7 +570,7 @@ end
 guidata(hObject, handles);
 
 % --- Executes on button press in check_CopyTrigger.
-function check_CopyTrigger_Callback(hObject, eventdata, handles)
+function check_CopyTrigger_Callback(hObject, ~, handles)
 % hObject    handle to check_CopyTrigger (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -579,9 +584,7 @@ end
 
 guidata(hObject, handles);
 
-
-
-function opt = edit_Options(opt,obj);
+function opt = edit_Options(opt,obj)
 % Edit trigger or event options
 
 switch get(obj,'tag')
@@ -610,7 +613,7 @@ switch str{val}
         indx = 8:9;
     case 'Pauses'
         indx = 10;
-    case 'Continuous function';
+    case 'Continuous function'
         indx = 11:12;
 end
 
@@ -630,7 +633,7 @@ query = { ...
 motseq = '{';
 for c = 1:length(opt.motifSequences)
     if c > 1
-        motseq = [motseq ', '];
+        motseq = [motseq ', ']; %#ok<*AGROW> 
     end
     motseq = [motseq '''' opt.motifSequences{c} ''''];
 end
@@ -663,29 +666,29 @@ switch str{val}
         opt.ignoreSyllList = answer{2};
     case 'Motifs'
         opt.motifSequences = eval(answer{1});
-        opt.motifInterval = str2num(answer{2});
+        opt.motifInterval = str2double(answer{2});
     case 'Bouts'
         opt.includeSyllList = answer{1};
         opt.ignoreSyllList = answer{2};
-        opt.boutInterval = str2num(answer{3});
-        opt.boutMinDuration = str2num(answer{4});
-        opt.boutMinSyllables = str2num(answer{5});
+        opt.boutInterval = str2double(answer{3});
+        opt.boutMinDuration = str2double(answer{4});
+        opt.boutMinSyllables = str2double(answer{5});
     case 'Events'
         errordlg('Events do not require options!','Error');
         return
     case {'Bursts','Burst events','Single events'}
-        opt.burstFrequency= str2num(answer{1});
-        opt.burstMinSpikes = str2num(answer{2});
+        opt.burstFrequency= str2double(answer{1});
+        opt.burstMinSpikes = str2double(answer{2});
     case 'Pauses'
-        opt.pauseMinDuration  = str2num(answer{1});
+        opt.pauseMinDuration  = str2double(answer{1});
     case 'Continuous function'
-        opt.contSmooth = str2num(answer{1});
-        opt.contSubsample = str2num(answer{2});
+        opt.contSmooth = str2double(answer{1});
+        opt.contSubsample = str2double(answer{2});
 end
 
 
 % --- Executes on selection change in popup_Files.
-function popup_Files_Callback(hObject, eventdata, handles)
+function popup_Files_Callback(~, ~, ~)
 % hObject    handle to popup_Files (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -695,7 +698,7 @@ function popup_Files_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function popup_Files_CreateFcn(hObject, eventdata, handles)
+function popup_Files_CreateFcn(hObject, ~, ~)
 % hObject    handle to popup_Files (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -708,7 +711,7 @@ end
 
 
 % --- Executes on button press in push_GenerateRaster.
-function push_GenerateRaster_Callback(hObject, eventdata, handles)
+function push_GenerateRaster_Callback(hObject, ~, handles)
 % hObject    handle to push_GenerateRaster (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -720,18 +723,18 @@ drawnow;
 str = get(handles.popup_TriggerType,'string');
 val = get(handles.popup_TriggerType,'value');
 indx = get(handles.popup_TriggerSource,'value')-1;
-[trig.on trig.off trig.info handles.FileList] = GetEventStructure(handles,indx,str{val},handles.P.trig);
+[trig.on, trig.off, trig.info, handles.FileList] = GetEventStructure(handles,indx,str{val},handles.P.trig);
 
 % Get event times
 str = get(handles.popup_EventType,'string');
 val = get(handles.popup_EventType,'value');
 indx = get(handles.popup_EventSource,'value')-1;
-[event.on event.off event.info handles.FileList] = GetEventStructure(handles,indx,str{val},handles.P.event);
+[event.on, event.off, event.info, handles.FileList] = GetEventStructure(handles,indx,str{val},handles.P.event);
 
 % Get warp point times
 warp_points = cell(1,length(trig.on));
 for c = 1:length(handles.WarpPoints)
-    [ons offs info handles.FileList] = GetEventStructure(handles,handles.WarpPoints{c}.source,handles.WarpPoints{c}.type,handles.WarpPoints{c}.P);
+    [ons, offs, info, handles.FileList] = GetEventStructure(handles,handles.WarpPoints{c}.source,handles.WarpPoints{c}.type,handles.WarpPoints{c}.P);
     for d = 1:length(ons)
         switch handles.WarpPoints{c}.alignment
             case 'Onset'
@@ -757,7 +760,7 @@ if get(handles.check_HoldOn,'value')==0
     handles.filteredEvents.name = ev_str;
     handles.filteredEvents.options = handles.P.event;
 end
-[triggerInfo handles.EventFilters] = GetTriggerAlignedEvents(handles,trig,event,warp_points,handles.EventFilters);
+[triggerInfo, handles.EventFilters] = GetTriggerAlignedEvents(handles,trig,event,warp_points,handles.EventFilters);
 
 % Error if there are no triggers
 if isempty(triggerInfo)
@@ -774,11 +777,11 @@ if ~isempty(handles.WarpPoints)
         filenum = triggerInfo.fileNum(c);
         f = find(warp_points{filenum}<triggerInfo.absTime(c));
         g = find(warp_points{filenum}>triggerInfo.absTime(c));
-        if length(f) >= handles.WarpNumBefore & length(g) >= handles.WarpNumAfter
+        if length(f) >= handles.WarpNumBefore && length(g) >= handles.WarpNumAfter
             warpTimes(c,:) = [warp_points{filenum}(f(end-handles.WarpNumBefore+1:end))' triggerInfo.absTime(c) warp_points{filenum}(g(1:handles.WarpNumAfter))'];
             warpTimes(c,:) = (warpTimes(c,:) - triggerInfo.absTime(c))*(24*60*60);
         else
-            keepi(find(keepi==c)) = [];
+            keepi(keepi==c) = [];
         end
     end
     warpTimes = warpTimes(keepi,:);
@@ -788,9 +791,9 @@ end
 fields = fieldnames(triggerInfo);
 for c = 1:length(fields)
     if ~strcmp(fields{c},'contLabel')
-        fld = getfield(triggerInfo,fields{c});
+        fld = triggerInfo.(fields{c});
         fld = fld(keepi);
-        triggerInfo = setfield(triggerInfo,fields{c},fld);
+        triggerInfo.(fields{c}) = fld;
     end
 end
 
@@ -819,7 +822,7 @@ end
 
 
 % Sort triggers
-if get(handles.check_HoldOn,'value')==0 | handles.SkippingSort == 1
+if get(handles.check_HoldOn,'value')==0 || handles.SkippingSort == 1
     str = get(handles.popup_EventType,'string');
     ev_str = str{get(handles.popup_EventType,'value')};
     str = get(handles.popup_EventSource,'string');
@@ -847,9 +850,9 @@ else
     fields = fieldnames(triggerInfo);
     for c = 1:length(fields)
         if ~strcmp(fields{c},'contLabel')
-            fld = getfield(triggerInfo,fields{c});
+            fld = triggerInfo.(fields{c});
             fld = fld(ord);
-            triggerInfo = setfield(triggerInfo,fields{c},fld);
+            triggerInfo.(fields{c}) = fld;
         end
     end
     warpTimes = warpTimes(ord,:);
@@ -907,16 +910,16 @@ if ~isempty(handles.WarpPoints)
     towarp = {'prevTrigOnset','prevTrigOffset','currTrigOnset','currTrigOffset','nextTrigOnset','nextTrigOffset','eventOnsets','eventOffsets','dataStart','dataStop'};
     stretch = zeros(size(warpTimes,1),size(warpTimes,2)-1);
     for w = 1:length(towarp)
-        fld = getfield(triggerInfo,towarp{w});
+        fld = triggerInfo.(towarp{w});
         for c = 1:size(warpTimes,1)
             if iscell(fld)
-                [fld{c} strt] = WarpTrial(fld{c},warpTimes(c,:),newwarp,str{val},handles.egh.fs,towarp{w});
+                [fld{c}, strt] = WarpTrial(fld{c},warpTimes(c,:),newwarp,str{val},handles.egh.fs,towarp{w});
             else
-                [fld(c) strt] = WarpTrial(fld(c),warpTimes(c,:),newwarp,str{val},handles.egh.fs,towarp{w});
+                [fld(c), strt] = WarpTrial(fld(c),warpTimes(c,:),newwarp,str{val},handles.egh.fs,towarp{w});
             end
             stretch(c,:) = strt;
         end
-        triggerInfo = setfield(triggerInfo,towarp{w},fld);
+        triggerInfo.(towarp{w}) = fld;
     end
 end
 
@@ -935,7 +938,7 @@ if get(handles.check_CopyWindow,'value')==1
 end
 
   
-if get(handles.check_HoldOn,'value')==0 | handles.SkippingSort == 1
+if get(handles.check_HoldOn,'value')==0 || handles.SkippingSort == 1
     handles.TriggerSelection = ones(1,length(triggerInfo.absTime));
     handles.Selection(1,:) = [1 length(triggerInfo.absTime)];
     handles.Selection(2,:) = [min(triggerInfo.absTime) max(triggerInfo.absTime)];
@@ -1058,7 +1061,7 @@ set(gcf,'renderer','opengl');
 subplot(handles.axes_Raster);
 hold on;
 
-if get(handles.check_HoldOn,'value') == 0 | handles.SkippingSort == 1
+if get(handles.check_HoldOn,'value') == 0 || handles.SkippingSort == 1
     cla;
     handles.PlotHandles = cell(1,30);
     for c = 10:12
@@ -1103,7 +1106,7 @@ str = get(handles.popup_EventType,'string');
 ev_str = str{get(handles.popup_EventType,'value')};
 str = get(handles.popup_EventSource,'string');
 ev_str = ['[' ev_str '] ' str{get(handles.popup_EventSource,'value')}];
-if ~isempty(findstr(ev_str,'Syllables')) || ~isempty(findstr(ev_str,'Markers')) 
+if ~isempty(strfind(ev_str,'Syllables')) || ~isempty(strfind(ev_str,'Markers')) 
     if ~isempty(handles.P.event.includeSyllList)
         ev_str = [ev_str ' - Include ' handles.P.event.includeSyllList];
     end
@@ -1117,7 +1120,7 @@ str{length(handles.AllEventOnsets)} = ev_str;
 
 plt = {'On','Off','Box','PSTH','Vert'};
 for c = 1:length(str)
-    f = findstr(str{c},'-');
+    f = strfind(str{c},'-');
     str{c} = str{c}(1:f(end)-2);
     if sum(handles.AllEventPlots(c,:)) == 0
         str{c} = [str{c} ' - No plots'];
@@ -1179,7 +1182,7 @@ ys = [y1(1) ys y2(end)];
 handles.TrialYs = y1;
 
 bck_inc = handles.PlotInclude;
-if get(handles.check_HoldOn,'value')==1 & handles.SkippingSort==0
+if get(handles.check_HoldOn,'value')==1 && handles.SkippingSort==0
     handles.PlotInclude([1:9 19 21:end]) = 0;
 end
 
@@ -1202,7 +1205,7 @@ if handles.PlotInclude(24)==1
 end
 
 % Continuous function
-if max(handles.PlotInclude(10:12))==1 & strcmp(get(handles.popup_EventType,'enable'),'off')
+if max(handles.PlotInclude(10:12))==1 && strcmp(get(handles.popup_EventType,'enable'),'off')
     for c = 1:length(triggerInfo.eventOnsets)
         for d = 1:length(triggerInfo.dataStart{c})
             f = find(triggerInfo.eventOnsets{c}>=triggerInfo.dataStart{c}(d) & triggerInfo.eventOnsets{c}<=triggerInfo.dataStop{c}(d));
@@ -1240,7 +1243,7 @@ if handles.PlotInclude(9)==1
 end
 
 % Event boxes
-if handles.PlotInclude(12)==1 & strcmp(get(handles.popup_EventType,'enable'),'on')
+if handles.PlotInclude(12)==1 && strcmp(get(handles.popup_EventType,'enable'),'on')
     handles.PlotHandles{12}{end} = patch([evx1 evx2 evx2 evx1]',[evy1 evy1 evy2 evy2]',ones(1,length(evx1),3));
 end
 
@@ -1251,21 +1254,21 @@ if handles.PlotInclude(27)==1
 end
 
 % Warp line ticks
-if handles.PlotInclude(19)==1 & handles.PlotContinuous(19)<1 & ~isempty(handles.WarpPoints)
+if handles.PlotInclude(19)==1 && handles.PlotContinuous(19)<1 && ~isempty(handles.WarpPoints)
     for w = 1:size(warpTimes,2)
         handles.PlotHandles{19} = [handles.PlotHandles{19}; line(repmat(newwarp(w),2,length(y1)),[y1; y2])'];
     end
 end
 
 % Window start and stop ticks
-if handles.PlotInclude(22)==1 & handles.PlotContinuous(22)<1
+if handles.PlotInclude(22)==1 && handles.PlotContinuous(22)<1
     d1 = [];
     for c = 1:length(triggerInfo.dataStart)
         d1(c) = min(triggerInfo.dataStart{c});
     end
     handles.PlotHandles{22} = line([d1; d1],[y1; y2])';
 end
-if handles.PlotInclude(23)==1 & handles.PlotContinuous(23)<1
+if handles.PlotInclude(23)==1 && handles.PlotContinuous(23)<1
     d2 = [];
     for c = 1:length(triggerInfo.dataStart)
         d2(c) = max(triggerInfo.dataStop{c});
@@ -1274,50 +1277,50 @@ if handles.PlotInclude(23)==1 & handles.PlotContinuous(23)<1
 end
 
 % Trigger ticks
-if handles.PlotInclude(1)==1 & handles.PlotContinuous(1)<1
+if handles.PlotInclude(1)==1 && handles.PlotContinuous(1)<1
     handles.PlotHandles{1} = line([triggerInfo.prevTrigOnset; triggerInfo.prevTrigOnset],[y1; y2])';
 end
-if handles.PlotInclude(2)==1 & handles.PlotContinuous(2)<1
+if handles.PlotInclude(2)==1 && handles.PlotContinuous(2)<1
     handles.PlotHandles{2} = line([triggerInfo.prevTrigOffset; triggerInfo.prevTrigOffset],[y1; y2])';
 end
-if handles.PlotInclude(4)==1 & handles.PlotContinuous(4)<1
+if handles.PlotInclude(4)==1 && handles.PlotContinuous(4)<1
     handles.PlotHandles{4} = line([triggerInfo.currTrigOnset; triggerInfo.currTrigOnset],[y1; y2])';
 end
-if handles.PlotInclude(5)==1 & handles.PlotContinuous(5)<1
+if handles.PlotInclude(5)==1 && handles.PlotContinuous(5)<1
     handles.PlotHandles{5} = line([triggerInfo.currTrigOffset; triggerInfo.currTrigOffset],[y1; y2])';
 end
-if handles.PlotInclude(7)==1 & handles.PlotContinuous(7)<1
+if handles.PlotInclude(7)==1 && handles.PlotContinuous(7)<1
     handles.PlotHandles{7} = line([triggerInfo.nextTrigOnset; triggerInfo.nextTrigOnset],[y1; y2])';
 end
-if handles.PlotInclude(8)==1 & handles.PlotContinuous(8)<1
+if handles.PlotInclude(8)==1 && handles.PlotContinuous(8)<1
     handles.PlotHandles{8} = line([triggerInfo.nextTrigOffset; triggerInfo.nextTrigOffset],[y1; y2])';
 end
 
 % ROI ticks
-if handles.PlotInclude(25)==1 & handles.PlotContinuous(25)<1
+if handles.PlotInclude(25)==1 && handles.PlotContinuous(25)<1
     handles.PlotHandles{25} = line(repmat(handles.ROILim(1),2,length(y1)),[y1; y2])';
 end
-if handles.PlotInclude(26)==1 & handles.PlotContinuous(26)<1
+if handles.PlotInclude(26)==1 && handles.PlotContinuous(26)<1
     handles.PlotHandles{26} = line(repmat(handles.ROILim(2),2,length(y1)),[y1; y2])';
 end
 
 % Plot all event ticks
-if handles.PlotInclude(10)==1 & strcmp(get(handles.popup_EventType,'enable'),'on')
+if handles.PlotInclude(10)==1 && strcmp(get(handles.popup_EventType,'enable'),'on')
     handles.PlotHandles{10}{end} = line([evx1 evx1]',[evy1 evy2]');
 end
-if handles.PlotInclude(11)==1 & strcmp(get(handles.popup_EventType,'enable'),'on')
+if handles.PlotInclude(11)==1 && strcmp(get(handles.popup_EventType,'enable'),'on')
     handles.PlotHandles{11}{end} = line([evx2 evx2]',[evy1 evy2]')';
 end
 
 % Continuous window limits
-if handles.PlotInclude(22)==1 & handles.PlotContinuous(22)==1
+if handles.PlotInclude(22)==1 && handles.PlotContinuous(22)==1
     d1 = [];
     for c = 1:length(triggerInfo.dataStart)
         d1(c) = min(triggerInfo.dataStart{c});
     end
     handles.PlotHandles{22} = plot(reshape(repmat(d1,2,1),1,2*length(d1)),ys);
 end
-if handles.PlotInclude(23)==1 & handles.PlotContinuous(23)==1
+if handles.PlotInclude(23)==1 && handles.PlotContinuous(23)==1
     d2 = [];
     for c = 1:length(triggerInfo.dataStart)
         d2(c) = max(triggerInfo.dataStop{c});
@@ -1326,7 +1329,7 @@ if handles.PlotInclude(23)==1 & handles.PlotContinuous(23)==1
 end
 
 % Continuous warp lines
-if handles.PlotInclude(19)==1 & handles.PlotContinuous(19)==1 & ~isempty(handles.WarpPoints)
+if handles.PlotInclude(19)==1 && handles.PlotContinuous(19)==1 && ~isempty(handles.WarpPoints)
     for w = 1:size(warpTimes,2)
         px = repmat(newwarp(w),1,length(y1));
         handles.PlotHandles{19} = [handles.PlotHandles{19}; plot(reshape(repmat(px,2,1),1,2*length(px)),ys)];
@@ -1334,44 +1337,44 @@ if handles.PlotInclude(19)==1 & handles.PlotContinuous(19)==1 & ~isempty(handles
 end
 
 % Plot continuous trigger lines
-if handles.PlotInclude(1)==1 & handles.PlotContinuous(1)==1
+if handles.PlotInclude(1)==1 && handles.PlotContinuous(1)==1
     px = triggerInfo.prevTrigOnset;
     handles.PlotHandles{1} = plot(reshape(repmat(px,2,1),1,2*length(px)),ys);
 end
-if handles.PlotInclude(2)==1 & handles.PlotContinuous(2)==1
+if handles.PlotInclude(2)==1 && handles.PlotContinuous(2)==1
     px = triggerInfo.prevTrigOffset;
     handles.PlotHandles{2} = plot(reshape(repmat(px,2,1),1,2*length(px)),ys);
 end
-if handles.PlotInclude(4)==1 & handles.PlotContinuous(4)==1
+if handles.PlotInclude(4)==1 && handles.PlotContinuous(4)==1
     px = triggerInfo.currTrigOnset;
     handles.PlotHandles{4} = plot(reshape(repmat(px,2,1),1,2*length(px)),ys);
 end
-if handles.PlotInclude(5)==1 & handles.PlotContinuous(5)==1
+if handles.PlotInclude(5)==1 && handles.PlotContinuous(5)==1
     px = triggerInfo.currTrigOffset;
     handles.PlotHandles{5} = plot(reshape(repmat(px,2,1),1,2*length(px)),ys);
 end
-if handles.PlotInclude(7)==1 & handles.PlotContinuous(7)==1
+if handles.PlotInclude(7)==1 && handles.PlotContinuous(7)==1
     px = triggerInfo.nextTrigOnset;
     handles.PlotHandles{7} = plot(reshape(repmat(px,2,1),1,2*length(px)),ys);
 end
-if handles.PlotInclude(8)==1 & handles.PlotContinuous(8)==1
+if handles.PlotInclude(8)==1 && handles.PlotContinuous(8)==1
     px = triggerInfo.nextTrigOffset;
     handles.PlotHandles{8} = plot(reshape(repmat(px,2,1),1,2*length(px)),ys);
 end
 
 
 % Plot continuous ROI lines
-if handles.PlotInclude(25)==1 & handles.PlotContinuous(25)==1
+if handles.PlotInclude(25)==1 && handles.PlotContinuous(25)==1
     px = repmat(handles.ROILim(1),1,length(y1));
     handles.PlotHandles{25} = plot(reshape(repmat(px,2,1),1,2*length(px)),ys);
 end
-if handles.PlotInclude(26)==1 & handles.PlotContinuous(26)==1
+if handles.PlotInclude(26)==1 && handles.PlotContinuous(26)==1
     px = repmat(handles.ROILim(2),1,length(y1));
     handles.PlotHandles{26} = plot(reshape(repmat(px,2,1),1,2*length(px)),ys);
 end
 
 
-if get(handles.check_HoldOn,'value')==0 | handles.SkippingSort == 1
+if get(handles.check_HoldOn,'value')==0 || handles.SkippingSort == 1
     ylim([min([y1(1) y2(1)]) max([y1(end) y2(end)])]);
     yl = ylim;
 
@@ -1411,18 +1414,18 @@ if get(handles.check_HoldOn,'value')==0 | handles.SkippingSort == 1
     set(handles.axes_Hist,'position',pos);
 
 
-    if get(handles.check_CopyWindow,'value')==1 & get(handles.check_LockLimits,'value')==0
+    if get(handles.check_CopyWindow,'value')==1 && get(handles.check_LockLimits,'value')==0
         yl_back = ylim;
         axis tight
         handles.PlotXLim = xlim;
-        if get(handles.popup_StartReference,'value') == get(handles.popup_TriggerAlignment,'value')+2 | (~isempty(handles.WarpPoints) & get(handles.popup_StartReference,'value')==6)
+        if get(handles.popup_StartReference,'value') == get(handles.popup_TriggerAlignment,'value')+2 || (~isempty(handles.WarpPoints) && get(handles.popup_StartReference,'value')==6)
             if get(handles.popup_StartReference,'value')==6
                 handles.PlotXLim(1) = newwarp(1)-handles.P.preStartRef;
             else
                 handles.PlotXLim(1) = -handles.P.preStartRef;
             end
         end
-        if get(handles.popup_StopReference,'value') == get(handles.popup_TriggerAlignment,'value') | (~isempty(handles.WarpPoints) & get(handles.popup_StopReference,'value')==6)
+        if get(handles.popup_StopReference,'value') == get(handles.popup_TriggerAlignment,'value') || (~isempty(handles.WarpPoints) && get(handles.popup_StopReference,'value')==6)
             if get(handles.popup_StopReference,'value')==6
                 handles.PlotXLim(2) = newwarp(end)+handles.P.postStopRef;
             else
@@ -1469,13 +1472,13 @@ end
 
 % Plot PSTH
 subplot(handles.axes_PSTH);
-if get(handles.check_HoldOn,'value')==0 | handles.SkippingSort == 1
+if get(handles.check_HoldOn,'value')==0 || handles.SkippingSort == 1
     cla;
 end
 
 if handles.HistShow(1)==1
     binsize = range(handles.PlotXLim)/ceil(range(handles.PlotXLim)/handles.PSTHBinSize);
-    if handles.PlotInclude(13)==1 | handles.PlotInclude(14)==1
+    if handles.PlotInclude(13)==1 || handles.PlotInclude(14)==1
         cla;
         hold on;
         str = get(handles.popup_PSTHCount,'string');
@@ -1487,7 +1490,7 @@ if handles.HistShow(1)==1
         counts = zeros(length(xs)-1,1);
 
         if strcmp(get(handles.popup_EventType,'enable'),'on')
-            if isempty(handles.WarpPoints) | ~strcmp(str_unit,'Rate (Hz)')
+            if isempty(handles.WarpPoints) || ~strcmp(str_unit,'Rate (Hz)')
                 nindx1 = 1;
                 nindx2 = length(evx1);
             else
@@ -1509,7 +1512,7 @@ if handles.HistShow(1)==1
                                 cnt(j,1) = length(find(evx1(nindx1(tNum):nindx2(tNum))<xs(j+1) & evx2(nindx1(tNum):nindx2(tNum))>xs(j)));
                             end
                     end
-                    if ~isempty(handles.WarpPoints) & strcmp(str_unit,'Rate (Hz)')
+                    if ~isempty(handles.WarpPoints) && strcmp(str_unit,'Rate (Hz)')
                         for j = 1:length(newwarp)-1
                             f = find((xs(1:end-1)+xs(2:end))/2>=newwarp(j) & (xs(1:end-1)+xs(2:end))/2<newwarp(j+1));
                             cnt(f) = cnt(f)*stretch(tNum,j);
@@ -1542,7 +1545,7 @@ if handles.HistShow(1)==1
                 numtrials = numtrials + (xs(2:end)>triggerInfo.dataStart{c}(d) & xs(1:end-1)<triggerInfo.dataStop{c}(d))';
             end
         end
-        numtrials(find(numtrials==0)) = inf;
+        numtrials(numtrials==0) = inf;
 
         switch str_unit
             case 'Rate (Hz)'
@@ -1637,11 +1640,11 @@ end
 
 % Plot vertical histogram
 subplot(handles.axes_Hist);
-if get(handles.check_HoldOn,'value')==0 | handles.SkippingSort == 1
+if get(handles.check_HoldOn,'value')==0 || handles.SkippingSort == 1
     cla;
 end
 if handles.HistShow(2)==1
-    if handles.PlotInclude(16)==1 | handles.PlotInclude(17)==1 | handles.PlotInclude(18)==1
+    if handles.PlotInclude(16)==1 || handles.PlotInclude(17)==1 || handles.PlotInclude(18)==1
         cla;
         hold on;
     end
@@ -1657,7 +1660,7 @@ if handles.HistShow(2)==1
         handles.PlotHandles{18} = patch(repmat([xl(1) xl(2) xl(2) xl(1)]',1,length(bx)-1),[bx(1:end-1); bx(1:end-1); bx(2:end); bx(2:end)],ones(1,length(bx)-1,3));
     end
     
-    if handles.PlotInclude(16)==1 | handles.PlotInclude(17)==1
+    if handles.PlotInclude(16)==1 || handles.PlotInclude(17)==1
         str = get(handles.popup_HistCount,'string');
         xs = min([y1 y2]):binsize:max([y1 y2]);
 
@@ -1673,7 +1676,7 @@ if handles.HistShow(2)==1
                 switch str_unit
                     case {'Fraction of time','Time per trial (sec)','Total time (sec)'}
                         cnt(tNum) = 0;
-                        if strcmp(str{get(handles.popup_HistCount,'value')},'Onsets') | strcmp(str{get(handles.popup_HistCount,'value')},'Offsets')
+                        if strcmp(str{get(handles.popup_HistCount,'value')},'Onsets') || strcmp(str{get(handles.popup_HistCount,'value')},'Offsets')
                             % do nothing
                         else
                             for j = 1:length(triggerInfo.dataStart{tNum})
@@ -1689,8 +1692,8 @@ if handles.HistShow(2)==1
                                     st(intersect(h1,h2)) = [];
                                     en(intersect(h1,h2)) = [];
                                 end
-                                st(find(st<triggerInfo.dataStart{tNum}(j))) = triggerInfo.dataStart{tNum}(j);
-                                en(find(st>triggerInfo.dataStop{tNum}(j))) = triggerInfo.dataStop{tNum}(j);
+                                st(st<triggerInfo.dataStart{tNum}(j)) = triggerInfo.dataStart{tNum}(j);
+                                en(st>triggerInfo.dataStop{tNum}(j)) = triggerInfo.dataStop{tNum}(j);
                                 g = find(en>st);
                                 st = st(g);
                                 en = en(g);
@@ -1763,8 +1766,8 @@ if handles.HistShow(2)==1
         
         switch str_unit
             case {'Rate (Hz)','Count per trial','Fraction of time','Time per trial (sec)','Average'}
-                counts(find(numtrials==0))=0;
-                numtrials(find(numtrials==0))=eps;
+                counts(numtrials==0)=0;
+                numtrials(numtrials==0)=eps;
                 counts = counts ./ numtrials;
             case {'Total count','Total time (sec)'}
                 % Do nothing
@@ -1906,19 +1909,19 @@ warning on
 guidata(hObject, handles);
 
 
-function [triggerInfo EventFilters] = GetTriggerAlignedEvents(handles,trig,event,warp_points,EventFilters)
+function [triggerInfo, EventFilters] = GetTriggerAlignedEvents(handles,trig,event,warp_points,EventFilters)
 % Aligns events to triggers
 
 count = 0;
 triggerInfo = [];
 for c = 1:length(trig.on)
-    if ~isempty(trig.on{c}) & strcmp(get(handles.popup_EventType,'enable'),'off')
+    if ~isempty(trig.on{c}) && strcmp(get(handles.popup_EventType,'enable'),'off')
         val = get(handles.popup_EventSource,'value')-1;
         axnum = val - length(handles.egh.EventTimes);
         if get(handles.egh.popup_Channel1,'value')==1
             axnum = 2;
         end
-        [funct triggerInfo.contLabel fxs] = getContinuousFunction(handles,trig.info.filenum(c),axnum,1);
+        [funct, triggerInfo.contLabel, fxs] = getContinuousFunction(handles,trig.info.filenum(c),axnum,1);
     end
     
     corr_ax = get(handles.popup_Correlation,'value')-1;
@@ -1926,7 +1929,7 @@ for c = 1:length(trig.on)
         if get(handles.egh.popup_Channel1,'value')==1
             corr_ax = 2;
         end
-        [cfunct lab cxs] = getContinuousFunction(handles,trig.info.filenum(c),corr_ax,0);
+        [cfunct, lab, cxs] = getContinuousFunction(handles,trig.info.filenum(c),corr_ax,0);
         if ~isempty(cfunct)
             cfunct = cfunct-mean(cfunct);
             cfunct = cfunct/norm(cfunct);
@@ -2018,7 +2021,7 @@ for c = 1:length(trig.on)
         bef = round(bef - handles.P.preStartRef*handles.egh.fs);
         aft = round(aft + handles.P.postStopRef*handles.egh.fs);
 
-        if bef < 1 | aft > handles.egh.FileLength(trig.info.filenum(c))
+        if bef < 1 || aft > handles.egh.FileLength(trig.info.filenum(c))
             if get(handles.check_ExcludeIncomplete,'value') == 1
                 continue % Skip incomplete trigger
             end
@@ -2040,11 +2043,11 @@ for c = 1:length(trig.on)
                 ons = (cxs(indx(1))-algn)'/handles.egh.fs;
                 cval = cfunct(indx);
                 if exist('ref_ons','var')
-                    [cx lags] = xcorr(cval,ref_cval);
+                    [cx, lags] = xcorr(cval,ref_cval);
                     f = find(abs(lags/handles.egh.fs)<handles.corrMax);
                     cx = cx(f);
                     lags = lags(f);
-                    [mx f] = max(cx);
+                    [mx, f] = max(cx);
                     triggerInfo.corrShift(count) = lags(f)/handles.egh.fs + (ons-ref_ons);
                 else
                     triggerInfo.corrShift(count) = 0;
@@ -2094,11 +2097,11 @@ for c = 1:length(trig.on)
         if f == 0
             fields = fieldnames(triggerInfo);
             for j = 1:length(fields)
-                fld = getfield(triggerInfo,fields{j});
-                if ~strcmp(fields{j},'contLabel') & length(fld)==count
-                    fld = getfield(triggerInfo,fields{j});
+                fld = triggerInfo.(fields{j});
+                if ~strcmp(fields{j},'contLabel') && length(fld)==count
+                    fld = triggerInfo.(fields{j});
                     fld(count) = [];
-                    triggerInfo = setfield(triggerInfo,fields{j},fld);
+                    triggerInfo.(fields{j}) = fld;
                 end
             end
             count = count - 1;
@@ -2196,11 +2199,11 @@ for c = 1:length(trig.on)
         if f == 0
             fields = fieldnames(triggerInfo);
             for j = 1:length(fields)
-                fld = getfield(triggerInfo,fields{j});
-                if ~strcmp(fields{j},'contLabel') & length(fld)==count
-                    fld = getfield(triggerInfo,fields{j});
+                fld = triggerInfo.(fields{j});
+                if ~strcmp(fields{j},'contLabel') && length(fld)==count
+                    fld = triggerInfo.(fields{j});
                     fld(count) = [];
-                    triggerInfo = setfield(triggerInfo,fields{j},fld);
+                    triggerInfo.(fields{j}) = fld;
                 end
             end
             count = count - 1;
@@ -2211,7 +2214,7 @@ end
 
 
 
-function [triggerInfo ord] = SortTriggers(triggerInfo,type,descend,inc,group_labels)
+function [triggerInfo, ord] = SortTriggers(triggerInfo,type,descend,inc,group_labels)
 % Sorts triggers according to the specifications
 
 switch type
@@ -2229,8 +2232,8 @@ switch type
         srt = triggerInfo.nextTrigOffset;
     case 'Trigger label'
         srt = triggerInfo.label;
-        if max(srt) & ~isempty(inc)
-            f = findstr(inc,'''''');
+        if max(srt) && ~isempty(inc)
+            f = strfind(inc,'''''');
             inc = double(inc);
             if ~isempty(f)
                 inc(f+1) = [];
@@ -2238,7 +2241,7 @@ switch type
             end
            [dummy ord] = sort(inc);
            for c = 1:length(inc)
-               srt(find(srt==inc(c))) = 1000+c;
+               srt(srt==inc(c)) = 1000+c;
            end
         end                
     case 'Preceding event onset'
@@ -2313,7 +2316,7 @@ switch type
         end
 end
 
-[srt ord] = sort(srt);
+[srt, ord] = sort(srt);
 if descend == 1
     ord = ord(end:-1:1);
 end
@@ -2322,23 +2325,23 @@ if group_labels == 1
     labs = unique(triggerInfo.label);
     srt = zeros(size(triggerInfo.label));
     for c = 1:length(labs)
-        srt(find(triggerInfo.label==labs(c))) = mean(find(triggerInfo.label(ord)==labs(c)));
+        srt(triggerInfo.label==labs(c)) = mean(find(triggerInfo.label(ord)==labs(c)));
     end
-    [srt ord] = sort(srt);
+    [srt, ord] = sort(srt);
 end
 
 fields = fieldnames(triggerInfo);
 for c = 1:length(fields)
     if ~strcmp(fields{c},'contLabel')
-        fld = getfield(triggerInfo,fields{c});
+        fld = triggerInfo.(fields{c});
         fld = fld(ord);
-        triggerInfo = setfield(triggerInfo,fields{c},fld);
+        triggerInfo.(fields{c}) = fld;
     end
 end
 
 
 
-function [ons offs inform lst] = GetEventStructure(handles,indx,str,P)
+function [ons, offs, inform, lst] = GetEventStructure(handles,indx,str,P)
 % Generates a structure with the list of all events
 
 lst = handles.FileRange;
@@ -2460,7 +2463,7 @@ for c = 1:length(lst)
                 inform.label{c} = lab;
                 
                 inc = P.includeSyllList;
-                f = findstr(inc,'''''');
+                f = strfind(inc,'''''');
                 inc([f f+1]) = [];
                 inc = double(inc);
                 if ~isempty(f)
@@ -2477,7 +2480,7 @@ for c = 1:length(lst)
                 end
                 
                 inc = P.ignoreSyllList;
-                f = findstr(inc,'''''');
+                f = strfind(inc,'''''');
                 inc([f f+1]) = [];
                 inc = double(inc);
                 if ~isempty(f)
@@ -2502,7 +2505,7 @@ for c = 1:length(lst)
                 titl = handles.egh.SegmentTitles{lst(c)}(f);
                 stitl = '';
                 for j = 1:length(titl)
-                    if strcmp(titl{j},'') | isempty(titl{j});
+                    if strcmp(titl{j},'') || isempty(titl{j});
                         stitl = [stitl char(1)];
                     else
                         stitl = [stitl titl{j}];
@@ -2512,8 +2515,6 @@ for c = 1:length(lst)
                 offs{c} = [];
                 inform.label{c} = [];
                 for mot = 1:length(P.motifSequences)
-                    st = [];
-                    en = [];
                     [st en] = regexp(stitl,P.motifSequences{mot},'start','end');
                     for j = length(st):-1:1
                         if max(son(st(j)+1:en(j))-soff(st(j):en(j)-1)) > handles.egh.fs*P.motifInterval
@@ -2539,7 +2540,7 @@ for c = 1:length(lst)
                 end
                 
                 inc = P.includeSyllList;
-                g = findstr(inc,'''''');
+                g = strfind(inc,'''''');
                 inc([g g+1]) = [];
                 inc = double(inc);
                 if ~isempty(g)
@@ -2556,7 +2557,7 @@ for c = 1:length(lst)
                 end
                 
                 inc = P.ignoreSyllList;
-                g = findstr(inc,'''''');
+                g = strfind(inc,'''''');
                 inc([g g+1]) = [];
                 inc = double(inc);
                 if ~isempty(g)
@@ -2600,7 +2601,7 @@ end
 
 
 % --- Executes on button press in check_ExcludeIncomplete.
-function check_ExcludeIncomplete_Callback(hObject, eventdata, handles)
+function check_ExcludeIncomplete_Callback(~, ~, ~)
 % hObject    handle to check_ExcludeIncomplete (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2609,7 +2610,7 @@ function check_ExcludeIncomplete_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on selection change in popup_TriggerAlignment.
-function popup_TriggerAlignment_Callback(hObject, eventdata, handles)
+function popup_TriggerAlignment_Callback(hObject, ~, handles)
 % hObject    handle to popup_TriggerAlignment (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2632,7 +2633,7 @@ guidata(hObject, handles);
 
 
 % --- Executes during object creation, after setting all properties.
-function popup_TriggerAlignment_CreateFcn(hObject, eventdata, handles)
+function popup_TriggerAlignment_CreateFcn(hObject, ~, ~)
 % hObject    handle to popup_TriggerAlignment (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -2645,7 +2646,7 @@ end
 
 
 % --- Executes on button press in check_ExcludePartialEvents.
-function check_ExcludePartialEvents_Callback(hObject, eventdata, handles)
+function check_ExcludePartialEvents_Callback(~, ~, ~)
 % hObject    handle to check_ExcludePartialEvents (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2654,7 +2655,7 @@ function check_ExcludePartialEvents_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on selection change in list_Filter.
-function list_Filter_Callback(hObject, eventdata, handles)
+function list_Filter_Callback(hObject, ~, handles)
 % hObject    handle to list_Filter (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2670,7 +2671,7 @@ set(handles.edit_FilterTo,'string',num2str(handles.P.filter(val,2)));
 guidata(hObject, handles);
 
 % --- Executes during object creation, after setting all properties.
-function list_Filter_CreateFcn(hObject, eventdata, handles)
+function list_Filter_CreateFcn(hObject, ~, ~)
 % hObject    handle to list_Filter (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -2683,7 +2684,7 @@ end
 
 
 
-function edit_FilterFrom_Callback(hObject, eventdata, handles)
+function edit_FilterFrom_Callback(hObject, ~, handles)
 % hObject    handle to edit_FilterFrom (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2692,12 +2693,12 @@ function edit_FilterFrom_Callback(hObject, eventdata, handles)
 %        str2double(get(hObject,'String')) returns contents of edit_FilterFrom as a double
 
 val = get(handles.list_Filter,'value');
-handles.P.filter(val,1) = str2num(get(handles.edit_FilterFrom,'string'));
+handles.P.filter(val,1) = str2double(get(handles.edit_FilterFrom,'string'));
 guidata(hObject, handles);
 
 
 % --- Executes during object creation, after setting all properties.
-function edit_FilterFrom_CreateFcn(hObject, eventdata, handles)
+function edit_FilterFrom_CreateFcn(hObject, ~, ~)
 % hObject    handle to edit_FilterFrom (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -2710,7 +2711,7 @@ end
 
 
 
-function edit_FilterTo_Callback(hObject, eventdata, handles)
+function edit_FilterTo_Callback(hObject, ~, handles)
 % hObject    handle to edit_FilterTo (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2720,12 +2721,12 @@ function edit_FilterTo_Callback(hObject, eventdata, handles)
 
 
 val = get(handles.list_Filter,'value');
-handles.P.filter(val,2) = str2num(get(handles.edit_FilterTo,'string'));
+handles.P.filter(val,2) = str2double(get(handles.edit_FilterTo,'string'));
 guidata(hObject, handles);
 
 
 % --- Executes during object creation, after setting all properties.
-function edit_FilterTo_CreateFcn(hObject, eventdata, handles)
+function edit_FilterTo_CreateFcn(hObject, ~, ~)
 % hObject    handle to edit_FilterTo (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -2738,7 +2739,7 @@ end
 
 
 % --- Executes on selection change in list_Plot.
-function list_Plot_Callback(hObject, eventdata, handles)
+function list_Plot_Callback(hObject, ~, handles)
 % hObject    handle to list_Plot (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2749,7 +2750,7 @@ function list_Plot_Callback(hObject, eventdata, handles)
 val = get(handles.list_Plot,'value');
 
 if strcmp(get(gcf,'selectiontype'),'open')
-    if get(handles.check_HoldOn,'value')==0 | (val > 9 & val < 19) | val==20
+    if get(handles.check_HoldOn,'value')==0 || (val > 9 && val < 19) || val==20
         handles.PlotInclude(val) = 1-handles.PlotInclude(val);
     end
 end
@@ -2761,19 +2762,7 @@ else
     set(handles.push_PlotWidth,'String','Width');
 end
 
-str = get(handles.list_Plot,'string');
-for c = 1:length(str)
-    if handles.PlotInclude(c)==1
-        str{c}(19:24) = 'FF0000';
-    else
-        if c==val
-            str{val}(19:24) = 'FFFFFF';
-        else
-            str{c}(19:24) = '000000';
-        end
-    end
-end
-set(handles.list_Plot,'string',str);
+handles = updatePlotIncludeColors(handles);
 
 set(handles.check_PlotInclude,'value',handles.PlotInclude(val));
 if handles.PlotContinuous(val) == -1
@@ -2783,7 +2772,7 @@ else
 end
 
 set(handles.check_PlotInclude,'enable','on');
-if get(handles.check_HoldOn,'value')==1 & (val < 10 | val == 19 | val > 20)
+if get(handles.check_HoldOn,'value')==1 && (val < 10 || val == 19 || val > 20)
     set(handles.check_PlotInclude,'enable','off');
     set(handles.check_PlotContinuous,'enable','off');
 end
@@ -2793,7 +2782,7 @@ guidata(hObject, handles);
 
 
 % --- Executes during object creation, after setting all properties.
-function list_Plot_CreateFcn(hObject, eventdata, handles)
+function list_Plot_CreateFcn(hObject, ~, ~)
 % hObject    handle to list_Plot (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -2806,65 +2795,85 @@ end
 
 
 % --- Executes on button press in check_PlotInclude.
-function check_PlotInclude_Callback(hObject, eventdata, handles)
+function check_PlotInclude_Callback(hObject, ~, handles)
 % hObject    handle to check_PlotInclude (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hint: get(hObject,'Value') returns toggle state of check_PlotInclude
 
+plotNum = get(handles.list_Plot,'value');
+include = get(handles.check_PlotInclude,'value');
 
-val = get(handles.list_Plot,'value');
-handles.PlotInclude(val) = get(handles.check_PlotInclude,'value');
-
-str = get(handles.list_Plot,'string');
-for c = 1:length(str)
-    if handles.PlotInclude(c)==1
-        str{c}(19:24) = 'FF0000';
-    else
-        if c==val
-            str{val}(19:24) = 'FFFFFF';
-        else
-            str{c}(19:24) = '000000';
-        end
-    end
-end
-set(handles.list_Plot,'string',str);
+handles = setPlotInclude(handles, plotNum, include);
 
 guidata(hObject, handles);
 
+function handles = setPlotInclude(handles, plotNum, include)
+% Set one plot include value
+handles.PlotInclude(plotNum) = include;
+handles = updatePlotIncludeColors(handles);
+
+function handles = setPlotIncludes(handles, includes)
+% Set all plot include values
+if length(includes) ~= length(get(handles.list_Plot, 'String'))
+    error('Cannot set plot include values because provided array size does not match the number of plots.');
+end
+handles.PlotInclude = includes;
+handles = updatePlotIncludeColors(handles);
 
 % --- Executes on button press in check_PlotContinuous.
-function check_PlotContinuous_Callback(hObject, eventdata, handles)
+function check_PlotContinuous_Callback(hObject, ~, handles)
 % hObject    handle to check_PlotContinuous (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hint: get(hObject,'Value') returns toggle state of check_PlotContinuous
 
+plotNum = get(handles.list_Plot,'value');
+plotContinuousVal = get(handles.check_PlotContinuous,'value');
 
-val = get(handles.list_Plot,'value');
-handles.PlotContinuous(val) = get(handles.check_PlotContinuous,'value');
-
-str = get(handles.list_Plot,'string');
-for c = 1:length(str)
-    if handles.PlotInclude(c)==1
-        str{c}(19:24) = 'FF0000';
-    else
-        if c==val
-            str{val}(19:24) = 'FFFFFF';
-        else
-            str{c}(19:24) = '000000';
-        end
-    end
-end
-set(handles.list_Plot,'string',str);
+handles = setPlotContinuous(handles, plotNum, plotContinuousVal);
 
 guidata(hObject, handles);
 
+function handles = setPlotContinuous(handles, plotNum, plotContinuous)
+% Set the plotContinuous property for one plot
+handles.PlotContinuous(plotNum) = plotContinuous;
+handles = updatePlotIncludeColors(handles);
+
+function handles = setAllPlotContinuous(handles, plotContinuous)
+% Set all values for plotContinuous
+if length(plotContinuous) ~= length(get(handles.list_Plot, 'String'));
+    error('Cannot set plotContinuous property, because provided array size does not match the number of plots.');
+end
+handles.PlotContinuous = plotContinuous;
+handles = updatePlotIncludeColors(handles);
+
+function plotContinuous = getPlotContinuous(handles)
+plotContinuous = handles.PlotContinuous;
+
+function handles = updatePlotIncludeColors(handles)
+% Update the plot list box text color to be red, black, or white depending on whether
+% it's included or not, and whether it's currently highlighted or not.
+selectedPlotNum = get(handles.list_Plot,'value');
+plotNames = get(handles.list_Plot,'string');
+for c = 1:length(plotNames)
+    if handles.PlotInclude(c)==1
+        plotNames{c}(19:24) = 'FF0000';
+    else
+        if c==selectedPlotNum
+            plotNames{selectedPlotNum}(19:24) = 'FFFFFF';
+        else
+            plotNames{c}(19:24) = '000000';
+        end
+    end
+end
+set(handles.list_Plot,'string',plotNames);
+
 
 % --- Executes on button press in push_PlotColor.
-function push_PlotColor_Callback(hObject, eventdata, handles)
+function push_PlotColor_Callback(hObject, ~, handles)
 % hObject    handle to push_PlotColor (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2877,17 +2886,33 @@ if length(c)<3
     return
 end
 
-handles.PlotColor(val,:) = c;
+handles = setPlotColor(handles, val, c);
 
-if isempty(handles.PlotHandles{val})
-    guidata(hObject, handles);
-    return
+guidata(hObject, handles);
+
+function plotColors = getPlotColors(handles)
+plotColors = handles.PlotColor;
+
+function handles = setPlotColors(handles, plotColors)
+[numPlots, ~] = size(plotColors);
+if numPlots ~= length(get(handles.list_Plot, 'String'))
+    error('Cannot set plot colors, because plot color array does not match the number of plots.');
+end
+for plotNumber = 1:numPlots
+    handles = setPlotColor(handles, plotNumber, plotColors(plotNumber, :));
 end
 
+function handles = setPlotColor(handles, plotNumber, plotColor)
+handles.PlotColor(plotNumber, :) = plotColor;
+if ~isempty(handles.PlotHandles{plotNumber})
+    handles = updatePlotColors(handles, plotNumber);
+end
+
+function handles = updatePlotColors(handles, plotToUpdate)
 event_indx = get(handles.popup_EventList,'value');
 
 if isfield(handles,'TriggerSelection')
-    if val == 10 | val == 11 | val ==12
+    if plotToUpdate == 10 || plotToUpdate == 11 || plotToUpdate ==12
         indx2 = cumsum(cellfun('length',handles.AllEventOnsets{event_indx}));
         indx1 = [1 indx2(1:end-1)+1];
         indx = [];
@@ -2901,8 +2926,8 @@ else
     indx = [];
 end
 
-for c = intersect([1 2 4 5 7 8 19 22 23 25 26],val)
-    if handles.PlotContinuous(val)==1
+for c = intersect([1 2 4 5 7 8 19 22 23 25 26],plotToUpdate)
+    if handles.PlotContinuous(plotToUpdate)==1
         if sum(handles.TriggerSelection)<length(handles.triggerInfo.absTime)
             warndlg('Could not selectively change color for a subset of triggers because object''s ''continuous'' option is on.','Warning');
         end
@@ -2911,18 +2936,18 @@ for c = intersect([1 2 4 5 7 8 19 22 23 25 26],val)
         set(handles.PlotHandles{c}(:,indx),'color',handles.PlotColor(c,:));
     end
 end
-for c = intersect([13 15 16 20 28 29],val)
+for c = intersect([13 15 16 20 28 29],plotToUpdate)
     set(handles.PlotHandles{c},'color',handles.PlotColor(c,:));
 end
-for c = intersect([10 11],val)
+for c = intersect([10 11],plotToUpdate)
     if ~isempty(handles.PlotHandles{c}{event_indx})
         set(handles.PlotHandles{c}{event_indx}(indx),'color',handles.PlotColor(c,:));
     end
 end
-for c = intersect([14 30],val)
+for c = intersect([14 30],plotToUpdate)
     set(handles.PlotHandles{c},'facecolor',handles.PlotColor(c,:),'edgecolor',handles.PlotColor(c,:));
 end
-for c = intersect([3 6 9 12 17 18 21 24 27],val)
+for c = intersect([3 6 9 12 17 18 21 24 27],plotToUpdate)
     if iscell(handles.PlotHandles{c})
         h = handles.PlotHandles{c}{event_indx};
     else
@@ -2941,11 +2966,8 @@ for c = intersect([3 6 9 12 17 18 21 24 27],val)
 end
 
 
-guidata(hObject, handles);
-
-
 % --- Executes on button press in push_PlotWidth.
-function push_PlotWidth_Callback(hObject, eventdata, handles)
+function push_PlotWidth_Callback(hObject, ~, handles)
 % hObject    handle to push_PlotWidth (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2960,7 +2982,7 @@ if strcmp(get(handles.push_PlotWidth,'string'),'Width')
         return
     end
 
-    handles.PlotLineWidth(val) = str2num(answer{1});
+    handles.PlotLineWidth(val) = str2double(answer{1});
 else
     query = [str{val}(26:end-14) ' transparency'];
     answer = inputdlg(query,'Transparency',1,{num2str(handles.PlotAlpha(val))});
@@ -2968,7 +2990,7 @@ else
         return
     end
 
-    handles.PlotAlpha(val) = str2num(answer{1});
+    handles.PlotAlpha(val) = str2double(answer{1});
 end
 
 if isempty(handles.PlotHandles{val})
@@ -2979,7 +3001,7 @@ end
 event_indx = get(handles.popup_EventList,'value');
 
 if isfield(handles,'TriggerSelection')
-    if val == 10 | val == 11 | val ==12
+    if val == 10 || val == 11 || val ==12
         indx2 = cumsum(cellfun('length',handles.AllEventOnsets{event_indx}));
         indx1 = [1 indx2(1:end-1)+1];
         indx = [];
@@ -3024,7 +3046,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in check_LockLimits.
-function check_LockLimits_Callback(hObject, eventdata, handles)
+function check_LockLimits_Callback(hObject, ~, handles)
 % hObject    handle to check_LockLimits (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3050,18 +3072,31 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_TimeLimits.
-function push_TimeLimits_Callback(hObject, eventdata, handles)
+function push_TimeLimits_Callback(hObject, ~, handles)
 % hObject    handle to push_TimeLimits (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
+handles = setTimeLimits(handles);
+guidata(hObject, handles);
 
-answer = inputdlg({'Min (sec)','Max (sec)'},'Time limits',1,{num2str(handles.PlotXLim(1)),num2str(handles.PlotXLim(2))});
-if isempty(answer)
-    return
+function [timeLimitMin, timeLimitMax] = getTimeLimits(handles)
+timeLimitMin = handles.PlotXLim(1);
+timeLimitMax = handles.PlotXLim(2);
+
+function handles = setTimeLimits(handles, timeLimitMin, timeLimitMax)
+if ~exist('timeLimitMin', 'var') || ~exist('timeLimitMax', 'var')
+    [oldMin, oldMax] = getTimeLimits(handles);
+    % Min/max not provided as arguments. Get them from user.
+    answer = inputdlg({'Min (sec)','Max (sec)'},'Time limits',1,{num2str(oldMin),num2str(oldMax)});
+    if isempty(answer)
+        return
+    end
+    timeLimitMin = str2double(answer{1});
+    timeLimitMax = str2double(answer{2});
 end
-handles.PlotXLim(1) = str2num(answer{1});
-handles.PlotXLim(2) = str2num(answer{2});
+handles.PlotXLim(1) = timeLimitMin;
+handles.PlotXLim(2) = timeLimitMax;
 
 set(handles.axes_Raster,'xlim',handles.PlotXLim);
 set(handles.axes_PSTH,'xlim',handles.PlotXLim);
@@ -3070,11 +3105,9 @@ set(handles.check_CopyWindow,'value',0);
 
 handles.BackupXLim = handles.PlotXLim;
 
-guidata(hObject, handles);
-
 
 % --- Executes on button press in push_TickHeight.
-function push_TickHeight_Callback(hObject, eventdata, handles)
+function push_TickHeight_Callback(hObject, ~, handles)
 % hObject    handle to push_TickHeight (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3091,28 +3124,28 @@ if f == 3
         if isempty(answer)
             return
         end
-        handles.PlotTickSize(f) = str2num(answer{1});
-        handles.PlotOverlap = str2num(answer{2});
+        handles.PlotTickSize(f) = str2double(answer{1});
+        handles.PlotOverlap = str2double(answer{2});
     else
         answer = inputdlg({['Tick height (' str{f} ')'],'Inches per second'},'Tick height',1,{num2str(handles.PlotTickSize(f)),num2str(handles.PlotInPerSec)});
         if isempty(answer)
             return
         end
-        handles.PlotTickSize(f) = str2num(answer{1});
-        handles.PlotInPerSec = str2num(answer{2});
+        handles.PlotTickSize(f) = str2double(answer{1});
+        handles.PlotInPerSec = str2double(answer{2});
     end
 else
     answer = inputdlg(['Tick height (' str{f} ')'],'Tick height',1,{num2str(handles.PlotTickSize(f))});
     if isempty(answer)
         return
     end
-    handles.PlotTickSize(f) = str2num(answer{1});
+    handles.PlotTickSize(f) = str2double(answer{1});
 end
 
 guidata(hObject, handles);
 
 
-function RadioYAxis_Callback(hObject, eventdata, handles)
+function RadioYAxis_Callback(hObject, ~, handles)
 
 if get(handles.radio_YTrial,'value')==1
     set(get(handles.panel_Sorting,'children'),'enable','on');
@@ -3135,7 +3168,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in check_CopyWindow.
-function check_CopyWindow_Callback(hObject, eventdata, handles)
+function check_CopyWindow_Callback(~, ~, ~)
 % hObject    handle to check_CopyWindow (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3145,7 +3178,7 @@ function check_CopyWindow_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on button press in push_Export.
-function push_Export_Callback(hObject, eventdata, handles)
+function push_Export_Callback(hObject, ~, handles)
 % hObject    handle to push_Export (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3215,7 +3248,7 @@ set(findobj(handles.axes_Raster,'type','text'),'visible','off');
 
 print('-dtiff','raster.tif',['-r' num2str(handles.ExportResolution)],'-noui');
 set(handles.fig_Main,'Renderer','painters');
-[newslide pic_top pic_left] = PowerPointExport(handles,imheight,imwidth);
+[newslide, pic_top, pic_left] = PowerPointExport(handles,imheight,imwidth);
 delete('raster.tif');
 
 set(get(handles.axes_Raster,'children'),'visible','off');
@@ -3248,10 +3281,10 @@ for c = 1:get(ug,'Count')
         if get(txt,'Top') > tp
             set(txt.TextFrame,'VerticalAnchor','msoAnchorTop','HorizontalAnchor','msoAnchorCenter');
             set(txt.TextFrame.TextRange.ParagraphFormat,'Alignment','ppAlignCenter');
-        elseif get(txt,'Top') < tp & get(txt,'Left') < lf & get(txt,'Rotation') == 0
+        elseif get(txt,'Top') < tp && get(txt,'Left') < lf && get(txt,'Rotation') == 0
             set(txt.TextFrame,'VerticalAnchor','msoAnchorMiddle');
             set(txt.TextFrame.TextRange.ParagraphFormat,'Alignment','ppAlignRight');
-        elseif get(txt,'Top') < tp & get(txt,'Left') < lf & get(txt,'Rotation') ~= 0
+        elseif get(txt,'Top') < tp && get(txt,'Left') < lf && get(txt,'Rotation') ~= 0
             set(txt.TextFrame,'VerticalAnchor','msoAnchorBottom','HorizontalAnchor','msoAnchorCenter');
             set(txt.TextFrame.TextRange.ParagraphFormat,'Alignment','ppAlignCenter');
         else
@@ -3286,11 +3319,16 @@ set(gca,'units',bck);
 guidata(hObject, handles);
 
 % --- Executes on button press in push_Dimensions.
-function push_Dimensions_Callback(hObject, eventdata, handles)
+function push_Dimensions_Callback(hObject, ~, handles)
 % hObject    handle to push_Dimensions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
+handles = setDimensions(handles);
+
+guidata(hObject, handles);
+
+function [ExportPSTHHeight, ExportHistHeight, ExportInterval, ExportResolution, ExportWidth, ExportHeight] = getDimensons(handles)
 ch = get(handles.panel_ExportWidth,'children');
 iw = findobj('parent',handles.panel_ExportWidth,'value',1);
 iw = 3-find(ch==iw);
@@ -3299,45 +3337,70 @@ ch = get(handles.panel_ExportHeight,'children');
 ih = findobj('parent',handles.panel_ExportHeight,'value',1);
 ih = 4-find(ch==ih);
 
-query{1} = 'PSTH height (in)';
-query{2} = 'Vertical histogram width (in)';
-query{3} = 'Interval between subplots (in)';
-query{4} = 'Raster resolution (dpi)';
-str = {'Raster width (in)','Raster width (in/sec)'};
-query{5} = str{iw};
+ExportPSTHHeight = handles.ExportPSTHHeight;
+ExportHistHeight = handles.ExportHistHeight;
+ExportInterval = handles.ExportInterval;
+ExportResolution = handles.ExportResolution;
+ExportWidth = handles.ExportWidth(iw);
 if strcmp(get(ch(1),'enable'),'on')
-    str = {'Raster height (in)','Raster height (in/trial)','Raster height (in/sec)'};
-    query{6} = str{ih};
+    ExportHeight = handles.ExportHeight(ih);
+else
+    ExportHeight = NaN;
 end
 
-def{1} = num2str(handles.ExportPSTHHeight);
-def{2} = num2str(handles.ExportHistHeight);
-def{3} = num2str(handles.ExportInterval);
-def{4} = num2str(handles.ExportResolution);
-def{5} = num2str(handles.ExportWidth(iw));
+function handles = setDimensions(handles, ExportPSTHHeight, ExportHistHeight, ExportInterval, ExportResolution, ExportWidth, ExportHeight)
+ch = get(handles.panel_ExportWidth,'children');
+iw = findobj('parent',handles.panel_ExportWidth,'value',1);
+iw = 3-find(ch==iw);
+
+ch = get(handles.panel_ExportHeight,'children');
+ih = findobj('parent',handles.panel_ExportHeight,'value',1);
+ih = 4-find(ch==ih);
+
+if nargin == 1
+    % No values supplied. Query user for values.
+    query{1} = 'PSTH height (in)';
+    query{2} = 'Vertical histogram width (in)';
+    query{3} = 'Interval between subplots (in)';
+    query{4} = 'Raster resolution (dpi)';
+    str = {'Raster width (in)','Raster width (in/sec)'};
+    query{5} = str{iw};
+    if strcmp(get(ch(1),'enable'),'on')
+        str = {'Raster height (in)','Raster height (in/trial)','Raster height (in/sec)'};
+        query{6} = str{ih};
+    end
+
+    def{1} = num2str(handles.ExportPSTHHeight);
+    def{2} = num2str(handles.ExportHistHeight);
+    def{3} = num2str(handles.ExportInterval);
+    def{4} = num2str(handles.ExportResolution);
+    def{5} = num2str(handles.ExportWidth(iw));
+    if strcmp(get(ch(1),'enable'),'on')
+        def{6} = num2str(handles.ExportHeight(ih));
+    end
+
+    answer = inputdlg(query,'Image dimensions',1,def);
+    if isempty(answer)
+        return
+    end
+    ExportPSTHHeight = answer{1};
+    ExportHistHeight = answer{2};
+    ExportInterval = answer{3};
+    ExportResolution = answer{4};
+    ExportWidth = answer{5};
+    ExportHeight = answer{6};
+end
+
+handles.ExportPSTHHeight = ExportPSTHHeight;
+handles.ExportHistHeight = ExportHistHeight;
+handles.ExportInterval = ExportInterval;
+handles.ExportResolution = ExportResolution;
+handles.ExportWidth(iw) = ExportWidth;
 if strcmp(get(ch(1),'enable'),'on')
-    def{6} = num2str(handles.ExportHeight(ih));
+    handles.ExportHeight(ih) = ExportHeight;
 end
 
-answer = inputdlg(query,'Image dimensions',1,def);
-if isempty(answer)
-    return
-end
-
-handles.ExportPSTHHeight = str2num(answer{1});
-handles.ExportHistHeight = str2num(answer{2});
-handles.ExportInterval = str2num(answer{3});
-handles.ExportResolution = str2num(answer{4});
-handles.ExportWidth(iw) = str2num(answer{5});
-if strcmp(get(ch(1),'enable'),'on')
-    handles.ExportHeight(ih) = str2num(answer{6});
-end
-
-guidata(hObject, handles);
-
-
-
-function [newslide pic_top pic_left] = PowerPointExport(handles,imheight,imwidth)
+function [newslide, pic_top, pic_left] = PowerPointExport(handles,imheight,imwidth)
 
 % Start presentation
 ppt = actxserver('PowerPoint.Application');
@@ -3350,11 +3413,11 @@ newslide = invoke(op.Slides,'Add',slide_count,2);
 % Add picture
 pic = invoke(newslide.Shapes,'AddPicture',[pwd '\raster.tif'],'msoFalse','msoTrue',0,0,imwidth*72,imheight*72);
 totheight = get(pic,'Height');
-if get(handles.check_IncludePSTH,'value')==1 & handles.HistShow(1)==1
+if get(handles.check_IncludePSTH,'value')==1 && handles.HistShow(1)==1
     totheight = totheight + 72*handles.ExportPSTHHeight + 72*handles.ExportInterval;
 end
 totwidth = get(pic,'Width');
-if get(handles.check_IncludePSTH,'value')==1 & handles.HistShow(2)==1
+if get(handles.check_IncludePSTH,'value')==1 && handles.HistShow(2)==1
     totwidth = totwidth + 72*handles.ExportHistHeight + 72*handles.ExportInterval;
 end
 set(pic,'top',get(op.PageSetup,'SlideHeight')/2+totheight/2-get(pic,'Height'));
@@ -3366,7 +3429,7 @@ pic_left = get(pic,'left');
 
 % Add PSTH
 
-if get(handles.check_IncludePSTH,'value')==1 & handles.HistShow(1)==1
+if get(handles.check_IncludePSTH,'value')==1 && handles.HistShow(1)==1
 
     yoff = get(pic,'Top') - 72*handles.ExportInterval;
 
@@ -3437,7 +3500,7 @@ if get(handles.check_IncludePSTH,'value')==1 & handles.HistShow(1)==1
     if ~isempty(handles.PlotHandles{28})
         xp = get(handles.PlotHandles{28},'xdata');
         xp = xp(1);
-        if xp>=xl(1) & xp<=xl(2)
+        if xp>=xl(1) && xp<=xl(2)
             xpos = (xp-min(get(handles.axes_PSTH,'xlim')))/(max(get(handles.axes_PSTH,'xlim'))-min(get(handles.axes_PSTH,'xlim')));
             xpos = xpos*get(pic,'Width')+get(pic,'Left');
             ln = invoke(newslide.Shapes,'AddLine',xpos,yoff,xpos,yoff-72*handles.ExportPSTHHeight);
@@ -3449,7 +3512,7 @@ if get(handles.check_IncludePSTH,'value')==1 & handles.HistShow(1)==1
     if ~isempty(handles.PlotHandles{29})
         xp = get(handles.PlotHandles{29},'xdata');
         xp = xp(1);
-        if xp>=xl(1) & xp<=xl(2)
+        if xp>=xl(1) && xp<=xl(2)
             xpos = (xp-min(get(handles.axes_PSTH,'xlim')))/(max(get(handles.axes_PSTH,'xlim'))-min(get(handles.axes_PSTH,'xlim')));
             xpos = xpos*get(pic,'Width')+get(pic,'Left');
             ln = invoke(newslide.Shapes,'AddLine',xpos,yoff,xpos,yoff-72*handles.ExportPSTHHeight);
@@ -3507,7 +3570,7 @@ end
 
 % Add vertical histogram
 
-if get(handles.check_IncludePSTH,'value')==1 & handles.HistShow(2)==1
+if get(handles.check_IncludePSTH,'value')==1 && handles.HistShow(2)==1
 
     xoff = get(pic,'Left') + get(pic,'Width') + 72*handles.ExportInterval;
     
@@ -3598,13 +3661,13 @@ end
 
 
 % --- Executes on button press in push_Open.
-function push_Open_Callback(hObject, eventdata, handles)
+function push_Open_Callback(hObject, ~, handles)
 % hObject    handle to push_Open (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 [file, path] = uigetfile('*.mat','Load analysis');
-if ~isstr(file)
+if ~ischar(file)
     return
 end
 cd(path)
@@ -3734,7 +3797,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on selection change in popup_PSTHUnits.
-function popup_PSTHUnits_Callback(hObject, eventdata, handles)
+function popup_PSTHUnits_Callback(~, ~, ~)
 % hObject    handle to popup_PSTHUnits (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3744,7 +3807,7 @@ function popup_PSTHUnits_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function popup_PSTHUnits_CreateFcn(hObject, eventdata, handles)
+function popup_PSTHUnits_CreateFcn(hObject, ~, ~)
 % hObject    handle to popup_PSTHUnits (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -3757,72 +3820,73 @@ end
 
 
 % --- Executes on button press in push_PSTHBinSize.
-function push_PSTHBinSize_Callback(hObject, eventdata, handles)
+function push_PSTHBinSize_Callback(hObject, ~, handles)
 % hObject    handle to push_PSTHBinSize (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-if strcmp(get(handles.push_HistHoriz,'fontweight'),'bold')
-    str = get(handles.popup_PSTHUnits,'string');
-    val = get(handles.popup_PSTHUnits,'value');
-    str = str{val};
-    str(1) = lower(str(1));
+switch getHistogramDirection(handles)
+    case 'horizontal'
+        str = get(handles.popup_PSTHUnits,'string');
+        val = get(handles.popup_PSTHUnits,'value');
+        str = str{val};
+        str(1) = lower(str(1));
 
-    if strcmp(get(handles.popup_EventType,'enable'),'off')
-        val = val + 3;
-    end
-    
-    answer = inputdlg({'PSTH bin size (sec)','Smoothing window (# of bins)',['Min ' str],['Max ' str]},'Options',1,{num2str(handles.PSTHBinSize),num2str(handles.PSTHSmoothingWindow),num2str(handles.PSTHYLim(val,1)),num2str(handles.PSTHYLim(val,2))});
-    if isempty(answer)
-        return
-    end
+        if strcmp(get(handles.popup_EventType,'enable'),'off')
+            val = val + 3;
+        end
 
-    handles.PSTHBinSize = str2num(answer{1});
-    handles.PSTHSmoothingWindow = str2num(answer{2});
-    handles.PSTHYLim(val,1) = str2num(answer{3});
-    handles.PSTHYLim(val,2) = str2num(answer{4});
+        answer = inputdlg({'PSTH bin size (sec)','Smoothing window (# of bins)',['Min ' str],['Max ' str]},'Options',1,{num2str(handles.PSTHBinSize),num2str(handles.PSTHSmoothingWindow),num2str(handles.PSTHYLim(val,1)),num2str(handles.PSTHYLim(val,2))});
+        if isempty(answer)
+            return
+        end
 
-    if get(handles.radio_PSTHManual,'value')==1
-        set(handles.axes_PSTH,'ylim',handles.PSTHYLim(val,:));
-    end
-else
-    str = get(handles.popup_HistUnits,'string');
-    valm = get(handles.popup_HistUnits,'value');
-    strm = str{valm};
-    strm(1) = lower(strm(1));
+        handles.PSTHBinSize = str2double(answer{1});
+        handles.PSTHSmoothingWindow = str2double(answer{2});
+        handles.PSTHYLim(val,1) = str2double(answer{3});
+        handles.PSTHYLim(val,2) = str2double(answer{4});
 
-    if strcmp(get(handles.popup_EventType,'enable'),'off')
-        valm = valm + 3;
-    end
-    
-    if get(handles.radio_YTrial,'value')==1
-        val = 1;
-    else
-        val = 2;
-    end
-    str = {'trials','sec'};
-    answer = inputdlg({['Histogram bin size (' str{val} ')'],'Smoothing window (# of bins)','ROI start (sec)','ROI stop (sec)',['Min ' strm],['Max ' strm]},'Options',1,{num2str(handles.HistBinSize(val)),num2str(handles.HistSmoothingWindow),num2str(handles.ROILim(1)),num2str(handles.ROILim(2)),num2str(handles.HistYLim(val,1)),num2str(handles.HistYLim(val,2))});
-    if isempty(answer)
-        return
-    end
-    
-    handles.HistBinSize(val) = str2num(answer{1});
-    handles.HistSmoothingWindow = str2num(answer{2});
-    handles.ROILim(1) = str2num(answer{3});
-    handles.ROILim(2) = str2num(answer{4});
-    handles.HistYLim(val,1) = str2num(answer{5});
-    handles.HistYLim(val,2) = str2num(answer{6});
+        if get(handles.radio_PSTHManual,'value')==1
+            set(handles.axes_PSTH,'ylim',handles.PSTHYLim(val,:));
+        end
+    case 'vertical'
+        str = get(handles.popup_HistUnits,'string');
+        valm = get(handles.popup_HistUnits,'value');
+        strm = str{valm};
+        strm(1) = lower(strm(1));
 
-    if get(handles.radio_PSTHManual,'value')==1
-        set(handles.axes_Hist,'xlim',handles.HistYLim(val,:));
-    end
+        if strcmp(get(handles.popup_EventType,'enable'),'off')
+            valm = valm + 3;
+        end
+
+        if get(handles.radio_YTrial,'value')==1
+            val = 1;
+        else
+            val = 2;
+        end
+        str = {'trials','sec'};
+        answer = inputdlg({['Histogram bin size (' str{val} ')'],'Smoothing window (# of bins)','ROI start (sec)','ROI stop (sec)',['Min ' strm],['Max ' strm]},'Options',1,{num2str(handles.HistBinSize(val)),num2str(handles.HistSmoothingWindow),num2str(handles.ROILim(1)),num2str(handles.ROILim(2)),num2str(handles.HistYLim(val,1)),num2str(handles.HistYLim(val,2))});
+        if isempty(answer)
+            return
+        end
+
+        handles.HistBinSize(val) = str2double(answer{1});
+        handles.HistSmoothingWindow = str2double(answer{2});
+        handles.ROILim(1) = str2double(answer{3});
+        handles.ROILim(2) = str2double(answer{4});
+        handles.HistYLim(val,1) = str2double(answer{5});
+        handles.HistYLim(val,2) = str2double(answer{6});
+
+        if get(handles.radio_PSTHManual,'value')==1
+            set(handles.axes_Hist,'xlim',handles.HistYLim(val,:));
+        end
 end
 
 guidata(hObject, handles);
 
 
 % --- Executes on selection change in popup_PSTHCount.
-function popup_PSTHCount_Callback(hObject, eventdata, handles)
+function popup_PSTHCount_Callback(~, ~, ~)
 % hObject    handle to popup_PSTHCount (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3832,7 +3896,7 @@ function popup_PSTHCount_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function popup_PSTHCount_CreateFcn(hObject, eventdata, handles)
+function popup_PSTHCount_CreateFcn(hObject, ~, ~)
 % hObject    handle to popup_PSTHCount (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -3845,7 +3909,7 @@ end
 
 
 % --- Executes on button press in check_IncludePSTH.
-function check_IncludePSTH_Callback(hObject, eventdata, handles)
+function check_IncludePSTH_Callback(~, ~, ~)
 % hObject    handle to check_IncludePSTH (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3854,7 +3918,7 @@ function check_IncludePSTH_Callback(hObject, eventdata, handles)
 
 
 % --- Executes on button press in check_HoldOn.
-function check_HoldOn_Callback(hObject, eventdata, handles)
+function check_HoldOn_Callback(hObject, ~, handles)
 % hObject    handle to check_HoldOn (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3907,7 +3971,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on selection change in list_WarpPoints.
-function list_WarpPoints_Callback(hObject, eventdata, handles)
+function list_WarpPoints_Callback(~, ~, ~)
 % hObject    handle to list_WarpPoints (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3917,7 +3981,7 @@ function list_WarpPoints_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function list_WarpPoints_CreateFcn(hObject, eventdata, handles)
+function list_WarpPoints_CreateFcn(hObject, ~, ~)
 % hObject    handle to list_WarpPoints (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -3930,7 +3994,7 @@ end
 
 
 % --- Executes on button press in push_AddPoint.
-function push_AddPoint_Callback(hObject, eventdata, handles)
+function push_AddPoint_Callback(hObject, ~, handles)
 % hObject    handle to push_AddPoint (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3955,7 +4019,7 @@ w.alignment = str_a;
 str = [str_t(1:end-1) ' ' lower(str_a) 's - ' str_s];
 
 lst = get(handles.list_WarpPoints,'string');
-if length(lst) == 1 & strcmp(lst{1},'(None)')
+if length(lst) == 1 && strcmp(lst{1},'(None)')
     lst = {str};
 else
     lst{end+1} = str;
@@ -3975,14 +4039,14 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in push_DeletePoint.
-function push_DeletePoint_Callback(hObject, eventdata, handles)
+function push_DeletePoint_Callback(hObject, ~, handles)
 % hObject    handle to push_DeletePoint (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 val = get(handles.list_WarpPoints,'value');
 str = get(handles.list_WarpPoints,'string');
-if length(str) == 1 & strcmp(str{1},'(None)')
+if length(str) == 1 && strcmp(str{1},'(None)')
     return
 end
 
@@ -4014,7 +4078,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on selection change in popup_WarpingAlgorithm.
-function popup_WarpingAlgorithm_Callback(hObject, eventdata, handles)
+function popup_WarpingAlgorithm_Callback(~, ~, ~)
 % hObject    handle to popup_WarpingAlgorithm (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4024,7 +4088,7 @@ function popup_WarpingAlgorithm_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function popup_WarpingAlgorithm_CreateFcn(hObject, eventdata, handles)
+function popup_WarpingAlgorithm_CreateFcn(hObject, ~, ~)
 % hObject    handle to popup_WarpingAlgorithm (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -4037,52 +4101,98 @@ end
 
 
 % --- Executes on button press in push_WarpOptions.
-function push_WarpOptions_Callback(hObject, eventdata, handles)
+function push_WarpOptions_Callback(hObject, ~, handles)
 % hObject    handle to push_WarpOptions (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-answer = inputdlg({'Maximum allowed correlation shift (sec)','Number of warp intervals prior to trigger','Number of warp intervals after trigger'},'Warp options',1,{num2str(handles.corrMax),num2str(handles.WarpNumBefore),num2str(handles.WarpNumAfter)});
-if isempty(answer)
-    return
-end
-handles.corrMax = str2num(answer{1});
-handles.WarpNumBefore = str2num(answer{2});
-handles.WarpNumAfter = str2num(answer{3});
-
+handles = setWarpOptions(handles);
 guidata(hObject, handles);
 
+function [corrMax, WarpNumBefore, WarpNumAfter] = getWarpOptions(handles)
+corrMax = handles.corrMax;
+WarpNumBefore = handles.WarpNumBefore;
+WarpNumAfter = handles.WarpNumAfter;
+
+function handles = setWarpOptions(handles, corrMax, WarpNumBefore, WarpNumAfter)
+if ~exist('corrMax', 'var') || ~exist('WarpNumBefore', 'var') || ~exist('WarpNumAfter', 'var')
+    % No values provided, query user for values.
+    queries = {'Maximum allowed correlation shift (sec)','Number of warp intervals prior to trigger','Number of warp intervals after trigger'};
+    [oldCorrMax, oldWarpNumBefore, oldWarpNumAfter] = getWarpOptions(handles);
+    defaults = {num2str(oldCorrMax),num2str(oldWarpNumBefore),num2str(oldWarpNumAfter)};
+    answer = inputdlg(queries,'Warp options',1,defaults);
+    if isempty(answer)
+        return
+    end
+    corrMax = str2double(answer{1});
+    WarpNumBefore = str2double(answer{2});
+    WarpNumAfter = str2double(answer{3});
+end
+handles.corrMax = corrMax;
+handles.WarpNumBefore = WarpNumBefore;
+handles.WarpNumAfter = WarpNumAfter;
+
+function [intervalDurations, intervalTypes, warpIntervalLim, warpNumBefore, warpNumAfter] = getWarpIntervalInfo(handles)
+intervalDurations = handles.WarpIntervalDuration;
+intervalTypes = handles.WarpIntervalType;
+warpIntervalLim = handles.WarpIntervalLim;
+warpNumBefore = handles.WarpNumBefore;
+warpNumAfter = handles.WarpNumAfter;
+
+function handles = setWarpIntervalInfo(handles, intervalDurations, intervalTypes, warpIntervalLim, warpNumBefore, warpNumAfter)
+handles.WarpIntervalDuration = intervalDurations;
+handles.WarpIntervalType = intervalTypes;
+handles.WarpIntervalLim = warpIntervalLim;
+handles.WarpNumBefore = warpNumBefore;
+handles.WarpNumAfter = warpNumAfter;
+
+intervalName = get(handles.text_Interval,'string');
+intervalNum = str2double(intervalName);
+intervalIndex = warpIntervalNumToIndex(handles, intervalNum);
+
+warpTypeRadioButtons = findobj('parent',handles.panel_WarpedDurations,'style','radiobutton');
+set(warpTypeRadioButtons(handles.WarpIntervalType(intervalIndex)),'value',1);
+
+function intervalIndex = warpIntervalNumToIndex(handles, intervalNum)
+intervalIndex = intervalNum - handles.WarpIntervalLim(1) + 1;
+if intervalNum > 0
+    intervalIndex = intervalIndex - 1;
+end
+
+function intervalNum = warpIntervalIndexToNum(handles, intervalIndex)
+intervalNum = intervalIndex + handles.WarpIntervalLim(1) - 1;
+if intervalNum >= 0
+    intervalNum = intervalNum + 1;
+end
 
 % --- Executes on button press in push_IntervalDuration.
-function push_IntervalDuration_Callback(hObject, eventdata, handles)
+function push_IntervalDuration_Callback(hObject, ~, handles)
 % hObject    handle to push_IntervalDuration (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-num = str2num(get(handles.text_Interval,'string'));
-indx = num - handles.WarpIntervalLim(1) + 1;
-if num > 0
-    indx = indx - 1;
-end
+intervalName = get(handles.text_Interval,'string');
+intervalNum = str2double(intervalName);
+intervalIndex = warpIntervalNumToIndex(handles, intervalNum);
 
-answer = inputdlg({['Custom duration for interval ' get(handles.text_Interval,'string')]},'Duration',1,{num2str(handles.WarpIntervalDuration(indx))});
+answer = inputdlg({['Custom duration for interval ' intervalName]},'Duration',1,{num2str(handles.WarpIntervalDuration(intervalIndex))});
 if isempty(answer)
     return
 end
-handles.WarpIntervalDuration(indx) = str2num(answer{1});
-handles.WarpIntervalType(indx) = 4;
+handles.WarpIntervalDuration(intervalIndex) = str2double(answer{1});
+handles.WarpIntervalType(intervalIndex) = 4;
 set(handles.radio_WarpCustom,'value',1);
 
 guidata(hObject, handles);
 
 
 % --- Executes on button press in push_IntervalLeft.
-function push_IntervalLeft_Callback(hObject, eventdata, handles)
+function push_IntervalLeft_Callback(hObject, ~, handles)
 % hObject    handle to push_IntervalLeft (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-num = str2num(get(handles.text_Interval,'string'));
+num = str2double(get(handles.text_Interval,'string'));
 num = num - 1;
 if num == 0
     num = -1;
@@ -4092,12 +4202,12 @@ handles = UpdateInterval(handles,num);
 guidata(hObject, handles);
 
 % --- Executes on button press in push_IntervalRight.
-function push_IntervalRight_Callback(hObject, eventdata, handles)
+function push_IntervalRight_Callback(hObject, ~, handles)
 % hObject    handle to push_IntervalRight (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-num = str2num(get(handles.text_Interval,'string'));
+num = str2double(get(handles.text_Interval,'string'));
 num = num + 1;
 if num == 0
     num = 1;
@@ -4107,7 +4217,7 @@ handles = UpdateInterval(handles,num);
 guidata(hObject, handles);
 
 
-function handles = UpdateInterval(handles,num);
+function handles = UpdateInterval(handles,num)
 
 str = num2str(num);
 if num > 0
@@ -4136,9 +4246,9 @@ ch = findobj('parent',handles.panel_WarpedDurations,'style','radiobutton');
 set(ch(handles.WarpIntervalType(indx)),'value',1);
 
 
-function RadioWarpedDurations(hObject, eventdata, handles)
+function RadioWarpedDurations(hObject, ~, handles)
 
-num = str2num(get(handles.text_Interval,'string'));
+num = str2double(get(handles.text_Interval,'string'));
 indx = num - handles.WarpIntervalLim(1) + 1;
 if num > 0
     indx = indx - 1;
@@ -4151,7 +4261,7 @@ handles.WarpIntervalType(indx) = find(ch==sel);
 guidata(hObject, handles);
 
 
-function click_Raster(hObject, eventdata, handles)
+function click_Raster(hObject, ~, handles)
 
 if strcmp(get(gcf,'selectiontype'),'normal')
     set(gca,'units','pixels');
@@ -4169,14 +4279,14 @@ if strcmp(get(gcf,'selectiontype'),'normal')
     rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
     rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
 
-    if rect(3) == 0 | rect(4) == 0
-        if ~strcmp(get(hObject,'type'),'axes') & ~strcmp(get(hObject,'type'),'text')
+    if rect(3) == 0 || rect(4) == 0
+        if ~strcmp(get(hObject,'type'),'axes') && ~strcmp(get(hObject,'type'),'text')
             [mn indx] = min(abs(rect(2)-handles.TrialYs));
             
             x = get(hObject,'xdata');
             y = get(hObject,'ydata');
             if strcmp(get(hObject,'type'),'patch')
-                f = find(x(1,:)<rect(1) & x(2,:)>rect(1) & y(2,:)<rect(2) & y(3,:)>rect(2));
+                f = find(x(1,:)<rect(1) && x(2,:)>rect(1) && y(2,:)<rect(2) && y(3,:)>rect(2));
                 if ~isempty(f)
                     x = x(1:2,f(1));
                 else
@@ -4221,7 +4331,7 @@ elseif strcmp(get(gcf,'selectiontype'),'extend')
     end
 end
 
-function click_PSTH(hObject, eventdata, handles)
+function click_PSTH(~, ~, handles)
 
 if strcmp(get(gcf,'selectiontype'),'normal')
     set(gca,'units','pixels');
@@ -4239,7 +4349,7 @@ if strcmp(get(gcf,'selectiontype'),'normal')
     rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
     rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
 
-    if rect(3) == 0 | rect(4) == 0
+    if rect(3) == 0 || rect(4) == 0
         return
     end
 
@@ -4251,7 +4361,7 @@ else
 end
 
 
-function click_Hist(hObject, eventdata, handles)
+function click_Hist(~, ~, handles)
 
 if strcmp(get(gcf,'selectiontype'),'normal')
     set(gca,'units','pixels');
@@ -4269,7 +4379,7 @@ if strcmp(get(gcf,'selectiontype'),'normal')
     rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
     rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
 
-    if rect(3) == 0 | rect(4) == 0
+    if rect(3) == 0 || rect(4) == 0
         return
     end
 
@@ -4281,7 +4391,7 @@ else
 end
 
 
-function [fld_new stretch] = WarpTrial(fld,oldwarp,newwarp,method,fs,warpstr);
+function [fld_new, stretch] = WarpTrial(fld,oldwarp,newwarp,method,fs,warpstr)
 % warping algorithms
 
 tol = 1/fs;
@@ -4379,13 +4489,13 @@ switch method
         stretch = ones(size(newwarp(2:end)));
 end
 
-if strcmp(warpstr,'dataStart') | strcmp(warpstr,'dataStop')
+if strcmp(warpstr,'dataStart') || strcmp(warpstr,'dataStop')
     fld_new = sort(fld_new);
 end
 
 
 % --- Executes on button press in push_Colors.
-function push_Colors_Callback(hObject, eventdata, handles)
+function push_Colors_Callback(~, ~, handles)
 % hObject    handle to push_Colors (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4406,9 +4516,7 @@ end
 
 
 
-function [funct lab indx] = getContinuousFunction(handles,filenum,axnum,doSubsample)
-
-
+function [funct, lab, indx] = getContinuousFunction(handles,filenum,axnum,doSubsample)
 val = get(handles.egh.popup_Channels(axnum),'value');
 str = get(handles.egh.popup_Channels(axnum),'string');
 nums = [];
@@ -4425,8 +4533,8 @@ if val <= length(str)-sum(nums)
         pos = [0 cumsum(true_len)];
         funct = [];
         for ovr = 1:length(fm);
-            chan = str2num(str{val}(9:end));
-            if length(str{val})>4 & strcmp(str{val}(1:5),'Sound')
+            chan = str2double(str{val}(9:end));
+            if length(str{val})>4 && strcmp(str{val}(1:5),'Sound')
                 [funct1, fs, dt, lab, props] = eg_runPlugin(handles.egh.plugins.loaders, handles.egh.sound_loader, fullfile(handles.egh.DefaultRootPath, handles.egh.sound_files(fm(ovr)).name), true);
             else
                 [funct1, fs, dt, lab, props] = eg_runPlugin(handles.egh.plugins.loaders, handles.egh.chan_loader{chan}, fullfile(handles.egh.DefaultRootPath, handles.egh.chan_files{chan}(fm(ovr)).name), true);
@@ -4446,14 +4554,14 @@ else
     end
     tm = handles.egh.EventTimes{f}{g,filenum};
     issel = handles.egh.EventSelected{f}{g,filenum};
-    ev(tm(find(issel==1))) = 1;
+    ev(tm(issel==1)) = 1;
     funct = ev;
 end
 
 if get(handles.egh.popup_Functions(axnum),'value') > 1
     str = get(handles.egh.popup_Functions(axnum),'string');
     str = str{get(handles.egh.popup_Functions(axnum),'value')};
-    f = findstr(str,' - ');
+    f = strfind(str,' - ');
     if isempty(f)
         [funct, lab] = eg_runPlugin(handles.egh.plugins.filters, str, funct,handles.egh.fs,handles.egh.FunctionParams{axnum});
     else
@@ -4502,14 +4610,14 @@ end
 
 
 % --------------------------------------------------------------------
-function context_Color_Callback(hObject, eventdata, handles)
+function context_Color_Callback(~, ~, ~)
 % hObject    handle to context_Color (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_Background_Callback(hObject, eventdata, handles)
+function menu_Background_Callback(hObject, ~, handles)
 % hObject    handle to menu_Background (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4528,35 +4636,40 @@ set(handles.axes_Raster,'color',handles.BackgroundColor);
 guidata(hObject, handles);
 
 
+function [handles, clim] = getCLim(handles)
+if ~isfield(handles,'CLim')
+    % CLim hasn't been defined yet. Define it first.
+    handles.CLim = get(handles.axes_Raster,'clim');
+end
+clim = handles.CLim;
+
 % --------------------------------------------------------------------
-function menu_CLimits_Callback(hObject, eventdata, handles)
+function menu_CLimits_Callback(hObject, ~, handles)
 % hObject    handle to menu_CLimits (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-if ~isfield(handles,'CLim')
-    handles.CLim = get(handles.axes_Raster,'clim');
-end
+handles = getCLim(handles);
 answer = inputdlg({'Min','Max'},'C-limits',1,{num2str(handles.CLim(1)),num2str(handles.CLim(2))});
 if isempty(answer)
     return
 end
-handles.CLim(1) = str2num(answer{1});
-handles.CLim(2) = str2num(answer{2});
+handles.CLim(1) = str2double(answer{1});
+handles.CLim(2) = str2double(answer{2});
 set(handles.axes_Raster,'clim',handles.CLim);
 
 guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_Colormap_Callback(hObject, eventdata, handles)
+function menu_Colormap_Callback(~, ~, ~)
 % hObject    handle to menu_Colormap (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_SetAutoCLim_Callback(hObject, eventdata, handles)
+function menu_SetAutoCLim_Callback(hObject, ~, handles)
 % hObject    handle to menu_SetAutoCLim (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4569,7 +4682,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_EditColormap_Callback(hObject, eventdata, handles)
+function menu_EditColormap_Callback(~, ~, ~)
 % hObject    handle to menu_EditColormap (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4578,7 +4691,7 @@ colormapeditor;
 
 
 % --------------------------------------------------------------------
-function menu_InvertColormap_Callback(hObject, eventdata, handles)
+function menu_InvertColormap_Callback(~, ~, ~)
 % hObject    handle to menu_InvertColormap (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4589,7 +4702,7 @@ colormap(col);
 
 
 % --- Executes on button press in push_MinDown.
-function push_MinDown_Callback(hObject, eventdata, handles)
+function push_MinDown_Callback(hObject, ~, handles)
 % hObject    handle to push_MinDown (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4606,7 +4719,7 @@ set(handles.axes_Raster,'clim',handles.CLim);
 guidata(hObject, handles);
 
 % --- Executes on button press in push_MinUp.
-function push_MinUp_Callback(hObject, eventdata, handles)
+function push_MinUp_Callback(hObject, ~, handles)
 % hObject    handle to push_MinUp (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4623,7 +4736,7 @@ set(handles.axes_Raster,'clim',handles.CLim);
 guidata(hObject, handles);
 
 % --- Executes on button press in push_MaxDown.
-function push_MaxDown_Callback(hObject, eventdata, handles)
+function push_MaxDown_Callback(hObject, ~, handles)
 % hObject    handle to push_MaxDown (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4640,7 +4753,7 @@ set(handles.axes_Raster,'clim',handles.CLim);
 guidata(hObject, handles);
 
 % --- Executes on button press in push_MaxUp.
-function push_MaxUp_Callback(hObject, eventdata, handles)
+function push_MaxUp_Callback(hObject, ~, handles)
 % hObject    handle to push_MaxUp (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4658,7 +4771,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on selection change in popup_Correlation.
-function popup_Correlation_Callback(hObject, eventdata, handles)
+function popup_Correlation_Callback(~, ~, ~)
 % hObject    handle to popup_Correlation (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4668,7 +4781,7 @@ function popup_Correlation_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function popup_Correlation_CreateFcn(hObject, eventdata, handles)
+function popup_Correlation_CreateFcn(hObject, ~, ~)
 % hObject    handle to popup_Correlation (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -4681,7 +4794,7 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_LogScale_Callback(hObject, eventdata, handles)
+function menu_LogScale_Callback(~, ~, handles)
 % hObject    handle to menu_LogScale (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4695,7 +4808,7 @@ end
 
 
 % --- Executes on button press in push_Select.
-function push_Select_Callback(hObject, eventdata, handles)
+function push_Select_Callback(~, ~, handles)
 % hObject    handle to push_Select (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4716,14 +4829,14 @@ end
 
 
 % --------------------------------------------------------------------
-function context_Select_Callback(hObject, eventdata, handles)
+function context_Select_Callback(~, ~, ~)
 % hObject    handle to context_Select (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function menu_Select1_Callback(hObject, eventdata, handles)
+function menu_Select1_Callback(hObject, ~, handles)
 % hObject    handle to menu_Select1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4732,7 +4845,7 @@ handles = menuSelectClick(handles,1);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_Select2_Callback(hObject, eventdata, handles)
+function menu_Select2_Callback(hObject, ~, handles)
 % hObject    handle to menu_Select2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4741,7 +4854,7 @@ handles = menuSelectClick(handles,2);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_Select3_Callback(hObject, eventdata, handles)
+function menu_Select3_Callback(hObject, ~, handles)
 % hObject    handle to menu_Select3 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4750,7 +4863,7 @@ handles = menuSelectClick(handles,3);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_Select4_Callback(hObject, eventdata, handles)
+function menu_Select4_Callback(hObject, ~, handles)
 % hObject    handle to menu_Select4 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4759,7 +4872,7 @@ handles = menuSelectClick(handles,4);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_Select5_Callback(hObject, eventdata, handles)
+function menu_Select5_Callback(hObject, ~, handles)
 % hObject    handle to menu_Select5 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4768,7 +4881,7 @@ handles = menuSelectClick(handles,5);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_Select6_Callback(hObject, eventdata, handles)
+function menu_Select6_Callback(hObject, ~, handles)
 % hObject    handle to menu_Select6 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4777,7 +4890,7 @@ handles = menuSelectClick(handles,6);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_Select7_Callback(hObject, eventdata, handles)
+function menu_Select7_Callback(hObject, ~, handles)
 % hObject    handle to menu_Select7 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4787,7 +4900,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_Select8_Callback(hObject, eventdata, handles)
+function menu_Select8_Callback(hObject, ~, handles)
 % hObject    handle to menu_Select8 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4796,7 +4909,7 @@ handles = menuSelectClick(handles,8);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_Select9_Callback(hObject, eventdata, handles)
+function menu_Select9_Callback(hObject, ~, handles)
 % hObject    handle to menu_Select9 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4805,7 +4918,7 @@ handles = menuSelectClick(handles,9);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_Select10_Callback(hObject, eventdata, handles)
+function menu_Select10_Callback(hObject, ~, handles)
 % hObject    handle to menu_Select11 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4814,7 +4927,7 @@ handles = menuSelectClick(handles,10);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_Select11_Callback(hObject, eventdata, handles)
+function menu_Select11_Callback(hObject, ~, handles)
 % hObject    handle to menu_Select13 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4823,7 +4936,7 @@ handles = menuSelectClick(handles,11);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_Select12_Callback(hObject, eventdata, handles)
+function menu_Select12_Callback(hObject, ~, handles)
 % hObject    handle to menu_Select13 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4832,7 +4945,7 @@ handles = menuSelectClick(handles,12);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_Select13_Callback(hObject, eventdata, handles)
+function menu_Select13_Callback(hObject, ~, handles)
 % hObject    handle to menu_Select13 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4842,7 +4955,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_Select14_Callback(hObject, eventdata, handles)
+function menu_Select14_Callback(hObject, ~, handles)
 % hObject    handle to menu_Select14 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4852,7 +4965,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_Select15_Callback(hObject, eventdata, handles)
+function menu_Select15_Callback(hObject, ~, handles)
 % hObject    handle to menu_Select15 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4861,7 +4974,7 @@ handles = menuSelectClick(handles,15);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_Select16_Callback(hObject, eventdata, handles)
+function menu_Select16_Callback(hObject, ~, handles)
 % hObject    handle to menu_Select16 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4870,7 +4983,7 @@ handles = menuSelectClick(handles,16);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_Select17_Callback(hObject, eventdata, handles)
+function menu_Select17_Callback(hObject, ~, handles)
 % hObject    handle to menu_Select17 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4879,7 +4992,7 @@ handles = menuSelectClick(handles,17);
 guidata(hObject, handles);
 
 % --------------------------------------------------------------------
-function menu_Select18_Callback(hObject, eventdata, handles)
+function menu_Select18_Callback(hObject, ~, handles)
 % hObject    handle to menu_Select18 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4907,8 +5020,8 @@ if num == 2
     handles.Selection(num,1) = datenum(answer{1});
     handles.Selection(num,2) = datenum(answer{2});
 else
-    handles.Selection(num,1) = str2num(answer{1});
-    handles.Selection(num,2) = str2num(answer{2});
+    handles.Selection(num,1) = str2double(answer{1});
+    handles.Selection(num,2) = str2double(answer{2});
 end
 
 
@@ -5008,7 +5121,7 @@ set(handles.text_NumTriggers,'string',[num2str(sum(handles.TriggerSelection)) ' 
 
 
 % --------------------------------------------------------------------
-function menu_SelectLabel_Callback(hObject, eventdata, handles)
+function menu_SelectLabel_Callback(hObject, ~, handles)
 % hObject    handle to menu_SelectLabel (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -5022,7 +5135,7 @@ if isempty(handles.LabelRange)
     handles.LabelSelectionInc = answer{1};
     handles.LabelSelectionExc = answer{2};
 
-    f = findstr(handles.LabelSelectionInc,'''''');
+    f = strfind(handles.LabelSelectionInc,'''''');
     inc = handles.LabelSelectionInc;
     inc([f f+1]) = [];
     inc = double(inc);
@@ -5030,7 +5143,7 @@ if isempty(handles.LabelRange)
         inc = [inc 0];
     end
 
-    f = findstr(handles.LabelSelectionExc,'''''');
+    f = strfind(handles.LabelSelectionExc,'''''');
     exc = handles.LabelSelectionExc;
     exc([f f+1]) = [];
     exc = double(exc);
@@ -5040,10 +5153,10 @@ if isempty(handles.LabelRange)
 
     f = zeros(1,length(handles.triggerInfo.absTime));
     for c = 1:length(handles.triggerInfo.absTime)
-        if ~isempty(find(inc==handles.triggerInfo.label(c))) | isempty(inc)
+        if ~isempty(find(inc==handles.triggerInfo.label(c), 1)) || isempty(inc)
             f(c) = 1;
         end
-        if ~isempty(find(exc==handles.triggerInfo.label(c)))
+        if ~isempty(find(exc==handles.triggerInfo.label(c), 1))
             f(c) = 0;
         end
     end
@@ -5052,8 +5165,8 @@ else
     if isempty(answer)
         return
     end
-    handles.LabelRange(1) = str2num(answer{1});
-    handles.LabelRange(2) = str2num(answer{2});
+    handles.LabelRange(1) = str2double(answer{1});
+    handles.LabelRange(2) = str2double(answer{2});
     
     f = (handles.triggerInfo.label>=handles.LabelRange(1)+1000 & handles.triggerInfo.label<=handles.LabelRange(2)+1000);
 end
@@ -5066,7 +5179,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_SelectAll_Callback(hObject, eventdata, handles)
+function menu_SelectAll_Callback(hObject, ~, handles)
 % hObject    handle to menu_SelectAll (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -5080,7 +5193,7 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function menu_InvertSelection_Callback(hObject, eventdata, handles)
+function menu_InvertSelection_Callback(hObject, ~, handles)
 % hObject    handle to menu_InvertSelection (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -5092,50 +5205,76 @@ set(handles.text_NumTriggers,'string',[num2str(sum(handles.TriggerSelection)) ' 
 
 guidata(hObject, handles);
 
+function direction = getHistogramDirection(handles)
+if strcmp(get(handles.push_HistHoriz, 'fontweight'), 'bold')
+    direction = 'horizontal';
+elseif strcmp(get(handles.push_HistVert,'fontweight'), 'bold')
+    direction = 'vertical';
+else
+    direction = 'error';
+end
+
+function handles = setHistogramDirection(handles, direction)
+switch direction
+    case 'horizontal'
+        set(handles.push_HistHoriz,'fontweight','bold');
+        set(handles.push_HistVert,'fontweight','normal');
+        set(handles.check_HistShow,'value',handles.HistShow(1));
+
+        set(handles.popup_PSTHUnits,'visible','on');
+        set(handles.popup_PSTHCount,'visible','on');
+        set(handles.popup_HistUnits,'visible','off');
+        set(handles.popup_HistCount,'visible','off');
+    case 'vertical'
+        set(handles.push_HistHoriz,'fontweight','normal');
+        set(handles.push_HistVert,'fontweight','bold');
+        set(handles.check_HistShow,'value',handles.HistShow(2));
+
+        set(handles.popup_PSTHUnits,'visible','off');
+        set(handles.popup_PSTHCount,'visible','off');
+        set(handles.popup_HistUnits,'visible','on');
+        set(handles.popup_HistCount,'visible','on');
+end
+
 
 % --- Executes on button press in push_HistHoriz.
-function push_HistHoriz_Callback(hObject, eventdata, handles)
+function push_HistHoriz_Callback(hObject, ~, ~)
 % hObject    handle to push_HistHoriz (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-
-set(handles.push_HistHoriz,'fontweight','bold');
-set(handles.push_HistVert,'fontweight','normal');
-set(handles.check_HistShow,'value',handles.HistShow(1));
-
-set(handles.popup_PSTHUnits,'visible','on');
-set(handles.popup_PSTHCount,'visible','on');
-set(handles.popup_HistUnits,'visible','off');
-set(handles.popup_HistCount,'visible','off');
-
+handles = guidata(hObject);
+handles = setHistogramDirection(handles, 'horizontal');
+guidata(hObject, handles);
 
 % --- Executes on button press in push_HistVert.
-function push_HistVert_Callback(hObject, eventdata, handles)
+function push_HistVert_Callback(hObject, ~, ~)
 % hObject    handle to push_HistVert (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-set(handles.push_HistHoriz,'fontweight','normal');
-set(handles.push_HistVert,'fontweight','bold');
-set(handles.check_HistShow,'value',handles.HistShow(2));
-
-set(handles.popup_PSTHUnits,'visible','off');
-set(handles.popup_PSTHCount,'visible','off');
-set(handles.popup_HistUnits,'visible','on');
-set(handles.popup_HistCount,'visible','on');
+handles = guidata(hObject);
+handles = setHistogramDirection(handles, 'vertical');
+guidata(hObject, handles);
 
 % --- Executes on button press in check_HistShow.
-function check_HistShow_Callback(hObject, eventdata, handles)
+function check_HistShow_Callback(hObject, ~, handles)
 % hObject    handle to check_HistShow (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hint: get(hObject,'Value') returns toggle state of check_HistShow
 
-if strcmp(get(handles.push_HistHoriz,'fontweight'),'bold')
-    handles.HistShow(1) = get(handles.check_HistShow,'value');
-else
-    handles.HistShow(2) = get(handles.check_HistShow,'value');
+handles = updateHistogramVisibility(handles);
+
+guidata(hObject, handles);
+
+function handles = updateHistogramVisibility(handles)
+
+switch getHistogramDirection(handles)
+    case 'horizontal'
+        handles.HistShow(1) = get(handles.check_HistShow,'value');
+    case 'vertical'
+        handles.HistShow(2) = get(handles.check_HistShow,'value');
 end
 
 st = {'off','on'};
@@ -5169,11 +5308,8 @@ pos(4) = h;
 drawnow
 set(handles.axes_Hist,'position',pos);
 
-guidata(hObject, handles);
-
-
 % --- Executes on selection change in popup_HistUnits.
-function popup_HistUnits_Callback(hObject, eventdata, handles)
+function popup_HistUnits_Callback(~, ~, ~)
 % hObject    handle to popup_HistUnits (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -5183,7 +5319,7 @@ function popup_HistUnits_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function popup_HistUnits_CreateFcn(hObject, eventdata, handles)
+function popup_HistUnits_CreateFcn(hObject, ~, ~)
 % hObject    handle to popup_HistUnits (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -5196,7 +5332,7 @@ end
 
 
 % --- Executes on selection change in popup_HistCount.
-function popup_HistCount_Callback(hObject, eventdata, handles)
+function popup_HistCount_Callback(~, ~, ~)
 % hObject    handle to popup_HistCount (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -5206,7 +5342,7 @@ function popup_HistCount_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function popup_HistCount_CreateFcn(hObject, eventdata, handles)
+function popup_HistCount_CreateFcn(hObject, ~, ~)
 % hObject    handle to popup_HistCount (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -5219,7 +5355,7 @@ end
 
 
 % --- Executes on button press in push_DeleteEvents.
-function push_DeleteEvents_Callback(hObject, eventdata, handles)
+function push_DeleteEvents_Callback(hObject, ~, handles)
 % hObject    handle to push_DeleteEvents (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -5256,7 +5392,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on selection change in popup_EventList.
-function popup_EventList_Callback(hObject, eventdata, handles)
+function popup_EventList_Callback(~, ~, ~)
 % hObject    handle to popup_EventList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -5266,7 +5402,7 @@ function popup_EventList_Callback(hObject, eventdata, handles)
 
 
 % --- Executes during object creation, after setting all properties.
-function popup_EventList_CreateFcn(hObject, eventdata, handles)
+function popup_EventList_CreateFcn(hObject, ~, ~)
 % hObject    handle to popup_EventList (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -5279,7 +5415,7 @@ end
 
 
 % --- Executes on button press in check_WarpingOn.
-function check_WarpingOn_Callback(hObject, eventdata, handles)
+function check_WarpingOn_Callback(hObject, ~, handles)
 % hObject    handle to check_WarpingOn (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -5313,35 +5449,35 @@ guidata(hObject, handles);
 
 
 % --------------------------------------------------------------------
-function context_MatlabExport_Callback(hObject, eventdata, handles)
+function context_MatlabExport_Callback(~, ~, ~)
 % hObject    handle to context_MatlabExport (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function Untitled_5_Callback(hObject, eventdata, handles)
+function Untitled_5_Callback(~, ~, ~)
 % hObject    handle to Untitled_5 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function Untitled_8_Callback(hObject, eventdata, handles)
+function Untitled_8_Callback(~, ~, ~)
 % hObject    handle to Untitled_8 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --------------------------------------------------------------------
-function Untitled_11_Callback(hObject, eventdata, handles)
+function Untitled_11_Callback(~, ~, ~)
 % hObject    handle to Untitled_11 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % --- Executes on button press in push_AutoColor.
-function push_AutoColor_Callback(hObject, eventdata, handles)
+function push_AutoColor_Callback(hObject, ~, handles)
 % hObject    handle to push_AutoColor (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -5353,7 +5489,7 @@ is_marker = strcmp(str{get(handles.popup_TriggerType,'value')},'Markers');
 if ~isempty(handles.P.trig.includeSyllList) && (is_syllable || is_marker)
     inc = handles.P.trig.includeSyllList;
     inc = double(inc);
-    f = findstr(inc,'''''');
+    f = strfind(inc,'''''');
     if ~isempty(f)
         inc(f+1) = [];
         inc(f) = 0;
@@ -5365,13 +5501,13 @@ end
 if ~isempty(handles.P.trig.ignoreSyllList) && (is_syllable || is_marker)
     exc = handles.P.trig.ignoreSyllList;
     exc = double(exc);
-    f = findstr(exc,'''''');
+    f = strfind(exc,'''''');
     if ~isempty(f)
         exc(f+1) = [];
         exc(f) = 0;
     end
     for c = 1:length(exc)
-        inc(find(inc==exc(c))) = [];
+        inc(inc==exc(c)) = [];
     end
 end
 
@@ -5425,7 +5561,7 @@ while islast == 0
        case 3
            answer = inputdlg({'Number of colors'},'Auto colors',1,{num2str(size(handles.PlotAutoColors,1))});
            if ~isempty(answer)
-               handles.PlotAutoColors = hsv(str2num(answer{1}));
+               handles.PlotAutoColors = hsv(str2double(answer{1}));
            end
        case 4
            
@@ -5446,8 +5582,8 @@ while islast == 0
            for c = 1:length(inc)
                srt(c) = mean(find(handles.triggerInfo.label==inc(c)));
            end
-           [srt ord] = sort(srt);
-           [srt ord] = sort(ord);
+           [srt, ord] = sort(srt);
+           [srt, ord] = sort(ord);
            if size(handles.PlotAutoColors,1)>=length(ord)
                handles.PlotAutoColors(1:length(ord),:) = handles.PlotAutoColors(ord,:);
            else
@@ -5488,7 +5624,7 @@ for c = 1:length(handles.triggerInfo.label)
     end
 end
 md = mod(lab,size(handles.PlotAutoColors,1));
-md(find(md==0)) = size(handles.PlotAutoColors,1);
+md(md==0) = size(handles.PlotAutoColors,1);
 
 legend_str = '';
 for c = 1:length(inc)
@@ -5519,7 +5655,7 @@ for m = 1:size(handles.PlotAutoColors,1)
     selection = (md==m);
     event_indx = get(handles.popup_EventList,'value');
 
-    if val == 10 | val == 11 | val ==12
+    if val == 10 || val == 11 || val ==12
         indx2 = cumsum(cellfun('length',handles.AllEventOnsets{event_indx}));
         indx1 = [1 indx2(1:end-1)+1];
         indx = [];
@@ -5564,7 +5700,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in check_GroupLabels.
-function check_GroupLabels_Callback(hObject, eventdata, handles)
+function check_GroupLabels_Callback(hObject, ~, handles)
 % hObject    handle to check_GroupLabels (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -5575,7 +5711,7 @@ handles = AutoInclude(handles);
 guidata(hObject, handles);
 
 % --- Executes on button press in push_MatlabExport.
-function push_MatlabExport_Callback(hObject, eventdata, handles)
+function push_MatlabExport_Callback(~, ~, handles)
 % hObject    handle to push_MatlabExport (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -5597,7 +5733,7 @@ end
 
 
 % --- Executes on button press in check_AutoInclude.
-function check_AutoInclude_Callback(hObject, eventdata, handles)
+function check_AutoInclude_Callback(hObject, ~, handles)
 % hObject    handle to check_AutoInclude (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -5620,7 +5756,7 @@ str1 = str{get(handles.popup_PrimarySort,'value')};
 str = get(handles.popup_SecondarySort,'string');
 str2 = str{get(handles.popup_SecondarySort,'value')};
 
-if get(handles.check_GroupLabels,'value')==1 | ~strcmp(str2,'Absolute time')
+if get(handles.check_GroupLabels,'value')==1 || ~strcmp(str2,'Absolute time')
     str = str2;
 else
     str = str1;
@@ -5649,20 +5785,13 @@ if strcmp(str,'Offset')
     handles.PlotInclude(5) = 1;
 end
 
-for c = [1 2 4 5 7 8]
-    if handles.PlotInclude(c)==1
-        str_obj{c}(19:24) = 'FF0000';
-    else
-        str_obj{c}(19:24) = '000000';
-    end
-end
+handles = updatePlotIncludeColors(handles);
 
-set(handles.list_Plot,'string',str_obj);
 set(handles.check_PlotInclude,'value',handles.PlotInclude(get(handles.list_Plot,'value')));
 
 
 % --- Executes on button press in check_SkipSorting.
-function check_SkipSorting_Callback(hObject, eventdata, handles)
+function check_SkipSorting_Callback(~, ~, ~)
 % hObject    handle to check_SkipSorting (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -5682,11 +5811,11 @@ if isempty(answer)
     return
 end
 
-handles.overlaptolerance = str2num(answer{1});
+handles.overlaptolerance = str2double(answer{1});
 tol = handles.overlaptolerance*handles.fs;
 
 for c = length(handles.DatesAndTimes)-1:-1:1
-    if handles.FileLength(c)==0 | handles.FileLength(c+1)==0
+    if handles.FileLength(c)==0 || handles.FileLength(c+1)==0
         continue
     end
     
@@ -5715,7 +5844,7 @@ for c = length(handles.DatesAndTimes)-1:-1:1
         end
         handles.FileLength(c) = round((handles.DatesAndTimes(c+1)-handles.DatesAndTimes(c))*(24*60*60)*handles.fs + handles.FileLength(c+1));
         
-        handles.Overlaps(find(handles.Overlaps==c+1)) = c;
+        handles.Overlaps(handles.Overlaps==c+1) = c;
     end
     
 end
@@ -5778,14 +5907,14 @@ end
 
 
 % --------------------------------------------------------------------
-function menu_ExportData_Callback(hObject, eventdata, handles)
+function menu_ExportData_Callback(~, ~, handles)
 % hObject    handle to menu_ExportData (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 [file, path] = uiputfile('raster.mat','Save trigger info');
-if ~isstr(file)
+if ~ischar(file)
     return
 end
 
@@ -5795,13 +5924,13 @@ triggerInfo.eventOnsets = handles.AllEventOnsets;
 triggerInfo.eventOffsets = handles.AllEventOffsets;
 triggerInfo.eventLabels = handles.AllEventLabels;
 triggerInfo.eventNames = get(handles.popup_EventList,'string')';
-for c = 1:length(triggerInfo.eventNames)
-    f = findstr(triggerInfo.eventNames{c},'Syllables');
+for warpInterval = 1:length(triggerInfo.eventNames)
+    f = strfind(triggerInfo.eventNames{warpInterval},'Syllables');
     if ~isempty(f)
-        triggerInfo.eventNames{c} = '[Syllables] Sound';
+        triggerInfo.eventNames{warpInterval} = '[Syllables] Sound';
     else
-        f = findstr(triggerInfo.eventNames{c},'-');
-        triggerInfo.eventNames{c} = triggerInfo.eventNames{c}(1:f(end)-2);
+        f = strfind(triggerInfo.eventNames{warpInterval},'-');
+        triggerInfo.eventNames{warpInterval} = triggerInfo.eventNames{warpInterval}(1:f(end)-2);
     end
 end
 
@@ -5826,38 +5955,38 @@ W = {};
 str = get(handles.popup_WarpingAlgorithm,'string');
 W.algorithm = str{get(handles.popup_WarpingAlgorithm,'value')};
 W.maxCorrShift = handles.corrMax;
-pos = [handles.WarpIntervalLim(1):-1 1:handles.WarpIntervalLim(2)];
+warpIntervals = [handles.WarpIntervalLim(1):-1 1:handles.WarpIntervalLim(2)];
 str = {'Mean','Median','Maximum','Custom'};
 W.intervals.numBefore = handles.WarpNumBefore;
 W.intervals.numAfter = handles.WarpNumAfter;
 W.intervals.types = str(handles.WarpIntervalType);
 W.intervals.customDurations = handles.WarpIntervalDuration;
-W.intervals.customDurations(find(handles.WarpIntervalType<4)) = NaN;
+W.intervals.customDurations(handles.WarpIntervalType<4) = NaN;
 
-f = find(pos<-handles.WarpNumBefore | pos>handles.WarpNumAfter);
+f = find(warpIntervals<-handles.WarpNumBefore | warpIntervals>handles.WarpNumAfter);
 W.intervals.types(f) = [];
 W.intervals.customDurations(f) = [];
-pos(f) = [];
+warpIntervals(f) = [];
 
-for c = -1:-1:-handles.WarpNumBefore
-    if isempty(find(pos==c))
+for warpInterval = -1:-1:-handles.WarpNumBefore
+    if isempty(find(warpIntervals==warpInterval, 1))
         W.intervals.types = ['Mean' W.intervals.types];
         W.intervals.customDurations = [NaN W.intervals.customDurations];
     end
 end
-for c = 1:handles.WarpNumAfter
-    if isempty(find(pos==c))
+for warpInterval = 1:handles.WarpNumAfter
+    if isempty(find(warpIntervals==warpInterval, 1))
         W.intervals.types = [W.intervals.types 'Mean'];
         W.intervals.customDurations = [W.intervals.customDurations NaN];
     end
 end
 
 W.points = {};
-for c = 1:length(handles.WarpPoints);
+for warpIdx = 1:length(handles.WarpPoints);
     str = get(handles.popup_TriggerSource,'string');
-    W.points{c}.name = ['[' handles.WarpPoints{c}.type '] ' str{handles.WarpPoints{c}.source+1}];
-    W.points{c}.alignment = handles.WarpPoints{c}.alignment;
-    W.points{c}.options = handles.WarpPoints{c}.P;
+    W.points{warpIdx}.name = ['[' handles.WarpPoints{warpIdx}.type '] ' str{handles.WarpPoints{warpInwarpIdxterval}.source+1}];
+    W.points{warpIdx}.alignment = handles.WarpPoints{warpIdx}.alignment;
+    W.points{warpIdx}.options = handles.WarpPoints{warpIdx}.P;
 end
 triggerInfo.warpOptions = W;
 
@@ -5896,7 +6025,7 @@ save([path file],'trigInfo');
 
 
 % --------------------------------------------------------------------
-function menu_ExportFigure_Callback(hObject, eventdata, handles)
+function menu_ExportFigure_Callback(~, ~, handles)
 % hObject    handle to menu_ExportFigure (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -5932,3 +6061,543 @@ if handles.HistShow(2) == 1
     set(ax,'buttondownfcn','');
     set(get(ax,'children'),'buttondownfcn','');
 end
+
+
+% --- Executes on selection change in popup_Presets.
+function popup_Presets_Callback(~, ~, ~)
+% hObject    handle to popup_Presets (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns popup_Presets contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from popup_Presets
+
+
+% --- Executes during object creation, after setting all properties.
+function popup_Presets_CreateFcn(hObject, ~, ~)
+% hObject    handle to popup_Presets (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+function handles = loadPresets(handles)
+presets = findPresets(handles.preset_prefix);
+if isempty(presets)
+    set(handles.popup_Presets, 'Value', 1); % If you reduce the # of elements in the popup such that it is greater than the current selection index ('Value') the popup just...disappears.
+    set(handles.popup_Presets, 'String', handles.no_presets_found);
+    set(handles.popup_Presets, 'enable', 'off');
+    set(handles.push_LoadPreset, 'enable', 'off');
+    set(handles.push_DeletePreset, 'enable', 'off');
+else
+    if get(handles.popup_Presets, 'Value') > length(presets)
+        % If you reduce the # of elements in the popup such that it is 
+        %   greater than the current selection index ('Value') the popup 
+        %   just...disappears. It's a MATLAB bug. 
+        set(handles.popup_Presets, 'Value', length(presets));
+    end
+    set(handles.popup_Presets, 'String', presets);
+    set(handles.popup_Presets, 'enable', 'on');
+    set(handles.push_LoadPreset, 'enable', 'on');
+    set(handles.push_DeletePreset, 'enable', 'on');
+end
+
+
+function [ok, badChars, allowedChars] = isNameOk(name)
+% Check that name does not contain any disallowed characters
+allowedChars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_';
+okChars = ismember(name, allowedChars);
+if any(~okChars)
+    % Name contains disallowed characters
+    badChars = sort(unique(name(~okChars)));
+    ok = false;
+else
+    badChars = '';
+    ok = true;
+end
+
+function names = findPresets(prefix)
+% Create a struct array containing the name and path to all raster preset files'
+f = dir([prefix, '*.mat']);
+names = {};
+for k = 1:length(f)
+    [~, fileName, ~] = fileparts(f(k).name);
+    name = regexp(fileName, [prefix, '(.*)'], 'tokens', 'once');
+    name = name{1};
+    [ok, disallowedChars, allowedChars] = isNameOk(name);
+    if ~ok
+        warning('Name of plugin ''%s'' contains disallowed characters: ''%s''\nPlease change plugin name so it only includes the characters: \n%s', name, disallowedChars, allowedChars);
+        continue;
+    end
+    names{k} = name;
+end
+% disp('Presets found:')
+% disp(names)
+
+% --- Executes on button press in push_LoadPreset.
+function push_LoadPreset_Callback(hObject, ~, handles)
+% hObject    handle to push_LoadPreset (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+presetNames = get(handles.popup_Presets, 'String');
+selectedPresetIdx = get(handles.popup_Presets, 'Value');
+selectedPresetName = presetNames{selectedPresetIdx};
+if strcmp(selectedPresetName, handles.no_presets_found)
+    % No presets exist, this shouldn't even be able to run.
+    return;
+end
+presetFileName = [handles.preset_prefix, selectedPresetName];
+s = load(presetFileName);
+preset = s.preset;
+
+fprintf('Loading preset %s...\n', presetFileName);
+
+% Trigger options
+set(handles.popup_Files, 'Value', preset.popup_Files);
+set(handles.popup_TriggerSource, 'Value', preset.popup_TriggerSource);
+set(handles.popup_TriggerType, 'Value', preset.popup_TriggerType);
+set(handles.check_CopyEvents, 'Value', preset.check_CopyEvents);
+set(handles.popup_TriggerAlignment, 'Value', preset.popup_TriggerAlignment);
+
+% Trigger/Event options
+set(handles.popup_EventSource, 'Value', preset.popup_EventSource);
+set(handles.popup_EventType, 'Value', preset.popup_EventType);
+handles.P = preset.P;
+handles = respondToEventSourceChange(handles);
+
+set(handles.check_WarpingOn, 'Value', preset.check_WarpingOn);
+
+% Time warping options
+set(handles.popup_Correlation, 'Value', preset.popup_Correlation);
+set(handles.list_WarpPoints, 'Value', preset.list_WarpPoints);
+set(handles.popup_WarpingAlgorithm, 'Value', preset.popup_WarpingAlgorithm);
+handles = setWarpOptions(handles, preset.corrMax, preset.WarpNumBefore, preset.WarpNumAfter);
+handles = setWarpIntervalInfo(handles, preset.warpIntervalDurations, preset.warpIntervalTypes, preset.warpIntervalLim, preset.warpNumBefore, preset.warpNumAfter);
+
+% Filtering options
+set(handles.list_Filter, 'Value', preset.list_Filter);
+set(handles.edit_FilterFrom, 'String', preset.edit_FilterFrom);
+set(handles.edit_FilterTo, 'String', preset.edit_FilterTo);
+
+% Window options
+set(handles.check_LockLimits, 'Value', preset.check_LockLimits);
+set(handles.check_ExcludeIncomplete, 'Value', preset.check_ExcludeIncomplete);
+set(handles.check_ExcludePartialEvents, 'Value', preset.check_ExcludePartialEvents);
+set(handles.popup_StartReference, 'Value', preset.popup_StartReference);
+set(handles.popup_StopReference, 'Value', preset.popup_StopReference);
+
+% Raster color options
+handles.BackgroundColor = preset.BackgroundColor;
+handles.CLim = preset.CLim;
+colormap(preset.colormap);
+set(handles.menu_LogScale, 'Checked', preset.logScale);
+
+% Event selection options
+set(handles.popup_EventList, 'Value', preset.popup_EventList);
+set(handles.check_HoldOn, 'Value', preset.check_HoldOn);
+set(handles.check_SkipSorting, 'Value', preset.check_SkipSorting);
+
+% Exporting options
+set(handles.radio_HeightAbsolute, 'Value', preset.radio_HeightAbsolute);
+set(handles.radio_HeightPerTrial, 'Value', preset.radio_HeightPerTrial);
+set(handles.radio_HeightPerTime, 'Value', preset.radio_HeightPerTime);
+set(handles.radio_WidthAbsolute, 'Value', preset.radio_WidthAbsolute);
+set(handles.radio_WidthPerTime, 'Value', preset.radio_WidthPerTime);
+set(handles.check_IncludePSTH, 'Value', preset.check_IncludePSTH);
+handles = setDimensions(handles, preset.ExportPSTHHeight, preset.ExportHistHeight, preset.ExportInterval, preset.ExportResolution, preset.ExportWidth, preset.ExportHeight);
+
+% Histogram options
+set(handles.check_HistShow, 'Value', preset.check_HistShow);
+handles = updateHistogramVisibility(handles);
+
+set(handles.radio_PSTHAuto, 'Value', preset.radio_PSTHAuto);
+set(handles.radio_PSTHManual, 'Value', preset.radio_PSTHManual);
+handles = setHistogramDirection(handles, preset.histogram_direction);
+set(handles.popup_HistUnits, 'Value', preset.popup_HistUnits);
+set(handles.popup_PSTHUnits, 'Value', preset.popup_PSTHUnits);
+set(handles.popup_HistCount, 'Value', preset.popup_HistCount);
+set(handles.popup_PSTHCount, 'Value', preset.popup_PSTHCount);
+handles.PSTHBinSize = preset.PSTHBinSize;
+handles.PSTHSmoothingWindow = preset.PSTHSmoothingWindow;
+handles.PSTHYLim = preset.PSTHYLim;
+handles.PSTHYLim = preset.PSTHYLim;
+handles.HistBinSize = preset.HistBinSize;
+handles.HistSmoothingWindow = preset.HistSmoothingWindow;
+handles.ROILim = preset.ROILim;
+handles.ROILim = preset.ROILim;
+handles.HistYLim = preset.HistYLim;
+handles.HistYLim = preset.HistYLim;
+
+val = preset.popup_PSTHUnits;
+if strcmp(get(handles.popup_EventType,'enable'),'off')
+    val = val + 3;
+end
+if preset.radio_PSTHManual == 1
+    set(handles.axes_PSTH,'ylim',handles.PSTHYLim(val,:));
+end
+if preset.radio_YTrial == 1
+    val = 1;
+else
+    val = 2;
+end
+if preset.radio_PSTHManual==1
+    set(handles.axes_Hist,'xlim',handles.HistYLim(val,:));
+end
+
+% Raster options
+set(handles.list_Plot, 'Value', preset.list_Plot);
+set(handles.check_AutoInclude, 'Value', preset.check_AutoInclude);
+set(handles.check_PlotInclude, 'Value', preset.check_PlotInclude);
+set(handles.check_PlotContinuous, 'Value', preset.check_PlotContinuous);
+handles = setPlotColors(handles, preset.plotColor);
+handles.PlotInclude = preset.plotInclude;
+
+handles.PlotLineWidth = preset.PlotLineWidth;
+handles.PlotAlpha = preset.PlotAlpha;
+set(handles.radio_TickTrials, 'Value', preset.radio_TickTrials);
+set(handles.radio_TickSeconds, 'Value', preset.radio_TickSeconds);
+set(handles.radio_TickInches, 'Value', preset.radio_TickInches);
+set(handles.radio_TickPercent, 'Value', preset.radio_TickPercent);
+handles.PlotTickSize = preset.PlotTickSize;
+handles.PlotInPerSec = preset.PlotInPerSec;
+handles.PlotOverlap = preset.PlotOverlap;
+set(handles.check_CopyWindow, 'Value', preset.check_CopyWindow);
+set(handles.radio_YTrial, 'Value', preset.radio_YTrial);
+set(handles.radio_YTime, 'Value', preset.radio_YTime);
+handles = setTimeLimits(handles, preset.push_TimeLimits_min, preset.push_TimeLimits_max);
+
+% Sorting options
+set(handles.popup_PrimarySort, 'Value', preset.popup_PrimarySort);
+set(handles.check_PrimaryDescending, 'Value', preset.check_PrimaryDescending);
+set(handles.check_GroupLabels, 'Value', preset.check_GroupLabels);
+set(handles.popup_SecondarySort, 'Value', preset.popup_SecondarySort);
+set(handles.check_SecondaryDescending, 'Value', preset.check_SecondaryDescending);
+
+guidata(hObject, handles);
+fprintf('...done loading preset\n');
+
+% --- Executes on button press in push_SavePreset.
+function push_SavePreset_Callback(hObject, ~, handles)
+% hObject    handle to push_SavePreset (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Gather all relevant settings and save them as a preset structure in a mat
+% file.
+allowedChars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_';
+answer = inputdlg({['Please enter a name for this new preset, using only the characters ', allowedChars]}, 'Save new preset', 1, {'NewPreset'});
+if isempty(answer)
+    disp('Save preset cancelled');
+    return;
+end
+newPresetName = answer{1};
+newPresetFilename = [handles.preset_prefix, newPresetName, '.mat'];
+if exist(newPresetFilename, 'file')
+    overwrite = questdlg(sprintf('A preset by the name %s already exists. Overwrite?', newPresetName));
+    if ~strcmp(overwrite, 'Yes')
+        disp('Save preset cancelled');
+        return
+    end
+end
+
+% Trigger options
+preset.popup_Files = get(handles.popup_Files, 'Value');
+preset.popup_TriggerSource = get(handles.popup_TriggerSource, 'Value');
+preset.popup_TriggerType = get(handles.popup_TriggerType, 'Value');
+preset.check_CopyEvents = get(handles.check_CopyEvents, 'Value');
+preset.popup_TriggerAlignment = get(handles.popup_TriggerAlignment, 'Value');
+
+% Trigger/Event options
+preset.popup_EventSource = get(handles.popup_EventSource, 'Value');
+preset.popup_EventType = get(handles.popup_EventType, 'Value');
+preset.P = handles.P;
+
+preset.check_WarpingOn = get(handles.check_WarpingOn, 'Value');
+
+% Time warping options
+preset.popup_Correlation = get(handles.popup_Correlation, 'Value');
+preset.list_WarpPoints = get(handles.list_WarpPoints, 'Value');
+preset.popup_WarpingAlgorithm = get(handles.popup_WarpingAlgorithm, 'Value');
+[preset.corrMax, preset.WarpNumBefore, preset.WarpNumAfter] = getWarpOptions(handles);
+
+[preset.warpIntervalDurations, preset.warpIntervalTypes, preset.warpIntervalLim, preset.warpNumBefore, preset.warpNumAfter] = getWarpIntervalInfo(handles);
+
+% Filtering options
+preset.list_Filter = get(handles.list_Filter, 'Value');
+preset.edit_FilterFrom = get(handles.edit_FilterFrom, 'String');
+preset.edit_FilterTo = get(handles.edit_FilterTo, 'String');
+
+% Window options
+preset.check_LockLimits = get(handles.check_LockLimits, 'Value');
+preset.check_ExcludeIncomplete = get(handles.check_ExcludeIncomplete, 'Value');
+preset.check_ExcludePartialEvents = get(handles.check_ExcludePartialEvents, 'Value');
+preset.popup_StartReference = get(handles.popup_StartReference, 'Value');
+preset.popup_StopReference = get(handles.popup_StopReference, 'Value');
+
+% Raster color options
+preset.BackgroundColor = handles.BackgroundColor;
+[handles, preset.CLim] = getCLim(handles);
+preset.colormap = colormap;
+preset.logScale = get(handles.menu_LogScale, 'Checked');
+
+% Event selection options
+preset.popup_EventList = get(handles.popup_EventList, 'Value');
+preset.check_HoldOn = get(handles.check_HoldOn, 'Value');
+preset.check_SkipSorting = get(handles.check_SkipSorting, 'Value');
+
+% Exporting options
+preset.radio_HeightAbsolute = get(handles.radio_HeightAbsolute, 'Value');
+preset.radio_HeightPerTrial = get(handles.radio_HeightPerTrial, 'Value');
+preset.radio_HeightPerTime = get(handles.radio_HeightPerTime, 'Value');
+preset.radio_WidthAbsolute = get(handles.radio_WidthAbsolute, 'Value');
+preset.radio_WidthPerTime = get(handles.radio_WidthPerTime, 'Value');
+preset.check_IncludePSTH = get(handles.check_IncludePSTH, 'Value');
+[preset.ExportPSTHHeight, preset.ExportHistHeight, preset.ExportInterval, preset.ExportResolution, preset.ExportWidth, preset.ExportHeight] = getDimensons(handles);
+
+% Histogram options
+preset.check_HistShow = get(handles.check_HistShow, 'Value');
+preset.radio_PSTHAuto = get(handles.radio_PSTHAuto, 'Value');
+preset.radio_PSTHManual = get(handles.radio_PSTHManual, 'Value');
+preset.histogram_direction = getHistogramDirection(handles);
+preset.popup_HistUnits = get(handles.popup_HistUnits, 'Value');
+preset.popup_PSTHUnits = get(handles.popup_PSTHUnits, 'Value');
+preset.popup_HistCount = get(handles.popup_HistCount, 'Value');
+preset.popup_PSTHCount = get(handles.popup_PSTHCount, 'Value');
+preset.PSTHBinSize = handles.PSTHBinSize;
+preset.PSTHSmoothingWindow = handles.PSTHSmoothingWindow;
+preset.PSTHYLim = handles.PSTHYLim;
+preset.PSTHYLim = handles.PSTHYLim;
+preset.HistBinSize = handles.HistBinSize;
+preset.HistSmoothingWindow = handles.HistSmoothingWindow;
+preset.ROILim = handles.ROILim;
+preset.ROILim = handles.ROILim;
+preset.HistYLim = handles.HistYLim;
+preset.HistYLim = handles.HistYLim;
+
+% Raster options
+preset.list_Plot = get(handles.list_Plot, 'Value');
+preset.check_AutoInclude = get(handles.check_AutoInclude, 'Value');
+preset.check_PlotInclude = get(handles.check_PlotInclude, 'Value');
+preset.check_PlotContinuous = get(handles.check_PlotContinuous, 'Value');
+
+preset.plotColor = getPlotColors(handles);
+preset.plotInclude = handles.PlotInclude;
+
+preset.PlotLineWidth = handles.PlotLineWidth;
+preset.PlotAlpha = handles.PlotAlpha;
+preset.radio_TickTrials = get(handles.radio_TickTrials, 'Value');
+preset.radio_TickSeconds = get(handles.radio_TickSeconds, 'Value');
+preset.radio_TickInches = get(handles.radio_TickInches, 'Value');
+preset.radio_TickPercent = get(handles.radio_TickPercent, 'Value');
+preset.PlotTickSize = handles.PlotTickSize;
+preset.PlotInPerSec = handles.PlotInPerSec;
+preset.PlotOverlap = handles.PlotOverlap;
+preset.check_CopyWindow = get(handles.check_CopyWindow, 'Value');
+preset.radio_YTrial = get(handles.radio_YTrial, 'Value');
+preset.radio_YTime = get(handles.radio_YTime, 'Value');
+[preset.push_TimeLimits_min, preset.push_TimeLimits_max] = getTimeLimits(handles);
+
+% Sorting options
+preset.popup_PrimarySort = get(handles.popup_PrimarySort, 'Value');
+preset.check_PrimaryDescending = get(handles.check_PrimaryDescending, 'Value');
+preset.check_GroupLabels = get(handles.check_GroupLabels, 'Value');
+preset.popup_SecondarySort = get(handles.popup_SecondarySort, 'Value');
+preset.check_SecondaryDescending = get(handles.check_SecondaryDescending, 'Value');
+
+save(newPresetFilename, 'preset');
+fprintf('Saved new preset: %s\n', newPresetFilename);
+handles = loadPresets(handles);
+guidata(hObject, handles);
+
+% --- Executes on button press in push_ReloadPreset.
+function push_ReloadPreset_Callback(hObject, ~, handles)
+% hObject    handle to push_ReloadPreset (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+handles = loadPresets(handles);
+guidata(hObject, handles);
+
+
+% --- Executes on button press in push_DeletePreset.
+function push_DeletePreset_Callback(hObject, ~, handles)
+% hObject    handle to push_DeletePreset (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+presetNames = get(handles.popup_Presets, 'String');
+selectedPresetIdx = get(handles.popup_Presets, 'Value');
+selectedPresetName = presetNames{selectedPresetIdx};
+if strcmp(selectedPresetName, handles.no_presets_found)
+    % No presets exist, this shouldn't even be able to run.
+    return;
+end
+
+fprintf('Deleting preset %s...\n', selectedPresetName);
+
+% Check if user really wants to delete the preset
+reallyDelete = questdlg(sprintf('Are you sure you want to delete the preset called %s?', selectedPresetName));
+
+if ~strcmp(reallyDelete, 'Yes')
+    % User did not in fact want to delete the preset
+    disp('Delete preset cancelled');
+    return
+end
+
+% User confirmed preset delete
+selectedPresetFilename = [handles.preset_prefix, selectedPresetName, '.mat'];
+
+% Delete preset
+delete(selectedPresetFilename);
+
+disp('Deleted preset.');
+
+handles = loadPresets(handles);
+guidata(hObject, handles);
+
+function disable_silly_warnings()
+disable_silly_warnings;
+egm_Sorted_rasters_OpeningFcn;
+popup_TriggerSource_Callback;
+popup_TriggerSource_CreateFcn;
+popup_TriggerType_Callback;
+popup_TriggerType_CreateFcn;
+push_TriggerOptions_Callback;
+popup_EventSource_Callback;
+popup_EventSource_CreateFcn;
+popup_EventType_Callback;
+popup_EventType_CreateFcn;
+push_EventOptions_Callback;
+popup_StartReference_Callback;
+popup_StartReference_CreateFcn;
+popup_StopReference_Callback;
+popup_StopReference_CreateFcn;
+push_WindowLimits_Callback;
+push_FileRange_Callback;
+popup_PrimarySort_Callback;
+popup_PrimarySort_CreateFcn;
+popup_SecondarySort_Callback;
+popup_SecondarySort_CreateFcn;
+check_PrimaryDescending_Callback;
+check_SecondaryDescending_Callback;
+check_CopyEvents_Callback;
+check_CopyTrigger_Callback;
+popup_Files_Callback;
+popup_Files_CreateFcn;
+push_GenerateRaster_Callback;
+check_ExcludeIncomplete_Callback;
+popup_TriggerAlignment_Callback;
+popup_TriggerAlignment_CreateFcn;
+check_ExcludePartialEvents_Callback;
+list_Filter_Callback;
+list_Filter_CreateFcn;
+edit_FilterFrom_Callback;
+edit_FilterFrom_CreateFcn;
+edit_FilterTo_Callback;
+edit_FilterTo_CreateFcn;
+list_Plot_Callback;
+list_Plot_CreateFcn;
+check_PlotInclude_Callback;
+check_PlotContinuous_Callback;
+push_PlotColor_Callback;
+push_PlotWidth_Callback;
+check_LockLimits_Callback;
+push_TimeLimits_Callback;
+push_TickHeight_Callback;
+RadioYAxis_Callback;
+check_CopyWindow_Callback;
+push_Export_Callback;
+push_Dimensions_Callback;
+push_Open_Callback;
+popup_PSTHUnits_Callback;
+popup_PSTHUnits_CreateFcn;
+push_PSTHBinSize_Callback;
+popup_PSTHCount_Callback;
+popup_PSTHCount_CreateFcn;
+check_IncludePSTH_Callback;
+check_HoldOn_Callback;
+list_WarpPoints_Callback;
+list_WarpPoints_CreateFcn;
+push_AddPoint_Callback;
+push_DeletePoint_Callback;
+popup_WarpingAlgorithm_Callback;
+popup_WarpingAlgorithm_CreateFcn;
+push_WarpOptions_Callback;
+push_IntervalDuration_Callback;
+push_IntervalLeft_Callback;
+push_IntervalRight_Callback;
+RadioWarpedDurations;
+click_Raster;
+click_PSTH;
+click_Hist;
+push_Colors_Callback;
+context_Color_Callback;
+menu_Background_Callback;
+menu_CLimits_Callback;
+menu_Colormap_Callback;
+menu_SetAutoCLim_Callback;
+menu_EditColormap_Callback;
+menu_InvertColormap_Callback;
+push_MinDown_Callback;
+push_MinUp_Callback;
+push_MaxDown_Callback;
+push_MaxUp_Callback;
+popup_Correlation_Callback;
+popup_Correlation_CreateFcn;
+menu_LogScale_Callback;
+push_Select_Callback;
+context_Select_Callback;
+menu_Select1_Callback;
+menu_Select2_Callback;
+menu_Select3_Callback;
+menu_Select4_Callback;
+menu_Select5_Callback;
+menu_Select6_Callback;
+menu_Select7_Callback;
+menu_Select8_Callback;
+menu_Select9_Callback;
+menu_Select10_Callback;
+menu_Select11_Callback;
+menu_Select12_Callback;
+menu_Select13_Callback;
+menu_Select14_Callback;
+menu_Select15_Callback;
+menu_Select16_Callback;
+menu_Select17_Callback;
+menu_Select18_Callback;
+menu_SelectLabel_Callback;
+menu_SelectAll_Callback;
+menu_InvertSelection_Callback;
+push_HistHoriz_Callback;
+push_HistVert_Callback;
+check_HistShow_Callback;
+popup_HistUnits_Callback;
+popup_HistUnits_CreateFcn;
+popup_HistCount_Callback;
+popup_HistCount_CreateFcn;
+push_DeleteEvents_Callback;
+popup_EventList_Callback;
+popup_EventList_CreateFcn;
+check_WarpingOn_Callback;
+context_MatlabExport_Callback;
+Untitled_5_Callback;
+Untitled_8_Callback;
+Untitled_11_Callback;
+push_AutoColor_Callback;
+check_GroupLabels_Callback;
+push_MatlabExport_Callback;
+check_AutoInclude_Callback;
+check_SkipSorting_Callback;
+menu_ExportData_Callback;
+menu_ExportFigure_Callback;
+popup_Presets_Callback;
+popup_Presets_CreateFcn;
+push_LoadPreset_Callback;
+push_SavePreset_Callback;
+push_ReloadPreset_Callback;
+push_DeletePreset_Callback;
