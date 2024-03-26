@@ -67,6 +67,20 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
         handles.output = eg_func(varargin{:});
         return
     end
+
+    if ~exist('MATLAB_utils', 'file')
+        sz = matlab.desktop.commandwindow.size;
+        fprintf('\n');
+        fprintf(repmat('*', sz(1)))
+        fprintf('\n')
+        warning('MATLAB-utils repository does not appear to be on the MATLAB path. Please make sure it is installed and put on the path and try again.');
+        fprintf(repmat('*', sz(1)))
+        fprintf('\n')
+        fprintf('\n')
+        handles.output = [];
+        guidata(hObject, handles);
+        return;
+    end
     
     % Make ElectroGui's directory the current directory
     [pathstr, ~, ~] = fileparts(mfilename('fullpath'));
