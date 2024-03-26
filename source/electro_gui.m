@@ -97,7 +97,8 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.TLim = [0, 1];
 
     % Create new file browser thing
-    handles.FileInfoBrowser = uitable2(handles.panel_files, 'Units', 'normalized', 'Position', [0.025, 0.145, 0.944, 0.703], 'Data', {}, 'RowName', {}, "ColumnRearrangeable", true);
+    handles.FileInfoBrowser = uitable2(handles.panel_files, 'Units', 'normalized', 'Position', [0.025, 0.145, 0.944, 0.703], 'Data', {}, 'RowName', {});
+    handles.FileInfoBrowser.ColumnRearrangeable = true;
     handles.FileInfoBrowserFirstPropertyColumn = 3;  % First column that contains boolean property checkboxes
     handles.FileInfoBrowser.KeyPressFcn = @keyPressHandler;
     handles.FileInfoBrowser.KeyReleaseFcn = @keyReleaseHandler;
@@ -4504,7 +4505,6 @@ function MouseMotionHandler(hObject, event)
 
 function keyReleaseHandler(hObject, event)
     % Callback to handle a key release
-
     handles = guidata(hObject);
     keyInfo = getKeyInfo(hObject);
 
