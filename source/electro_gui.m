@@ -3678,6 +3678,7 @@ function handles = eg_OpenDbase(handles, filePath)
         [file, path] = uigetfile(fullfile(handles.tempSettings.lastDirectory, '*.mat'), 'Load analysis');
         if ~ischar(file)
             % User cancelled load
+            close(progressBar)
             return
         end
         filePath = fullfile(path, file);
@@ -8953,6 +8954,10 @@ function menu_ChangeFiles_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return
+    end
     
     handles.IsUpdating = 1;
     old_sound_files = handles.sound_files;
@@ -8974,6 +8979,11 @@ function menu_DeleteFiles_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
+    if ~isDataLoaded(handles)
+        % No data yet, do nothing
+        return
+    end
+
     fileNames = getFileNames(handles);
     
     [fileNumsToDelete,ok] = listdlg('ListString',fileNames,'Name','Delete files','PromptString','Select files to DELETE','InitialValue',[],'ListSize',[300 450]);
@@ -9178,8 +9188,7 @@ function handles = UpdateFiles(handles, old_sound_files)
     handles.edit_FileNumber.String = '1';
     handles.FileInfoBrowser.SelectedRow = 1;
     
-    originalList = getFileNames(handles);
-    fileList = {handles.sound_files.name};
+    originalValues = getFileNames(handles);
     
     % Generate translation lists to map old file index to new file index,
     % after some files have been added somewhere in the list
@@ -9198,7 +9207,7 @@ function handles = UpdateFiles(handles, old_sound_files)
         end
     end
     
-    fileList(newnum) = originalList(oldnum);
+    fileList = {handles.sound_files.name};
     handles = setFileNames(handles, fileList);
     if ~isempty(newSelectedFilenum)
         handles.edit_FileNumber.String = num2str(newSelectedFilenum);
@@ -9211,67 +9220,63 @@ function handles = UpdateFiles(handles, old_sound_files)
     end
     
     % Initialize variables for new files
-    originalList = handles.SoundThresholds(oldnum);
+    originalValues = handles.SoundThresholds(oldnum);
     handles.SoundThresholds = inf(1,handles.TotalFileNumber);
-    handles.SoundThresholds(newnum) = originalList;
+    handles.SoundThresholds(newnum) = originalValues;
     
     % Shouldn't we be setting the correct date for the new files??
-    originalList = handles.DatesAndTimes(oldnum);
+    originalValues = handles.DatesAndTimes(oldnum);
     handles.DatesAndTimes = zeros(1,handles.TotalFileNumber);
-    handles.DatesAndTimes(newnum) = originalList;
+    handles.DatesAndTimes(newnum) = originalValues;
     
-    originalList = handles.SegmentTimes(oldnum);
+    originalValues = handles.SegmentTimes(oldnum);
     handles.SegmentTimes = cell(1,handles.TotalFileNumber);
-    handles.SegmentTimes(newnum) = originalList;
+    handles.SegmentTimes(newnum) = originalValues;
     
-    originalList = handles.SegmentTitles(oldnum);
+    originalValues = handles.SegmentTitles(oldnum);
     handles.SegmentTitles = cell(1,handles.TotalFileNumber);
-    handles.SegmentTitles(newnum) = originalList;
+    handles.SegmentTitles(newnum) = originalValues;
     
-    originalList = handles.SegmentSelection(oldnum);
+    originalValues = handles.SegmentSelection(oldnum);
     handles.SegmentSelection = cell(1,handles.TotalFileNumber);
-    handles.SegmentSelection(newnum) = originalList;
+    handles.SegmentSelection(newnum) = originalValues;
     
-    originalList = handles.EventThresholds(:,oldnum);
-    handles.EventThresholds = inf*ones(size(originalList,1),handles.TotalFileNumber);
-    handles.EventThresholds(:,newnum) = originalList;
+    originalValues = handles.EventThresholds(:,oldnum);
+    handles.EventThresholds = inf*ones(size(originalValues,1),handles.TotalFileNumber);
+    handles.EventThresholds(:,newnum) = originalValues;
     
-    originalList = handles.MarkerTimes(oldnum);
+    originalValues = handles.MarkerTimes(oldnum);
     handles.MarkerTimes = cell(1,handles.TotalFileNumber);
-    handles.MarkerTimes(newnum) = originalList;
+    handles.MarkerTimes(newnum) = originalValues;
     
-    originalList = handles.MarkerTitles(oldnum);
+    originalValues = handles.MarkerTitles(oldnum);
     handles.MarkerTitles = cell(1,handles.TotalFileNumber);
-    handles.MarkerTitles(newnum) = originalList;
+    handles.MarkerTitles(newnum) = originalValues;
     
-    originalList = handles.MarkerSelection(oldnum);
+    originalValues = handles.MarkerSelection(oldnum);
     handles.MarkerSelection = cell(1,handles.TotalFileNumber);
-    handles.MarkerSelection(newnum) = originalList;
+    handles.MarkerSelection(newnum) = originalValues;
     
     
-    originalList = handles.EventTimes;
-    for c = 1:length(originalList)
-        handles.EventTimes{c} = cell(size(originalList{c},1),handles.TotalFileNumber);
-        handles.EventTimes{c}(:,newnum) = originalList{c}(:,oldnum);
+    originalValues = handles.EventTimes;
+    for c = 1:length(originalValues)
+        handles.EventTimes{c} = cell(size(originalValues{c},1),handles.TotalFileNumber);
+        handles.EventTimes{c}(:,newnum) = originalValues{c}(:,oldnum);
     end
     
-    originalList = handles.EventSelected;
-    for c = 1:length(originalList)
-        handles.EventSelected{c} = cell(size(originalList{c},1),handles.TotalFileNumber);
-        handles.EventSelected{c}(:,newnum) = originalList{c}(:,oldnum);
+    originalValues = handles.EventSelected;
+    for c = 1:length(originalValues)
+        handles.EventSelected{c} = cell(size(originalValues{c},1),handles.TotalFileNumber);
+        handles.EventSelected{c}(:,newnum) = originalValues{c}(:,oldnum);
     end
+
+    originalProperties = handles.Properties;
+    handles.Properties = false(handles.TotalFileNumber, getNumProperties(handles));
+    handles.Properties(:, newnum) = originalProperties;
     
-    originalList = handles.Properties;
-    
-    handles = loadProperties(handles);
-    
-    handles.Properties.Names(newnum) = originalList.Names(oldnum);
-    handles.Properties.Values(newnum) = originalList.Values(oldnum);
-    handles.Properties.Types(newnum) = originalList.Types(oldnum);
-    
-    originalList = handles.FileLength(:,oldnum);
+    originalValues = handles.FileLength(:,oldnum);
     handles.FileLength = zeros(1,handles.TotalFileNumber);
-    handles.FileLength(newnum) = originalList;
+    handles.FileLength(newnum) = originalValues;
     
     
 % --------------------------------------------------------------------
