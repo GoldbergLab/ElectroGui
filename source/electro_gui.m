@@ -10356,7 +10356,10 @@ function action_Export_Callback(hObject, eventdata, handles)
                                 axis(ax, 'off');
                                 if handles.ExportSonogramIncludeLabel == 1
                                     fig.CurrentAxes = bcg;
-                                    txt = text(ax (x+wd/2)/handles.WorksheetWidth,(y+handles.ExportSonogramHeight)/handles.WorksheetHeight,string(datetime(handles.WorksheetTimes(lst{indx}(d)))));
+                                    xText = (x+wd/2)/handles.WorksheetWidth;
+                                    yText = (y+handles.ExportSonogramHeight)/handles.WorksheetHeight;
+                                    timestamp = char(datetime(handles.WorksheetTimes(lst{indx}(d))));
+                                    txt = text(ax, xText, yText, timestamp);
                                     txt.HorizontalAlignment = 'center';
                                     txt.VerticalAlignment = 'bottom';
                                 end
@@ -10369,7 +10372,7 @@ function action_Export_Callback(hObject, eventdata, handles)
                         fig.Units = 'pixels';
                         screen_size = get(0,'screensize');
                         fig_pos = fig.Position;
-                        fig.position = [(screen_size(3)-fig_pos(3))/2,(screen_size(4)-fig_pos(4))/2,fig_pos(3),fig_pos(4)];
+                        fig.Position = [(screen_size(3)-fig_pos(3))/2,(screen_size(4)-fig_pos(4))/2,fig_pos(3),fig_pos(4)];
         
                         fig.PaperOrientation = handles.WorksheetOrientation;
                         fig.PaperPositionMode = 'auto';
