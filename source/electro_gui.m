@@ -170,11 +170,6 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % General cursor
     handles.Cursors = gobjects().empty;
 
-    % File caching settings
-    handles.EnableFileCaching = true;
-    handles.BackwardFileCacheSize = 1;
-    handles.ForwardFileCacheSize = 3;
-
     % Ensure a defaults file exists for the user
     handles = ensureDefaultsFileExists(handles, user);
     
@@ -191,8 +186,15 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     progressBar = waitbar(0, 'Initializing electro_gui...');
     progressBar.Children.Title.Interpreter = 'none';
 
+    % File caching settings
+    handles.EnableFileCaching = true;
+    handles.BackwardFileCacheSize = 1;
+    handles.ForwardFileCacheSize = 3;
+
     % Initialize file cache
     handles = resetFileCache(handles);
+
+    waitbar(0.1, progressBar);
 
     % Load temp file, or use defaults if it doesn't exist
     handles.tempFile = 'eg_temp.mat';
@@ -305,7 +307,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % Choose default command line output for electro_gui
     handles.output = hObject;
     
-    waitbar(0.1, progressBar);
+    waitbar(0.1, progressBar, 'Starting parallel pool for file caching...');
     if handles.EnableFileCaching
         try
             % Start up parallel pool for caching purposes
@@ -316,7 +318,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
             handles.EnableFileCaching = false;
         end
     end
-    waitbar(0.8, progressBar);
+    waitbar(0.8, progressBar, 'Initializing electro_gui...');
     
     % Initialize event-related variables
     handles.EventSources = {};      % Array of event source channel names
