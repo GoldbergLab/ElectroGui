@@ -179,7 +179,14 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles = ensureDefaultsFileExists(handles, user);
     
     % Prompt user to choose a defaults file, then load it.
-    handles = chooseAndLoadDefaultsFile(handles);
+    [handles, ok] = chooseAndLoadDefaultsFile(handles);
+    if ~ok
+        % Abort
+        handles.output = [];
+        guidata(hObject, handles);
+        delete(handles.figure_Main);
+        return;
+    end
 
     progressBar = waitbar(0, 'Initializing electro_gui...');
     progressBar.Children.Title.Interpreter = 'none';
@@ -577,7 +584,7 @@ function [handles, isNewUser] = ensureDefaultsFileExists(handles, user)
         fclose(fid2);
     end
 
-function handles = chooseAndLoadDefaultsFile(handles)
+function [handles, ok] = chooseAndLoadDefaultsFile(handles)
     % Prompt user to choose a defaults file, then load it.
 
     % Populate list of defaults files for user to choose from
@@ -589,10 +596,12 @@ function handles = chooseAndLoadDefaultsFile(handles)
     currentUserDefaultIndex = find(strcmp(handles.userfile, {defaultsFileList.name}));
     
     [chosenDefaultIndex, ok] = listdlg('ListString', userList, 'Name', 'Defaults', 'PromptString', 'Select default settings', 'SelectionMode', 'single', 'InitialValue', currentUserDefaultIndex);
-    if ~ok || chosenDefaultIndex == 1
-        handles = eg_Get_Defaults(handles);
-    else
-        handles = eval(['defaults_' userList{chosenDefaultIndex} '(handles)']);
+    if ok
+        if chosenDefaultIndex == 1
+            handles = eg_Get_Defaults(handles);
+        else
+            handles = eval(['defaults_' userList{chosenDefaultIndex} '(handles)']);
+        end
     end
 
 function handles = setGUIValues(handles)
@@ -790,7 +799,11 @@ function varargout = electro_gui_OutputFcn(hObject, ~, handles)
     % handles    structure with handles and user data (see GUIDATA)
     
     % Get default command line output from handles structure
-    varargout{1} = handles.output;
+    if isempty(handles)
+        varargout{1} = [];
+    else
+        varargout{1} = handles.output;
+    end
     
 function isPlugin = isValidPlugin(plugins, name)
     % Check if name corresponds to one of the provided list of plugins
