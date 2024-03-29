@@ -7436,7 +7436,8 @@ function handles = UpdateWorksheet(handles)
     
     handles.panel_Worksheet.Title = ['Worksheet: Page ' num2str(handles.WorksheetCurrentPage) '/' num2str(max([1 max(pagenum)]))];
     
-function click_Worksheet(hObject, ~, handles)
+function click_Worksheet(hObject, event)
+    handles = guidata(hObject);
     
     ch = handles.axes_Worksheet.Children;
     for c = 1:length(ch)
