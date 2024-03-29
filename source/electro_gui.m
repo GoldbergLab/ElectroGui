@@ -1646,7 +1646,7 @@ box off;
 ylabel(handles.Labels{axnum});
 
 set(gca,'uicontextmenu',handles.(['context_Channel',num2str(axnum)]));
-set(gca,'buttondownfcn','electro_gui(''click_Channel'',gcbo,[],guidata(gcbo))');
+set(gca,'buttondownfcn',@click_Channel);
 set(get(gca,'children'),'uicontextmenu',get(gca,'uicontextmenu'));
 set(get(gca,'children'),'buttondownfcn',get(gca,'buttondownfcn'));
 
@@ -3907,7 +3907,9 @@ guidata(hObject, handles);
 
 
 
-function click_Channel(hObject, ~, handles)
+function click_Channel(hObject, event)
+
+handles = guidata(hObject);
 
 obj = hObject;
 if ~strcmp(get(obj,'type'),'axes')
@@ -3971,7 +3973,8 @@ elseif strcmp(get(gcf,'selectiontype'),'normal')
     set(handles.xlimbox,'xdata',xd);
     handles = eg_EditTimescale(handles);
 
-elseif strcmp(get(gcf,'selectiontype'),'alt')
+elseif strcmp(get(gcf,'selectiontype'),'alt') && event.Button ~= 3
+
     handles.SelectedEvent = [];
     delete(findobj('linestyle','-.'));
 
