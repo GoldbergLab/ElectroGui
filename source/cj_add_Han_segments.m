@@ -52,7 +52,7 @@ function dbase = cj_add_Han_segments(dbase,bWashBools)
     dbase.MarkerIsSelected = cell(1,length(dbase.MarkerIsSelected));
 
     
-    for i = 1:length(gestures)-4 %-2 cuz don't want to do containsWarb or containsCall
+    for i = 1:length(gestures)-4 %-4 cuz don't want to do containsWarb or containsCall or loud or bBehav
         fullpath = [datepath '\' gestures{i}];
         if isdir(fullpath) && exist([fullpath '\' 'segmentations_cleaned.mat'],'file')
             segs = load([fullpath '\' 'segmentations_cleaned.mat']);
@@ -156,8 +156,9 @@ function dbase = cj_add_Han_segments(dbase,bWashBools)
 
         end
         % add warb bool
-        for r = 1:length(vsegs.warble)
-            dbase.Properties.Values{1,r}{1,length(gestures)-3} = vsegs.warble(r);%MINUS three hard coded index
+        warbfils = find(vsegs.warble_boolean);
+        for r = warbfils'
+            dbase.Properties.Values{1,r}{1,length(gestures)-3} = 1;%MINUS three hard coded index
         end
     end
     % here we will loop through all sound files and measure rms % I don't
