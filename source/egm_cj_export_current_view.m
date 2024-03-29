@@ -78,6 +78,7 @@ function handles = egm_cj_export_current_view(handles)
             h3 = cur.Children(1);
             loc1 = get(h1,'Position');
             loc2 = get(h2,'Position');
+            loc3 = get(h3,'Position');
             hs = axes('Position',[loc1(1) loc1(2)-0.08 loc1(3) loc1(4)*0.5]);
         end
     end
@@ -85,8 +86,6 @@ function handles = egm_cj_export_current_view(handles)
     set(h1,'Ylim',[250 7000]);
     xlims = get(h1,'Xlim');
     set(h2,'Xlim',xlims);
-    loc1 = get(h1,'Position');
-    set(h1,'Position',[loc1(1) loc1(2)+0.03 loc1(3) loc1(4)])
     % add axes for behav segs
 
     set(hs,'XLim',get(h1,'XLim'));
@@ -101,7 +100,7 @@ function handles = egm_cj_export_current_view(handles)
     for q = 1:size(segmentTimes,1)
         line([segmentTimes(q,1) segmentTimes(q,2)],[0 0],'color','r','LineWidth',5)
     end
-    set(gcf,'Position',[306 353 981 486]);
+    
     set(h1,'Ylim',[250 7000]);
     xlabel('');
     set(h1,'Ytick',[2000 4000 6000]);
@@ -113,18 +112,13 @@ function handles = egm_cj_export_current_view(handles)
     set(h2,'Xlim',xlims);
     set(h2,'Visible','off');
     ylabel('Voltage')
-    set(h2,'Position',[loc2(1) loc2(2)+0.15 loc2(3) loc2(4)])
+    set(h2,'Position',[loc2(1) loc1(2)-0.315 loc2(3) loc1(4)*1.4])
 
     %change color and thickness
     xd = get(h2,'Children');
     set(xd,'LineWidth',2)
     set(xd,'Color','k')
-    xdat = get(xd,'XData');
-    ydat = get(xd,'YData');
     xl = get(h2,'Xlim');
-    yl = get(h2,'Ylim');
-    loc1 = get(h1,'Position');
-    loc2 = get(h2,'Position');
     line([xl(1),xl(1)],[-100, 0],'LineWidth',8)
 
 
@@ -132,10 +126,11 @@ function handles = egm_cj_export_current_view(handles)
     %modify third plot if it is there
     if numplots ==3
         loc3 = get(h3,'Position');
-        set(h3,'Position',[loc3(1) loc3(2)+0.1 loc3(3) loc3(4)])
+        set(h3,'Position',[loc3(1) loc1(2)-0.5 loc3(3) loc1(4)*1.3])
         set(h3,'Visible','off')
         set(h3,'Xlim',xlims);
     end
+    set(gcf,'Position',[306 353 981 486]);
 
 
     return
