@@ -167,7 +167,7 @@ function cj_makeaacNeuronexampleppt(dbase,ephyschan)
         end
     end
     %adjust ylims
-    meylim = median(eylims);
+    meylim = median(eylims,1);
     maylim = [min(minlist) max(maxlist)];
     for i = 1:length(plots)
         plots(i).Children(2).YLim = meylim;
@@ -179,13 +179,16 @@ function cj_makeaacNeuronexampleppt(dbase,ephyschan)
     for i = layout
         if i ~= layout(end)
             fig = tileFigures(plots(i+1:i+totplots),[6 2],0,[0,0]);
+            fig.Position=[107 108 1640 933];
+            rc_exportfigpptx(Presentation,fig,[1,1]);
         else 
             if ~isempty(plots(i+1:end))
                 fig = tileFigures(plots(i+1:end),[6 2],0,[0,0]);
+                fig.Position=[107 108 1640 933];
+                rc_exportfigpptx(Presentation,fig,[1,1]);
             end
         end
-        fig.Position=[107 108 1640 933];
-        rc_exportfigpptx(Presentation,fig,[1,1]);
+
         %Presentation = pptAddFigure(Presentation,fig);
     end
     close all
@@ -506,13 +509,15 @@ function cj_makeaacNeuronexampleppt(dbase,ephyschan)
     for i = layout
         if i ~= layout(end)
             fig = tileFigures(plots(i+1:i+totplots),[3 3],0,[0,0]);
+            fig.Position = [107 108 1640 933];
+            rc_exportfigpptx(Presentation,fig,[1,1]);
         else
-            fig = tileFigures(plots(i+1:end),[3 3],0,[0,0]);
+            if ~isempty(plots(i+1:end))
+                fig = tileFigures(plots(i+1:end),[3 3],0,[0,0]);
+                fig.Position = [107 108 1640 933];
+                rc_exportfigpptx(Presentation,fig,[1,1]);
+            end
         end
-        fig.Position = [107 108 1640 933];
-        loc = fig.Children(1).Position;
-        locb = fig.Children(end).Position;
-        rc_exportfigpptx(Presentation,fig,[1,1]);
     end
 %%
     
