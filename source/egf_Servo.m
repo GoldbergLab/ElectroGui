@@ -5,6 +5,7 @@ function [signal, lab] = egf_Servo(signal,fs,params)
 
 lab = 'Pulse width (ms)';
 if ischar(signal) && strcmp(signal,'params')
+    signal = struct();
     signal.Names = {};
     signal.Values = {};
     return
