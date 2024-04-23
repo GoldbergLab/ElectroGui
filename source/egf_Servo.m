@@ -51,24 +51,18 @@ signal = zeros(size(signal));
 pulseWidths = (fallingEdges - risingEdges) / fs;
 
 % Find locations where the pulse widths change
-pulseChangeIdx = find(diff(pulseWidths) ~= 0);
+pulseChangeIdx = find(diff(pulseWidths) ~= 0)+1;
 if isempty(pulseChangeIdx)
     % No pulse changes detected
     signal(:) = pulseWidths(1);
     return;
 end
 
-if pulseChangeIdx(1) ~= 1
-    pulseChangeIdx = [1; pulseChangeIdx];
-end
-if pulseChangeIdx(end) ~= length(pulseWidths)
-    pulseChangeIdx = [pulseChangeIdx; length(pulseWidths)];
-end
 for k = 1:length(pulseChangeIdx)-1
     startIdx = risingEdges(pulseChangeIdx(k));
     endIdx = risingEdges(pulseChangeIdx(k+1))-1;
-    value = pulseWidths(pulseChangeIdx(k));
+    value = pulseWidths(pulseChangeIdx(k)+1);
     signal(startIdx:endIdx) = value;
 end
-signal(1:risingEdges(1)) = pulseWidths(1);
-signal(risingEdges(end):end) = pulseWidths(end);
+signal(1:risingEdges(pulseChangeIdx(1))) = pulseWidths(1);
+signal(risingEdges(pulseChangeIdx(end)):end) = pulseWidths(end);
