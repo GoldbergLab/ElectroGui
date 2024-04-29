@@ -7181,13 +7181,14 @@ function menu_EventsAxisLimits_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    
-    v = handles.popup_EventListAlign.Value;
-    answer = inputdlg({'Min (ms)','Max (ms)'},'Set limits',1,{num2str(-handles.EventXLims(v,1)*1000),num2str(handles.EventXLims(v,2)*1000)});
+    eventSourceIdx = GetEventViewerEventSourceIdx(handles);
+    tmin = -handles.EventXLims(eventSourceIdx, 1)*1000;
+    tmax =  handles.EventXLims(eventSourceIdx, 2)*1000;
+    answer = inputdlg({'Min (ms)', 'Max (ms)'}, 'Set limits', 1, {num2str(tmin),num2str(tmax)});
     if isempty(answer)
         return
     end
-    handles.EventXLims(v,:) = [-str2double(answer{1})/1000, str2double(answer{2})/1000];
+    handles.EventXLims(eventSourceIdx,:) = [-str2double(answer{1})/1000, str2double(answer{2})/1000];
     
     handles = UpdateEventViewer(handles);
     
