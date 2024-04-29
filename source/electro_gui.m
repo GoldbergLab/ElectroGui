@@ -23,7 +23,7 @@ function varargout = electro_gui(varargin)
     
     % Edit the above text to modify the response to help electro_gui
     
-    % Last Modified by GUIDE v2.5 21-Mar-2024 21:38:35
+    % Last Modified by GUIDE v2.5 29-Apr-2024 13:47:44
     
     % Begin initialization code - DO NOT EDIT
     gui_Singleton = 1;
@@ -1577,6 +1577,7 @@ function handles = eg_LoadChannel(handles, axnum)
         handles.popup_Functions(axnum).Enable = 'off';
         handles.popup_EventDetectors(axnum).Enable = 'off';
         handles.push_Detects(axnum).Enable = 'off';
+        handles.menu_Events(axnum).Enable = 'off';
         handles.ActiveEventNum = [];
         handles.ActiveEventPartNum = [];
         handles.ActiveEventSourceIdx = [];
@@ -5024,11 +5025,9 @@ function click_Channel(hObject, event)
     
     elseif strcmp(handles.figure_Main.SelectionType, 'alt')
         % Control-click or right click
-        disp('control click or right click')
         keyInfo = getKeyInfo(hObject);
         if ~keyInfo.CtrlDown
             % False alarm, this is just a right click, stand down
-            disp('right click')
             return;
         end
 
@@ -5368,10 +5367,7 @@ function popup_EventDetector1_Callback(hObject, ~, handles)
     % Hints: contents = hObject.String returns popup_EventDetector1 contents as cell array
     %        contents{hObject.Value} returns selected item from popup_EventDetector1
     
-%     if isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
-        handles = UpdateChannelEventDisplay(handles, 1);
-%        handles = eg_clickEventDetector(handles,1);
-%     end
+    handles = UpdateChannelEventDisplay(handles, 1);
     
     guidata(hObject, handles);
     
@@ -5621,7 +5617,7 @@ function handles = SetEventThreshold(handles, axnum, threshold)
         if isempty(answer)
             return
         end
-        handles.EventThresholds(eventSourceIdx, filenum) = str2double(answer{1});
+        threshold = str2double(answer{1});
     end
 
     % Set the new event threshold
@@ -5887,7 +5883,10 @@ function handles = UpdateChannelEventDisplay(handles, axnum)
 
     if isempty(eventSourceIdx)
         % No event source
+        handles.menu_Events(axnum).Enable = 'off';
         return
+    else
+        handles.menu_Events(axnum).Enable = 'on';
     end
 
     handles = UpdateEventThresholdDisplay(handles, eventSourceIdx);
@@ -8600,7 +8599,8 @@ function [propertyArray, propertyNames] = getProperties(handles)
     propertyNames = handles.PropertyNames;
 
 function propertyExists = isProperty(handles, propertyName)
-    
+    % This was unfinished?
+    propertyExists=[];
 
 function handles = modifyProperties(handles, filenums, propertyNames, propertyValues, updateGUI)
     % Update only a subset of the property
@@ -9244,7 +9244,7 @@ function handles = UpdateFiles(handles, old_sound_files)
     handles.edit_FileNumber.String = '1';
     handles.FileInfoBrowser.SelectedRow = 1;
     
-    originalValues = getFileNames(handles);
+%     originalValues = getFileNames(handles);
     
     % Generate translation lists to map old file index to new file index,
     % after some files have been added somewhere in the list
