@@ -307,7 +307,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % Choose default command line output for electro_gui
     handles.output = hObject;
     
-    waitbar(0.1, progressBar, 'Starting parallel pool for file caching...');
+    waitbar(0.1, progressBar, 'Starting parallel pool for file caching...can be disabled in defaults file');
     if handles.EnableFileCaching
         try
             % Start up parallel pool for caching purposes
@@ -975,7 +975,7 @@ function progress_play(handles,wav)
     if sampleLimits(1)<1
         sampleLimits(1) = 1;
     end
-    [handles, numSamples] = eg_GetNumSamples(handles);
+    [handles, numSamples] = eg_GetSamplingInfo(handles);
     if sampleLimits(2) > numSamples
         sampleLimits(2) = numSamples;
     end
@@ -1224,12 +1224,12 @@ function handles = eg_LoadFile(handles, showWaitBar)
         waitbar(0.5, progressBar);
     end
 
-    [handles, numSamples] = eg_GetNumSamples(handles);
+    [handles, numSamples, fs] = eg_GetSamplingInfo(handles);
     
     handles.FileLength(filenum) = numSamples;
     handles.text_DateAndTime.String = string(datetime(handles.DatesAndTimes(filenum), 'ConvertFrom', 'datenum'));
     
-    h = eg_peak_detect(handles.axes_Sound, linspace(0, numSamples/handles.fs, numSamples), handles.filtered_sound);
+    h = eg_peak_detect(handles.axes_Sound, linspace(0, numSamples/fs, numSamples), handles.filtered_sound);
 
     [h.Color] = deal('c');
     handles.axes_Sound.XTick = [];
@@ -1243,7 +1243,7 @@ function handles = eg_LoadFile(handles, showWaitBar)
     
     handles = clearAxes(handles);
 
-    tmax = numSamples/handles.fs;
+    tmax = numSamples/fs;
     handles.TLim = [0, tmax];
     
     handles = PlotAnnotations(handles);
@@ -1520,7 +1520,7 @@ function [handles, isValidEventFunction] = updateEventFunctionInfo(handles, chan
         handles = setEventFunction(handles, filenum, channelNum, newEventFunction);
     end
 
-function [handles, channelData, channelLabels, timestamp] = loadChannelData(handles, channelNum, filterName, filterParams, filenum)
+function [handles, channelData, channelSamplingRate, channelLabels, timestamp] = loadChannelData(handles, channelNum, filterName, filterParams, filenum)
     if ~exist('filenum', 'var') || isempty(filenum)
         % No file number provided, use the current one
         filenum = getCurrentFileNum(handles);
@@ -1546,10 +1546,10 @@ function [handles, channelData, channelLabels, timestamp] = loadChannelData(hand
     if handles.EnableFileCaching
         % File is already cached - retrieve data
         [handles, data] = retrieveFileFromCache(handles, filePath, loader);
-        [rawChannelData, ~, timestamp, channelLabels, ~] = data{:};
+        [rawChannelData, channelSamplingRate, timestamp, channelLabels, ~] = data{:};
     else
         % File is not cached - load data
-        [rawChannelData, ~, timestamp, channelLabels, ~] = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
+        [rawChannelData, channelSamplingRate, timestamp, channelLabels, ~] = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
     end
 
     if isempty(filterName)
@@ -1557,19 +1557,17 @@ function [handles, channelData, channelLabels, timestamp] = loadChannelData(hand
         channelData = rawChannelData;
     else
         % Filter data
-        [channelData, channelLabels] = eg_runPlugin(handles.plugins.filters, filterName, rawChannelData, handles.fs, filterParams);
+        [channelData, channelLabels] = eg_runPlugin(handles.plugins.filters, filterName, rawChannelData, channelSamplingRate, filterParams);
 
-        % Fix length of filtered channel data
-        [handles, numSamples] = eg_GetNumSamples(handles, filenum);
-        % Resample data appropriately? This seems bad.
-        if length(channelData) < numSamples
+        % Resample data? This seems bad.
+        if length(channelData) < length(rawChannelData)
             warning('Filter seems to be shortening channel data?')
-            indx = fix(linspace(1, length(handles.loadedChannelData{axnum}), numSamples));
+            indx = fix(linspace(1, length(channelData), length(rawChannelData)));
             channelData = channelData(indx);
         end
     end
 
-function handles = eg_LoadChannel(handles,axnum)
+function handles = eg_LoadChannel(handles, axnum)
     % Load a new channel of data
     
     if handles.popup_Channels(axnum).Value==1
@@ -1596,7 +1594,8 @@ function handles = eg_LoadChannel(handles,axnum)
     selectedChannelNum = getSelectedChannel(handles, axnum);
     selectedFilter = getSelectedFilter(handles, axnum);
     selectedFilterParams = handles.ChannelAxesFunctionParams{axnum};
-    [handles, handles.loadedChannelData{axnum}, handles.Labels{axnum}] = loadChannelData(handles, selectedChannelNum, selectedFilter, selectedFilterParams);
+    [handles, handles.loadedChannelData{axnum}, handles.loadedChannelFs{axnum}, handles.Labels{axnum}] = loadChannelData(handles, selectedChannelNum, selectedFilter, selectedFilterParams);
+    handles.loadedChannelNums{axnum} = selectedChannelNum;
     
     % Plot channel data
     handles = eg_PlotChannel(handles,axnum);
@@ -1622,12 +1621,20 @@ function handles = eg_LoadChannel(handles,axnum)
     % Update event viewer in case it was showing data from this axes
     handles = UpdateEventViewer(handles);
     
-function [handles, numSamples] = eg_GetNumSamples(handles, filenum)
+function [handles, numSamples, fs] = eg_GetSamplingInfo(handles, filenum, chan)
+    % Get the number of samples and sampling info for the specified file
+    % and channel number. If filenumber is empty or omitted, the currently
+    % loaded filenum will be used. If chan is empty or omitted, whatever
+    % channel is being used for sound is used.
     if ~exist('filenum', 'var') || isempty(filenum)
         filenum = getCurrentFileNum(handles);
     end
-    [handles, sound] = getSound(handles, [], filenum);
-    numSamples = length(sound);
+    if ~exist('chan', 'var') || isempty(chan)
+        [handles, data, fs] = getSound(handles, [], filenum);
+    else
+        [handles, data, fs] = loadChannelData(handles, chan, [], [], filenum);
+    end
+    numSamples = length(data);
     
 function [handles, sound, fs, timestamp] = getSound(handles, soundChannel, filenum)
     if ~exist('filenum', 'var') || isempty(filenum)
@@ -1658,12 +1665,10 @@ function [handles, sound, fs, timestamp] = getSound(handles, soundChannel, filen
         case 'calculated'
             % Calculate a sound vector based on the user-supplied
             % expression in handles.SoundExpression
-            [handles, sound, timestamp] = getCalculatedSound(handles, filenum);
-            fs = handles.fs;
+            [handles, sound, fs, timestamp] = getCalculatedSound(handles, filenum);
         otherwise
             % Use some other not-already-loaded channel data as sound
-            [handles, sound, ~, timestamp] = loadChannelData(handles, soundChannel, [], [], filenum);
-            fs = handles.fs;
+            [handles, sound, fs, ~, timestamp] = loadChannelData(handles, soundChannel, [], [], filenum);
     end
 
     if size(sound,2) > size(sound,1)
@@ -1708,7 +1713,7 @@ function [handles, filteredSound, fs, timestamp] = getFilteredSound(handles, sou
 
     [handles, filteredSound] = filterSound(handles, sound, fs, algorithm, filterParams);
 
-function [handles, calculatedSound, timestamp] = getCalculatedSound(handles, filenum, useFilter)
+function [handles, calculatedSound, fs, timestamp] = getCalculatedSound(handles, filenum, useFilter)
     % Calculate a sound vector based on the user-supplied
     % expression in handles.SoundExpression
     if ~exist('filenum', 'var') || isempty(filenum)
@@ -1731,12 +1736,12 @@ function [handles, calculatedSound, timestamp] = getCalculatedSound(handles, fil
         if regexp(handles.SoundExpression, varName)
             if strcmp(varName, 'sound')
                 if useFilter
-                    [handles, data, timestamp] = getFilteredSound(handles, [], [], [], filenum);
+                    [handles, data, fs, timestamp] = getFilteredSound(handles, [], [], [], filenum);
                 else
-                    [handles, data, timestamp] = getSound(handles, [], filenum);
+                    [handles, data, fs, timestamp] = getSound(handles, [], filenum);
                 end
             else
-                [handles, data, timestamp] = loadChannelData(handles, channelNum, [], [], filenum);
+                [handles, data, fs, timestamp] = loadChannelData(handles, channelNum, [], [], filenum);
             end
             assignin('base', varName, data);
         end
@@ -1748,7 +1753,7 @@ function [handles, calculatedSound, timestamp] = getCalculatedSound(handles, fil
         fprintf('Error evaluating calculated channel: %s\n', handles.SoundExpression);
         disp(ME)
         fprintf('Using default sound instead.\n');
-        [handles, calculatedSound, ~, timestamp] = getFilteredSound(handles, [], [], [], filenum);
+        [handles, calculatedSound, fs, timestamp] = getFilteredSound(handles, [], [], [], filenum);
     end
     
 function handles = UpdateSound(handles, soundChannel)
@@ -1782,7 +1787,7 @@ function [handles, filtered_sound] = filterSound(handles, sound, fs, algorithm, 
         filterParams = handles.FilterParams;
     end
     if ~exist('fs', 'var') || isempty(fs)
-        % Use current sampling rate
+        % Use current sound sampling rate
         fs = handles.fs;
     end
 
@@ -1803,8 +1808,9 @@ function handles = eg_PlotChannel(handles, axnum)
     handles.popup_EventDetectors(axnum).Enable = 'on';
     handles.push_Detects(axnum).Enable = 'on';
     
-    [handles, numSamples] = eg_GetNumSamples(handles);
-    t = linspace(0,numSamples/handles.fs,numSamples);
+    chan = handles.loadedChannelNums{axnum};
+    [handles, numSamples, fs] = eg_GetSamplingInfo(handles, [], chan);
+    t = linspace(0, numSamples/fs, numSamples);
     tlimits = handles.axes_Channel(axnum).XLim;
     delete(findobj('Parent',handles.axes_Channel(axnum), 'LineStyle', '-'));
     hold(handles.axes_Channel(axnum), 'on');
@@ -1843,8 +1849,8 @@ function handles = SetSegmentThreshold(handles)
         hold(ax, 'on')
         xl = xlim(ax);
         % Create new threshold line
-        [handles, numSamples] = eg_GetNumSamples(handles);
-        handles.SegmentThresholdHandle = plot(ax, [0, numSamples/handles.fs], ...
+        [handles, numSamples, fs] = eg_GetSamplingInfo(handles);
+        handles.SegmentThresholdHandle = plot(ax, [0, numSamples/fs], ...
             [handles.CurrentThreshold handles.CurrentThreshold], ...
             ':', 'Color',handles.AmplitudeThresholdColor);
         xlim(ax, xl);
@@ -1911,7 +1917,7 @@ function [annotationHandles, labelHandles] = CreateAnnotations(handles, ax, time
     end
     
     % Create a time vector that corresponds to the loaded audio samples
-    [handles, numSamples] = eg_GetNumSamples(handles);
+    [handles, numSamples] = eg_GetSamplingInfo(handles);
     ts = linspace(0, numSamples/handles.fs, numSamples);
     
     y0 = yExtent(1);
@@ -2266,6 +2272,7 @@ function AlgorithmMenuClick(hObject, event)
     
     
 function FilterMenuClick(hObject, event)
+    % Handle a click on the sound filter menu item
     handles = guidata(hObject);
     
     for c = 1:length(handles.menu_Filter)
@@ -2285,8 +2292,8 @@ function FilterMenuClick(hObject, event)
     
     cla(handles.axes_Sound);
     handles = UpdateFilteredSound(handles);
-    [handles, numSamples] = eg_GetNumSamples(handles);
-    h = eg_peak_detect(handles.axes_Sound, linspace(0, numSamples/handles.fs, numSamples), handles.filtered_sound);
+    [handles, numSamples, fs] = eg_GetSamplingInfo(handles);
+    h = eg_peak_detect(handles.axes_Sound, linspace(0, numSamples/fs, numSamples), handles.filtered_sound);
     [h.Color] = deal('c');
     set(handles.axes_Sound,'XTick',[],'YTick',[]);
     handles.axes_Sound.Color = [0 0 0];
@@ -2352,8 +2359,8 @@ function handles = UpdateTimescaleView(handles, maintainViewWidth)
         maintainViewWidth = false;
     end
     
-    [handles, numSamples] = eg_GetNumSamples(handles);
-    numSeconds = numSamples / handles.fs;
+    [handles, numSamples, fs] = eg_GetSamplingInfo(handles);
+    numSeconds = numSamples / fs;
 
     % Record width of viewing window
     tWidth = abs(diff(handles.TLim));
@@ -2472,9 +2479,9 @@ function handles = UpdateTimeResolutionBar(handles, timeResolution)
 function handles = eg_PlotSonogram(handles)
     handles = UpdateFilteredSound(handles);
     
-    sampleLims = round(handles.TLim * handles.fs);
     % Ensure sample numbers are in range
-    [handles, numSamples] = eg_GetNumSamples(handles);
+    [handles, numSamples, fs] = eg_GetSamplingInfo(handles);
+    sampleLims = round(handles.TLim * fs);
     if sampleLims(1) < 1
         sampleLims(1) = 1;
     end
@@ -2498,7 +2505,7 @@ function handles = eg_PlotSonogram(handles)
         ylim(handles.axes_Sonogram, handles.FreqLim);
     end
     [handles.ispower, timeResolution, spectrogram_handle] = eg_runPlugin(handles.plugins.spectrums, alg, ...
-        handles.axes_Sonogram, handles.sound(sampleLims(1):sampleLims(2)), handles.fs, ...
+        handles.axes_Sonogram, handles.sound(sampleLims(1):sampleLims(2)), fs, ...
         handles.SonogramParams);
 
     auxiliarySoundSources = getAuxiliarySoundSources(handles);
@@ -2507,9 +2514,9 @@ function handles = eg_PlotSonogram(handles)
         auxiliary_spectrogram_handles = gobjects().empty;
         hold(handles.axes_Sonogram, 'on');
         for k = 1:length(auxiliarySoundSources)
-            [handles, auxiliarySound] = getSound(handles, auxiliarySoundSources{k});
+            [handles, auxiliarySound, fs] = getSound(handles, auxiliarySoundSources{k});
             [handles.ispower, timeResolution, auxiliary_spectrogram_handles(k)] = eg_runPlugin(handles.plugins.spectrums, alg, ...
-                handles.axes_Sonogram, auxiliarySound(sampleLims(1):sampleLims(2)), handles.fs, ...
+                handles.axes_Sonogram, auxiliarySound(sampleLims(1):sampleLims(2)), fs, ...
                 handles.SonogramParams);
         end
         nSpectrograms = 1 + length(auxiliary_spectrogram_handles);
@@ -2627,9 +2634,9 @@ function click_sound(hObject, event)
     elseif strcmp(handles.figure_Main.SelectionType,'open')
         % Double-click
         %   Reset zoom
-        [handles, numSamples] = eg_GetNumSamples(handles);
+        [handles, numSamples, fs] = eg_GetSamplingInfo(handles);
     
-        handles.TLim = [0, numSamples/handles.fs];
+        handles.TLim = [0, numSamples/fs];
         handles = UpdateTimescaleView(handles);
 
         if handles.menu_FrequencyZoom.Checked
@@ -2901,9 +2908,9 @@ function click_segmentaxes(hObject, event)
         handles.SegmentSelection{filenum}(f) = ~handles.SegmentSelection{filenum}(f); %sum(handles.SegmentSelection{filenum}(f))<=length(f)/2;
         handles = updateSegmentSelectHighlight(handles);
     elseif strcmp(handles.figure_Main.SelectionType,'open')
-        [handles, numSamples] = eg_GetNumSamples(handles);
+        [handles, numSamples, fs] = eg_GetSamplingInfo(handles);
     
-        handles.TLim = [0, numSamples/handles.fs];
+        handles.TLim = [0, numSamples/fs];
         handles = UpdateTimescaleView(handles);
     elseif strcmp(handles.figure_Main.SelectionType,'extend')
         if sum(handles.SegmentSelection{filenum})==length(handles.SegmentSelection{filenum})
@@ -4200,8 +4207,8 @@ function click_Amplitude(hObject, event)
     handles = guidata(hObject);
     
     if strcmp(handles.figure_Main.SelectionType,'open')
-        [handles, numSamples] = eg_GetNumSamples(handles);
-        handles.TLim = [0, numSamples/handles.fs];
+        [handles, numSamples, fs] = eg_GetSamplingInfo(handles);
+        handles.TLim = [0, numSamples/fs];
         handles = UpdateTimescaleView(handles);
     
     elseif strcmp(handles.figure_Main.SelectionType,'normal')
@@ -4484,17 +4491,18 @@ function MouseMotionHandler(hObject, event)
                 axnum = find(ax1 == handles.axes_Channel);
                 % Check if axes is displaying events 
                 eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
+                fs = handles.loadedChannelFs{axnum};
                 if ~isempty(eventSourceIdx)
                     % Axes is currently displaying events
                     filenum = getCurrentFileNum(handles);
-                    sampleNum = t*handles.fs;
+                    sampleNum = t*fs;
                     eventSamples = vertcat(handles.EventTimes{eventSourceIdx}{:, filenum});
                     % Check how far away we are from the nearest event
                     [minSampleDistance, minIdx] = min(abs(eventSamples - sampleNum));
                     threshold = diff(xlim(ax1)) / 50;
-                    if minSampleDistance / handles.fs < threshold
+                    if minSampleDistance / fs < threshold
                         % We're close to an event - snap to it
-                        t = eventSamples(minIdx) / handles.fs;
+                        t = eventSamples(minIdx) / fs;
                     end
                 end
             end
@@ -4939,8 +4947,6 @@ function menu_PeakDetect2_Callback(hObject, ~, handles)
     
     guidata(hObject, handles);
     
-    
-    
 function click_Channel(hObject, event)
     % Handle a click on the channel axes
     handles = guidata(hObject);
@@ -4959,8 +4965,9 @@ function click_Channel(hObject, event)
     ax = handles.axes_Channel(axnum);
     
     if strcmp(handles.figure_Main.SelectionType,'open')
-        [handles, numSamples] = eg_GetNumSamples(handles);
-    
+        chan = handles.loadedChannelNums{axnum};
+        [handles, numSamples, fs] = eg_GetSamplingInfo(handles, [], chan);
+
         for axn = 1:2
             if handles.axes_Channel(axn).Visible
                 if handles.menu_AutoLimits(axn).Checked
@@ -4974,7 +4981,7 @@ function click_Channel(hObject, event)
                 end
             end
         end
-        handles.TLim = [0, numSamples/handles.fs];
+        handles.TLim = [0, numSamples/fs];
         handles = UpdateTimescaleView(handles);
     
     elseif strcmp(handles.figure_Main.SelectionType,'normal')
@@ -5054,11 +5061,12 @@ function click_Channel(hObject, event)
     
                 % Get channel data
                 chanData = handles.loadedChannelData{axnum};
+                fs = handles.loadedChannelFs{axnum};
     
                 minTime = rect(1);
                 maxTime = rect(1)+rect(3);
-                minSample = max(1,                round(minTime*handles.fs));
-                maxSample = min(length(chanData), round(maxTime*handles.fs));
+                minSample = max(1,                round(minTime*fs));
+                maxSample = min(length(chanData), round(maxTime*fs));
                 minVolt = -Inf;
                 maxVolt = Inf;
     
@@ -5082,7 +5090,7 @@ function click_Channel(hObject, event)
                 localThreshold = rect(2);
                 
                 % Run event detector plugin to get a list of detected event times
-                [newEventTimes, eventParts] = eg_runPlugin(handles.plugins.eventDetectors, eventDetectorName, chanData, handles.fs, localThreshold, eventParameters);
+                [newEventTimes, eventParts] = eg_runPlugin(handles.plugins.eventDetectors, eventDetectorName, chanData, fs, localThreshold, eventParameters);
                 newEventSelected = true(1, length(newEventTimes{1}));
                 for eventPartNum = 1:length(eventParts)
                     % Adjust event times based on start of time limits
@@ -5180,10 +5188,12 @@ function boxedEventMask = GetBoxedEventMask(handles, axnum, filenum, minTime, ma
 
     boxedEventMask = {};
 
+    fs = handles.loadedChannelFs{axnum};
+
     % Check all event parts to see if any fall within box
     for eventPartNum = 1:size(handles.EventTimes{eventSourceIdx}, 1)
         eventSamples = handles.EventTimes{eventSourceIdx}{eventPartNum, filenum};
-        newEventTimes = eventSamples / handles.fs;
+        newEventTimes = eventSamples / fs;
         eventVoltages = handles.loadedChannelData{axnum}(eventSamples);
         % Get mask of events that fall within box
         boxedMask = newEventTimes > minTime & newEventTimes < maxTime & eventVoltages > minVolt & eventVoltages < maxVolt;
@@ -5209,10 +5219,11 @@ function handles = UpdateEventThresholdDisplay(handles, eventSourceIdx)
             isa(handles.EventThresholdHandles(axnum), 'matlab.graphics.GraphicsPlaceholder')
             % Create new threshold line
             hold(handles.axes_Channel(axnum), 'on');
-            [handles, numSamples] = eg_GetNumSamples(handles);
+            chan = handles.loadedChannelNums{axnum};
+            [handles, numSamples, fs] = eg_GetSamplingInfo(handles, filenum, chan);
             handles.EventThresholdHandles(axnum) = ...
                 plot(handles.axes_Channel(axnum), ...
-                     [0, numSamples/handles.fs], ...
+                     [0, numSamples/fs], ...
                      [threshold, threshold], ...
                      ':', 'Color', handles.ChannelThresholdColor(axnum,:), 'HitTest', 'off', 'PickableParts', 'none');
             hold(handles.axes_Channel(axnum), 'off');
@@ -5737,13 +5748,17 @@ function handles = UpdateEventSourceList(handles)
     handles.popup_EventListAlign.String = eventListItems;
     handles.popup_EventListAlign.UserData = eventListInfo;
 
-function handles = DetectEvents(handles, eventSourceIdx, filenum, chanData)
+function handles = DetectEvents(handles, eventSourceIdx, filenum, chanData, fs)
     % Detect events given an event source index
     % Optionally provide pre-filtered channel data for speed
 
     if ~exist('chanData', 'var')
         % No pre-filtered channel data provided
         chanData = [];
+    end
+    if ~exist('fs', 'var')
+        % No channel sampling rate provided
+        fs = handles.fs;
     end
     if ~exist('filenum', 'var') || isempty(filenum)
         % Use current filenum
@@ -5755,14 +5770,14 @@ function handles = DetectEvents(handles, eventSourceIdx, filenum, chanData)
 
     if isempty(chanData)
         % Load and filter channel data
-        [handles, chanData, ~] = loadChannelData(handles, channelNum, filterName, filterParameters, filenum);
+        [handles, chanData, fs] = loadChannelData(handles, channelNum, filterName, filterParameters, filenum);
     end
 
     % Get event threshold
     threshold = handles.EventThresholds(eventSourceIdx, filenum);
 
     % Run event detector plugin to get a list of detected event times
-    [eventTimes, ~] = eg_runPlugin(handles.plugins.eventDetectors, eventDetectorName, chanData, handles.fs, threshold, eventParameters);
+    [eventTimes, ~] = eg_runPlugin(handles.plugins.eventDetectors, eventDetectorName, chanData, fs, threshold, eventParameters);
 
     % Store event info in relevant data structures
     for eventPartNum = 1:length(eventTimes)
@@ -5891,9 +5906,10 @@ function handles = UpdateChannelEventDisplay(handles, axnum)
     % Get channel data
     chanData = handles.loadedChannelData{axnum};
     
-    [handles, numSamples] = eg_GetNumSamples(handles);
+    chan = handles.loadedChannelNums{axnum};
+    [handles, numSamples, fs] = eg_GetSamplingInfo(handles, [], chan);
     
-    times = linspace(0, numSamples/handles.fs, numSamples);
+    times = linspace(0, numSamples/fs, numSamples);
     for eventPartIdx = 1:length(eventTimes)
         storedInfo.eventPartIdx = eventPartIdx;
         if eventPartMenuItem(eventPartIdx).Checked
@@ -6027,6 +6043,7 @@ function handles = UpdateEventViewer(handles, keepView)
                 if eventSourceIdx == chanEventSourceIdx
                     % This channel matches - use the loaded channel data
                     channelData = handles.loadedChannelData{axnum};
+                    fs = handles.loadedChannelFs{axnum};
                     channelYLabel = handles.axes_Channel(axnum).YLabel.String;
                     break;
                 end
@@ -6035,14 +6052,16 @@ function handles = UpdateEventViewer(handles, keepView)
                 % None of the currently loaded channels have this data,
                 % load it from file
                 [selectedChannelNum, selectedFilter, ~, ~, selectedFilterParams] = GetEventSourceInfo(handles, eventSourceIdx);
-                [handles, channelData, channelYLabel] = loadChannelData(handles, selectedChannelNum, selectedFilter, selectedFilterParams);
+                [handles, channelData, fs, channelYLabel] = loadChannelData(handles, selectedChannelNum, selectedFilter, selectedFilterParams);
             end
         case 'Top axes'
             channelData = handles.loadedChannelData{1};
             channelYLabel = (handles.axes_Channel(1).YLabel.String);
+            fs = handles.loadedChannelFs{1};
         case 'Bottom axes'
             channelData = handles.loadedChannelData{2};
             channelYLabel = (handles.axes_Channel(2).YLabel.String);
+            fs = handles.loadedChannelFs{2};
     end
     
     filenum = getCurrentFileNum(handles);
@@ -6061,13 +6080,13 @@ function handles = UpdateEventViewer(handles, keepView)
             for eventNum = 1:length(eventTimes)
                 % Get the event time and time limits
                 eventTime = eventTimes(eventNum);
-                leftWidth = round(handles.EventXLims(eventSourceIdx, 1) * handles.fs);
-                rightWidth = round(handles.EventXLims(eventSourceIdx, 2) * handles.fs);
+                leftWidth = round(handles.EventXLims(eventSourceIdx, 1) * fs);
+                rightWidth = round(handles.EventXLims(eventSourceIdx, 2) * fs);
                 startTime = max([1, eventTime - leftWidth]);
                 endTime = min([length(channelData), eventTime + rightWidth]);
                 if eventSelection(eventNum)
                     % If event is selected, plot the wave
-                    handles.EventWaveHandles(eventNum) = plot(handles.axes_Events, ((startTime:endTime)-eventTimes(eventNum))/handles.fs*1000,channelData(startTime:endTime),'Color','k');
+                    handles.EventWaveHandles(eventNum) = plot(handles.axes_Events, ((startTime:endTime)-eventTimes(eventNum))/fs*1000,channelData(startTime:endTime),'Color','k');
                 else
                     % If event is not selected, use graphics placeholder
                     handles.EventWavehandles(eventNum) = gobjects();
@@ -6091,13 +6110,13 @@ function handles = UpdateEventViewer(handles, keepView)
             f = findobj('Parent',handles.menu_XAxis,'Checked','on');
             str = f.Label;
             [feature1, name1] = eg_runPlugin(handles.plugins.eventFeatures, ...
-                str, channelData, handles.fs, allEventTimes, g, ...
-                round(handles.EventXLims(handles.popup_EventListAlign.Value,:)*handles.fs));
+                str, channelData, fs, allEventTimes, g, ...
+                round(handles.EventXLims(handles.popup_EventListAlign.Value,:)*fs));
             f = findobj('Parent',handles.menu_YAxis,'Checked','on');
             str = f.Label;
             [feature2, name2] = eg_runPlugin(handles.plugins.eventFeatures, ...
-                str, channelData, handles.fs, allEventTimes, g, ...
-                round(handles.EventXLims(handles.popup_EventListAlign.Value,:)*handles.fs));
+                str, channelData, fs, allEventTimes, g, ...
+                round(handles.EventXLims(handles.popup_EventListAlign.Value,:)*fs));
     
             for c = 1:length(feature1)
                 if eventSelection(c)==1
@@ -6402,9 +6421,9 @@ function handles = SetEventDisplayActiveState(handles, eventNum, eventPartNum, e
 
     % Update active event cursor in sound axes
     if activeState
-        [handles, numSamples] = eg_GetNumSamples(handles);
+        [handles, numSamples, fs] = eg_GetSamplingInfo(handles);
         filenum = getCurrentFileNum(handles);
-        ts = linspace(0, numSamples/handles.fs, numSamples);
+        ts = linspace(0, numSamples/fs, numSamples);
         eventTimes = handles.EventTimes{eventSourceIdx}{eventPartNum,filenum};
         activeEventTime = ts(eventTimes(eventNum));
         
@@ -6491,7 +6510,7 @@ function handles = UpdateActiveEventCursors(handles, eventTime)
 %     eventSelection = handles.EventSelected{f}{g,filenum};
 %     eventTimes = eventTimes(eventSelection);
 %     
-%     [handles, numSamples] = eg_GetNumSamples(handles);
+%     [handles, numSamples] = eg_GetSamplingInfo(handles);
 %     
 %     ts = linspace(0, numSamples/handles.fs, numSamples);
 %     hold(handles.axes_Sound, 'on');
@@ -7290,7 +7309,7 @@ function push_WorksheetAppend_Callback(hObject, ~, handles)
         ylim(ax, yl);
         xlp = round(xl*handles.fs);
         if xlp(1)<1; xlp(1) = 1; end
-        [handles, numSamples] = eg_GetNumSamples(handles);
+        [handles, numSamples] = eg_GetSamplingInfo(handles);
     
         if xlp(2)>numSamples; xlp(2) = numSamples; end
         for c = 1:length(handles.menu_Algorithm)
@@ -7941,8 +7960,9 @@ function handles = eg_Overlay(handles)
                 if isvalid(handles.Sonogram_Overlays(axnum))
                     handles.Sonogram_Overlays(axnum).YData = y;
                 else
-                    [handles, numSamples] = eg_GetNumSamples(handles);
-                    t = linspace(0, numSamples/handles.fs, numSamples);
+                    chan = handles.loadedChannelNums{axnum};
+                    [handles, numSamples, fs] = eg_GetSamplingInfo(handles, [], chan);
+                    t = linspace(0, numSamples/fs, numSamples);
                     handles.Sonogram_Overlays(axnum) = plot(handles.axes_Sonogram, t, y, 'Color', 'b', 'LineWidth', 1);
                     handles.Sonogram_Overlays(axnum).UIContextMenu = handles.axes_Sonogram.UIContextMenu;
                     handles.Sonogram_Overlays(axnum).ButtonDownFcn = handles.axes_Sonogram.ButtonDownFcn;
@@ -8205,15 +8225,15 @@ function handles = updateAmplitude(handles, forceRedraw)
         labels = '';
     else
         handles = UpdateFilteredSound(handles);
-        [handles, handles.amplitude, labels] = calculateAmplitude(handles);
+        [handles, handles.amplitude, fs, labels] = calculateAmplitude(handles);
     end
 
     if (isempty(handles.AmplitudePlotHandle) || ~isgraphics(handles.AmplitudePlotHandle) || forceRedraw) ...
             && ~isempty(handles.amplitude)
-        [handles, numSamples] = eg_GetNumSamples(handles);
+        [handles, numSamples] = eg_GetSamplingInfo(handles);
         filenum = getCurrentFileNum(handles);
 
-        handles.AmplitudePlotHandle = plot(handles.axes_Amplitude, linspace(0, numSamples/handles.fs, numSamples),handles.amplitude,'Color',handles.AmplitudeColor);
+        handles.AmplitudePlotHandle = plot(handles.axes_Amplitude, linspace(0, numSamples/fs, numSamples),handles.amplitude,'Color',handles.AmplitudeColor);
         handles.axes_Amplitude.XTickLabel  = [];
         ylim(handles.axes_Amplitude, handles.AmplitudeLims);
         box(handles.axes_Amplitude, 'off');
@@ -8243,7 +8263,7 @@ function handles = updateAmplitude(handles, forceRedraw)
         ylabel(handles.axes_Amplitude, labels);
     end
 
-function [handles, amp, labels, fs] = calculateAmplitude(handles, filenum)
+function [handles, amp, fs, labels] = calculateAmplitude(handles, filenum)
     if ~exist('filenum', 'var') || isempty(filenum)
         filenum = getCurrentFileNum(handles);
     end
@@ -8269,12 +8289,13 @@ function [handles, amp, labels, fs] = calculateAmplitude(handles, filenum)
             channelNum = getSelectedChannel(handles, axnum);
             filterName = getSelectedFilter(handles, axnum);
             filterParams = getSelectedFunctionParameters(handles, axnum);
-            [handles, channelData] = loadChannelData(handles, channelNum, filterName, filterParams, filenum);
+            [handles, channelData, fs] = loadChannelData(handles, channelNum, filterName, filterParams, filenum);
             amp = smooth(channelData, windowSize);
             labels = handles.axes_Channel1.YLabel.String;
         else
             amp = zeros(size(handles.filtered_sound));
             labels = '';
+            fs = handles.fs;
         end
     end
     
@@ -8340,7 +8361,7 @@ function snd = GenerateSound(handles, sound_type)
     % Generate sound with the selected options. Sound_type is either 'snd' or
     % 'mix'
     
-    [handles, sound] = getSound(handles);
+    [handles, sound, fs] = getSound(handles);
     
     snd = zeros(size(sound));
     if handles.playback_SoundInMix.Checked==1 || strcmp(sound_type,'snd')
@@ -8374,7 +8395,7 @@ function snd = GenerateSound(handles, sound_type)
     end
     
     xd = handles.axes_Sonogram.XLim;
-    xd = round(xd*handles.fs);
+    xd = round(xd * fs);
     xd(1) = xd(1)+1;
     xd(2) = xd(2)-1;
     if xd(1)<1
@@ -8425,7 +8446,7 @@ function menu_FilterParameters_Callback(hObject, ~, handles)
     handles = UpdateFilteredSound(handles);
     
     cla(handles.axes_Sound);
-    [handles, numSamples] = eg_GetNumSamples(handles);
+    [handles, numSamples] = eg_GetSamplingInfo(handles);
     
     h = eg_peak_detect(handles.axes_Sound, linspace(0, numSamples/handles.fs, numSamples), handles.filtered_sound);
     h.Color = 'c';
@@ -10173,7 +10194,7 @@ function action_Export_Callback(hObject, eventdata, handles)
                 xlp = round(xl*handles.fs);
                 if xlp(1)<1; xlp(1) = 1; end
     
-                [handles, numSamples] = eg_GetNumSamples(handles);
+                [handles, numSamples] = eg_GetSamplingInfo(handles);
     
                 if xlp(2)>numSamples
                     xlp(2) = numSamples;
@@ -10650,7 +10671,7 @@ function action_Export_Callback(hObject, eventdata, handles)
                                     ylim(ax, yl);
                                     xlp = round(xl*handles.fs);
                                     if xlp(1)<1; xlp(1) = 1; end
-                                    [handles, numSamples] = eg_GetNumSamples(handles);
+                                    [handles, numSamples] = eg_GetSamplingInfo(handles);
         
                                     if xlp(2)>numSamples; xlp(2) = numSamples; end
                                     for j = 1:length(handles.menu_Algorithm)
@@ -10686,7 +10707,7 @@ function action_Export_Callback(hObject, eventdata, handles)
                                 f = unique([f; g; h]);
         
                                 hold(ax, 'on');
-                                [handles, numSamples] = eg_GetNumSamples(handles);
+                                [handles, numSamples] = eg_GetSamplingInfo(handles);
         
                                 xs = linspace(0, numSamples/handles.fs, numSamples);
                                 for j = f'
@@ -10708,7 +10729,7 @@ function action_Export_Callback(hObject, eventdata, handles)
                                 f = unique([f; g; h]);
         
                                 hold(ax, 'on');
-                                [handles, numSamples] = eg_GetNumSamples(handles);
+                                [handles, numSamples] = eg_GetSamplingInfo(handles);
         
                                 xs = linspace(0, numSamples/handles.fs, numSamples);
                                 for j = f'
