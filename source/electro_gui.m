@@ -6421,7 +6421,8 @@ function handles = SetEventDisplayActiveState(handles, eventNum, eventPartNum, e
 
     % Update active event cursor in sound axes
     if activeState
-        [handles, numSamples, fs] = eg_GetSamplingInfo(handles);
+        sourceChannel = GetEventSourceInfo(handles, eventSourceIdx);
+        [handles, numSamples, fs] = eg_GetSamplingInfo(handles, [], sourceChannel);
         filenum = getCurrentFileNum(handles);
         ts = linspace(0, numSamples/fs, numSamples);
         eventTimes = handles.EventTimes{eventSourceIdx}{eventPartNum,filenum};
