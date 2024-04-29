@@ -1600,6 +1600,13 @@ function handles = eg_LoadChannel(handles, axnum)
     % Plot channel data
     handles = eg_PlotChannel(handles,axnum);
 
+    % Reset active event handles
+    handles.ActiveEventNum = [];
+    handles.ActiveEventPartNum = [];
+
+    % Clear existing event markers
+    handles = clearEventMarkerHandles(handles, axnum);
+
     % Update event display
     handles = UpdateChannelEventDisplay(handles, axnum);
     
@@ -1617,6 +1624,9 @@ function handles = eg_LoadChannel(handles, axnum)
     
     % If overlay is requested, overlay channel data on another axes
     handles = eg_Overlay(handles);
+
+    % Clear existing event waves
+    handles = clearEventWaveHandles(handles);
 
     % Update event viewer in case it was showing data from this axes
     handles = UpdateEventViewer(handles);
@@ -4327,7 +4337,7 @@ function scrollHandler(source, event)
         else
             handles = zoomInTime(handles, t, event.VerticalScrollCount);
         end
-    elseif areCoordinatesIn(x, y, handles.axes_Events)
+    elseif areCoordinatesIn(x, y, handles.axes_Events) && ~isempty(handles.ActiveEventNum)
         visibleEventMask = isgraphics(handles.EventWaveHandles);
         newActiveEventNum = findNextTrueIdx(visibleEventMask, handles.ActiveEventNum, event.VerticalScrollCount);
         handles = SetActiveEventDisplay(handles, newActiveEventNum);
@@ -4950,7 +4960,6 @@ function menu_PeakDetect2_Callback(hObject, ~, handles)
 function click_Channel(hObject, event)
     % Handle a click on the channel axes
     handles = guidata(hObject);
-    keyInfo = getKeyInfo(hObject);
 
     obj = hObject;
     if ~strcmp(obj.Type,'axes')
@@ -5015,8 +5024,11 @@ function click_Channel(hObject, event)
     
     elseif strcmp(handles.figure_Main.SelectionType, 'alt')
         % Control-click or right click
+        disp('control click or right click')
+        keyInfo = getKeyInfo(hObject);
         if ~keyInfo.CtrlDown
             % False alarm, this is just a right click, stand down
+            disp('right click')
             return;
         end
 
@@ -5834,12 +5846,18 @@ function [handles, eventSourceIdx] = DetectEventsInAxes(handles, axnum)
     handles = UpdateChannelEventDisplay(handles, axnum);
     handles = UpdateEventSourceList(handles);
 
-function handles = ClearEventMarkers(handles, axnum)
+function handles = clearEventMarkerHandles(handles, axnum)
     % Delete all event markers in channel axes
     for eventPartNum = 1:length(handles.EventHandles{axnum})
         delete(handles.EventHandles{axnum}{eventPartNum});
     end
     handles.EventHandles{axnum} = {};
+
+function handles = clearEventWaveHandles(handles)
+    % Delete all event markers in channel axes
+    delete(handles.EventWaveHandles);
+    handles.EventWaveHandles = gobjects().empty();
+    ylabel(handles.axes_Events, '');
 
 function handles = UpdateDisplayForEventSource(handles, eventSourceIdx)
     % Update any displays (channel axes or event viewer) that are currently
@@ -5865,7 +5883,7 @@ function handles = UpdateChannelEventDisplay(handles, axnum)
 
     eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
 
-    handles = ClearEventMarkers(handles, axnum);
+    handles = clearEventMarkerHandles(handles, axnum);
 
     if isempty(eventSourceIdx)
         % No event source
@@ -6016,8 +6034,7 @@ function handles = UpdateEventViewer(handles, keepView)
     end
 
     delete(handles.ActiveEventCursors);
-    delete(handles.EventWaveHandles);
-    handles.EventWaveHandles = gobjects().empty;
+    handles = clearEventWaveHandles(handles);
 
     hold(handles.axes_Events, 'on');
     
@@ -6099,9 +6116,7 @@ function handles = UpdateEventViewer(handles, keepView)
             yl = ylim(handles.axes_Events);
             ylim(handles.axes_Events, [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
         else
-            delete(handles.EventWaveHandles);
-            handles.EventWaveHandles = gobjects().empty();
-            ylabel(handles.axes_Events, '');
+            handles = clearEventWaveHandles(handles);
         end
     else
         % "Display > Features" in Event axes context menu is selected
@@ -6154,9 +6169,7 @@ function handles = UpdateEventViewer(handles, keepView)
         child.UIContextMenu = handles.axes_Events.UIContextMenu;
     end
     
-    if ~isempty(handles.ActiveEventNum)
-        handles = SetActiveEventDisplay(handles, handles.ActiveEventNum, handles.ActiveEventPartNum, handles.ActiveEventSourceIdx);
-    end
+    handles = SetActiveEventDisplay(handles, handles.ActiveEventNum, handles.ActiveEventPartNum, handles.ActiveEventSourceIdx);
     
     if handles.menu_AutoApplyYLim.Checked && ~isempty(handles.EventWaveHandles)
         if handles.menu_DisplayValues.Checked
@@ -6388,7 +6401,8 @@ function handles = SetEventDisplayActiveState(handles, eventNum, eventPartNum, e
 
     % Check if event viewer is currently displaying this event
     eventViewerEventSourceIdx = GetEventViewerEventSourceIdx(handles);
-    if ~isempty(eventViewerEventSourceIdx) && eventViewerEventSourceIdx == eventSourceIdx && isgraphics(handles.EventWaveHandles(eventNum))
+    if ~isempty(eventViewerEventSourceIdx) && ...
+       eventViewerEventSourceIdx == eventSourceIdx && ~isempty(handles.EventWaveHandles) && isgraphics(handles.EventWaveHandles(eventNum))
         % Event viewer is displaying this event's source
         % Update active event wave plot (in the event axes)
         if activeState
@@ -6404,18 +6418,20 @@ function handles = SetEventDisplayActiveState(handles, eventNum, eventPartNum, e
     % Update active event marker (in any channel axes that are displaying this event)
     matchingAxes = WhichChannelAxesMatchEventSource(handles, eventSourceIdx);
     for axnum = matchingAxes
-        eventMarkerHandle = handles.EventHandles{axnum}{eventPartNum}(eventNum);
-        if activeState
-            % Make event marker look active
-            eventMarkerHandle.MarkerSize = 5;
-            eventMarkerHandle.MarkerFaceColor = 'r';
-            eventMarkerHandle.MarkerEdgeColor = 'r';
-%             uistack(eventMarkerHandle, 'top');
-        else
-            % Make event marker look inactive
-            eventMarkerHandle.MarkerSize = 5;
-            eventMarkerHandle.MarkerFaceColor = 'k';
-            eventMarkerHandle.MarkerEdgeColor = 'k';
+        if ~isempty(handles.EventHandles{axnum}) && ~isempty(handles.EventHandles{axnum}{eventPartNum})
+            eventMarkerHandle = handles.EventHandles{axnum}{eventPartNum}(eventNum);
+            if activeState
+                % Make event marker look active
+                eventMarkerHandle.MarkerSize = 5;
+                eventMarkerHandle.MarkerFaceColor = 'r';
+                eventMarkerHandle.MarkerEdgeColor = 'r';
+    %             uistack(eventMarkerHandle, 'top');
+            else
+                % Make event marker look inactive
+                eventMarkerHandle.MarkerSize = 5;
+                eventMarkerHandle.MarkerFaceColor = 'k';
+                eventMarkerHandle.MarkerEdgeColor = 'k';
+            end
         end
     end
 
@@ -6426,9 +6442,10 @@ function handles = SetEventDisplayActiveState(handles, eventNum, eventPartNum, e
         filenum = getCurrentFileNum(handles);
         ts = linspace(0, numSamples/fs, numSamples);
         eventTimes = handles.EventTimes{eventSourceIdx}{eventPartNum,filenum};
-        activeEventTime = ts(eventTimes(eventNum));
-        
-        handles = UpdateActiveEventCursors(handles, activeEventTime);
+        if ~isempty(eventTimes)
+            activeEventTime = ts(eventTimes(eventNum));
+            handles = UpdateActiveEventCursors(handles, activeEventTime);
+        end
     else
         handles = UpdateActiveEventCursors(handles, []);
     end

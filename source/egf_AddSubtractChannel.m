@@ -15,6 +15,12 @@ dlg_title = 'Eliminate Microphonics';
 num_lines = 1;
 answer = inputdlg(prompt,dlg_title,num_lines,def);
 
+if isempty(answer)
+    % User cancelled
+    snd = zeros(size(a));
+    return;
+end
+
 %if preprogram for batch event yoyo
 %load('C:\JesseInspiron\XPaper\filenum.mat','filenum');
 % answer=def;
