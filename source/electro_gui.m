@@ -4550,6 +4550,13 @@ function MouseMotionHandler(hObject, event)
             guidata(hObject, handles);
             return;
         end
+    else
+        handles = guidata(hObject);
+        if ~isempty(handles.Cursors)
+            delete(handles.Cursors);
+            handles.Cursors = gobjects().empty;
+            guidata(hObject, handles);
+        end
     end
 
 function keyReleaseHandler(hObject, event)
