@@ -3732,19 +3732,39 @@ function handles = eg_OpenDbase(handles, filePath)
     load(fullfile(path, file),'dbase');
     waitbar(0.26, progressBar)
     
-    handles.DefaultRootPath = dbase.PathName;
-    if ~isfolder(dbase.PathName)
+    while ~isfolder(dbase.PathName)
         % Root path in dbase is not found on this system. Prompt user to
         % find the files in a different directory
-        newDbasePathName = uigetdir(handles.tempSettings.lastDirectory, ...
-            sprintf('Directory ''%s'' not found. Find the new location.', dbase.PathName));
-        if ~ischar(path)
-            % User cancelled
-            close(progressBar);
-            return
+        choice1 = 'Choose new drive letter';
+        choice2 = 'Locate data directory manually';
+        choice3 = 'Cancel';
+        choice = questdlg(sprintf('Data directory ''%s'' not found. What would you like to do?', dbase.PathName), 'Data directory not found', choice1, choice2, choice3, 'Cancel');
+        switch choice
+            case choice1
+                oldRoot = getPathRoot(dbase.PathName);
+                newRoot = inputdlg('Choose new drive letter:', 'Choose new drive letter', 1, {oldRoot});
+                if isempty(newRoot)
+                    % User cancelled
+                    close(progressBar);
+                    return;
+                else
+                    dbase.PathName = RootSwap(dbase.PathName, oldRoot, newRoot);
+                end
+            case choice2
+                dbase.PathName = uigetdir(handles.tempSettings.lastDirectory, ...
+                    'Locate the data directory manually:');
+                if ~ischar(dbase.PathName)
+                    % User cancelled
+                    close(progressBar);
+                    return
+                end
+            case {choice3, ''}
+                % User cancelled
+                close(progressBar);
+                return
         end
-        handles.DefaultRootPath = newDbasePathName;
     end
+    handles.DefaultRootPath = dbase.PathName;
     waitbar(0.30, progressBar)
 
     % Save the selected directory in temporary settings for next time
