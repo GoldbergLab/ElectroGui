@@ -411,19 +411,25 @@ function handles = disableAxesPopupToolbars(handles)
     delete(handles.axes_Segments.Toolbar);
     delete(handles.axes_Events.Toolbar);
 
-
 function handles = loadTempFile(handles)
     % Get temp file
     tempSettingsFields =        {'lastDirectory',         'lastDBase', 'recentFiles'};
     tempSettingsDefaultValues = {handles.DefaultRootPath, '',          {}};
-    if exist(handles.tempFile, 'file')
-        try
-            handles.tempSettings = load(handles.tempFile, tempSettingsFields{:});
-        catch
-            warning('Unable to open temp file, creating new one.');
+    try
+        handles.tempSettings = load(handles.tempFile, tempSettingsFields{:});
+    catch ME
+        switch ME.identifier
+            case 'MATLAB:load:unableToReadMatFile'
+                % temp file is messed up maybe?
+                warning('Unable to open temp file, creating new one.');
+            case 'MATLAB:load:couldNotReadFile'
+                % temp file does not exist maybe?
+                warning('Unable to find temp file, creating new one.');
+                % No temp file - use defaults
+            otherwise
+                warning('Unknown error when attempting to read temp file. Creating new one.');
         end
-    else
-        % No temp file - use defaults
+        delete(handles.tempFile);
         handles.tempSettings = struct();
     end
     % Loop over expected temp settings fields and set defaults if they
