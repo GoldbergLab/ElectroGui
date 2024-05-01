@@ -7338,27 +7338,34 @@ function push_WorksheetAppend_Callback(hObject, ~, handles)
     fig.Position = pos;
     ax = subplot('Position',[0 0 1 1]);
     hold(ax, 'on');
-    xs = {};
+    ts = {};
     ys = {};
-    ms = {};
+    ds = {};
     if handles.ExportReplotSonogram == 0
-        ch = findobj('Parent',handles.axes_Sonogram,'type','image');
-        for c = 1:length(ch)
-            x = ch(c).XData;
-            y = ch(c).YData;
-            m = ch(c).CData;
-            f = find(x>=xl(1) & x<=xl(2));
-            g = find(y>=yl(1) & y<=yl(2));
-            xs{end+1} = x(f);
-            ys{end+1} = y(g);
-            ms{end+1} = m(g,f);
+        sonogramImage = findobj('Parent',handles.axes_Sonogram, 'type', 'image');
+        for sonogramNum = 1:length(sonogramImage)
+            t = sonogramImage(sonogramNum).XData;
+            f = sonogramImage(sonogramNum).YData;
+            data = sonogramImage(sonogramNum).CData;
+            timeMask = t>=xl(1) & t<=xl(2);
+            freqMask = f>=yl(1) & f<=yl(2);
+            ts{end+1} = t(timeMask);
+            ys{end+1} = f(freqMask);
+            ds{end+1} = data(timeMask, freqMask);
         end
     else
         xlim(ax, xl);
         ylim(ax, yl);
         xlp = round(xl*handles.fs);
+<<<<<<< Updated upstream
         if xlp(1)<1; xlp(1) = 1; end
         [handles, numSamples] = eg_GetSamplingInfo(handles);
+=======
+        if xlp(1)<1
+            xlp(1) = 1;
+        end
+        [handles, numSamples] = eg_GetNumSamples(handles);
+>>>>>>> Stashed changes
     
         if xlp(2)>numSamples; xlp(2) = numSamples; end
         for c = 1:length(handles.menu_Algorithm)
@@ -7382,26 +7389,26 @@ function push_WorksheetAppend_Callback(hObject, ~, handles)
             m = ch(c).CData;
             f = find(x>=xl(1) & x<=xl(2));
             g = find(y>=yl(1) & y<=yl(2));
-            xs{end+1} = x(f);
+            ts{end+1} = x(f);
             ys{end+1} = y(g);
-            ms{end+1} = m(g,f);
+            ds{end+1} = m(g,f);
         end
     end
     
     delete(fig);
     
     wav = GenerateSound(handles,'snd');
-    fs = handles.fs * handles.SoundSpeed;
+    ys = handles.fs * handles.SoundSpeed;
     
     handles.WorksheetXLims{end+1} = xl;
     handles.WorksheetYLims{end+1} = yl;
-    handles.WorksheetXs{end+1} = xs;
+    handles.WorksheetXs{end+1} = ts;
     handles.WorksheetYs{end+1} = ys;
-    handles.WorksheetMs{end+1} = ms;
+    handles.WorksheetMs{end+1} = ds;
     handles.WorksheetClim{end+1} = handles.axes_Sonogram.CLim;
     handles.WorksheetColormap{end+1} = handles.figure_Main.Colormap;
     handles.WorksheetSounds{end+1} = wav;
-    handles.WorksheetFs(end+1) = fs;
+    handles.WorksheetFs(end+1) = ys;
     dt = datetime(handles.text_DateAndTime.String);
     xd = handles.axes_Sonogram.XLim;
     dt = dt + seconds(xd(1));
@@ -7432,48 +7439,48 @@ function handles = UpdateWorksheet(handles)
     end
     
     if handles.WorksheetChronological == 1
-        [~, ord] = sort(handles.WorksheetTimes);
+        [~, sortOrder] = sort(handles.WorksheetTimes);
     else
-        ord = 1:length(handles.WorksheetXLims);
+        sortOrder = 1:length(handles.WorksheetXLims);
     end
     
-    lst = [];
+    worksheetList = [];
     used = [];
-    for c = 1:length(ord)
-        indx = ord(c);
+    for c = 1:length(sortOrder)
+        indx = sortOrder(c);
         if handles.WorksheetOnePerLine == 1 || isempty(used)
-            lst{end+1} = indx;
+            worksheetList{end+1} = indx;
             used(end+1) = widths(indx);
         else
             if handles.WorksheetChronological == 1
                 if used(end)+widths(indx) <= max_width
-                    lst{end}(end+1) = indx;
+                    worksheetList{end}(end+1) = indx;
                     used(end) = used(end) + widths(indx) + handles.WorksheetHorizontalInterval;
                 else
-                    lst{end+1} = indx;
+                    worksheetList{end+1} = indx;
                     used(end+1) = widths(indx);
                 end
             else
                 f = find(used+widths(indx) <= max_width);
                 if isempty(f)
-                    lst{end+1} = indx;
+                    worksheetList{end+1} = indx;
                     used(end+1) = widths(indx);
                 else
                     [~, j] = max(used(f));
                     ins = f(j(1));
-                    lst{ins}(end+1) = indx;
+                    worksheetList{ins}(end+1) = indx;
                     used(ins) = used(ins) + widths(indx) + handles.WorksheetHorizontalInterval;
                 end
             end
         end
     end
     
-    handles.WorksheetList = lst;
+    handles.WorksheetList = worksheetList;
     handles.WorksheetUsed = used;
     handles.WorksheetWidths = widths;
     
     perpage = fix(0.001+(handles.WorksheetHeight - 2*handles.WorksheetMargin - handles.WorksheetIncludeTitle*handles.WorksheetTitleHeight)/(handles.ExportSonogramHeight + handles.WorksheetVerticalInterval));
-    pagenum = fix((0:length(lst)-1)/perpage)+1;
+    pagenum = fix((0:length(worksheetList)-1)/perpage)+1;
 
     cla(handles.axes_Worksheet);
     patch(handles.axes_Worksheet, [0, handles.WorksheetWidth, handles.WorksheetWidth, 0], [0, 0, handles.WorksheetHeight, handles.WorksheetHeight],'w');
@@ -7485,11 +7492,11 @@ function handles = UpdateWorksheet(handles)
     handles.WorksheetHandles = gobjects().empty;
     for c = 1:length(f)
         indx = f(c);
-        for d = 1:length(lst{indx})
-            x = (handles.WorksheetWidth-used(indx))/2 + sum(widths(lst{indx}(1:d-1))) + handles.WorksheetHorizontalInterval*(d-1);
-            wd = widths(lst{indx}(d));
+        for d = 1:length(worksheetList{indx})
+            x = (handles.WorksheetWidth-used(indx))/2 + sum(widths(worksheetList{indx}(1:d-1))) + handles.WorksheetHorizontalInterval*(d-1);
+            wd = widths(worksheetList{indx}(d));
             y = handles.WorksheetHeight - handles.WorksheetMargin - handles.WorksheetIncludeTitle*handles.WorksheetTitleHeight - handles.WorksheetVerticalInterval*c - handles.ExportSonogramHeight*c;
-            handles.WorksheetHandles(lst{indx}(d)) = patch(handles.axes_Worksheet, [x, x+wd, x+wd, x], [y, y, y+handles.ExportSonogramHeight, y+handles.ExportSonogramHeight], [.5, .5, .5]);
+            handles.WorksheetHandles(worksheetList{indx}(d)) = patch(handles.axes_Worksheet, [x, x+wd, x+wd, x], [y, y, y+handles.ExportSonogramHeight, y+handles.ExportSonogramHeight], [.5, .5, .5]);
         end
     end
     
