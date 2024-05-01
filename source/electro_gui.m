@@ -1578,6 +1578,7 @@ function handles = eg_LoadChannel(handles, axnum)
     handles.ActiveEventNum = [];
     handles.ActiveEventPartNum = [];
 
+    handles = updateEventThresholdInAxes(handles, axnum);
     handles = AutoDetectEvents(handles, axnum);
 
     % Update event display
@@ -5790,6 +5791,23 @@ function numEvents = CheckEventCount(handles, eventSourceIdx, filenum)
         numEvents = length(handles.EventTimes{eventSourceIdx}{1, filenum});
     end
 
+function [handles, threshold] = updateEventThreshold(handles, eventSourceIdx, filenum)
+    % Get the current threshold. If it is inf, set it instead to the
+    % current default threshold for this event source. Return the
+    % threshold.
+    threshold = handles.EventThresholds(eventSourceIdx, filenum);
+    if threshold == inf
+        % If threshold is infinite, use the default threshold
+        threshold = handles.EventThresholdDefaults(eventSourceIdx);
+    end
+    handles.EventThresholds(eventSourceIdx, filenum) = threshold;
+
+function [handles, threshold] = updateEventThresholdInAxes(handles, axnum)
+    % Get event source matching current channel configuration
+    eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
+    filenum = getCurrentFileNum(handles);
+    [handles, threshold] = updateEventThreshold(handles, eventSourceIdx, filenum);
+
 function handles = AutoDetectEvents(handles, axnum)
     % If appropriate, detect events in the axes
 
@@ -5808,10 +5826,6 @@ function handles = AutoDetectEvents(handles, axnum)
             % If event source is still empty, channel must not be ready for
             % event detection - abort.
             return
-        end
-        if handles.EventThresholds(eventSourceIdx, filenum) == inf
-            % If threshold is infinite, use the default threshold
-            handles.EventThresholds(eventSourceIdx, filenum) = handles.EventThresholdDefaults(eventSourceIdx);
         end
         if all(cellfun(@isempty, handles.EventTimes{eventSourceIdx}(:, filenum)), 'all')
             % No events currently exist for this event source/filenum
