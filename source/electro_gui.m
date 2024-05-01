@@ -307,7 +307,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % Choose default command line output for electro_gui
     handles.output = hObject;
     
-    waitbar(0.1, progressBar, 'Starting parallel pool for file caching...can be disabled in defaults file');
+    waitbar(0.1, progressBar, {'Starting parallel pool for file caching...', 'This can be disabled in defaults file'});
     if handles.EnableFileCaching
         try
             % Start up parallel pool for caching purposes
@@ -326,6 +326,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.EventFunctions = {};    % Array of event source filter names
     handles.EventFunctionParameters = {};  % Array of event source filter parameters
     handles.EventDetectors = {};    % Array of event source detector names
+    handles.EventThresholdDefaults = [];  % Array of default thresholds for this event source
     handles.EventParameters = {};   % Array of event source detector parameters
     handles.EventParts = {};        % Array of event part options for the selected event detector
     handles.EventXLims = [];        % Array of event source x limits
@@ -1317,6 +1318,8 @@ function handles = UpdateChannelLists(handles)
         handles.popup_Channel(axnum).String = channelList;
     end
 
+function numChannels = getNumChannels(handles)
+    numChannels = length(handles.chan_files);
 function currentFileNum = getCurrentFileNum(handles)
     currentFileNum = str2double(handles.edit_FileNumber.String);
 function currentFileName = getCurrentFileName(handles)
@@ -1338,7 +1341,16 @@ function eventParts = getSelectedEventParts(handles, axnum)
     else
         eventParts = handles.EventParts{eventSourceIdx};
     end
-
+function threshold = getDefaultEventThreshold(handles, axnum)
+    % Get the default threshold for the event source of the given channel axes
+    eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
+    if isempty(eventSourceIdx)
+        % Current axis configuration does not correspond to a known event source
+        threshold = inf;
+    else
+        threshold = handles.EventThresholdDefaults(eventSourceIdx);
+    end
+    
 function selectedFunctionParameters = getSelectedFunctionParameters(handles, axnum)
     % Get the function parameters for the given channel axes
     eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
@@ -1611,8 +1623,7 @@ function handles = eg_LoadChannel(handles, axnum)
     handles.ActiveEventNum = [];
     handles.ActiveEventPartNum = [];
 
-    % Clear existing event markers
-    handles = clearEventMarkerHandles(handles, axnum);
+    handles = AutoDetectEvents(handles, axnum);
 
     % Update event display
     handles = UpdateChannelEventDisplay(handles, axnum);
@@ -3514,7 +3525,7 @@ function handles = eg_NewDbase(handles)
     if handles.TotalFileNumber == 0
         return
     end
-    
+
     handles = loadProperties(handles);
     
     % Create blank notes
@@ -3692,7 +3703,6 @@ function handles = InitializeVariables(handles)
     handles.MarkerSelection = cell(1,handles.TotalFileNumber);
     
     handles.EventThresholds = zeros(0,handles.TotalFileNumber);
-    handles.EventCurrentThresholds = [];
     
     handles.EventWhichPlot = 0;
 
@@ -3738,7 +3748,7 @@ function handles = eg_OpenDbase(handles, filePath)
         choice1 = 'Choose new drive letter';
         choice2 = 'Locate data directory manually';
         choice3 = 'Cancel';
-        choice = questdlg(sprintf('Data directory ''%s'' not found. What would you like to do?', dbase.PathName), 'Data directory not found', choice1, choice2, choice3, 'Cancel');
+        choice = questdlg({'Data directory not found:', '', dbase.PathName, '', 'What would you like to do?'}, 'Data directory not found', choice1, choice2, choice3, 'Cancel');
         switch choice
             case choice1
                 oldRoot = getPathRoot(dbase.PathName);
@@ -3857,6 +3867,29 @@ function handles = eg_OpenDbase(handles, filePath)
             eventDetectorName = handles.EventDetectors{eventSourceIdx};
             [~, eventParts] = eg_runPlugin(handles.plugins.eventDetectors, eventDetectorName, 'params');
             handles.EventParts{eventSourceIdx} = eventParts;
+        end
+    end
+    if isfield(dbase.AnalysisState, 'EventThresholdDefaults')
+        handles.EventThresholdDefaults = dbase.AnalysisState.EventThresholdDefaults;
+    else
+        % Legacy dbases did not have stored defaults - initialize a new one
+        if isempty(handles.EventThresholds)
+            handles.EventThresholdDefaults = inf(1, length(handles.EventTimes));
+        else
+            % Use the most common non-infinite threshold for each event
+            % source
+
+            % Make a copy of all the thresholds
+            thresholds = handles.EventThresholds(handles.EventThresholds);
+            % Replace inf with NaN to exclude it from the mode calculation
+            thresholds(thresholds == inf) = NaN;
+            % Find the most commonly used threshold
+            thresholds = mode(thresholds, 2);
+            % If one of the event sources was all infinity ==> all nan,
+            % then the mode will show up as nan. Replace those with inf.
+            thresholds(isnan(thresholds)) = inf;
+            % Copy into defaults variable
+            handles.EventThresholdDefaults = thresholds;
         end
     end
     
@@ -3978,7 +4011,6 @@ function handles = eg_OpenDbase(handles, filePath)
     waitbar(0.57, progressBar)
     
     if isfield(dbase,'AnalysisState')
-        handles.EventCurrentThresholds = inf*ones(1,length(dbase.AnalysisState.EventList)-1);
         handles.popup_Channel1.String = dbase.AnalysisState.SourceList;
         handles.popup_Channel2.String = dbase.AnalysisState.SourceList;
 %         handles.popup_EventListAlign.String = dbase.AnalysisState.EventList;
@@ -5254,6 +5286,10 @@ function handles = UpdateEventThresholdDisplay(handles, eventSourceIdx)
         filenum = getCurrentFileNum(handles);
         % Get threshold
         threshold = handles.EventThresholds(eventSourceIdx, filenum);
+        if threshold == inf
+            % Use default threshold if it's set to inf
+            threshold = handles.EventThresholdDefaults(eventSourceIdx);
+        end
         % Get axes limits
         xl = xlim(handles.axes_Channel(axnum));
         yl = ylim(handles.axes_Channel(axnum));
@@ -5654,7 +5690,12 @@ function handles = SetEventThreshold(handles, axnum, threshold)
     end
 
     % Set the new event threshold
+    if size(handles.EventThresholds, 1) < eventSourceIdx
+        % First time setting thresholds for this event source - fill it with inf
+        handles.EventThresholds(eventSourceIdx, :) = inf;
+    end
     handles.EventThresholds(eventSourceIdx, filenum) = threshold;
+    handles.EventThresholdDefaults(eventSourceIdx) = threshold;
 
     % Update events for the event source configuration of this
     % channel axes.
@@ -5731,6 +5772,7 @@ function [handles, eventSourceIdx] = addNewEventSourceFromChannelAxes(handles, a
     filterName = getSelectedFilter(handles, axnum);
     filterParameters = getSelectedFunctionParameters(handles, axnum);
     eventDetectorName = getSelectedEventDetector(handles, axnum);
+    defaultEventThreshold = getDefaultEventThreshold(handles, axnum);
     eventParameters = getSelectedEventParameters(handles, axnum);
     eventXLims = getSelectedEventLims(handles, axnum);
     eventParts = getSelectedEventParts(handles, axnum);
@@ -5740,11 +5782,11 @@ function [handles, eventSourceIdx] = addNewEventSourceFromChannelAxes(handles, a
         eventSourceIdx = [];
         return;
     end
-    [handles, eventSourceIdx] = addNewEventSource(handles, channelNum, channelName, filterName, eventDetectorName, filterParameters, eventParameters, eventXLims, eventParts);
+    [handles, eventSourceIdx] = addNewEventSource(handles, channelNum, channelName, filterName, eventDetectorName, filterParameters, eventParameters, eventXLims, eventParts, defaultEventThreshold);
 
 function [handles, eventSourceIdx] = addNewEventSource(handles, channelNum, ...
         channelName, filterName, eventDetectorName, EventFunctionParameters, ...
-        eventParameters, eventXLims, eventParts)
+        eventParameters, eventXLims, eventParts, defaultEventThreshold)
     % Add a new event source, update all event-source-indexed variables
     eventSourceIdx = length(handles.EventSources) + 1;
     handles.EventSources{eventSourceIdx} = channelName;
@@ -5752,6 +5794,7 @@ function [handles, eventSourceIdx] = addNewEventSource(handles, channelNum, ...
     handles.EventFunctions{eventSourceIdx} = filterName;
     handles.EventFunctionParameters{eventSourceIdx} = EventFunctionParameters;
     handles.EventDetectors{eventSourceIdx} = eventDetectorName;
+    handles.EventThresholdDefaults(eventSourceIdx) = defaultEventThreshold;
     handles.EventParameters{eventSourceIdx} = eventParameters;
     handles.EventXLims(eventSourceIdx, :) = eventXLims;
     handles.EventParts{eventSourceIdx} = eventParts;
@@ -5836,6 +5879,36 @@ function numEvents = CheckEventCount(handles, eventSourceIdx, filenum)
     else
         numEvents = length(handles.EventTimes{eventSourceIdx}{1, filenum});
     end
+
+function handles = AutoDetectEvents(handles, axnum)
+    % If appropriate, detect events in the axes
+
+    % Get event source matching current channel configuration
+    eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
+
+    filenum = getCurrentFileNum(handles);
+
+    if handles.menu_EventAutoDetect(axnum).Checked
+        % User requests auto detect
+        if isempty(eventSourceIdx)
+            % Create an event source from the current axes configuration
+            [handles, eventSourceIdx] = addNewEventSourceFromChannelAxes(handles, axnum);
+        end
+        if isempty(eventSourceIdx)
+            % If event source is still empty, channel must not be ready for
+            % event detection - abort.
+            return
+        end
+        if handles.EventThresholds(eventSourceIdx, filenum) == inf
+            % If threshold is infinite, use the default threshold
+            handles.EventThresholds(eventSourceIdx, filenum) = handles.EventThresholdDefaults(eventSourceIdx);
+        end
+        if all(cellfun(@isempty, handles.EventTimes{eventSourceIdx}(:, filenum)), 'all')
+            % No events currently exist for this event source/filenum
+            handles = DetectEventsInAxes(handles, axnum);
+        end
+    end
+    
 
 function [handles, eventSourceIdx] = DetectEventsInAxes(handles, axnum)
     % Use the configuration of the given channel axes to either create a
@@ -6231,7 +6304,7 @@ function [channelNum, filterName, eventDetectorName] = GetEventViewerSourceInfo(
     else
         [channelNum, filterName, eventDetectorName] = GetEventSourceInfo(handles, eventSourceIdx);
     end
-function [channelNum, filterName, eventDetectorName, eventParameters, filterParameters, eventLims, eventParts] = GetEventSourceInfo(handles, eventSourceIdx)
+function [channelNum, filterName, eventDetectorName, eventParameters, filterParameters, eventLims, eventParts, defaultThreshold] = GetEventSourceInfo(handles, eventSourceIdx)
     % Return the channel number, filter name, and event detector name for
     % the given event source index
     channelNum = handles.EventChannels(eventSourceIdx);
@@ -6241,6 +6314,7 @@ function [channelNum, filterName, eventDetectorName, eventParameters, filterPara
     eventParameters = handles.EventParameters{eventSourceIdx};
     eventLims = handles.EventXLims(eventSourceIdx, :);
     eventParts = handles.EventParts{eventSourceIdx};
+    defaultThreshold = handles.EventThresholdDefaults(eventSourceIdx);
 function [channelNum, filterName, eventDetectorName] = GetChannelAxesInfo(handles, axnum)
     % Return the current settings of specified channel axes
     channelNum = getSelectedChannel(handles, axnum);
@@ -9444,7 +9518,8 @@ function dbase = GetDBase(handles)
     dbase.AnalysisState.FileSortPropertyName = handles.FileSortPropertyName;
     dbase.AnalysisState.FileSortReversed = isFileSortReversed(handles);
     dbase.AnalysisState.AuxiliarySoundSources = getAuxiliarySoundSources(handles);
-    
+    dbase.AnalysisState.EventThresholdDefaults = handles.EventThresholdDefaults;
+
     % Add any other custom fields from the original dbase that might exist to
     % the exported dbase
     if isfield(handles, 'OriginalDbase')
