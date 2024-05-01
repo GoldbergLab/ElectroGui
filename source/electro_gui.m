@@ -102,11 +102,6 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.SoundChannel = 0;
     handles.SoundExpression = '';
     
-    % Keep track of whether or not the shift and control keys are down
-    keyInfo.ShiftDown = false;
-    keyInfo.CtrlDown = false;
-    setKeyInfo(handles.figure_Main, keyInfo);
-
     % Min and max time to display on axes
     handles.TLim = [0, 1];
 
@@ -361,46 +356,6 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
 function isLoaded = isDataLoaded(handles)
     % Check if data is loaded yet
     isLoaded = ~isempty(handles.TotalFileNumber);
-
-function setKeyInfo(hObject, newKeyInfo)
-    % Create/update a separate mini app data store just for key info,
-    % because guidata takes so long it's unsuitable for MouseMotionHandler
-    if ~exist('newKeyInfo', 'var') || isempty(newKeyInfo)
-        newKeyInfo = struct();
-    end
-    hObject = ancestor(hObject, 'figure');
-    keyInfo = getKeyInfo(hObject);
-    if isfield(newKeyInfo, 'ShiftDown')
-        keyInfo.ShiftDown = newKeyInfo.ShiftDown;
-    end
-    if isfield(newKeyInfo, 'CtrlDown')
-        keyInfo.CtrlDown = newKeyInfo.CtrlDown;
-    end
-    if keyInfo.ShiftDown
-        % Record time that shift was last pressed
-        keyInfo.ShiftDownTime = datetime('now');
-    end
-    if keyInfo.CtrlDown
-        % Record time that ctrl was last pressed
-        keyInfo.CtrlDownTime = datetime('now');
-    end
-    setappdata(hObject, 'KeyInfo', keyInfo);
-
-function keyInfo = getKeyInfo(hObject)
-    % Retrieve info from mini app data store just for key info
-    hObject = ancestor(hObject, 'figure');
-    keyInfo = getappdata(hObject, 'KeyInfo');
-    if isempty(keyInfo)
-        keyInfo.ShiftDown = false;
-        keyInfo.CtrlDown = false;
-        keyInfo.ShiftDownTime = datetime('now');
-        keyInfo.CtrlDownTime = datetime('now');
-    end
-    now = datetime('now');
-    shiftDelta = seconds(now - keyInfo.ShiftDownTime);
-    ctrlDelta = seconds(now - keyInfo.CtrlDownTime);
-    keyInfo.ShiftDown = keyInfo.ShiftDown && shiftDelta < 0.2;
-    keyInfo.CtrlDown = keyInfo.CtrlDown && ctrlDelta < 0.2;
 
 function handles = disableAxesPopupToolbars(handles)
     % Turn off the pop-up tool buttons for axes
@@ -4390,8 +4345,7 @@ function scrollHandler(source, event)
     y = xy(2);
     if areCoordinatesIn(x, y, [handles.axes_Sonogram, handles.axes_Sound, handles.axes_Amplitude, handles.axes_Channel])
         [t, ~] = convertFigCoordsToChildAxesCoords(x, y, handles.axes_Sonogram);
-        keyInfo = getKeyInfo(handles.figure_Main);
-        if keyInfo.ShiftDown
+        if isShiftDown(handles)
             handles = shiftInTime(handles, event.VerticalScrollCount);
         else
             handles = zoomInTime(handles, t, event.VerticalScrollCount);
@@ -4514,9 +4468,9 @@ function exportView(handles)
 
 function MouseMotionHandler(hObject, event)
     % Callback to handle mouse motion
+    handles = guidata(hObject);
 
-    keyInfo = getKeyInfo(hObject);
-    if keyInfo.ShiftDown
+    if isShiftDown(handles)
         % User is holding the shift key down
         handles = guidata(hObject);
 
@@ -4609,31 +4563,27 @@ function MouseMotionHandler(hObject, event)
             return;
         end
     else
-        handles = guidata(hObject);
         if ~isempty(handles.Cursors)
             delete(handles.Cursors);
             handles.Cursors = gobjects().empty;
-            guidata(hObject, handles);
         end
     end
+    guidata(hObject, handles);
 
 function keyReleaseHandler(hObject, event)
     % Callback to handle a key release
     handles = guidata(hObject);
-    keyInfo = getKeyInfo(hObject);
 
-    if strcmp(event.Key, 'control')
-        keyInfo.CtrlDown = false;
-    end
+%     if strcmp(event.Key, 'control')
+%     end
+
     if strcmp(event.Key, 'shift')
-        keyInfo.ShiftDown = false;
 
         % Delete cursor objects, if they exist
         delete(handles.Cursors);
         handles.Cursors = gobjects().empty;
     end
 
-    setKeyInfo(hObject, keyInfo);
     guidata(hObject, handles);
 
 
@@ -4641,15 +4591,11 @@ function keyPressHandler(hObject, event)
     % Callback to handle a key press
 
     handles = guidata(hObject);
-    keyInfo = getKeyInfo(hObject);
 
-    if strcmp(event.Key, 'control')
-        keyInfo.CtrlDown = true;
-    end
-    if strcmp(event.Key, 'shift')
-        keyInfo.ShiftDown = true;
-    end
-    setKeyInfo(hObject, keyInfo);
+%     if strcmp(event.Key, 'control')
+%     end
+%     if strcmp(event.Key, 'shift')
+%     end
 
     % Get currently loaded file num
     filenum = getCurrentFileNum(handles);
@@ -5090,8 +5036,7 @@ function click_Channel(hObject, event)
     
     elseif strcmp(handles.figure_Main.SelectionType, 'alt')
         % Control-click or right click
-        keyInfo = getKeyInfo(hObject);
-        if ~keyInfo.CtrlDown
+        if ~isControlDown(handles)
             % False alarm, this is just a right click, stand down
             return;
         end
@@ -9207,12 +9152,17 @@ function isUnread = isFileUnread(handles, fileEntry)
     unreadFileMarkerEnd = unreadFileMarkerStart+length(handles.UnreadFileMarker)-1;
     isUnread = strcmp(fileEntry(unreadFileMarkerStart:unreadFileMarkerEnd), handles.UnreadFileMarker);
 
+function shiftDown = isShiftDown(handles)
+    shiftDown = any(strcmp(handles.figure_Main.CurrentModifier, 'shift'));
+
+function controlDown = isControlDown(handles)
+    controlDown = any(strcmp(handles.figure_Main.CurrentModifier, 'control'));
+
 function GUIPropertyChangeHandler(hObject, event)
     % Update stored property values from GUI
     handles = guidata(hObject);
-    keyInfo = getKeyInfo(hObject);
     firstPropertyColumn = handles.FileInfoBrowserFirstPropertyColumn;
-    if keyInfo.ShiftDown && ~isempty(handles.FileInfoBrowser.PreviousSelection)
+    if isShiftDown(handles) && ~isempty(handles.FileInfoBrowser.PreviousSelection)
         % User was holding shift down - set all values in that range
 
         changeIndices = event.Indices - [0, firstPropertyColumn - 1];
