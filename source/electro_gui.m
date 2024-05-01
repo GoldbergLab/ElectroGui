@@ -7357,15 +7357,10 @@ function push_WorksheetAppend_Callback(hObject, ~, handles)
         xlim(ax, xl);
         ylim(ax, yl);
         xlp = round(xl*handles.fs);
-<<<<<<< Updated upstream
-        if xlp(1)<1; xlp(1) = 1; end
-        [handles, numSamples] = eg_GetSamplingInfo(handles);
-=======
         if xlp(1)<1
             xlp(1) = 1;
         end
         [handles, numSamples] = eg_GetNumSamples(handles);
->>>>>>> Stashed changes
     
         if xlp(2)>numSamples; xlp(2) = numSamples; end
         for c = 1:length(handles.menu_Algorithm)
