@@ -3835,7 +3835,7 @@ function handles = eg_OpenDbase(handles, filePath)
             % source
 
             % Make a copy of all the thresholds
-            thresholds = handles.EventThresholds(handles.EventThresholds);
+            thresholds = handles.EventThresholds;
             % Replace inf with NaN to exclude it from the mode calculation
             thresholds(thresholds == inf) = NaN;
             % Find the most commonly used threshold
