@@ -5431,37 +5431,29 @@ function menu_Events1_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
 
+function handles = menu_EventAutoDetect_Callback(handles, axnum)
+    if handles.menu_EventAutoDetect(axnum).Checked
+        handles.menu_EventAutoDetect(axnum).Checked = 'off';
+    else
+        handles.menu_EventAutoDetect(axnum).Checked = 'on';
+        handles = DetectEventsInAxes(handles,1);
+
+        eventSourceIdx = GetChannelAxesEventSourceIdx(handles, 1);
+        handles = UpdateAnythingShowingEventSource(handles, eventSourceIdx);
+    end
+
+%         if handles.menu_AutoDisplayEvents.Checked
+%             handles = UpdateEventViewer(handles);
+%         end
+    
+
 % --------------------------------------------------------------------
 function menu_EventAutoDetect1_Callback(hObject, ~, handles)
     % hObject    handle to menu_EventAutoDetect1 (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    if handles.menu_EventAutoDetect1.Checked
-        handles.menu_EventAutoDetect1.Checked = 'off';
-    else
-        handles.menu_EventAutoDetect1.Checked = 'on';
-        handles = DetectEventsInAxes(handles,1);
-        if handles.menu_AutoDisplayEvents.Checked
-            handles = UpdateEventViewer(handles);
-        end
-    
-        val = handles.popup_Channel2.Value;
-        str = handles.popup_Channel2.String;
-        nums = [];
-        for c = 1:length(handles.EventTimes)
-            nums(c) = size(handles.EventTimes{c},1);
-        end
-        if val > length(str)-sum(nums)
-            indx = val-(length(str)-sum(nums));
-            cs = cumsum(nums);
-            f = length(find(cs<indx))+1;
-            if f == handles.EventCurrentIndex(1)
-                handles = eg_LoadChannel(handles,2);
-            end
-        end
-    end
-    
+    handles = menu_EventAutoDetect_Callback(handles, 1);
     guidata(hObject, handles);
 
 % --------------------------------------------------------------------
@@ -5477,7 +5469,6 @@ function menu_UpdateEventThresholdDisplay1_Callback(hObject, ~, handles)
     % handles    structure with handles and user data (see GUIDATA)
     
     handles = SetEventThreshold(handles,1);
-    
     guidata(hObject, handles);
 
 % --------------------------------------------------------------------
@@ -5492,33 +5483,7 @@ function menu_EventAutoDetect2_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    
-    if handles.menu_EventAutoDetect2.Checked
-        handles.menu_EventAutoDetect2.Checked = 'off';
-    else
-        handles.menu_EventAutoDetect2.Checked = 'on';
-        handles = DetectEventsInAxes(handles,2);
-        if handles.menu_AutoDisplayEvents.Checked
-            handles = UpdateEventViewer(handles);
-        end
-    
-        val = handles.popup_Channel1.Value;
-        str = handles.popup_Channel1.String;
-        nums = [];
-        for c = 1:length(handles.EventTimes)
-            nums(c) = size(handles.EventTimes{c},1);
-        end
-        if val > length(str)-sum(nums)
-            indx = val-(length(str)-sum(nums));
-            cs = cumsum(nums);
-            f = length(find(cs<indx))+1;
-            if f == handles.EventCurrentIndex(2)
-                handles = eg_LoadChannel(handles,1);
-            end
-        end
-    
-    end
-    
+    handles = menu_EventAutoDetect_Callback(handles, 2);
     guidata(hObject, handles);
 
 % --------------------------------------------------------------------
