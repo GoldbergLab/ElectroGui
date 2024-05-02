@@ -8,6 +8,7 @@ handles.DefaultFileLoader = 'Intan_Nc'; % Default file loader. Choose from egl_*
 handles.DefaultChannelNumber = 20; % Default number of channels
 handles.DefaultRootPath = '.';     % Default folder that file picker will open to when clicking "New" or "Open".
 handles.QuoteFile = 'quotes.txt';
+handles.IncludeDocumentation = true;  % Include field documentation in dbase? This adds a little size to the dbase file.
 
 % DEFAULT PROPERTIES
 handles.DefaultProperties.Names = {'bSorted', 'bDirected', 'bContainsStim', 'bUnusable'};   % Default property names to add to every loaded file
