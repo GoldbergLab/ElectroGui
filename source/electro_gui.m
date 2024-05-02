@@ -9602,7 +9602,7 @@ function dbase = GetDBase(handles, includeDocumentation)
     dbase.help.EventIsSelected = '';
     dbase.EventXLims = handles.EventXLims;
     dbase.help.EventXLims = '';
-    dbase.EventParts.EventXLims = handles.EventParts;
+    dbase.EventParts = handles.EventParts;
     dbase.help.EventParts = '';
 
     dbase.PseudoChannelNames = handles.PseudoChannelNames;
