@@ -95,6 +95,10 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % Gather all electro_gui plugins
     handles = gatherPlugins(handles);
 
+    handles.History = StateStack(10);   % GUI state history for undo/redo purposes 
+    handles.HistoryInterval = 10;       % Minimum # of seconds that must pass between recording history. Set to 0 to record on every change.
+    handles.LastHistoryTimestamp = datetime("now");
+
     % Initialize TotalFileNumber
     handles.TotalFileNumber = [];
 
@@ -158,7 +162,6 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.validSegmentCharacters = num2cell(validSegmentCharacters);
 
     % Set up event objects
-    handles.EventWhichPlot = 0;
     handles.EventWaveHandles = gobjects().empty;
 
     handles.ActiveEventNum = [];
@@ -371,6 +374,21 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
 
     % UIWAIT makes electro_gui wait for user response (see UIRESUME)
     % uiwait(handles.figure_Main);
+
+function handles = SaveState(handles)
+    newTimestamp = datetime("now");
+    if newTimestamp - handles.LastHistoryTimestamp > (handles.HistoryInterval / (60*60*24))
+        handles.History.SaveState(GetDBase(handles, false));
+    end
+    handles.LastHistoryTimestamp = newTimestamp;
+
+function handles = Undo(handles)
+    dbase = handles.History.Undo(GetDBase(handles, false));
+    handles = eg_OpenDbase(handles, dbase);
+    
+function handles = Redo(handles)
+    dbase = handles.History.Redo(GetDBase(handles, false));
+    handles = eg_OpenDbase(handles, dbase);
 
 function isLoaded = isDataLoaded(handles)
     % Check if data is loaded yet
@@ -3229,6 +3247,7 @@ function handles = SetAnnotationTitles(handles, titles, filenum, annotationNums,
 
 function handles = SetAnnotationTitle(handles, title, filenum, annotationNum, annotationType)
     % Set the title of the specified segment or marker
+    handles = SaveState(handles);
 
     if ~exist('filenum', 'var') || isempty(filenum)
         filenum = getCurrentFileNum(handles);
@@ -3773,8 +3792,6 @@ function handles = InitializeVariables(handles)
 
     handles.EventThresholds = zeros(0,handles.TotalFileNumber);
 
-    handles.EventWhichPlot = 0;
-
     handles.FileLength = zeros(1,handles.TotalFileNumber);
 
 % function handles = fillData(handles)
@@ -4111,7 +4128,6 @@ function handles = eg_OpenDbase(handles, filePath)
 %         handles.popup_EventListAlign.String = dbase.AnalysisState.EventList;
         handles.edit_FileNumber.String = num2str(dbase.AnalysisState.CurrentFile);
         handles.FileInfoBrowser.SelectedRow = dbase.AnalysisState.CurrentFile;
-        handles.EventWhichPlot = dbase.AnalysisState.EventWhichPlot;
         handles.EventXLims = dbase.AnalysisState.EventLims;
     else
         handles.EventXLims = [];
@@ -4781,7 +4797,17 @@ function keyPressHandler(hObject, event)
                 % User pressed control-space - start playback
                 snd = GenerateSound(handles,'snd');
                 progress_play(handles,snd);
-
+            case 'z'
+                if isShiftDown(handles)
+                    % User pressed control-shift-z
+                    handles = Redo(handles);
+                else
+                    % User pressed control-z - undo last action
+                    handles = Undo(handles);
+                end
+            case 'y'
+                % User pressed control-z - undo last action
+                handles = Redo(handles);
         end
     else
         % User pressed a key without control down
@@ -9624,8 +9650,8 @@ function dbase = GetDBase(handles, includeDocumentation)
     dbase.help.AnalysisState.EventList = '';
     dbase.AnalysisState.CurrentFile = getCurrentFileNum(handles);
     dbase.help.AnalysisState.CurrentFile = '';
-    dbase.AnalysisState.EventWhichPlot = handles.EventWhichPlot;
-    dbase.help.AnalysisState.EventWhichPlot = '';
+    dbase.AnalysisState.CurrentAxesEventSources = [GetChannelAxesEventSourceIdx(handles, 1), GetChannelAxesEventSourceIdx(handles, 2)];
+    dbase.help.AnalysisState.CurrentAxesEventSources = '';
     dbase.AnalysisState.EventLims = handles.EventXLims;
     dbase.help.AnalysisState.EventLims = '';
     dbase.AnalysisState.FileReadState = handles.FileReadState;
