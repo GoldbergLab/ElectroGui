@@ -135,6 +135,9 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.FileEntryOpenTag = '<HTML><FONT COLOR=000000>';
     handles.FileEntryCloseTag = '</FONT></HTML>';
 
+    % Include documentation in dbase?
+    handles.IncludeDocumentation = true;
+
     handles.TimeResolutionBarHandle = gobjects();
     handles.TimeResolutionBarText = gobjects();
 
@@ -318,6 +321,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % Initialize event-related variables
     handles.EventSources = {};      % Array of event source channel names
     handles.EventChannels = [];     % Array of event source channel numbers
+    handles.EventChannelIsPseudo = logical.empty();  % Array of flags indicating if the source channel is a pseudochannel
     handles.EventFunctions = {};    % Array of event source filter names
     handles.EventFunctionParameters = {};  % Array of event source filter parameters
     handles.EventDetectors = {};    % Array of event source detector names
@@ -333,6 +337,21 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.ActiveEventNum = [];        % Index of the currently active event
     handles.ActiveEventPartNum = [];    % Event part of the currently active event
     handles.ActiveEventSourceIdx = [];  % Event source index of the currently active event
+
+    % PseudoChannels are computed channels that show up like regular
+    % channels, but they are not directly from one of the channel files on
+    % disk; they are computed from other information.
+    handles.PseudoChannelNames = {};    % Cell array of pseudochannel names
+    handles.PseudoChannelTypes = {};    % Cell array of pseudochannel type names
+    handles.PseudoChannelInfo = {};     % Cell array of structs. The fields of the struct will vary based on the pseudochannel type
+                                        % All of them should have a
+                                        % Description field with a brief
+                                        % string summary of pseudochannel
+    % Type: 'event'
+    % Info fields:
+    %   eventSourceIdx  - index of the event source
+    %   eventPartIdx    - index of the event part
+    %   Description     - brief string summary
 
     handles.menu_EventsDisplayList = {gobjects().empty, gobjects().empty};
 
@@ -1264,16 +1283,56 @@ function handles = clearAxes(handles)
 function handles = UpdateChannelLists(handles)
     % Update the channel selection popups based on file lists
     channelList = {'(None)', 'Sound'};
+    channelInfo(1).IsPseudoChannel = false;
+    channelInfo(1).Number = [];
+    channelInfo(2).IsPseudoChannel = false;
+    channelInfo(2).Number = 0;
+    idx = length(channelList);
     for channelNum = 1:length(handles.chan_files)
         if ~isempty(handles.chan_files{channelNum})
-            channelList{end+1} = channelNumToName(channelNum);
+            idx = idx + 1;
+            channelList{idx} = channelNumToName(handles, channelNum);
+            channelInfo(idx).IsPseudoChannel = false;
+            channelInfo(idx).Number = channelNum;
         end
     end
+    for pseudoChannelNum = 1:length(handles.PseudoChannelNames)
+        idx = idx + 1;
+        channelList{idx} = getPseudoChannelString(handles, pseudoChannelNum);
+        channelInfo(idx).IsPseudoChannel = true;
+        channelInfo(idx).Number = pseudoChannelNum;
+    end
     for axnum = 1:2
-        handles.popup_Channel(axnum).String = channelList;
+        handles.popup_Channels(axnum).String = channelList;
+        handles.popup_Channels(axnum).UserData = channelInfo;
     end
 
+function pseudoChannelNum = channelNumToPseudoChannelNum(handles, channelNum)
+    % Convert a channel number (for which base and pseudo channels are 
+    %   numbered together consecutively) to a pseudo channel number (which
+    %   is numbered only for pseudo channels). If the given channel number
+    %   does not correspond to a pseudo channel, then pseudoChannelNum will
+    %   be an empty array
+    channelInfo = handles.popup_Channels(1).UserData(channelNum);
+    if channelInfo.IsPseudoChannel
+        pseudoChannelNum = channelInfo.Number;
+    else
+        pseudoChannelNum = [];
+    end
+
+function isPseudoChannel = isChannelPseudo(handles, chan)
+    % Return whether or not the given channel number corresponds to a
+    % pseudo channel (true) or a base channel (false)
+    isPseudoChannel = handles.popup_Channels(1).UserData(chan).IsPseudoChannel;
+
+function str = getPseudoChannelString(handles, channelNum)
+    name = handles.PseudoChannelNames{channelNum};
+    type = handles.PseudoChannelTypes{channelNum};
+    desc = handles.PseudoChannelInfo{channelNum}.Description;
+    str = sprintf('%s - %s (%s)', name, type, desc);
+
 function numChannels = getNumChannels(handles)
+    % Return number of channels (not including pseudochannels)
     numChannels = length(handles.chan_files);
 function currentFileNum = getCurrentFileNum(handles)
     currentFileNum = str2double(handles.edit_FileNumber.String);
@@ -1358,7 +1417,7 @@ function selectedEventLims = getSelectedEventLims(handles, axnum)
     end
 function isSound = isChannelSound(channelNum)
     isSound = (channelNum == 0);
-function [selectedChannelNum, selectedChannelName, isSound] = getSelectedChannel(handles, axnum)
+function [selectedChannelNum, selectedChannelName, isSound, isPseudoChannel] = getSelectedChannel(handles, axnum)
     % Return the name and number of the selected channel from the specified
     %   axis. If the name is not a valid channel, selectedChannelNum will be
     %   empty.
@@ -1366,9 +1425,21 @@ function [selectedChannelNum, selectedChannelName, isSound] = getSelectedChannel
     if ischar(channelOptionList)
         channelOptionList = {channelOptionList};
     end
-    selectedChannelName = channelOptionList{handles.popup_Channels(axnum).Value};
-    selectedChannelNum = channelNameToNum(selectedChannelName);
-    isSound = isChannelSound(selectedChannelNum);
+    channelInfoList = handles.popup_Channels(axnum).UserData;
+
+    selectedIdx = handles.popup_Channels(axnum).Value;
+
+    selectedChannelName = channelOptionList{selectedIdx};
+    selectedChannelInfo = channelInfoList(selectedIdx);
+    isPseudoChannel = selectedChannelInfo.IsPseudoChannel;
+    selectedChannelNum = selectedChannelInfo.Number;
+    
+    if isPseudoChannel
+        isSound = false;
+    else
+        isSound = isChannelSound(selectedChannelNum);
+    end
+
 function selectedEventDetector = getSelectedEventDetector(handles, axnum)
     % Return the name of the selected event detector from the specified axis.
     eventDetectorOptionList = handles.popup_EventDetectors(axnum).String;
@@ -1418,20 +1489,29 @@ function handles = setSelectedChannel(handles, axnum, channelName)
     end
     handles.popup_Channels(axnum).Value = newIndex;
 
-function channelName = channelNumToName(channelNum)
-    channelName = ['Channel ', num2str(channelNum)];
-
-function channelNum = channelNameToNum(channelName)
-    if strcmp(channelName, 'Sound')
-        channelNum = 0;
+function channelName = channelNumToName(handles, channelNum, isPseudoChannel)
+    arguments
+        handles struct
+        channelNum (1, 1) double
+        isPseudoChannel (1, 1) logical = false
+    end
+    if isPseudoChannel
+        channelName = getPseudoChannelString(handles, channelNum);
     else
-        channelNumMatch = regexp(channelName, 'Channel ([0-9]+)', 'tokens');
-        if isempty(channelNumMatch)
-            % Not a valid channel name
-            channelNum = [];
-        else
-            channelNum = str2double(channelNumMatch{1});
-        end
+        channelName = ['Channel ', num2str(channelNum)];
+    end
+
+function [channelNum, isPseudoChannel] = channelNameToNum(channelName)
+    listIdx = find(contains(handles.popup_Channels(1).String, channelName));
+    if length(listIdx) ~= 1 || listIdx == 1
+        % Either not found, multiple matches, or the (None) entry
+        channelNum = [];
+        isPseudoChannel = false;
+    else
+        % One match found
+        channelInfo = handles.popup_Channels(1).UserData(listIdx);
+        channelNum = channelInfo.Number;
+        isPseudoChannel = channelInfo.IsPseudoChannel;
     end
     
 function handles = setSelectedEventFunction(handles, axnum, eventFunction)
@@ -1493,7 +1573,8 @@ function [handles, isValidEventFunction] = updateEventFunctionInfo(handles, chan
         handles = setEventFunction(handles, filenum, channelNum, newEventFunction);
     end
 
-function [handles, channelData, channelSamplingRate, channelLabels, timestamp] = loadChannelData(handles, channelNum, filterName, filterParams, filenum)
+function [handles, channelData, channelSamplingRate, channelLabels, timestamp] = ...
+    loadChannelData(handles, channelNum, filterName, filterParams, filenum, isPseudoChannel)
     if ~exist('filenum', 'var') || isempty(filenum)
         % No file number provided, use the current one
         filenum = getCurrentFileNum(handles);
@@ -1503,26 +1584,51 @@ function [handles, channelData, channelSamplingRate, channelLabels, timestamp] =
         filterName = '';
         filterParams = [];
     end
-
-    % Check if this channel represents sound
-    isSound = isChannelSound(channelNum);
-    if isSound
-        % Load using the specified sound loader
-        loader = handles.sound_loader;
-        filePath = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
-    else
-        % Load using the specified channel data loader
-        loader = handles.chan_loader{channelNum};
-        filePath = fullfile(handles.DefaultRootPath, handles.chan_files{channelNum}(filenum).name);
+    if ~exist('isPseudoChannel', 'var') || isempty(isPseudoChannel)
+        isPseudoChannel = false;
     end
 
-    if handles.EnableFileCaching
-        % File is already cached - retrieve data
-        [handles, data] = retrieveFileFromCache(handles, filePath, loader);
-        [rawChannelData, channelSamplingRate, timestamp, channelLabels, ~] = data{:};
+    if isPseudoChannel
+        % This is a pseudochannel - load it based on type
+        pChannelType = handles.PseudoChannelTypes{channelNum};
+        switch pChannelType
+            case 'event'
+                % This is an "event" type of pseudochannel - it will be a
+                % logical array with a "true" wherever an event in the base
+                % channel occurred.
+                eventSourceIdx = handles.PseudoChannelInfo{channelNum}.eventSourceIdx;
+                eventPartIdx = handles.PseudoChannelInfo{channelNum}.eventPartIdx;
+                [channelNum, ~, ~, ~, ~, ~, ~, ~, isSourcePseudoChannel] = GetEventSourceInfo(handles, eventSourceIdx);
+                [handles, numSamples, channelSamplingRate] = eg_GetSamplingInfo(handles, filenum, channelNum, isSourcePseudoChannel);
+                rawChannelData = false(numSamples, 1);
+                eventTimes = handles.EventTimes{eventSourceIdx}{eventPartIdx, filenum};
+                rawChannelData(eventTimes) = true;
+                channelLabels = '';
+                timestamp = '';
+            otherwise
+                error('Pseudochannel type %s not recognized', pChannelType);
+        end
     else
-        % File is not cached - load data
-        [rawChannelData, channelSamplingRate, timestamp, channelLabels, ~] = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
+        % Check if this channel represents sound
+        isSound = isChannelSound(channelNum);
+        if isSound
+            % Load using the specified sound loader
+            loader = handles.sound_loader;
+            filePath = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
+        else
+            % Load using the specified channel data loader
+            loader = handles.chan_loader{channelNum};
+            filePath = fullfile(handles.DefaultRootPath, handles.chan_files{channelNum}(filenum).name);
+        end
+    
+        if handles.EnableFileCaching
+            % File is already cached - retrieve data
+            [handles, data] = retrieveFileFromCache(handles, filePath, loader);
+            [rawChannelData, channelSamplingRate, timestamp, channelLabels, ~] = data{:};
+        else
+            % File is not cached - load data
+            [rawChannelData, channelSamplingRate, timestamp, channelLabels, ~] = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
+        end
     end
 
     if isempty(filterName)
@@ -1565,11 +1671,11 @@ function handles = eg_LoadChannel(handles, axnum)
     end
 
     % Load channel data
-    selectedChannelNum = getSelectedChannel(handles, axnum);
+    [selectedChannelNum, ~, ~, isPseudoChannel] = getSelectedChannel(handles, axnum);
     selectedFilter = getSelectedFilter(handles, axnum);
     selectedFilterParams = handles.ChannelAxesFunctionParams{axnum};
-    [handles, handles.loadedChannelData{axnum}, handles.loadedChannelFs{axnum}, handles.Labels{axnum}] = loadChannelData(handles, selectedChannelNum, selectedFilter, selectedFilterParams);
-    handles.loadedChannelNums{axnum} = selectedChannelNum;
+    [handles, handles.loadedChannelData{axnum}, handles.loadedChannelFs{axnum}, handles.Labels{axnum}] = ...
+        loadChannelData(handles, selectedChannelNum, selectedFilter, selectedFilterParams, [], isPseudoChannel);
     
     % Plot channel data
     handles = eg_PlotChannel(handles,axnum);
@@ -1605,7 +1711,7 @@ function handles = eg_LoadChannel(handles, axnum)
     % Update event viewer in case it was showing data from this axes
     handles = UpdateEventViewer(handles);
     
-function [handles, numSamples, fs] = eg_GetSamplingInfo(handles, filenum, chan)
+function [handles, numSamples, fs] = eg_GetSamplingInfo(handles, filenum, chan, isPseudoChannel)
     % Get the number of samples and sampling info for the specified file
     % and channel number. If filenumber is empty or omitted, the currently
     % loaded filenum will be used. If chan is empty or omitted, whatever
@@ -1613,14 +1719,23 @@ function [handles, numSamples, fs] = eg_GetSamplingInfo(handles, filenum, chan)
     if ~exist('filenum', 'var') || isempty(filenum)
         filenum = getCurrentFileNum(handles);
     end
+    if ~exist('isPseudoChannel', 'var') || isempty(isPseudoChannel)
+        isPseudoChannel = false;
+    end
     if ~exist('chan', 'var') || isempty(chan)
-        [handles, data, fs] = getSound(handles, [], filenum);
+        [handles, data, fs] = getSound(handles, [], filenum, isPseudoChannel);
     else
-        [handles, data, fs] = loadChannelData(handles, chan, [], [], filenum);
+        [handles, data, fs] = loadChannelData(handles, chan, [], [], filenum, isPseudoChannel);
     end
     numSamples = length(data);
     
-function [handles, sound, fs, timestamp] = getSound(handles, soundChannel, filenum)
+function [handles, sound, fs, timestamp] = getSound(handles, soundChannel, filenum, isPseudoChannel)
+    arguments
+        handles struct
+        soundChannel = []
+        filenum double = []
+        isPseudoChannel (1, 1) logical = false
+    end
     if ~exist('filenum', 'var') || isempty(filenum)
         filenum = getCurrentFileNum(handles);
     end
@@ -1630,29 +1745,28 @@ function [handles, sound, fs, timestamp] = getSound(handles, soundChannel, filen
     if ischar(soundChannel)
         % User must have passed a channel name here - convert to channel
         % num instead
-        soundChannel = channelNameToNum(soundChannel);
+        [soundChannel, isPseudoChannel] = channelNameToNum(soundChannel);
     end
     
-    switch soundChannel
-        % Fetch sound based on which sound channel was selected
-        case 0
-            % Use channel 0 (the normal sound channel)
-            filePath = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
-            loader = handles.sound_loader;
-        
-            if handles.EnableFileCaching
-                [handles, data] = retrieveFileFromCache(handles, filePath, loader);
-                [sound, fs, timestamp] = data{:};
-            else
-                [sound, fs, timestamp] = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
-            end
-        case 'calculated'
-            % Calculate a sound vector based on the user-supplied
-            % expression in handles.SoundExpression
-            [handles, sound, fs, timestamp] = getCalculatedSound(handles, filenum);
-        otherwise
-            % Use some other not-already-loaded channel data as sound
-            [handles, sound, fs, ~, timestamp] = loadChannelData(handles, soundChannel, [], [], filenum);
+    % Fetch sound based on which sound channel was selected
+    if soundChannel == 0 && ~isPseudoChannel
+        % Use channel 0 (the normal sound channel)
+        filePath = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
+        loader = handles.sound_loader;
+    
+        if handles.EnableFileCaching
+            [handles, data] = retrieveFileFromCache(handles, filePath, loader);
+            [sound, fs, timestamp] = data{:};
+        else
+            [sound, fs, timestamp] = eg_runPlugin(handles.plugins.loaders, loader, filePath, true);
+        end
+    elseif strcmp(soundChannel, 'calculated')
+        % Calculate a sound vector based on the user-supplied
+        % expression in handles.SoundExpression
+        [handles, sound, fs, timestamp] = getCalculatedSound(handles, filenum);
+    else
+        % Use some other not-already-loaded channel data as sound
+        [handles, sound, fs, ~, timestamp] = loadChannelData(handles, soundChannel, [], [], filenum, isPseudoChannel);
     end
 
     if size(sound,2) > size(sound,1)
@@ -1669,7 +1783,7 @@ function [handles, filteredSound, fs, timestamp] = getFilteredSound(handles, sou
     else
         if ischar(sound)
             % User passed in a channel name - get raw sound
-            soundChannel = channelNameToNum(sound);
+            soundChannel = channelNameToNum(sound, false);
             [handles, sound, fs, timestamp] = getSound(handles, soundChannel, filenum);
         elseif isnumeric(sound) && length(sound) == 1
             % User passed in a channel number - get raw sound
@@ -1792,7 +1906,7 @@ function handles = eg_PlotChannel(handles, axnum)
     handles.popup_EventDetectors(axnum).Enable = 'on';
     handles.push_Detects(axnum).Enable = 'on';
     
-    chan = handles.loadedChannelNums{axnum};
+    chan = getSelectedChannel(handles, axnum);
     [handles, numSamples, fs] = eg_GetSamplingInfo(handles, [], chan);
     t = linspace(0, numSamples/fs, numSamples);
     tlimits = handles.axes_Channel(axnum).XLim;
@@ -3512,8 +3626,7 @@ function handles = eg_NewDbase(handles)
             sourceStrings{end+1} = ['Channel ' num2str(chanNum)];
         end
     end
-    handles.popup_Channel1.String = sourceStrings;
-    handles.popup_Channel2.String = sourceStrings;
+    handles = UpdateChannelLists(handles);
     
     handles = eg_PopulateSoundSources(handles);
     
@@ -3781,7 +3894,7 @@ function handles = eg_OpenDbase(handles, filePath)
     else
         % Legacy dbases do not have a list of channel numbers, only channel
         % names (stored in "EventSources" field)
-        handles.EventChannels = cellfun(@channelNameToNum, handles.EventSources, 'UniformOutput', true);
+        handles.EventChannels = cellfun(@(name)channelNameToNum(name, false), handles.EventSources, 'UniformOutput', true);
     end
     if isfield(dbase, 'EventParameters')
         handles.EventParameters = dbase.EventParameters;
@@ -3847,6 +3960,30 @@ function handles = eg_OpenDbase(handles, filePath)
             % Copy into defaults variable
             handles.EventThresholdDefaults = thresholds;
         end
+    end
+    if isfield(dbase, 'EventChannelIsPseudo')
+        handles.EventChannelIsPseudo = dbase.EventChannelIsPseudo;
+    else
+        % Legacy dbase, no pseudo channels
+        handles.EventChannelIsPseudo = logical.empty();
+    end
+    if isfield(dbase, 'PseudoChannelNames')
+        handles.PseudoChannelNames = dbase.PseudoChannelNames;
+    else
+        % Legacy dbase, no pseudo channels
+        handles.PseudoChannelNames = {};
+    end
+    if isfield(dbase, 'PseudoChannelTypes')
+        handles.PseudoChannelTypes = dbase.PseudoChannelTypes;
+    else
+        % Legacy dbase, no pseudo channels
+        handles.PseudoChannelTypes = {};        
+    end
+    if isfield(dbase, 'PseudoChannelInfo')
+        handles.PseudoChannelInfo = dbase.PseudoChannelInfo;
+    else
+        % Legacy dbase, no pseudo channels
+        handles.PseudoChannelInfo = {};
     end
     
     handles.popup_Channel1.Value = 1;
@@ -3967,19 +4104,21 @@ function handles = eg_OpenDbase(handles, filePath)
     waitbar(0.57, progressBar)
     
     if isfield(dbase,'AnalysisState')
-        handles.popup_Channel1.String = dbase.AnalysisState.SourceList;
-        handles.popup_Channel2.String = dbase.AnalysisState.SourceList;
+        % We're not doing this anymore - just recalculate what the lists
+        % should say.
+%         handles.popup_Channel1.String = dbase.AnalysisState.SourceList;
+%         handles.popup_Channel2.String = dbase.AnalysisState.SourceList;
 %         handles.popup_EventListAlign.String = dbase.AnalysisState.EventList;
         handles.edit_FileNumber.String = num2str(dbase.AnalysisState.CurrentFile);
         handles.FileInfoBrowser.SelectedRow = dbase.AnalysisState.CurrentFile;
         handles.EventWhichPlot = dbase.AnalysisState.EventWhichPlot;
         handles.EventXLims = dbase.AnalysisState.EventLims;
     else
-        handles = UpdateChannelLists(handles);
-        handles = UpdateEventSourcelist(handles);
         handles.EventXLims = [];
     end
-    
+
+    handles = UpdateChannelLists(handles);
+
     % get segmenter parameters
     for c = 1:length(handles.menu_Segmenter)
         if handles.menu_Segmenter(c).Checked
@@ -4060,8 +4199,8 @@ function handles = eg_SaveDbase(handles)
         return
     end
     savePath = fullfile(path, file);
-    
-    dbase = GetDBase(handles);
+
+    dbase = GetDBase(handles, handles.IncludeDocumentation);
     
     save(savePath,'dbase');
     handles.DefaultFile = savePath;
@@ -4733,37 +4872,15 @@ function keyPressHandler(hObject, event)
     guidata(hObject, handles);
 
 function handles = popup_Functions_Callback(handles, axnum)
-    v = handles.popup_Functions(axnum).Value;
-    ud = handles.popup_Functions(axnum).UserData;
-    if isempty(ud{v}) && v>1
-        str = handles.popup_Functions(axnum).String;
-        dtr = str{v};
-        f = strfind(dtr,' - ');
-        if isempty(f)
-            [handles.ChannelAxesFunctionParams{axnum}, ~] = eg_runPlugin(handles.plugins.filters, dtr, 'params');
-        else
-            [handles.ChannelAxesFunctionParams{axnum}, ~] = eg_runPlugin(handles.plugins.filters, dtr(1:f-1), 'params');
-        end
-        ud{v} = handles.ChannelAxesFunctionParams{axnum};
-        handles.popup_Functions(axnum).UserData = ud;
-    else
-        handles.ChannelAxesFunctionParams{axnum} = ud{v};
-    end
+    % Update the function parameters for this axis
+    handles.ChannelAxesFunctionParams{axnum} = getSelectedFunctionParameters(handles, axnum);
     
-    % I think this is checking if theres a "data too long" message on the
-    % axes. Probably should remove that check
-%     if isempty(findobj('Parent',handles.axes_Sonogram,'type','text'))
-        handles.popup_EventDetectors(axnum).Value = 1;
-        handles = eg_LoadChannel(handles, axnum);
-%     end
-    str = handles.popup_Channels(axnum).String;
-    str = str{handles.popup_Channels(axnum).Value};
-    if contains(str,' - ') || strcmp(str,'(None)')
-        handles.popup_EventDetectors(axnum).Enable = 'off';
-    else
-        handles.popup_EventDetectors(axnum).Enable = 'on';
-    end
-    
+    % Set the event detector back to none? Not sure why
+    handles.popup_EventDetectors(axnum).Value = 1;
+
+    % Update channel plot
+    handles = eg_LoadChannel(handles, axnum);
+
     if handles.menu_SourcePlots(axnum).Checked
         handles = updateAmplitude(handles);
     end
@@ -4987,7 +5104,7 @@ function click_Channel(hObject, event)
     ax = handles.axes_Channel(axnum);
     
     if strcmp(handles.figure_Main.SelectionType,'open')
-        chan = handles.loadedChannelNums{axnum};
+        chan = getSelectedChannel(handles, axnum);
         [handles, numSamples, fs] = eg_GetSamplingInfo(handles, [], chan);
 
         for axn = 1:2
@@ -5245,7 +5362,7 @@ function handles = UpdateEventThresholdDisplay(handles, eventSourceIdx)
             isa(handles.EventThresholdHandles(axnum), 'matlab.graphics.GraphicsPlaceholder')
             % Create new threshold line
             hold(handles.axes_Channel(axnum), 'on');
-            chan = handles.loadedChannelNums{axnum};
+            chan = getSelectedChannel(handles, axnum);
             [handles, numSamples, fs] = eg_GetSamplingInfo(handles, filenum, chan);
             handles.EventThresholdHandles(axnum) = ...
                 plot(handles.axes_Channel(axnum), ...
@@ -5503,33 +5620,28 @@ function menu_UpdateEventThresholdDisplay2_Callback(hObject, ~, handles)
     
     guidata(hObject, handles);
 
+function handles = push_Detect_Callback(handles, axnum)
+    handles = DetectEventsInAxes(handles, axnum);
+
+    % Update other channel axes if necessary
+    eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
+    matchingAxnum = WhichChannelAxesMatchEventSource(handles, eventSourceIdx);
+    matchingAxnum(matchingAxnum == axnum) = [];
+    for axn = matchingAxnum
+        handles = UpdateChannelEventDisplay(handles, axn);
+    end
+    
+    if handles.menu_AutoDisplayEvents.Checked
+        handles = UpdateEventViewer(handles);
+    end
+
 % --- Executes on button press in push_Detect1.
 function push_Detect1_Callback(hObject, ~, handles)
     % hObject    handle to push_Detect1 (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
-    
-    handles = DetectEventsInAxes(handles,1);
-    
-    if handles.menu_AutoDisplayEvents.Checked
-        handles = UpdateEventViewer(handles);
-    end
-    
-    val = handles.popup_Channel2.Value;
-    str = handles.popup_Channel2.String;
-    nums = [];
-    for c = 1:length(handles.EventTimes)
-        nums(c) = size(handles.EventTimes{c},1);
-    end
-    if val > length(str)-sum(nums)
-        indx = val-(length(str)-sum(nums));
-        cs = cumsum(nums);
-        f = length(find(cs<indx))+1;
-        if f == handles.EventCurrentIndex(1)
-            handles = eg_LoadChannel(handles,2);
-        end
-    end
-    
+
+    handles = push_Detect_Callback(handles, 1); 
     guidata(hObject, handles);
 
 % --- Executes on button press in push_Detect2.
@@ -5538,27 +5650,7 @@ function push_Detect2_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     
-    handles = DetectEventsInAxes(handles,2);
-    
-    if handles.menu_AutoDisplayEvents.Checked
-        handles = UpdateEventViewer(handles);
-    end
-    
-    val = handles.popup_Channel1.Value;
-    str = handles.popup_Channel1.String;
-    nums = [];
-    for c = 1:length(handles.EventTimes)
-        nums(c) = size(handles.EventTimes{c},1);
-    end
-    if val > length(str)-sum(nums)
-        indx = val-(length(str)-sum(nums));
-        cs = cumsum(nums);
-        f = length(find(cs<indx))+1;
-        if f == handles.EventCurrentIndex(2)
-            handles = eg_LoadChannel(handles,1);
-        end
-    end
-    
+    handles = push_Detect_Callback(handles, 2);
     guidata(hObject, handles);
 
 % --- Executes on selection change in popup_EventListAlign.
@@ -5676,10 +5768,15 @@ function handles = SetEventThreshold(handles, axnum, threshold)
 %     
 %     handles = UpdateEventThresholdDisplay(handles,axnum);
 
-function [handles, eventSourceIdx] = addNewEventSourceFromChannelAxes(handles, axnum)
+function [handles, eventSourceIdx] = addNewEventSourceFromChannelAxes(handles, axnum, createPseudoChannels)
     % Add a new event source based on the current settings in the given
     % channel axes
-    [channelNum, channelName] = getSelectedChannel(handles, axnum);
+    arguments
+        handles struct
+        axnum (1, 1) double
+        createPseudoChannels (1, 1) logical = true
+    end
+    [channelNum, channelName, ~, baseChannelIsPseudo] = getSelectedChannel(handles, axnum);
     filterName = getSelectedFilter(handles, axnum);
     filterParameters = getSelectedFunctionParameters(handles, axnum);
     eventDetectorName = getSelectedEventDetector(handles, axnum);
@@ -5693,12 +5790,30 @@ function [handles, eventSourceIdx] = addNewEventSourceFromChannelAxes(handles, a
         eventSourceIdx = [];
         return;
     end
-    [handles, eventSourceIdx] = addNewEventSource(handles, channelNum, channelName, filterName, eventDetectorName, filterParameters, eventParameters, eventXLims, eventParts, defaultEventThreshold);
+    [handles, eventSourceIdx] = addNewEventSource(handles, channelNum, ...
+        channelName, filterName, eventDetectorName, filterParameters, ...
+        eventParameters, eventXLims, eventParts, defaultEventThreshold, ...
+        baseChannelIsPseudo, createPseudoChannels);
 
 function [handles, eventSourceIdx] = addNewEventSource(handles, channelNum, ...
         channelName, filterName, eventDetectorName, EventFunctionParameters, ...
-        eventParameters, eventXLims, eventParts, defaultEventThreshold)
+        eventParameters, eventXLims, eventParts, defaultEventThreshold, ...
+        baseChannelIsPseudo, createPseudoChannels)
     % Add a new event source, update all event-source-indexed variables
+    arguments
+        handles struct
+        channelNum (1, 1) double
+        channelName (1, :) char
+        filterName (1, :) char
+        eventDetectorName (1, :) char
+        EventFunctionParameters struct
+        eventParameters struct
+        eventXLims (1, 2) double
+        eventParts (1, :) cell {mustBeText}
+        defaultEventThreshold (1, 1) double
+        baseChannelIsPseudo (1, 1) logical = false
+        createPseudoChannels (1, 1) logical = true
+    end
     eventSourceIdx = length(handles.EventSources) + 1;
     handles.EventSources{eventSourceIdx} = channelName;
     handles.EventChannels(eventSourceIdx) = channelNum;
@@ -5709,9 +5824,29 @@ function [handles, eventSourceIdx] = addNewEventSource(handles, channelNum, ...
     handles.EventParameters{eventSourceIdx} = eventParameters;
     handles.EventXLims(eventSourceIdx, :) = eventXLims;
     handles.EventParts{eventSourceIdx} = eventParts;
-
+    handles.EventChannelIsPseudo(eventSourceIdx) = baseChannelIsPseudo;
     handles.EventTimes{eventSourceIdx} = cell(length(eventParts), handles.TotalFileNumber);
     handles.EventSelected{eventSourceIdx} = cell(length(eventParts), handles.TotalFileNumber);
+
+    if createPseudoChannels
+        for eventPartIdx = 1:length(eventParts)
+            handles = createEventPseudoChannel(handles, eventSourceIdx, eventPartIdx);
+        end
+        handles = UpdateChannelLists(handles);
+    end
+
+function handles = createEventPseudoChannel(handles, eventSourceIdx, eventPartIdx)
+    % Create an "event" type pseudochannel
+    pseudoChannelNumber = length(handles.PseudoChannelNames) + 1;
+    eventPartName = handles.EventParts{eventSourceIdx}{eventPartIdx};
+    baseChannelIsPseudo = handles.EventChannelIsPseudo(eventSourceIdx);
+    baseChannelName = channelNumToName(handles, handles.EventChannels(eventSourceIdx), baseChannelIsPseudo);
+    pseudoChannelInfo.eventSourceIdx = eventSourceIdx;
+    pseudoChannelInfo.eventPartIdx = eventPartIdx;
+    pseudoChannelInfo.Description = sprintf('%s of events in %s', eventPartName, baseChannelName);
+    handles.PseudoChannelNames{pseudoChannelNumber} = sprintf('Pseudochannel %d', pseudoChannelNumber);
+    handles.PseudoChannelTypes{pseudoChannelNumber} = 'event';
+    handles.PseudoChannelInfo{pseudoChannelNumber} = pseudoChannelInfo;
 
 function handles = UpdateEventSourceList(handles)
     % Update the list of event sources above the event viewer axes
@@ -5953,7 +6088,7 @@ function handles = UpdateChannelEventDisplay(handles, axnum)
     % Get channel data
     chanData = handles.loadedChannelData{axnum};
     
-    chan = handles.loadedChannelNums{axnum};
+    chan = getSelectedChannel(handles, axnum);
     [handles, numSamples, fs] = eg_GetSamplingInfo(handles, [], chan);
     
     times = linspace(0, numSamples/fs, numSamples);
@@ -6228,7 +6363,7 @@ function [channelNum, filterName, eventDetectorName] = GetEventViewerSourceInfo(
     else
         [channelNum, filterName, eventDetectorName] = GetEventSourceInfo(handles, eventSourceIdx);
     end
-function [channelNum, filterName, eventDetectorName, eventParameters, filterParameters, eventLims, eventParts, defaultThreshold] = GetEventSourceInfo(handles, eventSourceIdx)
+function [channelNum, filterName, eventDetectorName, eventParameters, filterParameters, eventLims, eventParts, defaultThreshold, isPseudoChannel] = GetEventSourceInfo(handles, eventSourceIdx)
     % Return the channel number, filter name, and event detector name for
     % the given event source index
     channelNum = handles.EventChannels(eventSourceIdx);
@@ -6239,6 +6374,7 @@ function [channelNum, filterName, eventDetectorName, eventParameters, filterPara
     eventLims = handles.EventXLims(eventSourceIdx, :);
     eventParts = handles.EventParts{eventSourceIdx};
     defaultThreshold = handles.EventThresholdDefaults(eventSourceIdx);
+    isPseudoChannel = handles.EventChannelIsPseudo(eventSourceIdx);
 function [channelNum, filterName, eventDetectorName] = GetChannelAxesInfo(handles, axnum)
     % Return the current settings of specified channel axes
     channelNum = getSelectedChannel(handles, axnum);
@@ -6384,6 +6520,11 @@ function numEvents = GetNumEvents(handles, eventSourceIdx, eventPartNum)
 function handles = UpdateAnythingShowingEventSource(handles, eventSourceIdx)
     % Update any event-related stuff that is currently displaying the given
     % event source index
+
+    if isempty(eventSourceIdx)
+        % Null event source, do nothing
+        return;
+    end
 
     matchingAxnums = WhichChannelAxesMatchEventSource(handles, eventSourceIdx);
     viewerEventSourceIdx = GetEventViewerEventSourceIdx(handles);
@@ -8010,7 +8151,7 @@ function handles = eg_Overlay(handles)
                 if isvalid(handles.Sonogram_Overlays(axnum))
                     handles.Sonogram_Overlays(axnum).YData = y;
                 else
-                    chan = handles.loadedChannelNums{axnum};
+                    chan = getSelectedChannel(handles, axnum);
                     [handles, numSamples, fs] = eg_GetSamplingInfo(handles, [], chan);
                     t = linspace(0, numSamples/fs, numSamples);
                     handles.Sonogram_Overlays(axnum) = plot(handles.axes_Sonogram, t, y, 'Color', 'b', 'LineWidth', 1);
@@ -9398,57 +9539,107 @@ function menu_AutoApplyYLim_Callback(hObject, ~, handles)
     guidata(hObject, handles);
     
     
-function dbase = GetDBase(handles)
+function dbase = GetDBase(handles, includeDocumentation)
+    arguments
+        handles struct
+        includeDocumentation (1,1) logical = handles.IncludeDocumentation
+    end
     
+    dbase.help.General = sprintf('This is a dbase created by electro_gui on %s. In the documentation, ''N'' refers to the number of groups of channel files, and ''C'' refers to the number of non-sound channels. Channel 0 is typically the sound channel.', datetime());
     dbase.PathName = handles.DefaultRootPath;
+    dbase.help.PathName = 'The root directory where the data can be found';
     dbase.Times = handles.DatesAndTimes;
+    dbase.help.Times = 'A 1xN list of timestamps for each group of channel files referenced in the dbase';
     dbase.FileLength = handles.FileLength;
+    dbase.help.FileLength = 'A 1xN list of the # of samples for each channel 0 (typically the sound channel) file. Note that this will only populate if it has been loaded by electro_gui, otherwise it will remain 0';
     dbase.SoundFiles = handles.sound_files;
+    dbase.help.SoundFiles = 'A Nx1 struct array of information about the channel 0 (typically the sound channel) files, of the same form returned by the built in ''dir'' function';
     dbase.ChannelFiles = handles.chan_files;
+    dbase.help.ChannelFiles = 'A 1xC cell array of struct arrays (each of which are Nx1), one for each non-sound channels (channels 1 - C, excluding 0, which is typically the sound channel). Each struct array contains information about the files, of the same form returned by the built in ''dir'' function';
     dbase.SoundLoader = handles.sound_loader;
+    dbase.help.SoundLoader = 'The name of the function used by electro_gui to load the sound files (channel 0), with the format ''egl_*.m''';
     dbase.ChannelLoader = handles.chan_loader;
+    dbase.help.ChannelLoader = 'A 1xC cell array containing the names of the functions used by electro_gui to load each of the non-sound (channels 1-C) files, with the format ''egl_*.m''';
     dbase.Fs = handles.fs;
+    dbase.help.Fs = 'The sampling rate of channel 0. Note that this may not be the same for all other channels.';
     
     dbase.SegmentThresholds = handles.SoundThresholds;
+    dbase.help.SegmentThresholds = 'Threshold value used for segmenting channel 0 (sound) into segments, a.k.a. syllables.';
     dbase.SegmentTimes = handles.SegmentTimes;
+    dbase.help.SegmentTimes = 'A 1xN cell array containing Sx2 arrays of segment (syllable) start and end times. For example, dbase.SegmentTimes{11}(7, 1) would give you the start time of segment #7 in file #11.';
     dbase.SegmentTitles = handles.SegmentTitles;
+    dbase.help.SegmentTitles = 'A 1xN cell array of 1xS cell arrays. Each sub-cell array contains the titles given to each segment. For example, dbase.SegmentTitles{11}{7} would give you the title of segment #7 in file #11';
     dbase.SegmentIsSelected = handles.SegmentSelection;
+    dbase.help.SegmentIsSelected = 'A 1xN cell array of 1xS logical arrays. Each logical array contains the selected/unselected state of each segment. For example, dbase.SegmentIsSelected{11}(7) would give you true/false indicating whether or not segment #7 in file #11 is selected';
     
     dbase.MarkerTimes = handles.MarkerTimes;
+    dbase.help.MarkerTimes = 'A 1xN cell array containing Sx2 arrays of marker start and end times. For example, dbase.SegmentTimes{11}(7, 1) would give you the start time of syllable #7 in file #11.';
     dbase.MarkerTitles = handles.MarkerTitles;
+    dbase.help.MarkerTitles = 'A 1xN cell array of 1xS cell arrays. Each sub-cell array contains the titles given to each marker. For example, dbase.MarkerTitles{11}{7} would give you the title of marker #7 in file #11';
     dbase.MarkerIsSelected = handles.MarkerSelection;
+    dbase.help.MarkerIsSelected = 'A 1xN cell array of 1xS logical arrays. Each logical array contains the selected/unselected state of each marker. For example, dbase.MarkerIsSelected{11}(7) would give you true/false indicating whether or not marker #7 in file #11 is selected';
     
     dbase.EventChannels = handles.EventChannels;
+    dbase.help.EventChannels = '';
+    dbase.EventChannelIsPseudo = handles.EventChannelIsPseudo;
+    dbase.help.EventChannelIsPseudo = '';
     dbase.EventSources = handles.EventSources;
+    dbase.help.EventSources = '';
     dbase.EventFunctions = handles.EventFunctions;
+    dbase.help.EventFunctions = '';
     dbase.EventFunctionParameters = handles.EventFunctionParameters;
+    dbase.help.EventFunctionParameters = '';
     dbase.EventDetectors = handles.EventDetectors;
+    dbase.help.EventDetectors = '';
     dbase.EventParameters = handles.EventParameters;
-
+    dbase.help.EventParameters = '';
+    
     dbase.EventThresholds = handles.EventThresholds;
+    dbase.help.EventThresholds = '';
     dbase.EventTimes = handles.EventTimes;
+    dbase.help.EventTimes = '';
     dbase.EventIsSelected = handles.EventSelected;
+    dbase.help.EventIsSelected = '';
     dbase.EventXLims = handles.EventXLims;
-    dbase.EventParts = handles.EventParts;
+    dbase.help.EventXLims = '';
+    dbase.EventParts.EventXLims = handles.EventParts;
+    dbase.help.EventParts = '';
 
+    dbase.PseudoChannelNames = handles.PseudoChannelNames;
+    dbase.PseudoChannelTypes = handles.PseudoChannelTypes;
+    dbase.PseudoChannelInfo = handles.PseudoChannelInfo;
+    
     % Save properties
     dbase.Properties = handles.Properties;
+    dbase.help.Properties = '';
     dbase.PropertyNames = handles.PropertyNames;
+    dbase.help.PropertyNames = '';
     % Maybe also output in legacy format?
     
     dbase.Notes = handles.Notes;
-
+    
     dbase.AnalysisState.SourceList = handles.popup_Channel1.String;
+    dbase.help.AnalysisState.SourceList = '';
     dbase.AnalysisState.EventList = handles.popup_EventListAlign.String;
+    dbase.help.AnalysisState.EventList = '';
     dbase.AnalysisState.CurrentFile = getCurrentFileNum(handles);
+    dbase.help.AnalysisState.CurrentFile = '';
     dbase.AnalysisState.EventWhichPlot = handles.EventWhichPlot;
+    dbase.help.AnalysisState.EventWhichPlot = '';
     dbase.AnalysisState.EventLims = handles.EventXLims;
+    dbase.help.AnalysisState.EventLims = '';
     dbase.AnalysisState.FileReadState = handles.FileReadState;
+    dbase.help.AnalysisState.FileReadState = '';
     dbase.AnalysisState.FileSortMethod = getFileSortMethod(handles);
+    dbase.help.AnalysisState.FileSortMethod = '';
     dbase.AnalysisState.FileSortPropertyName = handles.FileSortPropertyName;
+    dbase.help.AnalysisState.FileSortPropertyName = '';
     dbase.AnalysisState.FileSortReversed = isFileSortReversed(handles);
+    dbase.help.AnalysisState.FileSortReversed = '';
     dbase.AnalysisState.AuxiliarySoundSources = getAuxiliarySoundSources(handles);
+    dbase.help.AnalysisState.AuxiliarySoundSources = '';
     dbase.AnalysisState.EventThresholdDefaults = handles.EventThresholdDefaults;
+    dbase.help.AnalysisState.EventThresholdDefaults = '';
 
     % Add any other custom fields from the original dbase that might exist to
     % the exported dbase
@@ -9460,6 +9651,10 @@ function dbase = GetDBase(handles)
                 dbase.(fieldName) = handles.OriginalDbase.(fieldName);
             end
         end
+    end
+
+    if ~includeDocumentation
+        dbase = rmfield(dbase, 'help');
     end
     
 function suppressStupidCallbackWarnings()
@@ -9841,7 +10036,7 @@ function handles = setChannelAxesEventSource(handles, axnum, eventSourceIdx)
         [channelNum, filterName, eventDetectorName, eventParameters, ...
             filterParameters, ~, ~] = ...
             GetEventSourceInfo(handles, eventSourceIdx);
-        channelName = channelNumToName(channelNum);
+        channelName = channelNumToName(handles, channelNum);
         handles = setSelectedChannel(handles, axnum, channelName);
         handles = setSelectedFilter(handles, axnum, filterName);
         handles = setSelectedEventDetector(handles, axnum, eventDetectorName);
