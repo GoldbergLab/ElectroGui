@@ -3905,7 +3905,7 @@ function handles = eg_OpenDbase(handles, filePath)
         handles.EventParameters = dbase.EventParameters;
     else
         % Legacy dbases do not have a list of event parameters
-        handles.EventParameters = cell(1, 1:length(handles.EventTimes));
+        handles.EventParameters = cell(1, length(handles.EventTimes));
         for eventSourceIdx = 1:length(handles.EventTimes)
             eventDetectorName = handles.EventDetectors{eventSourceIdx};
             eventParameters = eg_runPlugin(handles.plugins.eventDetectors, eventDetectorName, 'params');
@@ -3916,7 +3916,7 @@ function handles = eg_OpenDbase(handles, filePath)
         handles.EventFunctionParameters = dbase.EventFunctionParameters;
     else
         % Legacy dbases do not have a list of event parameters
-        handles.EventFunctionParameters = cell(1, 1:length(handles.EventTimes));
+        handles.EventFunctionParameters = cell(1, length(handles.EventTimes));
         for eventSourceIdx = 1:length(handles.EventTimes)
             filterName = handles.EventFunctions{eventSourceIdx};
             filterParameters = eg_runPlugin(handles.plugins.filters, filterName, 'params');
