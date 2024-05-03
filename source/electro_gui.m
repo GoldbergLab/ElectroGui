@@ -95,10 +95,6 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % Gather all electro_gui plugins
     handles = gatherPlugins(handles);
 
-    handles.History = StateStack(10);   % GUI state history for undo/redo purposes 
-    handles.HistoryInterval = 10;       % Minimum # of seconds that must pass between recording history. Set to 0 to record on every change.
-    handles.LastHistoryTimestamp = datetime("now");
-
     % Initialize TotalFileNumber
     handles.TotalFileNumber = [];
 
@@ -191,6 +187,12 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.EnableFileCaching = true;
     handles.BackwardFileCacheSize = 1;
     handles.ForwardFileCacheSize = 3;
+
+    % Setup Undo/Redo stack
+    handles.History = StateStack(10);   % GUI state history for undo/redo purposes 
+    handles.HistoryInterval = 3;       % Minimum # of seconds that must pass between recording history. Set to 0 to record on every change.
+    handles.LastHistoryTimestamp = datetime("now");
+
 
     % Initialize file cache
     handles = resetFileCache(handles);
@@ -377,17 +379,21 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
 
 function handles = SaveState(handles)
     newTimestamp = datetime("now");
-    if newTimestamp - handles.LastHistoryTimestamp > (handles.HistoryInterval / (60*60*24))
-        handles.History.SaveState(GetDBase(handles, false));
+    if (newTimestamp - handles.LastHistoryTimestamp) > (handles.HistoryInterval / (60*60*24))
+        try
+            handles.History.SaveState(GetDBase(handles, false));
+            handles.LastHistoryTimestamp = newTimestamp;
+        catch
+            % Eh, don't sweat it.
+        end
     end
-    handles.LastHistoryTimestamp = newTimestamp;
 
 function handles = Undo(handles)
-    dbase = handles.History.Undo(GetDBase(handles, false));
+    dbase = handles.History.UndoState(GetDBase(handles, false));
     handles = eg_OpenDbase(handles, dbase);
     
 function handles = Redo(handles)
-    dbase = handles.History.Redo(GetDBase(handles, false));
+    dbase = handles.History.RedoState(GetDBase(handles, false));
     handles = eg_OpenDbase(handles, dbase);
 
 function isLoaded = isDataLoaded(handles)
@@ -456,6 +462,9 @@ function handles = updateRecentFileList(handles)
 function click_recentFile(hObject, event)
     % Click an item in the recent files menu
     handles = guidata(hObject);
+
+    handles = SaveState(handles);
+
     % Get recent file path from menu item
     recentFilePath = hObject.UserData;
     % Save a reference to the widget hierarchy before this menu item gets
@@ -552,7 +561,7 @@ function handles = setSegmentAndMarkerColors(handles)
 
 function [handles, isNewUser] = ensureDefaultsFileExists(handles, user)
     % Check if a defaults file exists for the given user. If not, create
-    % one for the user using the settings in eg_Get_Defaults file.
+    % one for the user using the settings in defaults_template file.
 
     % Determine correct defaults filename for user
     handles.userfile = ['defaults_' user '.m'];
@@ -564,7 +573,7 @@ function [handles, isNewUser] = ensureDefaultsFileExists(handles, user)
         % it
 
         % Open default defaults file
-        fid1 = fopen('eg_Get_Defaults.m','r');
+        fid1 = fopen('defaults_template.m','r');
         % Create new defaults file for user
         fid2 = fopen(handles.userfile,'w');
         fgetl(fid1);
@@ -588,6 +597,9 @@ function [handles, isNewUser] = ensureDefaultsFileExists(handles, user)
 function [handles, ok] = chooseAndLoadDefaultsFile(handles)
     % Prompt user to choose a defaults file, then load it.
 
+    % Load default defaults - whatever the user will overwrite this
+    handles = defaults_template(handles);
+
     % Populate list of defaults files for user to choose from
     userList = {'(Default)'};
     defaultsFileList = dir('defaults_*.m');
@@ -598,9 +610,7 @@ function [handles, ok] = chooseAndLoadDefaultsFile(handles)
 
     [chosenDefaultIndex, ok] = listdlg('ListString', userList, 'Name', 'Defaults', 'PromptString', 'Select default settings', 'SelectionMode', 'single', 'InitialValue', currentUserDefaultIndex);
     if ok
-        if chosenDefaultIndex == 1
-            handles = eg_Get_Defaults(handles);
-        else
+        if chosenDefaultIndex > 1
             handles = eval(['defaults_' userList{chosenDefaultIndex} '(handles)']);
         end
     end
@@ -876,6 +886,8 @@ function edit_FileNumber_Callback(hObject, ~, handles)
         return;
     end
 
+    handles = SaveState(handles);
+
     handles = eg_LoadFile(handles);
 
     guidata(hObject, handles);
@@ -925,6 +937,8 @@ function push_PreviousFile_Callback(hObject, ~, handles)
         return;
     end
 
+    handles = SaveState(handles);
+
     handles = changeFile(handles, -1);
     guidata(hObject, handles);
 
@@ -939,6 +953,8 @@ function push_NextFile_Callback(hObject, ~, handles)
         return;
     end
 
+    handles = SaveState(handles);
+
     handles = changeFile(handles, 1);
     guidata(hObject, handles);
 
@@ -947,6 +963,9 @@ function HandleFileListChange(hObject, event)
     if isempty(handles.FileInfoBrowser)
         return;
     end
+
+    handles = SaveState(handles);
+
     % Only switch files if selected cell is actually on the filename
     fileNameColumn = 2;
     if any(handles.FileInfoBrowser.Selection(:, 2) ~= fileNameColumn)
@@ -2874,6 +2893,8 @@ function menu_DeleteAll_Callback(hObject, ~, handles)
         return;
     end
 
+    handles = SaveState(handles);
+
     filenum = getCurrentFileNum(handles);
     handles.SegmentSelection{filenum} = zeros(size(handles.SegmentSelection{filenum}));
 
@@ -2891,6 +2912,8 @@ function menu_UndeleteAll_Callback(hObject, ~, handles)
         % No data yet, do nothing
         return;
     end
+
+    handles = SaveState(handles);
 
     filenum = getCurrentFileNum(handles);
     handles.SegmentSelection{filenum} = ones(size(handles.SegmentSelection{filenum}));
@@ -2910,6 +2933,8 @@ function push_Segment_Callback(hObject, ~, handles)
         return;
     end
 
+    handles = SaveState(handles);
+
     handles = SegmentSounds(handles);
 
     guidata(hObject, handles);
@@ -2919,6 +2944,8 @@ function menu_AutoSegment_Callback(hObject, ~, handles)
     % hObject    handle to menu_AutoSegment (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
+
+    handles = SaveState(handles);
 
     if ~handles.menu_AutoSegment.Checked
         handles.menu_AutoSegment.Checked = 'on';
@@ -2944,6 +2971,9 @@ function menu_SegmentParameters_Callback(hObject, ~, handles)
     if isempty(answer)
         return
     end
+
+    handles = SaveState(handles);
+
     handles.SegmenterParams.Values = answer;
 
     for c = 1:length(handles.menu_Segmenter)
@@ -2959,6 +2989,8 @@ function menu_SegmentParameters_Callback(hObject, ~, handles)
 
 function SegmenterMenuClick(hObject, event)
     handles = guidata(hObject);
+
+    handles = SaveState(handles);
 
     for c = 1:length(handles.menu_Segmenter)
         handles.menu_Segmenter(c).Checked = 'off';
@@ -3247,7 +3279,6 @@ function handles = SetAnnotationTitles(handles, titles, filenum, annotationNums,
 
 function handles = SetAnnotationTitle(handles, title, filenum, annotationNum, annotationType)
     % Set the title of the specified segment or marker
-    handles = SaveState(handles);
 
     if ~exist('filenum', 'var') || isempty(filenum)
         filenum = getCurrentFileNum(handles);
@@ -3600,6 +3631,8 @@ function handles = eg_NewDbase(handles)
         return
     end
 
+    handles = SaveState(handles);
+
     handles.DefaultFile = 'analysis.mat';
 
     % Placeholder for custom fields
@@ -3806,26 +3839,42 @@ function handles = InitializeVariables(handles)
 %         end
 %     end
 
-function handles = eg_OpenDbase(handles, filePath)
-    progressBar = waitbar(0, 'Opening dbase...', 'WindowStyle', 'modal');
-    if ~exist('filePath', 'var') || isempty(filePath)
-        % Prompt user to select dbase .mat file
-        [file, path] = uigetfile(fullfile(handles.tempSettings.lastDirectory, '*.mat'), 'Load analysis');
-        if ~ischar(file)
-            % User cancelled load
-            close(progressBar)
-            return
-        end
-        filePath = fullfile(path, file);
-        handles = addRecentFile(handles, filePath);
-    else
-        % File path already provided
-        [path, file, ext] = fileparts(filePath);
-        file = [file, ext];
+function handles = eg_OpenDbase(handles, filePathOrDbase)
+    if ~exist('filePathOrDbase', 'var')
+        filePathOrDbase = '';
     end
 
-    % Load dbase into 'dbase' variable
-    load(fullfile(path, file),'dbase');
+    if ischar(filePathOrDbase)
+        progressMsg = 'Opening dbase...';
+        progressBar = waitbar(0, progressMsg, 'WindowStyle', 'modal');
+        if isempty(filePathOrDbase)
+            % Prompt user to select dbase .mat file
+            [file, path] = uigetfile(fullfile(handles.tempSettings.lastDirectory, '*.mat'), 'Load analysis');
+            if ~ischar(file)
+                % User cancelled load
+                close(progressBar)
+                return
+            end
+            filePathOrDbase = fullfile(path, file);
+            handles = addRecentFile(handles, filePathOrDbase);
+        else
+            % File path already provided
+            [path, file, ext] = fileparts(filePathOrDbase);
+            file = [file, ext];
+        end
+    
+        % Load dbase into 'dbase' variable
+        load(fullfile(path, file),'dbase');
+    elseif isstruct(filePathOrDbase)
+        % We're loading a dbase from memory, not from file
+        progressMsg = 'Loading state...';
+        progressBar = waitbar(0, progressMsg, 'WindowStyle', 'modal');
+        dbase = filePathOrDbase;
+    else
+        error('Unrecognized file path or dbase struct');
+    end
+
+    
     waitbar(0.26, progressBar)
 
     while ~isfolder(dbase.PathName)
@@ -3863,11 +3912,13 @@ function handles = eg_OpenDbase(handles, filePath)
     handles.DefaultRootPath = dbase.PathName;
     waitbar(0.30, progressBar)
 
-    % Save the selected directory in temporary settings for next time
-    handles.tempSettings.lastDirectory = path;
-    updateTempFile(handles);
+    if exist('path', 'var')
+        % Save the selected directory in temporary settings for next time
+        handles.tempSettings.lastDirectory = path;
+        updateTempFile(handles);
 
-    handles.DefaultFile = fullfile(path, file);
+        handles.DefaultFile = fullfile(path, file);
+    end
 
     % Store original dbase in case it has custom fields, so we can restore them
     %   when we save the dbase
@@ -4842,11 +4893,13 @@ function keyPressHandler(hObject, event)
                 return
             case handles.validSegmentCharacters
                 % Key was a valid character for naming a segment/marker
+                handles = SaveState(handles);
                 handles = SetAnnotationTitle(handles, event.Key, filenum);
                 handles = UpdateAnnotationTitleDisplay(handles);
                 [handles, oldAnnotationNum] = IncrementActiveAnnotation(handles, +1);
                 handles = UpdateActiveAnnotationDisplay(handles, oldAnnotationNum);
             case 'backspace'
+                handles = SaveState(handles);
                 handles = SetAnnotationTitle(handles, '', filenum);
                 handles = UpdateAnnotationTitleDisplay(handles);
                 [handles, oldAnnotationNum] = IncrementActiveAnnotation(handles, +1);
@@ -4867,6 +4920,7 @@ function keyPressHandler(hObject, event)
                 handles = UpdateActiveAnnotationDisplay(handles, oldAnnotationNum, oldAnnotationType, newAnnotationNum, newAnnotationType);
             case 'space'
                 % User pressed "space" - join this segment with next segment
+                handles = SaveState(handles);
                 [annotationNum, annotationType] = FindActiveAnnotation(handles);
                 switch annotationType
                     case 'segment'
@@ -4881,15 +4935,18 @@ function keyPressHandler(hObject, event)
                 % User pressed "enter" key - toggle active segment "selection"
                 % Note that "selected" segments/markers is not the same as
                 % "active" segments/markers.
+                handles = SaveState(handles);
                 handles = ToggleAnnotationSelect(handles, filenum);
                 handles = PlotAnnotations(handles);
             case 'delete'
                 % User pressed "delete" - delete active marker
+                handles = SaveState(handles);
                 handles = DeleteAnnotation(handles, filenum);
                 handles = PlotAnnotations(handles);
             case 'backquote'
                 % User pressed the "`" / "~" button - transform active marker into
                 %   segment or vice versa
+                handles = SaveState(handles);
                 handles = ConvertAnnotationType(handles, filenum);
                 handles = PlotAnnotations(handles);
         end
@@ -5185,6 +5242,8 @@ function click_Channel(hObject, event)
             return;
         end
 
+        handles = SaveState(handles);
+
         handles.ActiveEventNum = [];
         handles.ActiveEventPartNum = [];
         handles.ActiveEventSourceIdx = [];
@@ -5217,6 +5276,7 @@ function click_Channel(hObject, event)
 
             if ~isempty(eventSourceIdx)
                 % Set local threshold
+                handles = SaveState(handles);
 
                 filenum = getCurrentFileNum(handles);
 
@@ -5280,6 +5340,7 @@ function click_Channel(hObject, event)
 
     elseif strcmp(handles.figure_Main.SelectionType,'extend')
         % Shift-click
+        handles = SaveState(handles);
 
         % Check the event source the clicked channel axes is displaying
         eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
@@ -6803,6 +6864,8 @@ function click_eventaxes(hObject, event)
         end
 
     elseif strcmp(handles.figure_Main.SelectionType,'extend')
+        handles = SaveState(handles);
+
         handles.axes_Events.Units = 'pixels';
         handles.axes_Events.Parent.Units = 'pixels';
         handles.figure_Main.Units = 'pixels';
@@ -8917,6 +8980,8 @@ function menu_AddProperty_Callback(hObject, ~, handles)
         return;
     end
 
+    handles = SaveState(handles);
+
     handles = eg_AddProperty(handles);
     guidata(hObject, handles);
 
@@ -8951,6 +9016,8 @@ function menu_RemoveProperty_Callback(hObject, ~, handles)
         return;
     end
 
+    handles = SaveState(handles);
+
     [~, propertyNames] = getProperties(handles);
     if isempty(propertyNames)
         % No properties to remove, do nothing
@@ -8962,6 +9029,7 @@ function menu_RemoveProperty_Callback(hObject, ~, handles)
     if ~isempty(input)
         handles = removeProperty(handles, input{1});
     end
+
     guidata(hObject, handles);
 
 % --------------------------------------------------------------------
@@ -9146,6 +9214,8 @@ function menu_RenameProperty_Callback(hObject, ~, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
 
+    handles = SaveState(handles);
+
     if getNumProperties(handles) == 0
         % No properties to rename, do nothing
         return;
@@ -9187,6 +9257,8 @@ function menu_FillProperty_Callback(hObject, ~, handles)
         return;
     end
 
+    handles = SaveState(handles);
+
     propertyToFill = char(inputs{1});
     fillValue = inputs{2};
 
@@ -9221,6 +9293,8 @@ function menu_ChangeFiles_Callback(hObject, ~, handles)
         return
     end
 
+    handles = SaveState(handles);
+
     handles = UpdateFiles(handles,old_sound_files);
 
     handles = eg_LoadFile(handles);
@@ -9238,6 +9312,8 @@ function menu_DeleteFiles_Callback(hObject, ~, handles)
         % No data yet, do nothing
         return
     end
+
+    handles = SaveState(handles);
 
     fileNames = getFileNames(handles);
 
@@ -9370,6 +9446,8 @@ function handles = setFileNames(handles, fileList)
 function handles = setFileReadState(handles, filenums, readState)
     % Set background color of the given filenums to indicate the given
     % read/unread state of the files.
+
+    handles = SaveState(handles);
 
     readColor = [1, 1, 1];
     unreadColor = [1, 0.8, 0.8];
@@ -11908,6 +11986,9 @@ function popup_FileSortOrder_Callback(hObject, eventdata, handles)
             msgbox('No properties to sort by yet - please add one first')
             return;
         end
+
+        handles = SaveState(handles);
+        
         % Determine what default property name to offer the user
         defaultProperty = handles.FileSortPropertyName;  % Try the previously used sort property first
         if isempty(defaultProperty) || ~any(strcmp(defaultProperty, handles.PropertyNames))
@@ -11974,6 +12055,8 @@ function edit_FileNotes_Callback(hObject, eventdata, handles)
         % No data yet, do nothing
         return;
     end
+
+    handles = SaveState(handles);
 
     filenum = getCurrentFileNum(handles);
     handles.Notes{filenum} = handles.edit_FileNotes.String;
