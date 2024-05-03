@@ -3870,6 +3870,8 @@ function handles = eg_OpenDbase(handles, filePath)
 
     handles.TotalFileNumber = length(handles.sound_files);
 
+    handles = UpdateChannelLists(handles);
+    
     if isfield(dbase, 'AnalysisState') && isfield(dbase.AnalysisState, 'FileReadState')
         handles.FileReadState = dbase.AnalysisState.FileReadState;
     else
@@ -3901,6 +3903,11 @@ function handles = eg_OpenDbase(handles, filePath)
         % names (stored in "EventSources" field)
         handles.EventChannels = cellfun(@(name)channelNameToNum(handles, name), handles.EventSources, 'UniformOutput', true);
     end
+    if isfield(dbase, 'EventChannelIsPseudo')
+        handles.EventChannelIsPseudo = dbase.EventChannelIsPseudo;
+    else
+        handles.EventChannelIsPseudo = false(1, length(handles.EventTimes));
+    end
     if isfield(dbase, 'EventParameters')
         handles.EventParameters = dbase.EventParameters;
     else
@@ -3919,8 +3926,14 @@ function handles = eg_OpenDbase(handles, filePath)
         handles.EventFunctionParameters = cell(1, length(handles.EventTimes));
         for eventSourceIdx = 1:length(handles.EventTimes)
             filterName = handles.EventFunctions{eventSourceIdx};
-            filterParameters = eg_runPlugin(handles.plugins.filters, filterName, 'params');
-            handles.EventFunctionParameters{eventSourceIdx} = filterParameters;
+            try
+                filterParameters = eg_runPlugin(handles.plugins.filters, filterName, 'params');
+                handles.EventFunctionParameters{eventSourceIdx} = filterParameters;
+            catch
+                emptyParams.Names = {};
+                emptyParams.Values = {};
+                handles.EventFunctionparameters{eventSourceIdx} = emptyParams;
+            end
         end
     end
     if isfield(dbase, 'EventXLims')
@@ -3965,12 +3978,6 @@ function handles = eg_OpenDbase(handles, filePath)
             % Copy into defaults variable
             handles.EventThresholdDefaults = thresholds;
         end
-    end
-    if isfield(dbase, 'EventChannelIsPseudo')
-        handles.EventChannelIsPseudo = dbase.EventChannelIsPseudo;
-    else
-        % Legacy dbase, no pseudo channels
-        handles.EventChannelIsPseudo = logical.empty();
     end
     if isfield(dbase, 'PseudoChannelNames')
         handles.PseudoChannelNames = dbase.PseudoChannelNames;
@@ -4121,8 +4128,6 @@ function handles = eg_OpenDbase(handles, filePath)
     else
         handles.EventXLims = [];
     end
-
-    handles = UpdateChannelLists(handles);
 
     % get segmenter parameters
     for c = 1:length(handles.menu_Segmenter)
