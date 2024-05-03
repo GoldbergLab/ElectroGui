@@ -3596,16 +3596,19 @@ function handles = eg_NewDbase(handles)
         return
     end
 
-    handles = loadProperties(handles);
+    handles = eg_RestartProperties(handles);
+%    handles = loadProperties(handles);
 
     % Create blank notes
     handles.Notes = repmat({''}, 1, handles.TotalFileNumber);
     handles = updateFileNotes(handles);
 
-    handles = RefreshSortOrder(handles);
-
     handles.text_TotalFileNumber.String = ['of ' num2str(handles.TotalFileNumber)];
     handles.edit_FileNumber.String = '1';
+
+    handles.FileReadState = false(1, handles.TotalFileNumber);
+
+    handles = RefreshSortOrder(handles);
 
     handles.FileInfoBrowser.SelectedRow = 1;
     handles.popup_Channel1.Value = 1;
@@ -3617,7 +3620,6 @@ function handles = eg_NewDbase(handles)
     handles.popup_EventListAlign.Value = 1;
 
     handles = setFileNames(handles, {handles.sound_files.name});
-    handles.FileReadState = false(1, handles.TotalFileNumber);
     handles = UpdateFileInfoBrowserReadState(handles);
 
     sourceStrings = {'(None)','Sound'};
@@ -3724,6 +3726,9 @@ function handles = eg_NewDbase(handles)
 
 function handles = loadProperties(handles)
     % Load properties from files, add to default properties.
+    % No updated to new properties format - might want to do that at some
+    % point. Will also require editing what loaders provide in terms of
+    % default properties.
 
     defaultProps = [];
     if isfield(handles, 'DefaultProperties')
