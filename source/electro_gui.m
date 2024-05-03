@@ -1501,7 +1501,7 @@ function channelName = channelNumToName(handles, channelNum, isPseudoChannel)
         channelName = ['Channel ', num2str(channelNum)];
     end
 
-function [channelNum, isPseudoChannel] = channelNameToNum(channelName)
+function [channelNum, isPseudoChannel] = channelNameToNum(handles, channelName)
     listIdx = find(contains(handles.popup_Channels(1).String, channelName));
     if length(listIdx) ~= 1 || listIdx == 1
         % Either not found, multiple matches, or the (None) entry
@@ -1745,7 +1745,7 @@ function [handles, sound, fs, timestamp] = getSound(handles, soundChannel, filen
     if ischar(soundChannel)
         % User must have passed a channel name here - convert to channel
         % num instead
-        [soundChannel, isPseudoChannel] = channelNameToNum(soundChannel);
+        [soundChannel, isPseudoChannel] = channelNameToNum(handles, soundChannel);
     end
 
     % Fetch sound based on which sound channel was selected
@@ -1783,7 +1783,7 @@ function [handles, filteredSound, fs, timestamp] = getFilteredSound(handles, sou
     else
         if ischar(sound)
             % User passed in a channel name - get raw sound
-            soundChannel = channelNameToNum(sound, false);
+            soundChannel = channelNameToNum(handles, sound);
             [handles, sound, fs, timestamp] = getSound(handles, soundChannel, filenum);
         elseif isnumeric(sound) && length(sound) == 1
             % User passed in a channel number - get raw sound
@@ -3899,7 +3899,7 @@ function handles = eg_OpenDbase(handles, filePath)
     else
         % Legacy dbases do not have a list of channel numbers, only channel
         % names (stored in "EventSources" field)
-        handles.EventChannels = cellfun(@(name)channelNameToNum(name, false), handles.EventSources, 'UniformOutput', true);
+        handles.EventChannels = cellfun(@(name)channelNameToNum(handles, name), handles.EventSources, 'UniformOutput', true);
     end
     if isfield(dbase, 'EventParameters')
         handles.EventParameters = dbase.EventParameters;
