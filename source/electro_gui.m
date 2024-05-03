@@ -3595,6 +3595,8 @@ function handles = eg_NewDbase(handles)
     if handles.TotalFileNumber == 0
         return
     end
+    handles.text_TotalFileNumber.String = ['of ' num2str(handles.TotalFileNumber)];
+    handles.edit_FileNumber.String = '1';
 
     handles = eg_RestartProperties(handles);
 %    handles = loadProperties(handles);
@@ -3603,8 +3605,6 @@ function handles = eg_NewDbase(handles)
     handles.Notes = repmat({''}, 1, handles.TotalFileNumber);
     handles = updateFileNotes(handles);
 
-    handles.text_TotalFileNumber.String = ['of ' num2str(handles.TotalFileNumber)];
-    handles.edit_FileNumber.String = '1';
 
     handles.FileReadState = false(1, handles.TotalFileNumber);
 
