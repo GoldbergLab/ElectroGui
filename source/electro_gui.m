@@ -4791,7 +4791,6 @@ function keyPressHandler(hObject, event)
                 % User pressed control-space - start playback
                 snd = GenerateSound(handles,'snd');
                 progress_play(handles,snd);
-
         end
     else
         % User pressed a key without control down
@@ -5179,6 +5178,7 @@ function click_Channel(hObject, event)
         ax.Units = 'pixels';
         ax.Parent.Units = 'pixels';
         rect = rbbox();
+        boxWidthPixels = rect(3);
 
         eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
 
@@ -5193,7 +5193,7 @@ function click_Channel(hObject, event)
         rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
         rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
 
-        if rect(3) < 0.01
+        if boxWidthPixels < 3
             % Simple control-click on axes
             handles = SetEventThreshold(handles, axnum, rect(2));
         else
