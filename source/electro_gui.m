@@ -3870,8 +3870,6 @@ function handles = eg_OpenDbase(handles, filePath)
 
     handles.TotalFileNumber = length(handles.sound_files);
 
-    handles = UpdateChannelLists(handles);
-    
     if isfield(dbase, 'AnalysisState') && isfield(dbase.AnalysisState, 'FileReadState')
         handles.FileReadState = dbase.AnalysisState.FileReadState;
     else
@@ -3998,6 +3996,7 @@ function handles = eg_OpenDbase(handles, filePath)
         handles.PseudoChannelInfo = {};
     end
 
+    handles = UpdateChannelLists(handles);
     handles.popup_Channel1.Value = 1;
     handles.popup_Channel2.Value = 1;
     handles.popup_EventListAlign.Value = 1;
@@ -5854,6 +5853,13 @@ function handles = createEventPseudoChannel(handles, eventSourceIdx, eventPartId
     pseudoChannelInfo.eventSourceIdx = eventSourceIdx;
     pseudoChannelInfo.eventPartIdx = eventPartIdx;
     pseudoChannelInfo.Description = sprintf('%s of events in %s', eventPartName, baseChannelName);
+    for k = 1:length(handles.PseudoChannelNames)
+        if eventSourceIdx == handles.PseudoChannelInfo{k}.eventSourceIdx && ...
+           eventPartIdx == handles.PseudoChannelInfo{k}.eventPartIdx
+            % This pseudochannel already exists
+            error('Pseudochannel already exists - eventSourceIdx=%d, eventPartIdx=%d', eventSourceIdx, eventPartIdx);
+        end
+    end
     handles.PseudoChannelNames{pseudoChannelNumber} = sprintf('Pseudochannel %d', pseudoChannelNumber);
     handles.PseudoChannelTypes{pseudoChannelNumber} = 'event';
     handles.PseudoChannelInfo{pseudoChannelNumber} = pseudoChannelInfo;
@@ -6379,7 +6385,7 @@ function [channelNum, filterName, eventDetectorName, eventParameters, filterPara
     channelNum = handles.EventChannels(eventSourceIdx);
     filterName = handles.EventFunctions{eventSourceIdx};
     filterParameters = handles.EventFunctionParameters{eventSourceIdx};
-    eventDetectorName = handles.EventDetectors(eventSourceIdx);
+    eventDetectorName = handles.EventDetectors{eventSourceIdx};
     eventParameters = handles.EventParameters{eventSourceIdx};
     eventLims = handles.EventXLims(eventSourceIdx, :);
     eventParts = handles.EventParts{eventSourceIdx};
@@ -6423,8 +6429,10 @@ function eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum)
         for eventSourceIdx = 1:length(handles.EventSources)
             [channelNum, filterName, eventDetectorName] = GetEventSourceInfo(handles, eventSourceIdx);
             if axChannelNum == channelNum && ...
-               strcmp(axFilterName, filterName) && ...
-               strcmp(axEventDetectorName, eventDetectorName)
+               ((isempty(axFilterName) && isempty(filterName)) || ...
+                    strcmp(axFilterName, filterName)) && ...
+               ((isempty(axEventDetectorName) && isempty(eventDetectorname)) || ... 
+                    strcmp(axEventDetectorName, eventDetectorName))
                 % Found a match
                 return
             end
