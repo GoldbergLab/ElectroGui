@@ -4551,7 +4551,7 @@ function handles = centerTime(handles, centerTime)
 function handles = shiftInTime(handles, shiftLevel)
     % Shift view back/forward in time
     shiftDelta = diff(handles.TLim) * 0.1;
-    shiftAmount = - shiftDelta * shiftLevel;
+    shiftAmount = shiftDelta * shiftLevel;
     handles.TLim = handles.TLim + shiftAmount;
     handles = UpdateTimescaleView(handles, true);
 
