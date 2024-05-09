@@ -3876,6 +3876,10 @@ function handles = eg_OpenDbase(handles, filePath)
         handles.FileReadState = false(1, handles.TotalFileNumber);
     end
 
+    handles = UpdateChannelLists(handles);
+    handles.popup_Channel1.Value = 1;
+    handles.popup_Channel2.Value = 1;
+
     handles.SoundThresholds = dbase.SegmentThresholds;
     handles.SegmentTimes = dbase.SegmentTimes;
     handles.SegmentTitles = dbase.SegmentTitles;
@@ -3996,9 +4000,6 @@ function handles = eg_OpenDbase(handles, filePath)
         handles.PseudoChannelInfo = {};
     end
 
-    handles = UpdateChannelLists(handles);
-    handles.popup_Channel1.Value = 1;
-    handles.popup_Channel2.Value = 1;
     handles.popup_EventListAlign.Value = 1;
     handles.axes_Events.Visible = 'off';
 
