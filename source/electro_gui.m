@@ -3899,7 +3899,7 @@ function handles = eg_OpenDbase(handles, filePath)
     else
         % Legacy dbases do not have a list of channel numbers, only channel
         % names (stored in "EventSources" field)
-        handles.EventChannels = cellfun(@(name)channelNameToNum(handles, name), handles.EventSources, 'UniformOutput', true);
+        handles.EventChannels = cellfun(@(name)channelNameToNum(handles, name), dbase.EventSources, 'UniformOutput', true);
     end
     if isfield(dbase, 'EventChannelIsPseudo')
         handles.EventChannelIsPseudo = dbase.EventChannelIsPseudo;
