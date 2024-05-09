@@ -83,8 +83,8 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     end
 
     % Make ElectroGui's directory the current directory
-    [pathstr, ~, ~] = fileparts(mfilename('fullpath'));
-    cd(pathstr);
+    [sourcePath, ~, ~] = fileparts(mfilename('fullpath'));
+    cd(sourcePath);
 
     % Get current logged in username
     lic = license('inuse');
@@ -195,7 +195,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     waitbar(0.1, progressBar);
 
     % Load temp file, or use defaults if it doesn't exist
-    handles.tempFile = 'eg_temp.mat';
+    handles.tempFile = fullfile(sourcePath, 'eg_temp.mat');
     handles = loadTempFile(handles);
 
     % Update list of recent files
