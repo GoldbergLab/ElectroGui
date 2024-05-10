@@ -1,7 +1,7 @@
-function segs = egg_DA_segmenter(a,fs,th,params)
+function segs = egg_DA_segmenter(sound, a,fs,th,params)
 % ElectroGui segmenter
 
-if isstr(a) & strcmp(a,'params')
+if isstr(sound) & strcmp(sound,'params')
     segs.Names = {'Minimum duration (ms)','Minimum interval (ms)','Mininum duration for splitting (ms)','Minimum interval for splitting (ms)'};
     segs.Values = {'7', '7','7','0'};
     return

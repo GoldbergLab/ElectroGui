@@ -1994,10 +1994,12 @@ function handles = SegmentSounds(handles, updateGUI)
         end
     end
 
+    [handles, sound, fs] = getSound(handles);
+
     filenum = getCurrentFileNum(handles);
     handles.SegmenterParams.IsSplit = 0;
     handles.SegmentTimes{filenum} = eg_runPlugin(handles.plugins.segmenters, ...
-        segmentationAlgorithmName, handles.amplitude, handles.fs, handles.CurrentThreshold, ...
+        segmentationAlgorithmName, sound, handles.amplitude, fs, handles.CurrentThreshold, ...
         handles.SegmenterParams);
     handles.SegmentTitles{filenum} = cell(1,size(handles.SegmentTimes{filenum},1));
     handles.SegmentSelection{filenum} = ones(1,size(handles.SegmentTimes{filenum},1));
@@ -8370,9 +8372,11 @@ function menu_Split_Callback(hObject, ~, handles)
         return
     end
 
+    [handles, sound] = getSound(handles);
+
     handles.SegmenterParams.IsSplit = 1;
     sg = eg_runPlugin(handles.plugins.segmenters, alg, handles.amplitude, ...
-        handles.fs, rect(2), handles.SegmenterParams);
+        sound, handles.fs, rect(2), handles.SegmenterParams);
 
     f = find(sg(:,1)>rect(1)*handles.fs & sg(:,1)<(rect(1)+rect(3))*handles.fs);
     g = find(sg(:,2)>rect(1)*handles.fs & sg(:,2)<(rect(1)+rect(3))*handles.fs);
