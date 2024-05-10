@@ -2770,9 +2770,6 @@ function click_sound(hObject, event)
 
         % Add new marker to backend
         handles = CreateNewMarker(handles, x);
-
-        % Replot frontend annotation display
-        handles = PlotAnnotations(handles);
     end
 
     guidata(hObject, handles);
@@ -3278,6 +3275,9 @@ function handles = CreateNewMarker(handles, x)
     handles.MarkerTimes{filenum}(end+1, :) = x;
     handles.MarkerSelection{filenum}(end+1) = 1;
     handles.MarkerTitles{filenum}{end+1} = '';
+
+    % Replot frontend annotation display
+    handles = PlotAnnotations(handles);
 
     % Sort markers chronologically to keep things neat
     [handles, order] = SortMarkers(handles, filenum);
