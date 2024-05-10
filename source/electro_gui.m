@@ -3981,23 +3981,36 @@ function handles = eg_OpenDbase(handles, filePath)
             handles.EventThresholdDefaults = thresholds;
         end
     end
+    generatePseudoChannels = false;
     if isfield(dbase, 'PseudoChannelNames')
         handles.PseudoChannelNames = dbase.PseudoChannelNames;
     else
         % Legacy dbase, no pseudo channels
         handles.PseudoChannelNames = {};
+        generatePseudoChannels = true;
     end
     if isfield(dbase, 'PseudoChannelTypes')
         handles.PseudoChannelTypes = dbase.PseudoChannelTypes;
     else
         % Legacy dbase, no pseudo channels
         handles.PseudoChannelTypes = {};
+        generatePseudoChannels = true;
     end
     if isfield(dbase, 'PseudoChannelInfo')
         handles.PseudoChannelInfo = dbase.PseudoChannelInfo;
     else
         % Legacy dbase, no pseudo channels
         handles.PseudoChannelInfo = {};
+        generatePseudoChannels = true;
+    end
+
+    % For legacy databases, we have to generate the pseudochannels
+    if generatePseudoChannels
+        for eventSourceIdx = 1:length(handles.EventTimes)
+            for eventPartIdx = 1:length(handles.EventParts{eventSourceIdx})
+                handles = createEventPseudoChannel(handles, eventSourceIdx, eventPartIdx);
+            end
+        end
     end
 
     handles.popup_EventListAlign.Value = 1;
@@ -4007,6 +4020,9 @@ function handles = eg_OpenDbase(handles, filePath)
         f = strfind(handles.DefaultRootPath,'\');
         handles.WorksheetTitle = handles.DefaultRootPath(f(end)+1:end);
     end
+
+    % Update channel lists again to include pseudochannels
+    handles = UpdateChannelLists(handles);
 
     waitbar(0.38, progressBar)
 
