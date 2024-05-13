@@ -17,18 +17,13 @@ for filenum = 1:length(handles.menu_Segmenter)
 end
 x = mean(xlim(handles.axes_Sonogram));
 y = mean(ylim(handles.axes_Sonogram));
-txt = text(handles.axes_Sonogram, x, y, ...
-    'Segmenting... Click to quit.', 'HorizontalAlignment', 'center', ...
-    'FontSize', 14, 'Color', 'r', 'BackgroundColor', 'w');
-txt.ButtonDownFcn = @(varargin)set(txt, 'Color', 'g');
 
 for fileIdx = 1:length(filenums)
+    displayProgress('Segmenting file %d of %d, fileIdx', length(filenums), round(length(filenums)/10), true);
     filenum = filenums(fileIdx);
-    if all(txt.Color==[0 1 0])
-        break
-    end
 
-    [handles, amp, ~, fs] = electro_gui('calculateAmplitude', handles, filenum);
+    [handles, sound] = electro_gui('getSound', handles, [], filenum);
+    [handles, amp, fs] = electro_gui('calculateAmplitude', handles, filenum);
 
     if handles.menu_AutoThreshold.Checked
         handles.SoundThresholds(filenum) = eg_AutoThreshold(amp);
@@ -37,15 +32,11 @@ for fileIdx = 1:length(filenums)
     end
     curr = handles.SoundThresholds(filenum);
     
-    handles.SegmentTimes{filenum} = eg_runPlugin(handles.plugins.segmenters, segmenterAlgorithmName, amp, fs, curr, handles.SegmenterParams);
+    handles.SegmentTimes{filenum} = eg_runPlugin(handles.plugins.segmenters, segmenterAlgorithmName, sound, amp, fs, curr, handles.SegmenterParams);
     handles.SegmentTitles{filenum} = cell(1,size(handles.SegmentTimes{filenum},1));
     handles.SegmentSelection{filenum} = ones(1,size(handles.SegmentTimes{filenum},1));
 
-    txt.String = sprintf('Segmented file %d (%d/%d). Click to quit.', filenum, fileIdx, length(filenums));
-    drawnow;
 end
-
-delete(txt);
 
 msgbox(sprintf('Segmented %d files. Segmentation complete', fileIdx));
 
@@ -64,7 +55,7 @@ handles.filtered_sound = eg_runPlugin(handles.plugins.filters, alg, handles.soun
 wind = round(handles.SmoothWindow*handles.fs);
 amp = smooth(10*log10(handles.filtered_sound.^2+eps),wind);
 amp = amp-min(amp(wind:length(amp)-wind));
-amp(find(amp<0))=0;
+amp(amp<0)=0;
 
 function threshold = eg_AutoThreshold(amp)
 

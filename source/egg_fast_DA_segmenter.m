@@ -1,6 +1,6 @@
 function segmentTimes = egg_fast_DA_segmenter(sound, amplitude, fs, threshold, params)
 % ElectroGui segmenter - sped up by bmk27
-disp('segmenting!')
+
 defaultParams.Names = {'Minimum duration (ms)','Minimum interval (ms)','Mininum duration for splitting (ms)','Minimum interval for splitting (ms)'};
 defaultParams.Values = {'7', '7','7','0'};
 
