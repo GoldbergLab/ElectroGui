@@ -83,8 +83,8 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     end
 
     % Make ElectroGui's directory the current directory
-    [pathstr, ~, ~] = fileparts(mfilename('fullpath'));
-    cd(pathstr);
+    [sourcePath, ~, ~] = fileparts(mfilename('fullpath'));
+    cd(sourcePath);
 
     % Get current logged in username
     lic = license('inuse');
@@ -189,7 +189,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     handles.ForwardFileCacheSize = 3;
 
     % Setup Undo/Redo stack
-    handles.History = StateStack(10);   % GUI state history for undo/redo purposes 
+    handles.History = StateStack(10);   % GUI state history for undo/redo purposes
     handles.HistoryInterval = 3;       % Minimum # of seconds that must pass between recording history. Set to 0 to record on every change.
     handles.LastHistoryTimestamp = datetime("now");
 
@@ -200,7 +200,7 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     waitbar(0.1, progressBar);
 
     % Load temp file, or use defaults if it doesn't exist
-    handles.tempFile = 'eg_temp.mat';
+    handles.tempFile = fullfile(sourcePath, 'eg_temp.mat');
     handles = loadTempFile(handles);
 
     % Update list of recent files
@@ -391,7 +391,7 @@ function handles = SaveState(handles)
 function handles = Undo(handles)
     dbase = handles.History.UndoState(GetDBase(handles, false));
     handles = eg_OpenDbase(handles, dbase);
-    
+
 function handles = Redo(handles)
     dbase = handles.History.RedoState(GetDBase(handles, false));
     handles = eg_OpenDbase(handles, dbase);
@@ -1538,7 +1538,7 @@ function channelName = channelNumToName(handles, channelNum, isPseudoChannel)
         channelName = ['Channel ', num2str(channelNum)];
     end
 
-function [channelNum, isPseudoChannel] = channelNameToNum(channelName)
+function [channelNum, isPseudoChannel] = channelNameToNum(handles, channelName)
     listIdx = find(contains(handles.popup_Channels(1).String, channelName));
     if length(listIdx) ~= 1 || listIdx == 1
         % Either not found, multiple matches, or the (None) entry
@@ -1782,7 +1782,7 @@ function [handles, sound, fs, timestamp] = getSound(handles, soundChannel, filen
     if ischar(soundChannel)
         % User must have passed a channel name here - convert to channel
         % num instead
-        [soundChannel, isPseudoChannel] = channelNameToNum(soundChannel);
+        [soundChannel, isPseudoChannel] = channelNameToNum(handles, soundChannel);
     end
 
     % Fetch sound based on which sound channel was selected
@@ -1820,7 +1820,7 @@ function [handles, filteredSound, fs, timestamp] = getFilteredSound(handles, sou
     else
         if ischar(sound)
             % User passed in a channel name - get raw sound
-            soundChannel = channelNameToNum(sound, false);
+            soundChannel = channelNameToNum(handles, sound);
             [handles, sound, fs, timestamp] = getSound(handles, soundChannel, filenum);
         elseif isnumeric(sound) && length(sound) == 1
             % User passed in a channel number - get raw sound
@@ -2031,10 +2031,12 @@ function handles = SegmentSounds(handles, updateGUI)
         end
     end
 
+    [handles, sound, fs] = getSound(handles);
+
     filenum = getCurrentFileNum(handles);
     handles.SegmenterParams.IsSplit = 0;
     handles.SegmentTimes{filenum} = eg_runPlugin(handles.plugins.segmenters, ...
-        segmentationAlgorithmName, handles.amplitude, handles.fs, handles.CurrentThreshold, ...
+        segmentationAlgorithmName, sound, handles.amplitude, fs, handles.CurrentThreshold, ...
         handles.SegmenterParams);
     handles.SegmentTitles{filenum} = cell(1,size(handles.SegmentTimes{filenum},1));
     handles.SegmentSelection{filenum} = ones(1,size(handles.SegmentTimes{filenum},1));
@@ -2805,9 +2807,6 @@ function click_sound(hObject, event)
 
         % Add new marker to backend
         handles = CreateNewMarker(handles, x);
-
-        % Replot frontend annotation display
-        handles = PlotAnnotations(handles);
     end
 
     guidata(hObject, handles);
@@ -3327,6 +3326,9 @@ function handles = CreateNewMarker(handles, x)
     handles.MarkerSelection{filenum}(end+1) = 1;
     handles.MarkerTitles{filenum}{end+1} = '';
 
+    % Replot frontend annotation display
+    handles = PlotAnnotations(handles);
+
     % Sort markers chronologically to keep things neat
     [handles, order] = SortMarkers(handles, filenum);
     [~, mostRecentMarkerNum] = max(order);
@@ -3647,17 +3649,20 @@ function handles = eg_NewDbase(handles)
     if handles.TotalFileNumber == 0
         return
     end
+    handles.text_TotalFileNumber.String = ['of ' num2str(handles.TotalFileNumber)];
+    handles.edit_FileNumber.String = '1';
 
-    handles = loadProperties(handles);
+    handles = eg_RestartProperties(handles);
+%    handles = loadProperties(handles);
 
     % Create blank notes
     handles.Notes = repmat({''}, 1, handles.TotalFileNumber);
     handles = updateFileNotes(handles);
 
-    handles = RefreshSortOrder(handles);
 
-    handles.text_TotalFileNumber.String = ['of ' num2str(handles.TotalFileNumber)];
-    handles.edit_FileNumber.String = '1';
+    handles.FileReadState = false(1, handles.TotalFileNumber);
+
+    handles = RefreshSortOrder(handles);
 
     handles.FileInfoBrowser.SelectedRow = 1;
     handles.popup_Channel1.Value = 1;
@@ -3669,7 +3674,6 @@ function handles = eg_NewDbase(handles)
     handles.popup_EventListAlign.Value = 1;
 
     handles = setFileNames(handles, {handles.sound_files.name});
-    handles.FileReadState = false(1, handles.TotalFileNumber);
     handles = UpdateFileInfoBrowserReadState(handles);
 
     sourceStrings = {'(None)','Sound'};
@@ -3776,6 +3780,9 @@ function handles = eg_NewDbase(handles)
 
 function handles = loadProperties(handles)
     % Load properties from files, add to default properties.
+    % No updated to new properties format - might want to do that at some
+    % point. Will also require editing what loaders provide in terms of
+    % default properties.
 
     defaultProps = [];
     if isfield(handles, 'DefaultProperties')
@@ -3862,7 +3869,7 @@ function handles = eg_OpenDbase(handles, filePathOrDbase)
             [path, file, ext] = fileparts(filePathOrDbase);
             file = [file, ext];
         end
-    
+
         % Load dbase into 'dbase' variable
         load(fullfile(path, file),'dbase');
     elseif isstruct(filePathOrDbase)
@@ -3874,7 +3881,7 @@ function handles = eg_OpenDbase(handles, filePathOrDbase)
         error('Unrecognized file path or dbase struct');
     end
 
-    
+
     waitbar(0.26, progressBar)
 
     while ~isfolder(dbase.PathName)
@@ -3939,6 +3946,10 @@ function handles = eg_OpenDbase(handles, filePathOrDbase)
         handles.FileReadState = false(1, handles.TotalFileNumber);
     end
 
+    handles = UpdateChannelLists(handles);
+    handles.popup_Channel1.Value = 1;
+    handles.popup_Channel2.Value = 1;
+
     handles.SoundThresholds = dbase.SegmentThresholds;
     handles.SegmentTimes = dbase.SegmentTimes;
     handles.SegmentTitles = dbase.SegmentTitles;
@@ -3962,13 +3973,18 @@ function handles = eg_OpenDbase(handles, filePathOrDbase)
     else
         % Legacy dbases do not have a list of channel numbers, only channel
         % names (stored in "EventSources" field)
-        handles.EventChannels = cellfun(@(name)channelNameToNum(name, false), handles.EventSources, 'UniformOutput', true);
+        handles.EventChannels = cellfun(@(name)channelNameToNum(handles, name), dbase.EventSources, 'UniformOutput', true);
+    end
+    if isfield(dbase, 'EventChannelIsPseudo')
+        handles.EventChannelIsPseudo = dbase.EventChannelIsPseudo;
+    else
+        handles.EventChannelIsPseudo = false(1, length(handles.EventTimes));
     end
     if isfield(dbase, 'EventParameters')
         handles.EventParameters = dbase.EventParameters;
     else
         % Legacy dbases do not have a list of event parameters
-        handles.EventParameters = cell(1, 1:length(handles.EventTimes));
+        handles.EventParameters = cell(1, length(handles.EventTimes));
         for eventSourceIdx = 1:length(handles.EventTimes)
             eventDetectorName = handles.EventDetectors{eventSourceIdx};
             eventParameters = eg_runPlugin(handles.plugins.eventDetectors, eventDetectorName, 'params');
@@ -3979,11 +3995,17 @@ function handles = eg_OpenDbase(handles, filePathOrDbase)
         handles.EventFunctionParameters = dbase.EventFunctionParameters;
     else
         % Legacy dbases do not have a list of event parameters
-        handles.EventFunctionParameters = cell(1, 1:length(handles.EventTimes));
+        handles.EventFunctionParameters = cell(1, length(handles.EventTimes));
         for eventSourceIdx = 1:length(handles.EventTimes)
             filterName = handles.EventFunctions{eventSourceIdx};
-            filterParameters = eg_runPlugin(handles.plugins.filters, filterName, 'params');
-            handles.EventFunctionParameters{eventSourceIdx} = filterParameters;
+            try
+                filterParameters = eg_runPlugin(handles.plugins.filters, filterName, 'params');
+                handles.EventFunctionParameters{eventSourceIdx} = filterParameters;
+            catch
+                emptyParams.Names = {};
+                emptyParams.Values = {};
+                handles.EventFunctionparameters{eventSourceIdx} = emptyParams;
+            end
         end
     end
     if isfield(dbase, 'EventXLims')
@@ -4029,33 +4051,38 @@ function handles = eg_OpenDbase(handles, filePathOrDbase)
             handles.EventThresholdDefaults = thresholds;
         end
     end
-    if isfield(dbase, 'EventChannelIsPseudo')
-        handles.EventChannelIsPseudo = dbase.EventChannelIsPseudo;
-    else
-        % Legacy dbase, no pseudo channels
-        handles.EventChannelIsPseudo = logical.empty();
-    end
+    generatePseudoChannels = false;
     if isfield(dbase, 'PseudoChannelNames')
         handles.PseudoChannelNames = dbase.PseudoChannelNames;
     else
         % Legacy dbase, no pseudo channels
         handles.PseudoChannelNames = {};
+        generatePseudoChannels = true;
     end
     if isfield(dbase, 'PseudoChannelTypes')
         handles.PseudoChannelTypes = dbase.PseudoChannelTypes;
     else
         % Legacy dbase, no pseudo channels
         handles.PseudoChannelTypes = {};
+        generatePseudoChannels = true;
     end
     if isfield(dbase, 'PseudoChannelInfo')
         handles.PseudoChannelInfo = dbase.PseudoChannelInfo;
     else
         % Legacy dbase, no pseudo channels
         handles.PseudoChannelInfo = {};
+        generatePseudoChannels = true;
     end
 
-    handles.popup_Channel1.Value = 1;
-    handles.popup_Channel2.Value = 1;
+    % For legacy databases, we have to generate the pseudochannels
+    if generatePseudoChannels
+        for eventSourceIdx = 1:length(handles.EventTimes)
+            for eventPartIdx = 1:length(handles.EventParts{eventSourceIdx})
+                handles = createEventPseudoChannel(handles, eventSourceIdx, eventPartIdx);
+            end
+        end
+    end
+
     handles.popup_EventListAlign.Value = 1;
     handles.axes_Events.Visible = 'off';
 
@@ -4063,6 +4090,9 @@ function handles = eg_OpenDbase(handles, filePathOrDbase)
         f = strfind(handles.DefaultRootPath,'\');
         handles.WorksheetTitle = handles.DefaultRootPath(f(end)+1:end);
     end
+
+    % Update channel lists again to include pseudochannels
+    handles = UpdateChannelLists(handles);
 
     waitbar(0.38, progressBar)
 
@@ -4183,8 +4213,6 @@ function handles = eg_OpenDbase(handles, filePathOrDbase)
     else
         handles.EventXLims = [];
     end
-
-    handles = UpdateChannelLists(handles);
 
     % get segmenter parameters
     for c = 1:length(handles.menu_Segmenter)
@@ -4608,7 +4636,7 @@ function handles = centerTime(handles, centerTime)
 function handles = shiftInTime(handles, shiftLevel)
     % Shift view back/forward in time
     shiftDelta = diff(handles.TLim) * 0.1;
-    shiftAmount = - shiftDelta * shiftLevel;
+    shiftAmount = shiftDelta * shiftLevel;
     handles.TLim = handles.TLim + shiftAmount;
     handles = UpdateTimescaleView(handles, true);
 
@@ -5254,6 +5282,7 @@ function click_Channel(hObject, event)
         ax.Units = 'pixels';
         ax.Parent.Units = 'pixels';
         rect = rbbox();
+        boxWidthPixels = rect(3);
 
         eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
 
@@ -5268,7 +5297,7 @@ function click_Channel(hObject, event)
         rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
         rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
 
-        if rect(3) < 0.01
+        if boxWidthPixels < 3
             % Simple control-click on axes
             handles = SetEventThreshold(handles, axnum, rect(2));
         else
@@ -5931,6 +5960,13 @@ function handles = createEventPseudoChannel(handles, eventSourceIdx, eventPartId
     pseudoChannelInfo.eventSourceIdx = eventSourceIdx;
     pseudoChannelInfo.eventPartIdx = eventPartIdx;
     pseudoChannelInfo.Description = sprintf('%s of events in %s', eventPartName, baseChannelName);
+    for k = 1:length(handles.PseudoChannelNames)
+        if eventSourceIdx == handles.PseudoChannelInfo{k}.eventSourceIdx && ...
+           eventPartIdx == handles.PseudoChannelInfo{k}.eventPartIdx
+            % This pseudochannel already exists
+            error('Pseudochannel already exists - eventSourceIdx=%d, eventPartIdx=%d', eventSourceIdx, eventPartIdx);
+        end
+    end
     handles.PseudoChannelNames{pseudoChannelNumber} = sprintf('Pseudochannel %d', pseudoChannelNumber);
     handles.PseudoChannelTypes{pseudoChannelNumber} = 'event';
     handles.PseudoChannelInfo{pseudoChannelNumber} = pseudoChannelInfo;
@@ -6456,7 +6492,7 @@ function [channelNum, filterName, eventDetectorName, eventParameters, filterPara
     channelNum = handles.EventChannels(eventSourceIdx);
     filterName = handles.EventFunctions{eventSourceIdx};
     filterParameters = handles.EventFunctionParameters{eventSourceIdx};
-    eventDetectorName = handles.EventDetectors(eventSourceIdx);
+    eventDetectorName = handles.EventDetectors{eventSourceIdx};
     eventParameters = handles.EventParameters{eventSourceIdx};
     eventLims = handles.EventXLims(eventSourceIdx, :);
     eventParts = handles.EventParts{eventSourceIdx};
@@ -6500,8 +6536,10 @@ function eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum)
         for eventSourceIdx = 1:length(handles.EventSources)
             [channelNum, filterName, eventDetectorName] = GetEventSourceInfo(handles, eventSourceIdx);
             if axChannelNum == channelNum && ...
-               strcmp(axFilterName, filterName) && ...
-               strcmp(axEventDetectorName, eventDetectorName)
+               ((isempty(axFilterName) && isempty(filterName)) || ...
+                    strcmp(axFilterName, filterName)) && ...
+               ((isempty(axEventDetectorName) && isempty(eventDetectorname)) || ...
+                    strcmp(axEventDetectorName, eventDetectorName))
                 % Found a match
                 return
             end
@@ -8424,9 +8462,11 @@ function menu_Split_Callback(hObject, ~, handles)
         return
     end
 
+    [handles, sound] = getSound(handles);
+
     handles.SegmenterParams.IsSplit = 1;
     sg = eg_runPlugin(handles.plugins.segmenters, alg, handles.amplitude, ...
-        handles.fs, rect(2), handles.SegmenterParams);
+        sound, handles.fs, rect(2), handles.SegmenterParams);
 
     f = find(sg(:,1)>rect(1)*handles.fs & sg(:,1)<(rect(1)+rect(3))*handles.fs);
     g = find(sg(:,2)>rect(1)*handles.fs & sg(:,2)<(rect(1)+rect(3))*handles.fs);
@@ -8888,7 +8928,14 @@ function handles = setProperties(handles, properties, propertyNames, updateGUI)
         updateGUI = true;
     end
 
-    handles.Properties = properties;
+    if isempty(properties)
+        % If there are no properties, initialize the property vector to an
+        % appropriate empty size
+        handles.Properties = false(handles.TotalFileNumber, 0);
+    else
+        % Assign properties
+        handles.Properties = properties;
+    end
     handles.PropertyNames = propertyNames;
 
     if updateGUI
@@ -8958,7 +9005,7 @@ function handles = removeProperty(handles, propertyName, updateGUI)
     end
 
 function handles = eg_RestartProperties(handles)
-    handles.Properties = logical.empty();
+    handles.Properties = false(handles.TotalFileNumber, 0);
     handles.PropertyNames = {};
     handles = UpdateFileInfoBrowser(handles);
 
@@ -11988,7 +12035,7 @@ function popup_FileSortOrder_Callback(hObject, eventdata, handles)
         end
 
         handles = SaveState(handles);
-        
+
         % Determine what default property name to offer the user
         defaultProperty = handles.FileSortPropertyName;  % Try the previously used sort property first
         if isempty(defaultProperty) || ~any(strcmp(defaultProperty, handles.PropertyNames))
