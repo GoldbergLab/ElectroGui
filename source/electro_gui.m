@@ -8837,8 +8837,15 @@ function handles = setProperties(handles, properties, propertyNames, updateGUI)
     if ~exist('updateGUI', 'var') || isempty(updateGUI)
         updateGUI = true;
     end
-
-    handles.Properties = properties;
+    
+    if isempty(properties)
+        % If there are no properties, initialize the property vector to an
+        % appropriate empty size
+        handles.Properties = false(handles.TotalFileNumber, 0);
+    else
+        % Assign properties
+        handles.Properties = properties;
+    end
     handles.PropertyNames = propertyNames;
 
     if updateGUI
@@ -8908,7 +8915,7 @@ function handles = removeProperty(handles, propertyName, updateGUI)
     end
 
 function handles = eg_RestartProperties(handles)
-    handles.Properties = logical.empty();
+    handles.Properties = false(handles.TotalFileNumber, 0);
     handles.PropertyNames = {};
     handles = UpdateFileInfoBrowser(handles);
 
