@@ -9451,6 +9451,7 @@ function handles = UpdateFileInfoBrowser(handles, updateValues, updateNames, upd
     handles.FileInfoBrowser.ColumnEditable = [false, false, true(1, length(propertyNames))];
     handles.FileInfoBrowser.ColumnWidth = num2cell([20, 135, repmat(30, 1, length(propertyNames))]);
     handles.FileInfoBrowser.ColumnSelectable = [true, true, false(1, length(propertyNames))];
+    handles.FileInfoBrowser.ColumnFormat = [{'char', 'char'}, repmat({'logical'}, 1, length(propertyNames))];
 
 function handles = UpdateFiles(handles, old_sound_files)
 
