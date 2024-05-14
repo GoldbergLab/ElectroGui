@@ -10,6 +10,11 @@ handles.DefaultRootPath = '.';     % Default folder that file picker will open t
 handles.QuoteFile = 'quotes.txt';
 handles.IncludeDocumentation = true;  % Include field documentation in dbase? This adds a little size to the dbase file.
 
+% UNDO/REDO SETTINGS
+handles.UndoEnabled = true;     % Enable control-z for undo and control-y for redo - this adds some overhead.
+handles.MaxHistoryLength = 10;  % Maximum number of states to save (for undo/redo purposes). Higher = more memory, more undos
+handles.HistoryInterval = 3;    % Minimum time in seconds between saving states - set to zero to save the state on every change regardless of how fast.
+
 % DEFAULT PROPERTIES
 handles.DefaultProperties.Names = {'bSorted', 'bDirected', 'bContainsStim', 'bUnusable'};   % Default property names to add to every loaded file
 handles.DefaultProperties.Values = {false, false, false, false};  % Corresponding default values for /\
