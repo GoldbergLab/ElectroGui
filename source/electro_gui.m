@@ -378,6 +378,9 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     % uiwait(handles.figure_Main);
 
 function handles = SaveState(handles)
+    if ~handles.UndoEnabled
+        return
+    end
     newTimestamp = datetime("now");
     if (newTimestamp - handles.LastHistoryTimestamp) > (handles.HistoryInterval / (60*60*24))
         try
@@ -389,10 +392,16 @@ function handles = SaveState(handles)
     end
 
 function handles = Undo(handles)
+    if ~handles.UndoEnabled
+        warning('Undo/redo is disabled - enable it by adding ''handles.UndoEnabled = true;'' to your defaults file');
+    end
     dbase = handles.History.UndoState(GetDBase(handles, false));
     handles = eg_OpenDbase(handles, dbase);
 
 function handles = Redo(handles)
+    if ~handles.UndoEnabled
+        warning('Undo/redo is disabled - enable it by adding ''handles.UndoEnabled = true;'' to your defaults file');
+    end
     dbase = handles.History.RedoState(GetDBase(handles, false));
     handles = eg_OpenDbase(handles, dbase);
 
