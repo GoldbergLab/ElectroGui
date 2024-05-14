@@ -15,8 +15,6 @@ for filenum = 1:length(handles.menu_Segmenter)
         segmenterAlgorithmName = handles.menu_Segmenter(filenum).Label;
     end
 end
-x = mean(xlim(handles.axes_Sonogram));
-y = mean(ylim(handles.axes_Sonogram));
 
 for fileIdx = 1:length(filenums)
     displayProgress('Segmenting file %d of %d, fileIdx', length(filenums), round(length(filenums)/10), true);
