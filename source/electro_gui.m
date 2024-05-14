@@ -8057,6 +8057,8 @@ function ViewWorksheet(handles)
 function MacrosMenuclick(hObject, event)
     handles = guidata(hObject);
 
+    handles = SaveState(handles);
+
     handles.dbase = GetDBase(handles);
 
     f = find(handles.menu_Macros==hObject);
