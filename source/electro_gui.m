@@ -324,18 +324,18 @@ function electro_gui_OpeningFcn(hObject, ~, handles, varargin)
     waitbar(0.8, progressBar, 'Initializing electro_gui...');
 
     % Initialize event-related variables
-    handles.EventSources = {};      % Array of event source channel names
-    handles.EventChannels = [];     % Array of event source channel numbers
-    handles.EventChannelIsPseudo = logical.empty();  % Array of flags indicating if the source channel is a pseudochannel
-    handles.EventFunctions = {};    % Array of event source filter names
-    handles.EventFunctionParameters = {};  % Array of event source filter parameters
-    handles.EventDetectors = {};    % Array of event source detector names
+    handles.dbase.EventSources = {};      % Array of event source channel names
+    handles.dbase.EventChannels = [];     % Array of event source channel numbers
+    handles.dbase.EventChannelIsPseudo = logical.empty();  % Array of flags indicating if the source channel is a pseudochannel
+    handles.dbase.EventFunctions = {};    % Array of event source filter names
+    handles.dbase.EventFunctionParameters = {};  % Array of event source filter parameters
+    handles.dbase.EventDetectors = {};    % Array of event source detector names
     handles.EventThresholdDefaults = [];  % Array of default thresholds for this event source
-    handles.EventParameters = {};   % Array of event source detector parameters
+    handles.dbase.EventParameters = {};   % Array of event source detector parameters
     handles.EventParts = {};        % Array of event part options for the selected event detector
     handles.EventXLims = [];        % Array of event source x limits
-    handles.EventTimes = {};
-    handles.EventSelected = {};
+    handles.dbase.EventTimes = {};
+    handles.dbase.EventIsSelected = {};
     handles.EventHandles = {{}, {}};
     handles.EventWaveHandles = gobjects().empty;
     handles.EventThresholdHandles = gobjects(1, 2);  % Handles for event threshold lines
@@ -422,7 +422,7 @@ function handles = disableAxesPopupToolbars(handles)
 function handles = loadTempFile(handles)
     % Get temp file
     tempSettingsFields =        {'lastDirectory',         'lastDBase', 'recentFiles'};
-    tempSettingsDefaultValues = {handles.DefaultRootPath, '',          {}};
+    tempSettingsDefaultValues = {handles.dbase.PathName, '',          {}};
     try
         handles.tempSettings = load(handles.tempFile, tempSettingsFields{:});
     catch ME
@@ -995,7 +995,7 @@ function progress_play(handles,wav)
     % Get time limits for visible sonogram
     timeLimits = handles.axes_Sonogram.XLim;
     % Get audio sample limits for the visible sonogram
-    sampleLimits = round(timeLimits*handles.fs);
+    sampleLimits = round(timeLimits*handles.dbase.Fs);
     % Ensure sample number is in range
     sampleLimits(1) = sampleLimits(1)+1;
     sampleLimits(2) = sampleLimits(2)-1;
@@ -1021,7 +1021,7 @@ function progress_play(handles,wav)
     end
     axs = axs(indx);
 
-    fs = handles.fs * handles.SoundSpeed;
+    fs = handles.dbase.Fs * handles.SoundSpeed;
     if isempty(axs)
         sound(wav,fs);
     else
@@ -1033,9 +1033,9 @@ function progress_play(handles,wav)
         for c = 1:length(axs)
             hold(axs(c), 'on')
             if ~handles.playback_Reverse.Checked
-                h(c) = plot(axs(c), [sampleLimits(1) sampleLimits(1)]/handles.fs,ylim,'Color',handles.ProgressBarColor,'LineWidth',2);
+                h(c) = plot(axs(c), [sampleLimits(1) sampleLimits(1)]/handles.dbase.Fs,ylim,'Color',handles.ProgressBarColor,'LineWidth',2);
             else
-                h(c) = plot(axs(c), [sampleLimits(2) sampleLimits(2)]/handles.fs,ylim,'Color',handles.ProgressBarColor,'LineWidth',2);
+                h(c) = plot(axs(c), [sampleLimits(2) sampleLimits(2)]/handles.dbase.Fs,ylim,'Color',handles.ProgressBarColor,'LineWidth',2);
             end
         end
         ap = audioplayer(wav,fs);
@@ -1044,9 +1044,9 @@ function progress_play(handles,wav)
             pos = ap.CurrentSample;
             for c = 1:length(h)
                 if ~handles.playback_Reverse.Checked
-                    h(c).XData = ([pos pos]+sampleLimits(1)-1)/handles.fs;
+                    h(c).XData = ([pos pos]+sampleLimits(1)-1)/handles.dbase.Fs;
                 else
-                    h(c).XData = (sampleLimits(2)-[pos pos]+1)/handles.fs;
+                    h(c).XData = (sampleLimits(2)-[pos pos]+1)/handles.dbase.Fs;
                 end
             end
             drawnow;
@@ -1150,26 +1150,26 @@ function handles = refreshFileCache(handles)
     % Add sound files to list of necessary cache files:
     for filenum = filenums
         % Add sound file to list
-        filesInCache{end+1} = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
-        loadersInCache{end+1} = handles.sound_loader;
+        filesInCache{end+1} = fullfile(handles.dbase.PathName, handles.dbase.SoundFiles(filenum).name);
+        loadersInCache{end+1} = handles.dbase.SoundLoader;
 
         % Add whatever channel is selected in axes1 to list
         if ~isempty(selectedChannelNum1) && selectedChannelNum1 ~= 0
-            filesInCache{end+1} = fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum1}(filenum).name);
+            filesInCache{end+1} = fullfile(handles.dbase.PathName, handles.dbase.ChannelFiles{selectedChannelNum1}(filenum).name);
             if isSound1
-                loadersInCache{end+1} = handles.sound_loader;
+                loadersInCache{end+1} = handles.dbase.SoundLoader;
             else
-                loadersInCache{end+1} = handles.chan_loader{selectedChannelNum1};
+                loadersInCache{end+1} = handles.dbase.ChannelLoader{selectedChannelNum1};
             end
         end
 
         if ~isempty(selectedChannelNum2) && selectedChannelNum2 ~= 0
             % Add whatever channel is selected in axes2 to list
-            filesInCache{end+1} = fullfile(handles.DefaultRootPath, handles.chan_files{selectedChannelNum2}(filenum).name);
+            filesInCache{end+1} = fullfile(handles.dbase.PathName, handles.dbase.ChannelFiles{selectedChannelNum2}(filenum).name);
             if isSound2
-                loadersInCache{end+1} = handles.sound_loader;
+                loadersInCache{end+1} = handles.dbase.SoundLoader;
             else
-                loadersInCache{end+1} = handles.chan_loader{selectedChannelNum2};
+                loadersInCache{end+1} = handles.dbase.ChannelLoader{selectedChannelNum2};
             end
         end
     end
@@ -1225,10 +1225,10 @@ function handles = eg_LoadFile(handles, showWaitBar)
     handles = setFileReadState(handles, filenum, true);
 
 %     curr = pwd();
-%     cd(handles.DefaultRootPath);
+%     cd(handles.dbase.PathName);
 
     % Label
-    handles.text_FileName.String = handles.sound_files(filenum).name;
+    handles.text_FileName.String = handles.dbase.SoundFiles(filenum).name;
 
     % Load sound
     handles.sound = [];
@@ -1236,7 +1236,7 @@ function handles = eg_LoadFile(handles, showWaitBar)
     % Update file notes
     handles = updateFileNotes(handles);
 
-    soundFilePath = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
+    soundFilePath = fullfile(handles.dbase.PathName, handles.dbase.SoundFiles(filenum).name);
 
     try
         handles = UpdateFilteredSound(handles);
@@ -1253,8 +1253,8 @@ function handles = eg_LoadFile(handles, showWaitBar)
 
     [handles, numSamples, fs] = eg_GetSamplingInfo(handles);
 
-    handles.FileLength(filenum) = numSamples;
-    handles.text_DateAndTime.String = string(datetime(handles.DatesAndTimes(filenum), 'ConvertFrom', 'datenum'));
+    handles.dbase.FileLength(filenum) = numSamples;
+    handles.text_DateAndTime.String = string(datetime(handles.dbase.Times(filenum), 'ConvertFrom', 'datenum'));
 
     h = eg_peak_detect(handles.axes_Sound, linspace(0, numSamples/fs, numSamples), handles.filtered_sound);
 
@@ -1334,8 +1334,8 @@ function handles = UpdateChannelLists(handles)
     channelInfo(2).IsPseudoChannel = false;
     channelInfo(2).Number = 0;
     idx = length(channelList);
-    for channelNum = 1:length(handles.chan_files)
-        if ~isempty(handles.chan_files{channelNum})
+    for channelNum = 1:length(handles.dbase.ChannelFiles)
+        if ~isempty(handles.dbase.ChannelFiles{channelNum})
             idx = idx + 1;
             channelList{idx} = channelNumToName(handles, channelNum);
             channelInfo(idx).IsPseudoChannel = false;
@@ -1379,12 +1379,12 @@ function str = getPseudoChannelString(handles, channelNum)
 
 function numChannels = getNumChannels(handles)
     % Return number of channels (not including pseudochannels)
-    numChannels = length(handles.chan_files);
+    numChannels = length(handles.dbase.ChannelFiles);
 function currentFileNum = getCurrentFileNum(handles)
     currentFileNum = str2double(handles.edit_FileNumber.String);
 function currentFileName = getCurrentFileName(handles)
     currentFileNum = getCurrentFileNum(handles);
-    currentFileName = handles.sound_files(currentFileNum).name;
+    currentFileName = handles.dbase.SoundFiles(currentFileNum).name;
 
 function eventParts = getSelectedEventParts(handles, axnum)
     % Get the labels for the event parts for the given channel axes
@@ -1430,7 +1430,7 @@ function selectedFunctionParameters = getSelectedFunctionParameters(handles, axn
             handles.ChannelAxesFunctionParameters{axnum} = selectedFunctionParameters;
         end
     else
-        selectedFunctionParameters = handles.EventFunctionParameters{eventSourceIdx};
+        selectedFunctionParameters = handles.dbase.EventFunctionParameters{eventSourceIdx};
     end
 function selectedEventParameters = getSelectedEventParameters(handles, axnum)
     % Get the event parameters for the given channel axes
@@ -1451,13 +1451,13 @@ function selectedEventParameters = getSelectedEventParameters(handles, axnum)
             handles.ChannelAxesEventParameters{axnum} = selectedEventParameters;
         end
     else
-        selectedEventParameters = handles.EventParameters{eventSourceIdx};
+        selectedEventParameters = handles.dbase.EventParameters{eventSourceIdx};
     end
 function selectedEventLims = getSelectedEventLims(handles, axnum)
     eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum);
     if isempty(eventSourceIdx)
         % Use temporary axes params instead
-        selectedEventLims = handles.EventLims;
+        selectedEventLims = handles.EventXLims;
     else
         selectedEventLims = handles.EventXLims(eventSourceIdx, :);
     end
@@ -1596,8 +1596,8 @@ function handles = setSelectedEventFunction(handles, axnum, eventFunction)
 %         labels = {};
 %     end
 %     % Add empty entry for event times for this new detector function.
-%     handles.EventTimes{filenum, channelNum} = cell(1, length(labels));
-%     handles.EventSelected = logical.empty();
+%     handles.dbase.EventTimes{filenum, channelNum} = cell(1, length(labels));
+%     handles.dbase.EventIsSelected = logical.empty();
 
 function [handles, isValidEventFunction] = updateEventFunctionInfo(handles, channelNum, newEventFunction)
     % This appears to be unused? Kinda confused.
@@ -1647,7 +1647,7 @@ function [handles, channelData, channelSamplingRate, channelLabels, timestamp] =
                 [channelNum, ~, ~, ~, ~, ~, ~, ~, isSourcePseudoChannel] = GetEventSourceInfo(handles, eventSourceIdx);
                 [handles, numSamples, channelSamplingRate] = eg_GetSamplingInfo(handles, filenum, channelNum, isSourcePseudoChannel);
                 rawChannelData = false(numSamples, 1);
-                eventTimes = handles.EventTimes{eventSourceIdx}{eventPartIdx, filenum};
+                eventTimes = handles.dbase.EventTimes{eventSourceIdx}{eventPartIdx, filenum};
                 rawChannelData(eventTimes) = true;
                 channelLabels = '';
                 timestamp = '';
@@ -1659,12 +1659,12 @@ function [handles, channelData, channelSamplingRate, channelLabels, timestamp] =
         isSound = isChannelSound(channelNum);
         if isSound
             % Load using the specified sound loader
-            loader = handles.sound_loader;
-            filePath = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
+            loader = handles.dbase.SoundLoader;
+            filePath = fullfile(handles.dbase.PathName, handles.dbase.SoundFiles(filenum).name);
         else
             % Load using the specified channel data loader
-            loader = handles.chan_loader{channelNum};
-            filePath = fullfile(handles.DefaultRootPath, handles.chan_files{channelNum}(filenum).name);
+            loader = handles.dbase.ChannelLoader{channelNum};
+            filePath = fullfile(handles.dbase.PathName, handles.dbase.ChannelFiles{channelNum}(filenum).name);
         end
 
         if handles.EnableFileCaching
@@ -1797,8 +1797,8 @@ function [handles, sound, fs, timestamp] = getSound(handles, soundChannel, filen
     % Fetch sound based on which sound channel was selected
     if soundChannel == 0 && ~isPseudoChannel
         % Use channel 0 (the normal sound channel)
-        filePath = fullfile(handles.DefaultRootPath, handles.sound_files(filenum).name);
-        loader = handles.sound_loader;
+        filePath = fullfile(handles.dbase.PathName, handles.dbase.SoundFiles(filenum).name);
+        loader = handles.dbase.SoundLoader;
 
         if handles.EnableFileCaching
             [handles, data] = retrieveFileFromCache(handles, filePath, loader);
@@ -1837,7 +1837,7 @@ function [handles, filteredSound, fs, timestamp] = getFilteredSound(handles, sou
             [handles, sound, fs, timestamp] = getSound(handles, soundChannel, filenum);
         else
             % User passed in a sound time series
-            fs = handles.fs;
+            fs = handles.dbase.Fs;
             timestamp = [];
         end
     end
@@ -1910,9 +1910,9 @@ function handles = UpdateSound(handles, soundChannel)
 
     [handles, sound, fs, timestamp] = getSound(handles, soundChannel);
     handles.sound = sound;
-    handles.fs = fs;
+    handles.dbase.Fs = fs;
     filenum = getCurrentFileNum(handles);
-    handles.DatesAndTimes(filenum) = timestamp;
+    handles.dbase.Times(filenum) = timestamp;
 
 function [handles, filtered_sound] = filterSound(handles, sound, fs, algorithm, filterParams)
     % Apply a filtering algorithm to a sound vector
@@ -1932,7 +1932,7 @@ function [handles, filtered_sound] = filterSound(handles, sound, fs, algorithm, 
     end
     if ~exist('fs', 'var') || isempty(fs)
         % Use current sound sampling rate
-        fs = handles.fs;
+        fs = handles.dbase.Fs;
     end
 
     % Run sound through filter algorithm
@@ -2001,7 +2001,7 @@ function handles = SetSegmentThreshold(handles)
         hold(ax, 'off');
 
         % Check if there are any segment times recorded
-        if size(handles.SegmentTimes{getCurrentFileNum(handles)},2)==0
+        if size(handles.dbase.SegmentTimes{getCurrentFileNum(handles)},2)==0
             % No segment times found
             if handles.menu_AutoSegment.Checked
                 % User has requested auto-segmentation. Auto segment!
@@ -2044,11 +2044,11 @@ function handles = SegmentSounds(handles, updateGUI)
 
     filenum = getCurrentFileNum(handles);
     handles.SegmenterParams.IsSplit = 0;
-    handles.SegmentTimes{filenum} = eg_runPlugin(handles.plugins.segmenters, ...
+    handles.dbase.SegmentTimes{filenum} = eg_runPlugin(handles.plugins.segmenters, ...
         segmentationAlgorithmName, sound, handles.amplitude, fs, handles.CurrentThreshold, ...
         handles.SegmenterParams);
-    handles.SegmentTitles{filenum} = cell(1,size(handles.SegmentTimes{filenum},1));
-    handles.SegmentSelection{filenum} = ones(1,size(handles.SegmentTimes{filenum},1));
+    handles.dbase.SegmentTitles{filenum} = cell(1,size(handles.dbase.SegmentTimes{filenum},1));
+    handles.dbase.SegmentIsSelected{filenum} = ones(1,size(handles.dbase.SegmentTimes{filenum},1));
 
     if updateGUI
         handles = PlotAnnotations(handles);
@@ -2064,7 +2064,7 @@ function [annotationHandles, labelHandles] = CreateAnnotations(handles, ax, time
 
     % Create a time vector that corresponds to the loaded audio samples
     [handles, numSamples] = eg_GetSamplingInfo(handles);
-    ts = linspace(0, numSamples/handles.fs, numSamples);
+    ts = linspace(0, numSamples/handles.dbase.Fs, numSamples);
 
     y0 = yExtent(1);
     y1 = yExtent(1) + (yExtent(2) - yExtent(1))*0.3;
@@ -2137,11 +2137,11 @@ function handles = UpdateAnnotationTitleDisplay(handles, annotationNums, annotat
     switch annotationType
         case 'segment'
             for annotationNum = annotationNums
-                handles.SegmentLabelHandles(annotationNum).String = handles.SegmentTitles{filenum}(annotationNum);
+                handles.SegmentLabelHandles(annotationNum).String = handles.dbase.SegmentTitles{filenum}(annotationNum);
             end
         case 'marker'
             for annotationNum = annotationNums
-                handles.MarkerLabelHandles(annotationNum).String = handles.MarkerTitles{filenum}(annotationNum);
+                handles.MarkerLabelHandles(annotationNum).String = handles.dbase.MarkerTitles{filenum}(annotationNum);
             end
         case 'none'
             % Do nothing
@@ -2194,12 +2194,12 @@ function handles = UpdateActiveAnnotationDisplay(handles, oldAnnotationNum, oldA
             handles.SegmentHandles(newAnnotationNum).EdgeColor = handles.SegmentActiveColor;
             handles.SegmentHandles(newAnnotationNum).LineWidth = 2;
             handles.SegmentHandles(newAnnotationNum).LineStyle = '-';
-            activeAnnotationTimes = handles.SegmentTimes{filenum}(newAnnotationNum, :) / handles.fs;
+            activeAnnotationTimes = handles.dbase.SegmentTimes{filenum}(newAnnotationNum, :) / handles.dbase.Fs;
         case 'marker'
             handles.MarkerHandles(newAnnotationNum).EdgeColor = handles.MarkerActiveColor;
             handles.MarkerHandles(newAnnotationNum).LineWidth = 2;
             handles.MarkerHandles(newAnnotationNum).LineStyle = '-';
-            activeAnnotationTimes = handles.MarkerTimes{filenum}(newAnnotationNum, :) / handles.fs;
+            activeAnnotationTimes = handles.dbase.MarkerTimes{filenum}(newAnnotationNum, :) / handles.dbase.Fs;
         case 'none'
             % Do nothing
             return;
@@ -2256,17 +2256,17 @@ function handles = PlotAnnotations(handles, modes)
 
     [handles.SegmentHandles, handles.SegmentLabelHandles] = CreateAnnotations(handles, ...
         handles.axes_Segments, ...
-        handles.SegmentTimes{filenum}, ...
-        handles.SegmentTitles{filenum}, ...
-        handles.SegmentSelection{filenum}, ...
+        handles.dbase.SegmentTimes{filenum}, ...
+        handles.dbase.SegmentTitles{filenum}, ...
+        handles.dbase.SegmentIsSelected{filenum}, ...
         handles.SegmentSelectColor, handles.SegmentUnSelectColor, ...
         handles.SegmentActiveColor, handles.SegmentInactiveColor, [-1, 1]);
 
     [handles.MarkerHandles, handles.MarkerLabelHandles] = CreateAnnotations(handles, ...
         handles.axes_Segments, ...
-        handles.MarkerTimes{filenum}, ...
-        handles.MarkerTitles{filenum}, ...
-        handles.MarkerSelection{filenum}, ...
+        handles.dbase.MarkerTimes{filenum}, ...
+        handles.dbase.MarkerTitles{filenum}, ...
+        handles.dbase.MarkerIsSelected{filenum}, ...
         handles.MarkerSelectColor, handles.MarkerUnSelectColor, ...
         handles.MarkerActiveColor, handles.MarkerInactiveColor, [1, 3]);
 
@@ -2812,7 +2812,7 @@ function click_sound(hObject, event)
         x = [];
         x(1) = (xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1)));
         x(2) = x(1) + (rect(3)/pos(3)*(xl(2)-xl(1)));
-        x = round(handles.fs * x);
+        x = round(handles.dbase.Fs * x);
 
         % Add new marker to backend
         handles = CreateNewMarker(handles, x);
@@ -2848,11 +2848,11 @@ function click_segment(hObject, event)
         case 'extend'
             switch clickedAnnotationType
                 case 'segment'
-                    handles.SegmentSelection{filenum}(clickedAnnotationNum) = ~handles.SegmentSelection{filenum}(clickedAnnotationNum);
-                    hObject.FaceColor = handles.SegmentSelectColors{handles.SegmentSelection{filenum}(clickedAnnotationNum+1)};
+                    handles.dbase.SegmentIsSelected{filenum}(clickedAnnotationNum) = ~handles.dbase.SegmentIsSelected{filenum}(clickedAnnotationNum);
+                    hObject.FaceColor = handles.SegmentSelectColors{handles.dbase.SegmentIsSelected{filenum}(clickedAnnotationNum+1)};
                 case 'marker'
-                    handles.MarkerSelection{filenum}(clickedAnnotationNum) = ~handles.MarkerSelection{filenum}(clickedAnnotationNum);
-                    hObject.FaceColor = handles.MarkerSelectColors{handles.MarkerSelection{filenum}(clickedAnnotationNum+1)};
+                    handles.dbase.MarkerIsSelected{filenum}(clickedAnnotationNum) = ~handles.dbase.MarkerIsSelected{filenum}(clickedAnnotationNum);
+                    hObject.FaceColor = handles.MarkerSelectColors{handles.dbase.MarkerIsSelected{filenum}(clickedAnnotationNum+1)};
             end
         case 'open'
             switch clickedAnnotationType
@@ -2860,10 +2860,10 @@ function click_segment(hObject, event)
                     if clickedAnnotationNum < length(handles.SegmentHandles)
                         % Deselect active segment
                         handles = SetActiveSegment(handles, []);
-                        handles.SegmentTimes{filenum}(clickedAnnotationNum,2) = handles.SegmentTimes{filenum}(clickedAnnotationNum+1,2);
-                        handles.SegmentTimes{filenum}(clickedAnnotationNum+1,:) = [];
-                        handles.SegmentTitles{filenum}(clickedAnnotationNum+1) = [];
-                        handles.SegmentSelection{filenum}(clickedAnnotationNum+1) = [];
+                        handles.dbase.SegmentTimes{filenum}(clickedAnnotationNum,2) = handles.dbase.SegmentTimes{filenum}(clickedAnnotationNum+1,2);
+                        handles.dbase.SegmentTimes{filenum}(clickedAnnotationNum+1,:) = [];
+                        handles.dbase.SegmentTitles{filenum}(clickedAnnotationNum+1) = [];
+                        handles.dbase.SegmentIsSelected{filenum}(clickedAnnotationNum+1) = [];
                         % Select new active segment
                         handles = SetActiveSegment(handles, clickedAnnotationNum);
                         handles.figure_Main.KeyPressFcn = @keyPressHandler;
@@ -2904,7 +2904,7 @@ function menu_DeleteAll_Callback(hObject, ~, handles)
     handles = SaveState(handles);
 
     filenum = getCurrentFileNum(handles);
-    handles.SegmentSelection{filenum} = zeros(size(handles.SegmentSelection{filenum}));
+    handles.dbase.SegmentIsSelected{filenum} = zeros(size(handles.dbase.SegmentIsSelected{filenum}));
 
     handles = updateSegmentSelectHighlight(handles);
 
@@ -2924,7 +2924,7 @@ function menu_UndeleteAll_Callback(hObject, ~, handles)
     handles = SaveState(handles);
 
     filenum = getCurrentFileNum(handles);
-    handles.SegmentSelection{filenum} = ones(size(handles.SegmentSelection{filenum}));
+    handles.dbase.SegmentIsSelected{filenum} = ones(size(handles.dbase.SegmentIsSelected{filenum}));
 
     handles = updateSegmentSelectHighlight(handles);
 
@@ -3021,7 +3021,7 @@ function handles = updateSegmentSelectHighlight(handles)
     % Set the color of the segment handle depending on whether or not
     % the segment is selected
     for segmentNum = 1:length(handles.SegmentHandles)
-        if handles.SegmentSelection{filenum}(segmentNum)
+        if handles.dbase.SegmentIsSelected{filenum}(segmentNum)
             handles.SegmentHandles(k).FaceColor = handles.SegmentSelectColor;
         else
             handles.SegmentHandles(k).FaceColor = handles.SegmentUnSelectColor;
@@ -3056,12 +3056,12 @@ function click_segmentaxes(hObject, event)
         rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
         rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
 
-        f = find(handles.SegmentTimes{filenum}(:,1)>rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*handles.fs);
-        g = find(handles.SegmentTimes{filenum}(:,2)>rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*handles.fs);
-        h = find(handles.SegmentTimes{filenum}(:,1)<rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*handles.fs);
+        f = find(handles.dbase.SegmentTimes{filenum}(:,1)>rect(1)*handles.dbase.Fs & handles.dbase.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*handles.dbase.Fs);
+        g = find(handles.dbase.SegmentTimes{filenum}(:,2)>rect(1)*handles.dbase.Fs & handles.dbase.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*handles.dbase.Fs);
+        h = find(handles.dbase.SegmentTimes{filenum}(:,1)<rect(1)*handles.dbase.Fs & handles.dbase.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*handles.dbase.Fs);
         f = unique([f; g; h]);
 
-        handles.SegmentSelection{filenum}(f) = ~handles.SegmentSelection{filenum}(f); %sum(handles.SegmentSelection{filenum}(f))<=length(f)/2;
+        handles.dbase.SegmentIsSelected{filenum}(f) = ~handles.dbase.SegmentIsSelected{filenum}(f); %sum(handles.dbase.SegmentIsSelected{filenum}(f))<=length(f)/2;
         handles = updateSegmentSelectHighlight(handles);
     elseif strcmp(handles.figure_Main.SelectionType,'open')
         [handles, numSamples, fs] = eg_GetSamplingInfo(handles);
@@ -3069,10 +3069,10 @@ function click_segmentaxes(hObject, event)
         handles.TLim = [0, numSamples/fs];
         handles = UpdateTimescaleView(handles);
     elseif strcmp(handles.figure_Main.SelectionType,'extend')
-        if sum(handles.SegmentSelection{filenum})==length(handles.SegmentSelection{filenum})
-            handles.SegmentSelection{filenum} = zeros(size(handles.SegmentSelection{filenum}));
+        if sum(handles.dbase.SegmentIsSelected{filenum})==length(handles.dbase.SegmentIsSelected{filenum})
+            handles.dbase.SegmentIsSelected{filenum} = zeros(size(handles.dbase.SegmentIsSelected{filenum}));
         else
-            handles.SegmentSelection{filenum} = ones(size(handles.SegmentSelection{filenum}));
+            handles.dbase.SegmentIsSelected{filenum} = ones(size(handles.dbase.SegmentIsSelected{filenum}));
         end
         handles = updateSegmentSelectHighlight(handles);
     end
@@ -3099,11 +3099,11 @@ function handles = ToggleAnnotationSelect(handles, filenum, annotationNum, annot
             % Do nothing
     end
 function handles = ToggleSegmentSelect(handles, filenum, segmentNum)
-    handles.SegmentSelection{filenum}(segmentNum) = ~handles.SegmentSelection{filenum}(segmentNum);
-    handles.SegmentHandles(segmentNum).FaceColor = handles.SegmentSelectColors{handles.SegmentSelection{filenum}(segmentNum)+1};
+    handles.dbase.SegmentIsSelected{filenum}(segmentNum) = ~handles.dbase.SegmentIsSelected{filenum}(segmentNum);
+    handles.SegmentHandles(segmentNum).FaceColor = handles.SegmentSelectColors{handles.dbase.SegmentIsSelected{filenum}(segmentNum)+1};
 function handles = ToggleMarkerSelect(handles, filenum, markerNum)
-    handles.MarkerSelection{filenum}(markerNum) = ~handles.MarkerSelection{filenum}(markerNum);
-    handles.MarkerHandles(markerNum).FaceColor = handles.MarkerSelectColors{handles.MarkerSelection{filenum}(markerNum)+1};
+    handles.dbase.MarkerIsSelected{filenum}(markerNum) = ~handles.dbase.MarkerIsSelected{filenum}(markerNum);
+    handles.MarkerHandles(markerNum).FaceColor = handles.MarkerSelectColors{handles.dbase.MarkerIsSelected{filenum}(markerNum)+1};
 
 function [annotationNum, annotationType] = FindActiveAnnotation(handles)
     % Get the index of the active segment or marker
@@ -3154,8 +3154,8 @@ function [newAnnotationNum, newAnnotationType] = FindClosestAnnotationOfOtherTyp
                 newAnnotationType = 'segment';
                 return
             end
-            segmentTime = mean(handles.SegmentTimes{filenum}(annotationNum, :));
-            markerTimes = mean(handles.MarkerTimes{filenum}, 2);
+            segmentTime = mean(handles.dbase.SegmentTimes{filenum}(annotationNum, :));
+            markerTimes = mean(handles.dbase.MarkerTimes{filenum}, 2);
             % Find segment closest in time to the active marker, and switch
             % to that active segment.
             [~, newAnnotationNum] = min(abs(markerTimes - segmentTime));
@@ -3167,8 +3167,8 @@ function [newAnnotationNum, newAnnotationType] = FindClosestAnnotationOfOtherTyp
                 newAnnotationType = 'marker';
                 return
             end
-            markerTime = mean(handles.MarkerTimes{filenum}(annotationNum, :));
-            segmentTimes = mean(handles.SegmentTimes{filenum}, 2);
+            markerTime = mean(handles.dbase.MarkerTimes{filenum}(annotationNum, :));
+            segmentTimes = mean(handles.dbase.SegmentTimes{filenum}, 2);
             % Find segment closest in time to the active marker, and switch
             % to that active segment.
             [~, newAnnotationNum] = min(abs(segmentTimes - markerTime));
@@ -3222,9 +3222,9 @@ function [handles, changedAnnotationNums] = InsertBlankAnnotationTitle(handles, 
 
     switch annotationType
         case 'segment'
-            remainingTitles = handles.SegmentTitles{filenum}(annotationNum:end);
+            remainingTitles = handles.dbase.SegmentTitles{filenum}(annotationNum:end);
         case 'marker'
-            remainingTitles = handles.MarkerTitles{filenum}(annotationNum:end);
+            remainingTitles = handles.dbase.MarkerTitles{filenum}(annotationNum:end);
         case 'none'
             % No active annotation
             changedAnnotationNums = [];
@@ -3248,9 +3248,9 @@ function [handles, changedAnnotationNums] = InsertBlankAnnotationTitle(handles, 
 
     switch annotationType
         case 'segment'
-            handles.SegmentTitles{filenum}(annotationNum:end) = remainingTitles;
+            handles.dbase.SegmentTitles{filenum}(annotationNum:end) = remainingTitles;
         case 'marker'
-            handles.MarkerTitles{filenum}(annotationNum:end) = remainingTitles;
+            handles.dbase.MarkerTitles{filenum}(annotationNum:end) = remainingTitles;
         otherwise
             error('Invalid annotation type: %s', annotationType);
     end
@@ -3277,10 +3277,10 @@ function handles = SetAnnotationTitles(handles, titles, filenum, annotationNums,
     switch annotationType
         case 'segment'
             % Set the segment title
-            handles.SegmentTitles{filenum}(annotationNums) = titles;
+            handles.dbase.SegmentTitles{filenum}(annotationNums) = titles;
         case 'marker'
             % Set the marker title
-            handles.MarkerTitles{filenum}(annotationNums) = titles;
+            handles.dbase.MarkerTitles{filenum}(annotationNums) = titles;
         otherwise
             % Do nothing for 'none' or invalid type
     end
@@ -3305,10 +3305,10 @@ function handles = SetAnnotationTitle(handles, title, filenum, annotationNum, an
     switch annotationType
         case 'segment'
             % Set the segment title
-            handles.SegmentTitles{filenum}{annotationNum} = title;
+            handles.dbase.SegmentTitles{filenum}{annotationNum} = title;
         case 'marker'
             % Set the marker title
-            handles.MarkerTitles{filenum}{annotationNum} = title;
+            handles.dbase.MarkerTitles{filenum}{annotationNum} = title;
         case 'none'
             % Do nothing
             return
@@ -3319,10 +3319,10 @@ function handles = SetAnnotationTitle(handles, title, filenum, annotationNum, an
 function handles = JoinSegmentWithNext(handles, filenum, segmentNum)
     if segmentNum < length(handles.SegmentHandles)
         % This is not the last segment in the file
-        handles.SegmentTimes{filenum}(segmentNum,2) = handles.SegmentTimes{filenum}(segmentNum+1,2);
-        handles.SegmentTimes{filenum}(segmentNum+1,:) = [];
-        handles.SegmentTitles{filenum}(segmentNum+1) = [];
-        handles.SegmentSelection{filenum}(segmentNum+1) = [];
+        handles.dbase.SegmentTimes{filenum}(segmentNum,2) = handles.dbase.SegmentTimes{filenum}(segmentNum+1,2);
+        handles.dbase.SegmentTimes{filenum}(segmentNum+1,:) = [];
+        handles.dbase.SegmentTitles{filenum}(segmentNum+1) = [];
+        handles.dbase.SegmentIsSelected{filenum}(segmentNum+1) = [];
         handles = PlotAnnotations(handles);
         handles = SetActiveSegment(handles, segmentNum);
         handles.figure_Main.KeyPressFcn = @keyPressHandler;
@@ -3331,9 +3331,9 @@ function handles = JoinSegmentWithNext(handles, filenum, segmentNum)
 function handles = CreateNewMarker(handles, x)
     % Create a new marker from time x(1) to time x(2)
     filenum = getCurrentFileNum(handles);
-    handles.MarkerTimes{filenum}(end+1, :) = x;
-    handles.MarkerSelection{filenum}(end+1) = 1;
-    handles.MarkerTitles{filenum}{end+1} = '';
+    handles.dbase.MarkerTimes{filenum}(end+1, :) = x;
+    handles.dbase.MarkerIsSelected{filenum}(end+1) = 1;
+    handles.dbase.MarkerTitles{filenum}{end+1} = '';
 
     % Replot frontend annotation display
     handles = PlotAnnotations(handles);
@@ -3370,23 +3370,23 @@ function handles = DeleteAnnotation(handles, filenum, annotationNum, annotationT
     end
 function handles = DeleteMarker(handles, filenum, markerNum)
     % Delete the specified marker
-    handles.MarkerTimes{filenum}(markerNum, :) = [];
-    handles.MarkerSelection{filenum}(markerNum) = [];
-    handles.MarkerTitles{filenum}(markerNum) = [];
+    handles.dbase.MarkerTimes{filenum}(markerNum, :) = [];
+    handles.dbase.MarkerIsSelected{filenum}(markerNum) = [];
+    handles.dbase.MarkerTitles{filenum}(markerNum) = [];
 function handles = DeleteSegment(handles, filenum, segmentNum)
     % Delete the specified marker
-    handles.SegmentTimes{filenum}(segmentNum, :) = [];
-    handles.SegmentSelection{filenum}(segmentNum) = [];
-    handles.SegmentTitles{filenum}(segmentNum) = [];
+    handles.dbase.SegmentTimes{filenum}(segmentNum, :) = [];
+    handles.dbase.SegmentIsSelected{filenum}(segmentNum) = [];
+    handles.dbase.SegmentTitles{filenum}(segmentNum) = [];
 function [handles, order] = SortMarkers(handles, filenum)
     % Sort the order of the markers. Note that this doesn't affect the marker
     % data at all, just keeps them stored in chronological order.
 
     % Get sort order based on marker start times
-    [~, order] = sort(handles.MarkerTimes{filenum}(:, 1));
-    handles.MarkerTimes{filenum} = handles.MarkerTimes{filenum}(order, :);
-    handles.MarkerSelection{filenum} = handles.MarkerSelection{filenum}(order);
-    handles.MarkerTitles{filenum} = handles.MarkerTitles{filenum}(order);
+    [~, order] = sort(handles.dbase.MarkerTimes{filenum}(:, 1));
+    handles.dbase.MarkerTimes{filenum} = handles.dbase.MarkerTimes{filenum}(order, :);
+    handles.dbase.MarkerIsSelected{filenum} = handles.dbase.MarkerIsSelected{filenum}(order);
+    handles.dbase.MarkerTitles{filenum} = handles.dbase.MarkerTitles{filenum}(order);
     handles.MarkerHandles = handles.MarkerHandles(order);
 function numAnnotations = GetNumAnnotations(handles, annotationType, filenum)
     if ~exist('filenum', 'var') || isempty(filenum)
@@ -3395,9 +3395,9 @@ function numAnnotations = GetNumAnnotations(handles, annotationType, filenum)
 
     switch annotationType
         case 'segment'
-            numAnnotations = length(handles.SegmentTitles{filenum});
+            numAnnotations = length(handles.dbase.SegmentTitles{filenum});
         case 'marker'
-            numAnnotations = length(handles.MarkerTitles{filenum});
+            numAnnotations = length(handles.dbase.MarkerTitles{filenum});
         otherwise
             error('Invalid annotation type: %s', annotationType);
     end
@@ -3490,13 +3490,13 @@ function [handles, newAnnotationNum, newAnnotationType] = ConvertAnnotationType(
     end
 function [handles, newSegmentNum] = ConvertMarkerToSegment(handles, filenum, markerNum)
     activeMarkerNum = FindActiveMarker(handles);
-    t0 = handles.MarkerTimes{filenum}(markerNum, 1);
-    t1 = handles.MarkerTimes{filenum}(markerNum, 2);
-    MS = handles.MarkerSelection{filenum}(markerNum);
-    MN = handles.MarkerTitles{filenum}(markerNum);
-    STs = handles.SegmentTimes{filenum};
-    SSs = handles.SegmentSelection{filenum};
-    SNs = handles.SegmentTitles{filenum};
+    t0 = handles.dbase.MarkerTimes{filenum}(markerNum, 1);
+    t1 = handles.dbase.MarkerTimes{filenum}(markerNum, 2);
+    MS = handles.dbase.MarkerIsSelected{filenum}(markerNum);
+    MN = handles.dbase.MarkerTitles{filenum}(markerNum);
+    STs = handles.dbase.SegmentTimes{filenum};
+    SSs = handles.dbase.SegmentIsSelected{filenum};
+    SNs = handles.dbase.SegmentTitles{filenum};
 
     if isempty(STs)
         % No existing segments
@@ -3505,9 +3505,9 @@ function [handles, newSegmentNum] = ConvertMarkerToSegment(handles, filenum, mar
         % Insert marker into appropriate place in segment arrays
         ind = getSortedArrayInsertion(STs(:, 1), t0);
     end
-    handles.SegmentTimes{filenum} = [STs(1:ind-1, :); [t0, t1]; STs(ind:end, :)];
-    handles.SegmentSelection{filenum} = [SSs(1:ind-1), MS, SSs(ind:end)];
-    handles.SegmentTitles{filenum} = [SNs(1:ind-1), MN, SNs(ind:end)];
+    handles.dbase.SegmentTimes{filenum} = [STs(1:ind-1, :); [t0, t1]; STs(ind:end, :)];
+    handles.dbase.SegmentIsSelected{filenum} = [SSs(1:ind-1), MS, SSs(ind:end)];
+    handles.dbase.SegmentTitles{filenum} = [SNs(1:ind-1), MN, SNs(ind:end)];
 
     newSegmentNum = ind;
 
@@ -3524,13 +3524,13 @@ function [handles, newSegmentNum] = ConvertMarkerToSegment(handles, filenum, mar
     end
 function [handles, newMarkerNum] = ConvertSegmentToMarker(handles, filenum, segmentNum)
     activeSegmentNum = FindActiveSegment(handles);
-    t0 = handles.SegmentTimes{filenum}(segmentNum, 1);
-    t1 = handles.SegmentTimes{filenum}(segmentNum, 2);
-    SS = handles.SegmentSelection{filenum}(segmentNum);
-    SN = handles.SegmentTitles{filenum}(segmentNum);
-    MTs = handles.MarkerTimes{filenum};
-    MSs = handles.MarkerSelection{filenum};
-    MNs = handles.MarkerTitles{filenum};
+    t0 = handles.dbase.SegmentTimes{filenum}(segmentNum, 1);
+    t1 = handles.dbase.SegmentTimes{filenum}(segmentNum, 2);
+    SS = handles.dbase.SegmentIsSelected{filenum}(segmentNum);
+    SN = handles.dbase.SegmentTitles{filenum}(segmentNum);
+    MTs = handles.dbase.MarkerTimes{filenum};
+    MSs = handles.dbase.MarkerIsSelected{filenum};
+    MNs = handles.dbase.MarkerTitles{filenum};
 
     if isempty(MTs)
         % No existing markers
@@ -3539,9 +3539,9 @@ function [handles, newMarkerNum] = ConvertSegmentToMarker(handles, filenum, segm
         % Insert segment into appropriate place in marker arrays
         ind = getSortedArrayInsertion(MTs(:, 1), t0);
     end
-    handles.MarkerTimes{filenum} = [MTs(1:ind-1, :); [t0, t1]; MTs(ind:end, :)];
-    handles.MarkerSelection{filenum} = [MSs(1:ind-1), SS, MSs(ind:end)];
-    handles.MarkerTitles{filenum} = [MNs(1:ind-1), SN, MNs(ind:end)];
+    handles.dbase.MarkerTimes{filenum} = [MTs(1:ind-1, :); [t0, t1]; MTs(ind:end, :)];
+    handles.dbase.MarkerIsSelected{filenum} = [MSs(1:ind-1), SS, MSs(ind:end)];
+    handles.dbase.MarkerTitles{filenum} = [MNs(1:ind-1), SN, MNs(ind:end)];
 
     newMarkerNum = ind;
 
@@ -3650,11 +3650,11 @@ function handles = eg_NewDbase(handles)
     handles.OriginalDbase = struct();
 
     if strcmp(handles.WorksheetTitle,'Untitled')
-        f = strfind(handles.DefaultRootPath,'\');
-        handles.WorksheetTitle = handles.DefaultRootPath(f(end)+1:end);
+        f = strfind(handles.dbase.PathName,'\');
+        handles.WorksheetTitle = handles.dbase.PathName(f(end)+1:end);
     end
 
-    handles.TotalFileNumber = length(handles.sound_files);
+    handles.TotalFileNumber = length(handles.dbase.SoundFiles);
     if handles.TotalFileNumber == 0
         return
     end
@@ -3682,12 +3682,12 @@ function handles = eg_NewDbase(handles)
     handles.popup_EventDetector2.Value = 1;
     handles.popup_EventListAlign.Value = 1;
 
-    handles = setFileNames(handles, {handles.sound_files.name});
+    handles = setFileNames(handles, {handles.dbase.SoundFiles.name});
     handles = UpdateFileInfoBrowserReadState(handles);
 
     sourceStrings = {'(None)','Sound'};
-    for chanNum = 1:length(handles.chan_files)
-        if ~isempty(handles.chan_files{chanNum})
+    for chanNum = 1:length(handles.dbase.ChannelFiles)
+        if ~isempty(handles.dbase.ChannelFiles{chanNum})
             sourceStrings{end+1} = ['Channel ' num2str(chanNum)];
         end
     end
@@ -3818,8 +3818,8 @@ function handles = loadProperties(handles)
     handles.Properties.Types = cell(1,handles.TotalFileNumber);
     for c = 1:handles.TotalFileNumber
         [~, ~, ~, ~, props] = eg_runPlugin(handles.plugins.loaders, ...
-            handles.sound_loader, fullfile(handles.DefaultRootPath, ...
-            handles.sound_files(c).name), 0);
+            handles.dbase.SoundLoader, fullfile(handles.dbase.PathName, ...
+            handles.dbase.SoundFiles(c).name), 0);
         handles.Properties.Names{c} = [props.Names, defaultProps.Names];
         handles.Properties.Values{c} = [props.Values, defaultProps.Values];
         handles.Properties.Types{c} = [props.Types, defaultProps.Types];
@@ -3828,30 +3828,30 @@ function handles = loadProperties(handles)
 function handles = InitializeVariables(handles)
 
     %%%% Initialize variables
-    handles.SoundThresholds = inf(1,handles.TotalFileNumber);
+    handles.dbase.SegmentThresholds = inf(1,handles.TotalFileNumber);
     handles.CurrentTheshold = inf;
-    handles.DatesAndTimes = zeros(1,handles.TotalFileNumber);
+    handles.dbase.Times = zeros(1,handles.TotalFileNumber);
 
-    handles.SegmentTimes = cell(1,handles.TotalFileNumber);
-    handles.SegmentTitles = cell(1,handles.TotalFileNumber);
-    handles.SegmentSelection = cell(1,handles.TotalFileNumber);
-    handles.MarkerTimes = cell(1,handles.TotalFileNumber);
-    handles.MarkerTitles = cell(1,handles.TotalFileNumber);
-    handles.MarkerSelection = cell(1,handles.TotalFileNumber);
+    handles.dbase.SegmentTimes = cell(1,handles.TotalFileNumber);
+    handles.dbase.SegmentTitles = cell(1,handles.TotalFileNumber);
+    handles.dbase.SegmentIsSelected = cell(1,handles.TotalFileNumber);
+    handles.dbase.MarkerTimes = cell(1,handles.TotalFileNumber);
+    handles.dbase.MarkerTitles = cell(1,handles.TotalFileNumber);
+    handles.dbase.MarkerIsSelected = cell(1,handles.TotalFileNumber);
 
-    handles.EventThresholds = zeros(0,handles.TotalFileNumber);
+    handles.dbase.EventThresholds = zeros(0,handles.TotalFileNumber);
 
-    handles.FileLength = zeros(1,handles.TotalFileNumber);
+    handles.dbase.FileLength = zeros(1,handles.TotalFileNumber);
 
 % function handles = fillData(handles)
 %     % Ensure all relevant fields are appropriately-sized
 %
 %     % Check that event times are fully filled in
-%     for eventSourceIdx = 1:length(handles.EventTimes)
-%         fileCount = size(handles.EventTimes{eventSourceIdx}, 2);
+%     for eventSourceIdx = 1:length(handles.dbase.EventTimes)
+%         fileCount = size(handles.dbase.EventTimes{eventSourceIdx}, 2);
 %         if fileCount ~= handles.TotalFileNumber
-%             handles.EventTimes{eventSourceIdx}(:, fileCount+1:handles.TotalFileNumber) = deal({[]});
-%             handles.EventSelected{eventSourceIdx}(:, fileCount+1:handles.TotalFileNumber) = deal({[]});
+%             handles.dbase.EventTimes{eventSourceIdx}(:, fileCount+1:handles.TotalFileNumber) = deal({[]});
+%             handles.dbase.EventIsSelected{eventSourceIdx}(:, fileCount+1:handles.TotalFileNumber) = deal({[]});
 %         end
 %     end
 
@@ -3925,7 +3925,7 @@ function handles = eg_OpenDbase(handles, filePathOrDbase)
                 return
         end
     end
-    handles.DefaultRootPath = dbase.PathName;
+    handles.dbase.PathName = dbase.PathName;
     waitbar(0.30, progressBar)
 
     if exist('path', 'var')
@@ -3940,14 +3940,14 @@ function handles = eg_OpenDbase(handles, filePathOrDbase)
     %   when we save the dbase
     handles.OriginalDbase = dbase;
 
-    handles.DatesAndTimes = dbase.Times;
-    handles.FileLength = dbase.FileLength;
-    handles.sound_files = dbase.SoundFiles;
-    handles.chan_files = dbase.ChannelFiles;
-    handles.sound_loader = dbase.SoundLoader;
-    handles.chan_loader = dbase.ChannelLoader;
+    handles.dbase.Times = dbase.Times;
+    handles.dbase.FileLength = dbase.FileLength;
+    handles.dbase.SoundFiles = dbase.SoundFiles;
+    handles.dbase.ChannelFiles = dbase.ChannelFiles;
+    handles.dbase.SoundLoader = dbase.SoundLoader;
+    handles.dbase.ChannelLoader = dbase.ChannelLoader;
 
-    handles.TotalFileNumber = length(handles.sound_files);
+    handles.TotalFileNumber = length(handles.dbase.SoundFiles);
 
     if isfield(dbase, 'AnalysisState') && isfield(dbase.AnalysisState, 'FileReadState')
         handles.FileReadState = dbase.AnalysisState.FileReadState;
@@ -3959,57 +3959,57 @@ function handles = eg_OpenDbase(handles, filePathOrDbase)
     handles.popup_Channel1.Value = 1;
     handles.popup_Channel2.Value = 1;
 
-    handles.SoundThresholds = dbase.SegmentThresholds;
-    handles.SegmentTimes = dbase.SegmentTimes;
-    handles.SegmentTitles = dbase.SegmentTitles;
-    handles.SegmentSelection = dbase.SegmentIsSelected;
+    handles.dbase.SegmentThresholds = dbase.SegmentThresholds;
+    handles.dbase.SegmentTimes = dbase.SegmentTimes;
+    handles.dbase.SegmentTitles = dbase.SegmentTitles;
+    handles.dbase.SegmentIsSelected = dbase.SegmentIsSelected;
 
-    handles.EventSources = dbase.EventSources;
-    handles.EventFunctions = dbase.EventFunctions;
-    handles.EventDetectors = dbase.EventDetectors;
-    handles.EventThresholds = dbase.EventThresholds;
-    handles.EventTimes = dbase.EventTimes;
-    handles.EventSelected = dbase.EventIsSelected;
+    handles.dbase.EventSources = dbase.EventSources;
+    handles.dbase.EventFunctions = dbase.EventFunctions;
+    handles.dbase.EventDetectors = dbase.EventDetectors;
+    handles.dbase.EventThresholds = dbase.EventThresholds;
+    handles.dbase.EventTimes = dbase.EventTimes;
+    handles.dbase.EventIsSelected = dbase.EventIsSelected;
     % Ensure EventSelected field is all logical not double
-    for axnum = 1:length(handles.EventSelected)
-        for filenum = 1:length(handles.EventSelected{axnum})
-            handles.EventSelected{axnum}{filenum} = logical(handles.EventSelected{axnum}{filenum});
+    for axnum = 1:length(handles.dbase.EventIsSelected)
+        for filenum = 1:length(handles.dbase.EventIsSelected{axnum})
+            handles.dbase.EventIsSelected{axnum}{filenum} = logical(handles.dbase.EventIsSelected{axnum}{filenum});
         end
     end
 
     if isfield(dbase, 'EventChannels')
-        handles.EventChannels = dbase.EventChannels;
+        handles.dbase.EventChannels = dbase.EventChannels;
     else
         % Legacy dbases do not have a list of channel numbers, only channel
         % names (stored in "EventSources" field)
-        handles.EventChannels = cellfun(@(name)channelNameToNum(handles, name), dbase.EventSources, 'UniformOutput', true);
+        handles.dbase.EventChannels = cellfun(@(name)channelNameToNum(handles, name), dbase.EventSources, 'UniformOutput', true);
     end
     if isfield(dbase, 'EventChannelIsPseudo')
-        handles.EventChannelIsPseudo = dbase.EventChannelIsPseudo;
+        handles.dbase.EventChannelIsPseudo = dbase.EventChannelIsPseudo;
     else
-        handles.EventChannelIsPseudo = false(1, length(handles.EventTimes));
+        handles.dbase.EventChannelIsPseudo = false(1, length(handles.dbase.EventTimes));
     end
     if isfield(dbase, 'EventParameters')
-        handles.EventParameters = dbase.EventParameters;
+        handles.dbase.EventParameters = dbase.EventParameters;
     else
         % Legacy dbases do not have a list of event parameters
-        handles.EventParameters = cell(1, length(handles.EventTimes));
-        for eventSourceIdx = 1:length(handles.EventTimes)
-            eventDetectorName = handles.EventDetectors{eventSourceIdx};
+        handles.dbase.EventParameters = cell(1, length(handles.dbase.EventTimes));
+        for eventSourceIdx = 1:length(handles.dbase.EventTimes)
+            eventDetectorName = handles.dbase.EventDetectors{eventSourceIdx};
             eventParameters = eg_runPlugin(handles.plugins.eventDetectors, eventDetectorName, 'params');
-            handles.EventParameters{eventSourceIdx} = eventParameters;
+            handles.dbase.EventParameters{eventSourceIdx} = eventParameters;
         end
     end
     if isfield(dbase, 'EventFunctionParameters')
-        handles.EventFunctionParameters = dbase.EventFunctionParameters;
+        handles.dbase.EventFunctionParameters = dbase.EventFunctionParameters;
     else
         % Legacy dbases do not have a list of event parameters
-        handles.EventFunctionParameters = cell(1, length(handles.EventTimes));
-        for eventSourceIdx = 1:length(handles.EventTimes)
-            filterName = handles.EventFunctions{eventSourceIdx};
+        handles.dbase.EventFunctionParameters = cell(1, length(handles.dbase.EventTimes));
+        for eventSourceIdx = 1:length(handles.dbase.EventTimes)
+            filterName = handles.dbase.EventFunctions{eventSourceIdx};
             try
                 filterParameters = eg_runPlugin(handles.plugins.filters, filterName, 'params');
-                handles.EventFunctionParameters{eventSourceIdx} = filterParameters;
+                handles.dbase.EventFunctionParameters{eventSourceIdx} = filterParameters;
             catch
                 emptyParams.Names = {};
                 emptyParams.Values = {};
@@ -4017,22 +4017,13 @@ function handles = eg_OpenDbase(handles, filePathOrDbase)
             end
         end
     end
-    if isfield(dbase, 'EventXLims')
-        handles.EventXLims = dbase.EventXLims;
-    else
-        % Legacy dbases had event xlims stored in analysis state, and I
-        % think it was per channel axes, not per file, so not complete.
-        for eventSourceIdx = 1:length(handles.EventTimes)
-            handles.EventXLims(eventSourceIdx, :) = handles.EventLims;
-        end
-    end
     if isfield(dbase, 'EventParts')
         handles.EventParts = dbase.EventParts;
     else
         % Legacy dbases did not have a list of event part names
         handles.EventParts = {};
-        for eventSourceIdx = 1:length(handles.EventTimes)
-            eventDetectorName = handles.EventDetectors{eventSourceIdx};
+        for eventSourceIdx = 1:length(handles.dbase.EventTimes)
+            eventDetectorName = handles.dbase.EventDetectors{eventSourceIdx};
             [~, eventParts] = eg_runPlugin(handles.plugins.eventDetectors, eventDetectorName, 'params');
             handles.EventParts{eventSourceIdx} = eventParts;
         end
@@ -4041,14 +4032,14 @@ function handles = eg_OpenDbase(handles, filePathOrDbase)
         handles.EventThresholdDefaults = dbase.AnalysisState.EventThresholdDefaults;
     else
         % Legacy dbases did not have stored defaults - initialize a new one
-        if isempty(handles.EventThresholds)
-            handles.EventThresholdDefaults = inf(1, length(handles.EventTimes));
+        if isempty(handles.dbase.EventThresholds)
+            handles.EventThresholdDefaults = inf(1, length(handles.dbase.EventTimes));
         else
             % Use the most common non-infinite threshold for each event
             % source
 
             % Make a copy of all the thresholds
-            thresholds = handles.EventThresholds;
+            thresholds = handles.dbase.EventThresholds;
             % Replace inf with NaN to exclude it from the mode calculation
             thresholds(thresholds == inf) = NaN;
             % Find the most commonly used threshold
@@ -4085,7 +4076,7 @@ function handles = eg_OpenDbase(handles, filePathOrDbase)
 
     % For legacy databases, we have to generate the pseudochannels
     if generatePseudoChannels
-        for eventSourceIdx = 1:length(handles.EventTimes)
+        for eventSourceIdx = 1:length(handles.dbase.EventTimes)
             for eventPartIdx = 1:length(handles.EventParts{eventSourceIdx})
                 handles = createEventPseudoChannel(handles, eventSourceIdx, eventPartIdx);
             end
@@ -4096,8 +4087,8 @@ function handles = eg_OpenDbase(handles, filePathOrDbase)
     handles.axes_Events.Visible = 'off';
 
     if strcmp(handles.WorksheetTitle,'Untitled')
-        f = strfind(handles.DefaultRootPath,'\');
-        handles.WorksheetTitle = handles.DefaultRootPath(f(end)+1:end);
+        f = strfind(handles.dbase.PathName,'\');
+        handles.WorksheetTitle = handles.dbase.PathName(f(end)+1:end);
     end
 
     % Update channel lists again to include pseudochannels
@@ -4178,22 +4169,22 @@ function handles = eg_OpenDbase(handles, filePathOrDbase)
 
     % Load segment/marker info from dbase
     if isfield(dbase, 'MarkerTimes')
-        handles.MarkerTimes = dbase.MarkerTimes;
+        handles.dbase.MarkerTimes = dbase.MarkerTimes;
     else
         % This must be an older type of dbase - add blank marker field
-        handles.MarkerTimes = cell(1,handles.TotalFileNumber);
+        handles.dbase.MarkerTimes = cell(1,handles.TotalFileNumber);
     end
     if isfield(dbase, 'MarkerTitles')
-        handles.MarkerTitles = dbase.MarkerTitles;
+        handles.dbase.MarkerTitles = dbase.MarkerTitles;
     else
         % This must be an older type of dbase - add blank marker field
-        handles.MarkerTitles = cell(1,handles.TotalFileNumber);
+        handles.dbase.MarkerTitles = cell(1,handles.TotalFileNumber);
     end
     if isfield(dbase, 'MarkerIsSelected')
-        handles.MarkerSelection = dbase.MarkerIsSelected;
+        handles.dbase.MarkerIsSelected = dbase.MarkerIsSelected;
     else
         % This must be an older type of dbase - add blank marker field
-        handles.MarkerSelection = cell(1,handles.TotalFileNumber);
+        handles.dbase.MarkerIsSelected = cell(1,handles.TotalFileNumber);
     end
 
     handles = RefreshSortOrder(handles);
@@ -4207,20 +4198,45 @@ function handles = eg_OpenDbase(handles, filePathOrDbase)
 
     handles.edit_FileNumber.String = '1';
     handles.FileInfoBrowser.SelectedRow = 1;
-    handles = setFileNames(handles, {handles.sound_files.name});
+    handles = setFileNames(handles, {handles.dbase.SoundFiles.name});
     waitbar(0.57, progressBar)
 
+    if isfield(dbase, 'EventXLims')
+        % This is now in dbase.AnalysisState.EventXLims, but legacy dbases
+        % may have it simply in dbase.EventXLims, so look for it here too
+        dbase.AnalysisState.EventXLims = dbase.EventXLims;
+    end
+    if isfield(dbase, 'EventLims')
+        % Due to a typo some dbases may have this as EventLims
+        dbase.AnalysisState.EventXLims = dbase.EventXLims;
+    end
     if isfield(dbase,'AnalysisState')
         % We're not doing this anymore - just recalculate what the lists
         % should say.
 %         handles.popup_Channel1.String = dbase.AnalysisState.SourceList;
 %         handles.popup_Channel2.String = dbase.AnalysisState.SourceList;
 %         handles.popup_EventListAlign.String = dbase.AnalysisState.EventList;
-        handles.edit_FileNumber.String = num2str(dbase.AnalysisState.CurrentFile);
-        handles.FileInfoBrowser.SelectedRow = dbase.AnalysisState.CurrentFile;
-        handles.EventXLims = dbase.AnalysisState.EventLims;
-    else
-        handles.EventXLims = [];
+        if isfield(dbase.AnalysisState, 'CurrentFile')
+            handles.edit_FileNumber.String = num2str(dbase.AnalysisState.CurrentFile);
+            handles.FileInfoBrowser.SelectedRow = dbase.AnalysisState.CurrentFile;
+        end
+        if isfield(dbase.AnalysisState, 'EventXLims')
+            handles.EventXLims = dbase.AnalysisState.EventXLims;
+        elseif isfield(dbase.AnalysisState, 'EventLims')
+            % Due to a typo, some dbases may have this stored as
+            % dbase.AnalysisState.EventLims (without the X)
+            handles.EventXLims = dbase.AnalysisState.EventLims;
+        else
+            handles.EventXLims = [];
+        end            
+
+        if ~isempty(handles.EventXLims) && size(handles.EventXLims, 1) ~= length(handles.dbase.EventSources)
+            % Legacy dbases had event xlims per channel axes, not per file, 
+            % so not complete.
+            for eventSourceIdx = 1:length(handles.dbase.EventTimes)
+                handles.EventXLims(eventSourceIdx, :) = handles.EventXLims;
+            end
+        end
     end
 
     % get segmenter parameters
@@ -4331,7 +4347,7 @@ function menu_AutoThreshold_Callback(hObject, ~, handles)
     if ~handles.menu_AutoThreshold.Checked
         handles.menu_AutoThreshold.Checked = 'on';
         handles.CurrentThreshold = eg_AutoThreshold(handles.amplitude);
-        handles.SoundThresholds(getCurrentFileNum(handles)) = handles.CurrentThreshold;
+        handles.dbase.SegmentThresholds(getCurrentFileNum(handles)) = handles.CurrentThreshold;
         handles = SetSegmentThreshold(handles);
     else
         handles.menu_AutoThreshold.Checked = 'off';
@@ -4502,7 +4518,7 @@ function click_Amplitude(hObject, event)
     elseif strcmp(handles.figure_Main.SelectionType,'extend')
         pos = handles.axes_Amplitude.CurrentPoint;
         handles.CurrentThreshold = pos(1,2);
-        handles.SoundThresholds(getCurrentFileNum(handles)) = handles.CurrentThreshold;
+        handles.dbase.SegmentThresholds(getCurrentFileNum(handles)) = handles.CurrentThreshold;
         handles = SetSegmentThreshold(handles);
     end
 
@@ -4521,7 +4537,7 @@ function menu_SetThreshold_Callback(hObject, ~, handles)
         return
     end
     handles.CurrentThreshold = str2double(answer{1});
-    handles.SoundThresholds(getCurrentFileNum(handles)) = handles.CurrentThreshold;
+    handles.dbase.SegmentThresholds(getCurrentFileNum(handles)) = handles.CurrentThreshold;
 
     handles = SetSegmentThreshold(handles);
 
@@ -4743,13 +4759,13 @@ function MouseMotionHandler(hObject, event)
                 % Mouse is in segment axes
                 % Snap to close by segment start/end
                 filenum = getCurrentFileNum(handles);
-                sampleNum = t*handles.fs;
+                sampleNum = t*handles.dbase.Fs;
                 % Check how far away we are from the nearest segment
-                [minSampleDistance, minIdx] = min(abs(handles.SegmentTimes{filenum}(:) - sampleNum));
+                [minSampleDistance, minIdx] = min(abs(handles.dbase.SegmentTimes{filenum}(:) - sampleNum));
                 threshold = diff(xlim(ax1)) / 50;
-                if minSampleDistance / handles.fs < threshold
+                if minSampleDistance / handles.dbase.Fs < threshold
                     % We're close to a segment boundary - snap to it
-                    t = handles.SegmentTimes{filenum}(minIdx) / handles.fs;
+                    t = handles.dbase.SegmentTimes{filenum}(minIdx) / handles.dbase.Fs;
                 end
             elseif any(ax1 == handles.axes_Channel)
                 % Mouse is in one of the channel axes
@@ -4763,7 +4779,7 @@ function MouseMotionHandler(hObject, event)
                     % Axes is currently displaying events
                     filenum = getCurrentFileNum(handles);
                     sampleNum = t*fs;
-                    eventSamples = vertcat(handles.EventTimes{eventSourceIdx}{:, filenum});
+                    eventSamples = vertcat(handles.dbase.EventTimes{eventSourceIdx}{:, filenum});
                     % Check how far away we are from the nearest event
                     [minSampleDistance, minIdx] = min(abs(eventSamples - sampleNum));
                     threshold = diff(xlim(ax1)) / 50;
@@ -5340,9 +5356,9 @@ function click_Channel(hObject, event)
                 % not all others.
                 boxedEventMask = or(boxedEventMask{:});
                 % Delete events within box
-                for eventPartNum = 1:size(handles.EventTimes{eventSourceIdx}, 1)
-                    handles.EventTimes{eventSourceIdx}{eventPartNum, filenum}(boxedEventMask) = [];
-                    handles.EventSelected{eventSourceIdx}{eventPartNum, filenum}(boxedEventMask) = [];
+                for eventPartNum = 1:size(handles.dbase.EventTimes{eventSourceIdx}, 1)
+                    handles.dbase.EventTimes{eventSourceIdx}{eventPartNum, filenum}(boxedEventMask) = [];
+                    handles.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum}(boxedEventMask) = [];
                 end
 
                 % Restrict the data we're detecting events in  to the
@@ -5359,8 +5375,8 @@ function click_Channel(hObject, event)
                     % Adjust event times based on start of time limits
                     newEventTimes{eventPartNum} = newEventTimes{eventPartNum} + (minSample-1);
                     % Store the original event times/selected
-                    oldEventTimes = handles.EventTimes{eventSourceIdx}{eventPartNum, filenum};
-                    oldEventSelected = handles.EventSelected{eventSourceIdx}{eventPartNum, filenum};
+                    oldEventTimes = handles.dbase.EventTimes{eventSourceIdx}{eventPartNum, filenum};
+                    oldEventSelected = handles.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum};
                     % Concatenate new event times/selected
                     eventTimes = vertcat(oldEventTimes, newEventTimes{eventPartNum});
                     eventSelected = [oldEventSelected, newEventSelected];
@@ -5368,8 +5384,8 @@ function click_Channel(hObject, event)
                     [eventTimes, sortIdx] = sort(eventTimes);
                     eventSelected = eventSelected(sortIdx);
                     % Update event times/selected
-                    handles.EventTimes{eventSourceIdx}{eventPartNum, filenum} = eventTimes;
-                    handles.EventSelected{eventSourceIdx}{eventPartNum, filenum} = eventSelected;
+                    handles.dbase.EventTimes{eventSourceIdx}{eventPartNum, filenum} = eventTimes;
+                    handles.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum} = eventSelected;
                 end
                 handles = UpdateChannelEventDisplay(handles, axnum);
                 handles = UpdateEventViewer(handles);
@@ -5425,7 +5441,7 @@ function click_Channel(hObject, event)
 
             % Invert the selected status of any events that fell within box
             for eventPartNum = 1:length(handles.EventHandles{axnum})
-                handles.EventSelected{eventSourceIdx}{eventPartNum, filenum}(boxedEventMask) = ~handles.EventSelected{eventSourceIdx}{eventPartNum, filenum}(boxedEventMask);
+                handles.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum}(boxedEventMask) = ~handles.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum}(boxedEventMask);
             end
 
             % Update event display for any axes displaying the same event source
@@ -5455,8 +5471,8 @@ function boxedEventMask = GetBoxedEventMask(handles, axnum, filenum, minTime, ma
     fs = handles.loadedChannelFs{axnum};
 
     % Check all event parts to see if any fall within box
-    for eventPartNum = 1:size(handles.EventTimes{eventSourceIdx}, 1)
-        eventSamples = handles.EventTimes{eventSourceIdx}{eventPartNum, filenum};
+    for eventPartNum = 1:size(handles.dbase.EventTimes{eventSourceIdx}, 1)
+        eventSamples = handles.dbase.EventTimes{eventSourceIdx}{eventPartNum, filenum};
         newEventTimes = eventSamples / fs;
         eventVoltages = handles.loadedChannelData{axnum}(eventSamples);
         % Get mask of events that fall within box
@@ -5473,7 +5489,7 @@ function handles = UpdateEventThresholdDisplay(handles, eventSourceIdx)
         end
         filenum = getCurrentFileNum(handles);
         % Get threshold
-        threshold = handles.EventThresholds(eventSourceIdx, filenum);
+        threshold = handles.dbase.EventThresholds(eventSourceIdx, filenum);
         if threshold == inf
             % Use default threshold if it's set to inf
             threshold = handles.EventThresholdDefaults(eventSourceIdx);
@@ -5810,7 +5826,7 @@ function handles = SetEventThreshold(handles, axnum, threshold)
 
     if ~exist('threshold', 'var') || isempty(threshold)
         % No threshold given, get it from the user
-        answer = inputdlg({'Threshold'},'Threshold',1,{num2str(handles.EventThresholds(eventSourceIdx, filenum))});
+        answer = inputdlg({'Threshold'},'Threshold',1,{num2str(handles.dbase.EventThresholds(eventSourceIdx, filenum))});
         if isempty(answer)
             return
         end
@@ -5818,11 +5834,11 @@ function handles = SetEventThreshold(handles, axnum, threshold)
     end
 
     % Set the new event threshold
-    if size(handles.EventThresholds, 1) < eventSourceIdx
+    if size(handles.dbase.EventThresholds, 1) < eventSourceIdx
         % First time setting thresholds for this event source - fill it with inf
-        handles.EventThresholds(eventSourceIdx, :) = inf;
+        handles.dbase.EventThresholds(eventSourceIdx, :) = inf;
     end
-    handles.EventThresholds(eventSourceIdx, filenum) = threshold;
+    handles.dbase.EventThresholds(eventSourceIdx, filenum) = threshold;
     handles.EventThresholdDefaults(eventSourceIdx) = threshold;
 
     % Update events for the event source configuration of this
@@ -5850,18 +5866,18 @@ function handles = SetEventThreshold(handles, axnum, threshold)
 %     if isempty(eventSourceIdx)
 %         % No event source for this channel configuration
 %         eventDetector = getSelectedEventDetector(handles, axnum);
-%         handles.EventParameters{eventSourceIdx} = eg_runPlugin(handles.plugins.eventDetectors, eventDetector, 'params');
+%         handles.dbase.EventParameters{eventSourceIdx} = eg_runPlugin(handles.plugins.eventDetectors, eventDetector, 'params');
 %     else
-%         handles.EventCurrentIndex(axnum) = length(handles.EventSources)+1;
-%         handles.EventSources{end+1} = src;
-%         handles.EventFunctions{end+1} = fun;
-%         handles.EventDetectors{end+1} = dtr;
-%         handles.EventThresholds = [handles.EventThresholds; inf*ones(1,size(handles.EventThresholds,2))];
+%         handles.EventCurrentIndex(axnum) = length(handles.dbase.EventSources)+1;
+%         handles.dbase.EventSources{end+1} = src;
+%         handles.dbase.EventFunctions{end+1} = fun;
+%         handles.dbase.EventDetectors{end+1} = dtr;
+%         handles.dbase.EventThresholds = [handles.dbase.EventThresholds; inf*ones(1,size(handles.dbase.EventThresholds,2))];
 %         handles.EventCurrentThresholds(end+1) = inf;
 %
-%         [~, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, [], handles.fs, inf, handles.ChannelAxesEventParameters{axnum});
-%         handles.EventTimes{end+1} = cell(length(labels),handles.TotalFileNumber);
-%         handles.EventSelected{end+1} = cell(length(labels),handles.TotalFileNumber);
+%         [~, labels] = eg_runPlugin(handles.plugins.eventDetectors, dtr, [], handles.dbase.Fs, inf, handles.ChannelAxesEventParameters{axnum});
+%         handles.dbase.EventTimes{end+1} = cell(length(labels),handles.TotalFileNumber);
+%         handles.dbase.EventIsSelected{end+1} = cell(length(labels),handles.TotalFileNumber);
 %     end
 %
 %     % Delete list of event part display menu items (one set of menu
@@ -5879,9 +5895,9 @@ function handles = SetEventThreshold(handles, axnum, threshold)
 %     end
 %     indx = indx - 1;
 %     for c = 1:handles.EventCurrentIndex(axnum)-1
-%         indx = indx + size(handles.EventTimes{c},1);
+%         indx = indx + size(handles.dbase.EventTimes{c},1);
 %     end
-%     for c = 1:size(handles.EventTimes{handles.EventCurrentIndex(axnum)},1)
+%     for c = 1:size(handles.dbase.EventTimes{handles.EventCurrentIndex(axnum)},1)
 %         label = str{indx+c};
 %         f = strfind(label,' - ');
 %         label = label(f(end)+3:end);
@@ -5939,19 +5955,19 @@ function [handles, eventSourceIdx] = addNewEventSource(handles, channelNum, ...
         baseChannelIsPseudo (1, 1) logical = false
         createPseudoChannels (1, 1) logical = true
     end
-    eventSourceIdx = length(handles.EventSources) + 1;
-    handles.EventSources{eventSourceIdx} = channelName;
-    handles.EventChannels(eventSourceIdx) = channelNum;
-    handles.EventFunctions{eventSourceIdx} = filterName;
-    handles.EventFunctionParameters{eventSourceIdx} = EventFunctionParameters;
-    handles.EventDetectors{eventSourceIdx} = eventDetectorName;
+    eventSourceIdx = length(handles.dbase.EventSources) + 1;
+    handles.dbase.EventSources{eventSourceIdx} = channelName;
+    handles.dbase.EventChannels(eventSourceIdx) = channelNum;
+    handles.dbase.EventFunctions{eventSourceIdx} = filterName;
+    handles.dbase.EventFunctionParameters{eventSourceIdx} = EventFunctionParameters;
+    handles.dbase.EventDetectors{eventSourceIdx} = eventDetectorName;
     handles.EventThresholdDefaults(eventSourceIdx) = defaultEventThreshold;
-    handles.EventParameters{eventSourceIdx} = eventParameters;
+    handles.dbase.EventParameters{eventSourceIdx} = eventParameters;
     handles.EventXLims(eventSourceIdx, :) = eventXLims;
     handles.EventParts{eventSourceIdx} = eventParts;
-    handles.EventChannelIsPseudo(eventSourceIdx) = baseChannelIsPseudo;
-    handles.EventTimes{eventSourceIdx} = cell(length(eventParts), handles.TotalFileNumber);
-    handles.EventSelected{eventSourceIdx} = cell(length(eventParts), handles.TotalFileNumber);
+    handles.dbase.EventChannelIsPseudo(eventSourceIdx) = baseChannelIsPseudo;
+    handles.dbase.EventTimes{eventSourceIdx} = cell(length(eventParts), handles.TotalFileNumber);
+    handles.dbase.EventIsSelected{eventSourceIdx} = cell(length(eventParts), handles.TotalFileNumber);
 
     if createPseudoChannels
         for eventPartIdx = 1:length(eventParts)
@@ -5964,8 +5980,8 @@ function handles = createEventPseudoChannel(handles, eventSourceIdx, eventPartId
     % Create an "event" type pseudochannel
     pseudoChannelNumber = length(handles.PseudoChannelNames) + 1;
     eventPartName = handles.EventParts{eventSourceIdx}{eventPartIdx};
-    baseChannelIsPseudo = handles.EventChannelIsPseudo(eventSourceIdx);
-    baseChannelName = channelNumToName(handles, handles.EventChannels(eventSourceIdx), baseChannelIsPseudo);
+    baseChannelIsPseudo = handles.dbase.EventChannelIsPseudo(eventSourceIdx);
+    baseChannelName = channelNumToName(handles, handles.dbase.EventChannels(eventSourceIdx), baseChannelIsPseudo);
     pseudoChannelInfo.eventSourceIdx = eventSourceIdx;
     pseudoChannelInfo.eventPartIdx = eventPartIdx;
     pseudoChannelInfo.Description = sprintf('%s of events in %s', eventPartName, baseChannelName);
@@ -5990,14 +6006,14 @@ function handles = UpdateEventSourceList(handles)
     eventListInfo(1).eventPartIdx = [];
     % Loop over event sources
     listIdx = 1;
-    for eventSourceIdx = 1:length(handles.EventSources)
+    for eventSourceIdx = 1:length(handles.dbase.EventSources)
         eventParts = handles.EventParts{eventSourceIdx};
         % Loop over the event parts for this event source
         for eventPartIdx = 1:length(eventParts)
             listIdx = listIdx + 1;
             % Get event source info
-            channelName = handles.EventSources{eventSourceIdx};
-            filterName = handles.EventFunctions{eventSourceIdx};
+            channelName = handles.dbase.EventSources{eventSourceIdx};
+            filterName = handles.dbase.EventFunctions{eventSourceIdx};
             eventPart = eventParts{eventPartIdx};
             % Assemble event list info
             eventListInfo(listIdx).eventSourceIdx = eventSourceIdx;
@@ -6020,7 +6036,7 @@ function handles = DetectEvents(handles, eventSourceIdx, filenum, chanData, fs)
     end
     if ~exist('fs', 'var')
         % No channel sampling rate provided
-        fs = handles.fs;
+        fs = handles.dbase.Fs;
     end
     if ~exist('filenum', 'var') || isempty(filenum)
         % Use current filenum
@@ -6036,38 +6052,38 @@ function handles = DetectEvents(handles, eventSourceIdx, filenum, chanData, fs)
     end
 
     % Get event threshold
-    threshold = handles.EventThresholds(eventSourceIdx, filenum);
+    threshold = handles.dbase.EventThresholds(eventSourceIdx, filenum);
 
     % Run event detector plugin to get a list of detected event times
     [eventTimes, ~] = eg_runPlugin(handles.plugins.eventDetectors, eventDetectorName, chanData, fs, threshold, eventParameters);
 
     % Store event info in relevant data structures
     for eventPartNum = 1:length(eventTimes)
-        handles.EventTimes{eventSourceIdx}{eventPartNum, filenum} = eventTimes{eventPartNum};
-        handles.EventSelected{eventSourceIdx}{eventPartNum, filenum} = true(1,length(eventTimes{eventPartNum}));
+        handles.dbase.EventTimes{eventSourceIdx}{eventPartNum, filenum} = eventTimes{eventPartNum};
+        handles.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum} = true(1,length(eventTimes{eventPartNum}));
     end
 
 function numEvents = CheckEventCount(handles, eventSourceIdx, filenum)
     % Check how many events have been detected for the given event source
     % and filenum
-    if isempty(handles.EventTimes{eventSourceIdx})
+    if isempty(handles.dbase.EventTimes{eventSourceIdx})
         numEvents = 0;
-    elseif filenum > size(handles.EventTimes{eventSourceIdx}, 2)
+    elseif filenum > size(handles.dbase.EventTimes{eventSourceIdx}, 2)
         numEvents = 0;
     else
-        numEvents = length(handles.EventTimes{eventSourceIdx}{1, filenum});
+        numEvents = length(handles.dbase.EventTimes{eventSourceIdx}{1, filenum});
     end
 
 function [handles, threshold] = updateEventThreshold(handles, eventSourceIdx, filenum)
     % Get the current threshold. If it is inf, set it instead to the
     % current default threshold for this event source. Return the
     % threshold.
-    threshold = handles.EventThresholds(eventSourceIdx, filenum);
+    threshold = handles.dbase.EventThresholds(eventSourceIdx, filenum);
     if threshold == inf
         % If threshold is infinite, use the default threshold
         threshold = handles.EventThresholdDefaults(eventSourceIdx);
     end
-    handles.EventThresholds(eventSourceIdx, filenum) = threshold;
+    handles.dbase.EventThresholds(eventSourceIdx, filenum) = threshold;
 
 function [handles, threshold] = updateEventThresholdInAxes(handles, axnum)
     % Get event source matching current channel configuration
@@ -6094,7 +6110,7 @@ function handles = AutoDetectEvents(handles, axnum)
             % event detection - abort.
             return
         end
-        if all(cellfun(@isempty, handles.EventTimes{eventSourceIdx}(:, filenum)), 'all')
+        if all(cellfun(@isempty, handles.dbase.EventTimes{eventSourceIdx}(:, filenum)), 'all')
             % No events currently exist for this event source/filenum
             handles = DetectEventsInAxes(handles, axnum);
         end
@@ -6168,7 +6184,7 @@ function handles = UpdateDisplayForEventSource(handles, eventSourceIdx)
 
 function handles = UpdateChannelEventDisplay(handles, axnum)
     % Get the index of the event source (a channel, but not in numerical
-    % order, see handles.EventSources for order)
+    % order, see handles.dbase.EventSources for order)
     if ~handles.axes_Channel(axnum).Visible
         % Axes isn't visible, no point in updating it.
         return;
@@ -6193,9 +6209,9 @@ function handles = UpdateChannelEventDisplay(handles, axnum)
     eventTimes = {};
     eventSelected = {};
     handles.EventHandles{axnum} = {};
-    for eventPartIdx = 1:size(handles.EventTimes{eventSourceIdx},1)
-        eventTimes{eventPartIdx} = handles.EventTimes{eventSourceIdx}{eventPartIdx, filenum};
-        eventSelected{eventPartIdx} = handles.EventSelected{eventSourceIdx}{eventPartIdx, filenum};
+    for eventPartIdx = 1:size(handles.dbase.EventTimes{eventSourceIdx},1)
+        eventTimes{eventPartIdx} = handles.dbase.EventTimes{eventSourceIdx}{eventPartIdx, filenum};
+        eventSelected{eventPartIdx} = handles.dbase.EventIsSelected{eventSourceIdx}{eventPartIdx, filenum};
     end
 
     % Get event detector name
@@ -6287,8 +6303,8 @@ function ClickEventSymbol(eventMarker, event)
             delete(handles.ActiveEventCursors);
 
             % Toggle whether or not the clicked event is selected
-            for eventPartNum = 1:size(handles.EventSelected{eventSourceIdx}, 1)
-                handles.EventSelected{eventSourceIdx}{eventPartNum, filenum}(eventNum) = ~handles.EventSelected{eventSourceIdx}{eventPartNum, filenum}(eventNum);
+            for eventPartNum = 1:size(handles.dbase.EventIsSelected{eventSourceIdx}, 1)
+                handles.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum}(eventNum) = ~handles.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum}(eventNum);
             end
 
             % Update display
@@ -6380,9 +6396,9 @@ function handles = UpdateEventViewer(handles, keepView)
     filenum = getCurrentFileNum(handles);
     eventPartIdx = GetEventViewerEventPartIdx(handles);
 
-    allEventTimes = handles.EventTimes{eventSourceIdx}(:,filenum);
-    eventTimes = handles.EventTimes{eventSourceIdx}{eventPartIdx,filenum};
-    eventSelection = handles.EventSelected{eventSourceIdx}{eventPartIdx,filenum};
+    allEventTimes = handles.dbase.EventTimes{eventSourceIdx}(:,filenum);
+    eventTimes = handles.dbase.EventTimes{eventSourceIdx}{eventPartIdx,filenum};
+    eventSelection = handles.dbase.EventIsSelected{eventSourceIdx}{eventPartIdx,filenum};
 
     if handles.menu_DisplayValues.Checked
         % "Display > Values" in Event axes context menu is selected
@@ -6498,15 +6514,15 @@ function [channelNum, filterName, eventDetectorName] = GetEventViewerSourceInfo(
 function [channelNum, filterName, eventDetectorName, eventParameters, filterParameters, eventLims, eventParts, defaultThreshold, isPseudoChannel] = GetEventSourceInfo(handles, eventSourceIdx)
     % Return the channel number, filter name, and event detector name for
     % the given event source index
-    channelNum = handles.EventChannels(eventSourceIdx);
-    filterName = handles.EventFunctions{eventSourceIdx};
-    filterParameters = handles.EventFunctionParameters{eventSourceIdx};
-    eventDetectorName = handles.EventDetectors{eventSourceIdx};
-    eventParameters = handles.EventParameters{eventSourceIdx};
+    channelNum = handles.dbase.EventChannels(eventSourceIdx);
+    filterName = handles.dbase.EventFunctions{eventSourceIdx};
+    filterParameters = handles.dbase.EventFunctionParameters{eventSourceIdx};
+    eventDetectorName = handles.dbase.EventDetectors{eventSourceIdx};
+    eventParameters = handles.dbase.EventParameters{eventSourceIdx};
     eventLims = handles.EventXLims(eventSourceIdx, :);
     eventParts = handles.EventParts{eventSourceIdx};
     defaultThreshold = handles.EventThresholdDefaults(eventSourceIdx);
-    isPseudoChannel = handles.EventChannelIsPseudo(eventSourceIdx);
+    isPseudoChannel = handles.dbase.EventChannelIsPseudo(eventSourceIdx);
 function [channelNum, filterName, eventDetectorName] = GetChannelAxesInfo(handles, axnum)
     % Return the current settings of specified channel axes
     channelNum = getSelectedChannel(handles, axnum);
@@ -6542,7 +6558,7 @@ function eventSourceIdx = GetChannelAxesEventSourceIdx(handles, axnum)
     % given channel axes. If there is no match, return an empty array
     [axChannelNum, axFilterName, axEventDetectorName] = GetChannelAxesInfo(handles, axnum);
     if ~isempty(axChannelNum) && ~isempty(axEventDetectorName)
-        for eventSourceIdx = 1:length(handles.EventSources)
+        for eventSourceIdx = 1:length(handles.dbase.EventSources)
             [channelNum, filterName, eventDetectorName] = GetEventSourceInfo(handles, eventSourceIdx);
             if axChannelNum == channelNum && ...
                ((isempty(axFilterName) && isempty(filterName)) || ...
@@ -6571,7 +6587,7 @@ function matchingEventSourceIdx = WhichEventSourceIdxMatch(handles, channelNum, 
     end
 
     matchingEventSourceIdx = [];
-    for eventSourceIdx = 1:length(handles.EventTimes)
+    for eventSourceIdx = 1:length(handles.dbase.EventTimes)
         [channelNum2, filterName2, eventDetectorName2] = GetEventSourceInfo(handles, eventSourceIdx);
         if (isempty(channelNum) || channelNum==channelNum2) && ...
            (isempty(filterName) || strcmp(filterName, filterName2)) && ...
@@ -6648,7 +6664,7 @@ function numEvents = GetNumEvents(handles, eventSourceIdx, eventPartNum)
         % Invalid event source index or part number
         numEvents = [];
     else
-        numEvents = length(handles.EventTimes{eventSourceIdx}{eventPartNum});
+        numEvents = length(handles.dbase.EventTimes{eventSourceIdx}{eventPartNum});
     end
 
 function handles = UpdateAnythingShowingEventSource(handles, eventSourceIdx)
@@ -6746,7 +6762,7 @@ function handles = SetEventDisplayActiveState(handles, eventNum, eventPartNum, e
         [handles, numSamples, fs] = eg_GetSamplingInfo(handles, [], sourceChannel);
         filenum = getCurrentFileNum(handles);
         ts = linspace(0, numSamples/fs, numSamples);
-        eventTimes = handles.EventTimes{eventSourceIdx}{eventPartNum,filenum};
+        eventTimes = handles.dbase.EventTimes{eventSourceIdx}{eventPartNum,filenum};
         if ~isempty(eventTimes)
             activeEventTime = ts(eventTimes(eventNum));
             handles = UpdateActiveEventCursors(handles, activeEventTime);
@@ -6818,8 +6834,8 @@ function handles = UpdateActiveEventCursors(handles, eventTime)
 %
 %     filenum = getCurrentFileNum(handles);
 %     nums = [];
-%     for c = 1:length(handles.EventTimes)
-%         nums(c) = size(handles.EventTimes{c},1);
+%     for c = 1:length(handles.dbase.EventTimes)
+%         nums(c) = size(handles.dbase.EventTimes{c},1);
 %     end
 %     indx = handles.popup_EventListAlign.Value-1;
 %     cs = cumsum(nums);
@@ -6829,13 +6845,13 @@ function handles = UpdateActiveEventCursors(handles, eventTime)
 %     else
 %         g = indx;
 %     end
-%     eventTimes = handles.EventTimes{f}{g,filenum};
-%     eventSelection = handles.EventSelected{f}{g,filenum};
+%     eventTimes = handles.dbase.EventTimes{f}{g,filenum};
+%     eventSelection = handles.dbase.EventIsSelected{f}{g,filenum};
 %     eventTimes = eventTimes(eventSelection);
 %
 %     [handles, numSamples] = eg_GetSamplingInfo(handles);
 %
-%     ts = linspace(0, numSamples/handles.fs, numSamples);
+%     ts = linspace(0, numSamples/handles.dbase.Fs, numSamples);
 %     hold(handles.axes_Sound, 'on');
 %     plot(handles.axes_Sound, [ts(eventTimes(i)) ts(eventTimes(i))], ylim(handles.axes_Sound),'-.','LineWidth',2,'Color','r');
 %     hold(handles.axes_Sound, 'off');
@@ -6968,8 +6984,8 @@ function handles = UnselectEvents(handles, eventNums, eventSourceIdx)
     filenum = getCurrentFileNum(handles);
 
     % Unselect events
-    for eventPartNum = 1:size(handles.EventSelected{eventSourceIdx}, 1)
-        handles.EventSelected{eventSourceIdx}{eventPartNum, filenum}(eventNums) = false;
+    for eventPartNum = 1:size(handles.dbase.EventIsSelected{eventSourceIdx}, 1)
+        handles.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum}(eventNums) = false;
     end
 
     % Update GUI
@@ -6987,8 +7003,8 @@ function handles = UnselectEvents(handles, eventNums, eventSourceIdx)
 %
 %     filenum = getCurrentFileNum(handles);
 %     nums = [];
-%     for eventSourceIdx = 1:length(handles.EventTimes)
-%         nums(eventSourceIdx) = size(handles.EventTimes{eventSourceIdx},1);
+%     for eventSourceIdx = 1:length(handles.dbase.EventTimes)
+%         nums(eventSourceIdx) = size(handles.dbase.EventTimes{eventSourceIdx},1);
 %     end
 %     indx = handles.popup_EventListAlign.Value-1;
 %     cs = cumsum(nums);
@@ -6998,10 +7014,10 @@ function handles = UnselectEvents(handles, eventNums, eventSourceIdx)
 %     else
 %         g = indx;
 %     end
-%     sel = handles.EventSelected{f}{g,filenum};
+%     sel = handles.dbase.EventIsSelected{f}{g,filenum};
 %     alr = find(sel==1);
 %
-%     handles.EventSelected{f}{g,filenum}(alr(eventNums)) = false;
+%     handles.dbase.EventIsSelected{f}{g,filenum}(alr(eventNums)) = false;
 %
 %     if ~isempty(eventNums) && handles.menu_DisplayValues.Checked
 %         axis tight
@@ -7020,8 +7036,8 @@ function handles = UnselectEvents(handles, eventNums, eventSourceIdx)
 %         val = get(handles.popup_Channels(3-axn),'Value');
 %         str = get(handles.popup_Channels(3-axn),'String');
 %         nums = [];
-%         for eventSourceIdx = 1:length(handles.EventTimes)
-%             nums(eventSourceIdx) = size(handles.EventTimes{eventSourceIdx},1);
+%         for eventSourceIdx = 1:length(handles.dbase.EventTimes)
+%             nums(eventSourceIdx) = size(handles.dbase.EventTimes{eventSourceIdx},1);
 %         end
 %         if val > length(str)-sum(nums)
 %             indx = val-(length(str)-sum(nums));
@@ -7633,7 +7649,7 @@ function push_WorksheetAppend_Callback(hObject, ~, handles)
     else
         xlim(ax, xl);
         ylim(ax, yl);
-        xlp = round(xl*handles.fs);
+        xlp = round(xl*handles.dbase.Fs);
         if xlp(1)<1
             xlp(1) = 1;
         end
@@ -7648,7 +7664,7 @@ function push_WorksheetAppend_Callback(hObject, ~, handles)
         handles = UpdateFilteredSound(handles);
 
         eg_runPlugin(handles.plugins.spectrums, alg, ax, ...
-            handles.filtered_sound(xlp(1):xlp(2)), handles.fs, handles.SonogramParams);
+            handles.filtered_sound(xlp(1):xlp(2)), handles.dbase.Fs, handles.SonogramParams);
         ax.YDir = 'normal';
         handles.NewSlope = handles.DerivativeSlope;
         handles.DerivativeSlope = 0;
@@ -7669,7 +7685,7 @@ function push_WorksheetAppend_Callback(hObject, ~, handles)
     delete(fig);
 
     wav = GenerateSound(handles,'snd');
-    ys = handles.fs * handles.SoundSpeed;
+    ys = handles.dbase.Fs * handles.SoundSpeed;
 
     handles.WorksheetXLims{end+1} = xl;
     handles.WorksheetYLims{end+1} = yl;
@@ -8465,9 +8481,9 @@ function menu_Split_Callback(hObject, ~, handles)
     filenum = getCurrentFileNum(handles);
 
 
-    f = find(handles.SegmentTimes{filenum}(:,1)>rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*handles.fs);
-    g = find(handles.SegmentTimes{filenum}(:,2)>rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*handles.fs);
-    h = find(handles.SegmentTimes{filenum}(:,1)<rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*handles.fs);
+    f = find(handles.dbase.SegmentTimes{filenum}(:,1)>rect(1)*handles.dbase.Fs & handles.dbase.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*handles.dbase.Fs);
+    g = find(handles.dbase.SegmentTimes{filenum}(:,2)>rect(1)*handles.dbase.Fs & handles.dbase.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*handles.dbase.Fs);
+    h = find(handles.dbase.SegmentTimes{filenum}(:,1)<rect(1)*handles.dbase.Fs & handles.dbase.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*handles.dbase.Fs);
     dl = unique([f; g; h]);
     if isempty(dl)
         return
@@ -8477,21 +8493,21 @@ function menu_Split_Callback(hObject, ~, handles)
 
     handles.SegmenterParams.IsSplit = 1;
     sg = eg_runPlugin(handles.plugins.segmenters, alg, handles.amplitude, ...
-        sound, handles.fs, rect(2), handles.SegmenterParams);
+        sound, handles.dbase.Fs, rect(2), handles.SegmenterParams);
 
-    f = find(sg(:,1)>rect(1)*handles.fs & sg(:,1)<(rect(1)+rect(3))*handles.fs);
-    g = find(sg(:,2)>rect(1)*handles.fs & sg(:,2)<(rect(1)+rect(3))*handles.fs);
-    h = find(sg(:,1)<rect(1)*handles.fs & sg(:,2)>(rect(1)+rect(3))*handles.fs);
+    f = find(sg(:,1)>rect(1)*handles.dbase.Fs & sg(:,1)<(rect(1)+rect(3))*handles.dbase.Fs);
+    g = find(sg(:,2)>rect(1)*handles.dbase.Fs & sg(:,2)<(rect(1)+rect(3))*handles.dbase.Fs);
+    h = find(sg(:,1)<rect(1)*handles.dbase.Fs & sg(:,2)>(rect(1)+rect(3))*handles.dbase.Fs);
     nw = unique([f; g; h]);
     sg = sg(nw,:);
 
-    handles.SegmentTimes{filenum} = [handles.SegmentTimes{filenum}(1:min(dl)-1,:); sg; handles.SegmentTimes{filenum}(max(dl)+1:end,:)];
+    handles.dbase.SegmentTimes{filenum} = [handles.dbase.SegmentTimes{filenum}(1:min(dl)-1,:); sg; handles.dbase.SegmentTimes{filenum}(max(dl)+1:end,:)];
     st = {};
-    st = [st handles.SegmentTitles{filenum}(1:min(dl)-1)];
+    st = [st handles.dbase.SegmentTitles{filenum}(1:min(dl)-1)];
     st = [st cell(1,size(sg,1))];
-    st = [st handles.SegmentTitles{filenum}(max(dl)+1:end)];
-    handles.SegmentTitles{filenum} = st;
-    handles.SegmentSelection{filenum} = [handles.SegmentSelection{filenum}(1:min(dl)-1) ones(1,size(sg,1)) handles.SegmentSelection{filenum}(max(dl)+1:end)];
+    st = [st handles.dbase.SegmentTitles{filenum}(max(dl)+1:end)];
+    handles.dbase.SegmentTitles{filenum} = st;
+    handles.dbase.SegmentIsSelected{filenum} = [handles.dbase.SegmentIsSelected{filenum}(1:min(dl)-1) ones(1,size(sg,1)) handles.dbase.SegmentIsSelected{filenum}(max(dl)+1:end)];
     handles = PlotAnnotations(handles);
     handles.figure_Main.KeyPressFcn = @keyPressHandler;
 
@@ -8578,13 +8594,13 @@ function handles = updateAmplitude(handles, forceRedraw)
             child.ButtonDownFcn = handles.axes_Amplitude.ButtonDownFcn;
         end
 
-        if handles.SoundThresholds(filenum)==inf
+        if handles.dbase.SegmentThresholds(filenum)==inf
             if handles.menu_AutoThreshold.Checked
                 handles.CurrentThreshold = eg_AutoThreshold(handles.amplitude);
             end
-            handles.SoundThresholds(filenum) = handles.CurrentThreshold;
+            handles.dbase.SegmentThresholds(filenum) = handles.CurrentThreshold;
         else
-            handles.CurrentThreshold = handles.SoundThresholds(filenum);
+            handles.CurrentThreshold = handles.dbase.SegmentThresholds(filenum);
         end
         handles.SegmentLabelHandles = gobjects().empty;
         handles = SetSegmentThreshold(handles);
@@ -8626,7 +8642,7 @@ function [handles, amp, fs, labels] = calculateAmplitude(handles, filenum)
         else
             amp = zeros(size(handles.filtered_sound));
             labels = '';
-            fs = handles.fs;
+            fs = handles.dbase.Fs;
         end
     end
 
@@ -8651,19 +8667,19 @@ function menu_Concatenate_Callback(hObject, ~, handles)
     rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
     rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
 
-    f = find(handles.SegmentTimes{filenum}(:,1)>rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*handles.fs);
-    g = find(handles.SegmentTimes{filenum}(:,2)>rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*handles.fs);
-    h = find(handles.SegmentTimes{filenum}(:,1)<rect(1)*handles.fs & handles.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*handles.fs);
+    f = find(handles.dbase.SegmentTimes{filenum}(:,1)>rect(1)*handles.dbase.Fs & handles.dbase.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*handles.dbase.Fs);
+    g = find(handles.dbase.SegmentTimes{filenum}(:,2)>rect(1)*handles.dbase.Fs & handles.dbase.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*handles.dbase.Fs);
+    h = find(handles.dbase.SegmentTimes{filenum}(:,1)<rect(1)*handles.dbase.Fs & handles.dbase.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*handles.dbase.Fs);
     f = unique([f; g; h]);
 
     if isempty(f)
         return
     end
 
-    handles.SegmentTimes{filenum}(min(f),2) = handles.SegmentTimes{filenum}(max(f),2);
-    handles.SegmentTimes{filenum}(min(f)+1:max(f),:) = [];
-    handles.SegmentTitles{filenum}(min(f)+1:max(f)) = [];
-    handles.SegmentSelection{filenum}(min(f)+1:max(f)) = [];
+    handles.dbase.SegmentTimes{filenum}(min(f),2) = handles.dbase.SegmentTimes{filenum}(max(f),2);
+    handles.dbase.SegmentTimes{filenum}(min(f)+1:max(f),:) = [];
+    handles.dbase.SegmentTitles{filenum}(min(f)+1:max(f)) = [];
+    handles.dbase.SegmentIsSelected{filenum}(min(f)+1:max(f)) = [];
     handles = PlotAnnotations(handles);
 
     handles = SetActiveSegment(handles, min(f));
@@ -8779,7 +8795,7 @@ function menu_FilterParameters_Callback(hObject, ~, handles)
     cla(handles.axes_Sound);
     [handles, numSamples] = eg_GetSamplingInfo(handles);
 
-    h = eg_peak_detect(handles.axes_Sound, linspace(0, numSamples/handles.fs, numSamples), handles.filtered_sound);
+    h = eg_peak_detect(handles.axes_Sound, linspace(0, numSamples/handles.dbase.Fs, numSamples), handles.filtered_sound);
     h.Color = 'c';
     handles.axes_Sound.XTick = [];
     handles.axes_Sound.YTick = [];
@@ -9345,7 +9361,7 @@ function menu_ChangeFiles_Callback(hObject, ~, handles)
     end
 
     handles.IsUpdating = 1;
-    old_sound_files = handles.sound_files;
+    old_sound_files = handles.dbase.SoundFiles;
     [handles, ischanged] = eg_NewExperiment(handles);
     if ~ischanged
         return
@@ -9380,12 +9396,12 @@ function menu_DeleteFiles_Callback(hObject, ~, handles)
         return
     end
 
-    old_sound_files = handles.sound_files;
+    old_sound_files = handles.dbase.SoundFiles;
 
-    handles.sound_files(fileNumsToDelete) = [];
-    for channelNum = 1:length(handles.chan_files)
-        if ~isempty(handles.chan_files{channelNum})
-            handles.chan_files{channelNum}(fileNumsToDelete) = [];
+    handles.dbase.SoundFiles(fileNumsToDelete) = [];
+    for channelNum = 1:length(handles.dbase.ChannelFiles)
+        if ~isempty(handles.dbase.ChannelFiles{channelNum})
+            handles.dbase.ChannelFiles{channelNum}(fileNumsToDelete) = [];
         end
     end
 
@@ -9492,7 +9508,7 @@ function shortFilenames = getMinimalFilenmes(filenames)
     shortFilenames = cellfun(@(x)x{1}, shortFilenames, 'UniformOutput', false);
 
 function fileNames = getFileNames(handles)
-    fileNames = {handles.sound_files.name};
+    fileNames = {handles.dbase.SoundFiles.name};
 
 function handles = setFileNames(handles, fileList)
     % Set the filenames in the the file browser
@@ -9555,7 +9571,7 @@ function handles = UpdateFileInfoBrowser(handles, updateValues, updateNames, upd
     % Rest of the columns are properties
     data = cell(handles.TotalFileNumber, getNumProperties(handles) + 2);
     data(:, 1) = num2cell(1:handles.TotalFileNumber);
-    data(:, 2) = getMinimalFilenmes({handles.sound_files.name});
+    data(:, 2) = getMinimalFilenmes({handles.dbase.SoundFiles.name});
     [propertyArray, propertyNames] = getProperties(handles);
     data(:, 3:end) = num2cell(propertyArray);
     if areFilesSorted(handles)
@@ -9571,7 +9587,7 @@ function handles = UpdateFileInfoBrowser(handles, updateValues, updateNames, upd
 
 function handles = UpdateFiles(handles, old_sound_files)
 
-    handles.TotalFileNumber = length(handles.sound_files);
+    handles.TotalFileNumber = length(handles.dbase.SoundFiles);
     if handles.TotalFileNumber == 0
         return
     end
@@ -9593,8 +9609,8 @@ function handles = UpdateFiles(handles, old_sound_files)
     newnum = [];
     newSelectedFilenum = [];
     for oldIdx = 1:length(old_sound_files)
-        for newIdx = 1:length(handles.sound_files)
-            if strcmp(old_sound_files(oldIdx).name,handles.sound_files(newIdx).name)
+        for newIdx = 1:length(handles.dbase.SoundFiles)
+            if strcmp(old_sound_files(oldIdx).name,handles.dbase.SoundFiles(newIdx).name)
                 oldnum(end+1) = oldIdx;
                 newnum(end+1) = newIdx;
                 if oldIdx==oldSelectedFilenum
@@ -9604,7 +9620,7 @@ function handles = UpdateFiles(handles, old_sound_files)
         end
     end
 
-    fileList = {handles.sound_files.name};
+    fileList = {handles.dbase.SoundFiles.name};
     handles = setFileNames(handles, fileList);
     if ~isempty(newSelectedFilenum)
         handles.edit_FileNumber.String = num2str(newSelectedFilenum);
@@ -9617,63 +9633,63 @@ function handles = UpdateFiles(handles, old_sound_files)
     end
 
     % Initialize variables for new files
-    originalValues = handles.SoundThresholds(oldnum);
-    handles.SoundThresholds = inf(1,handles.TotalFileNumber);
-    handles.SoundThresholds(newnum) = originalValues;
+    originalValues = handles.dbase.SegmentThresholds(oldnum);
+    handles.dbase.SegmentThresholds = inf(1,handles.TotalFileNumber);
+    handles.dbase.SegmentThresholds(newnum) = originalValues;
 
     % Shouldn't we be setting the correct date for the new files??
-    originalValues = handles.DatesAndTimes(oldnum);
-    handles.DatesAndTimes = zeros(1,handles.TotalFileNumber);
-    handles.DatesAndTimes(newnum) = originalValues;
+    originalValues = handles.dbase.Times(oldnum);
+    handles.dbase.Times = zeros(1,handles.TotalFileNumber);
+    handles.dbase.Times(newnum) = originalValues;
 
-    originalValues = handles.SegmentTimes(oldnum);
-    handles.SegmentTimes = cell(1,handles.TotalFileNumber);
-    handles.SegmentTimes(newnum) = originalValues;
+    originalValues = handles.dbase.SegmentTimes(oldnum);
+    handles.dbase.SegmentTimes = cell(1,handles.TotalFileNumber);
+    handles.dbase.SegmentTimes(newnum) = originalValues;
 
-    originalValues = handles.SegmentTitles(oldnum);
-    handles.SegmentTitles = cell(1,handles.TotalFileNumber);
-    handles.SegmentTitles(newnum) = originalValues;
+    originalValues = handles.dbase.SegmentTitles(oldnum);
+    handles.dbase.SegmentTitles = cell(1,handles.TotalFileNumber);
+    handles.dbase.SegmentTitles(newnum) = originalValues;
 
-    originalValues = handles.SegmentSelection(oldnum);
-    handles.SegmentSelection = cell(1,handles.TotalFileNumber);
-    handles.SegmentSelection(newnum) = originalValues;
+    originalValues = handles.dbase.SegmentIsSelected(oldnum);
+    handles.dbase.SegmentIsSelected = cell(1,handles.TotalFileNumber);
+    handles.dbase.SegmentIsSelected(newnum) = originalValues;
 
-    originalValues = handles.EventThresholds(:,oldnum);
-    handles.EventThresholds = inf*ones(size(originalValues,1),handles.TotalFileNumber);
-    handles.EventThresholds(:,newnum) = originalValues;
+    originalValues = handles.dbase.EventThresholds(:,oldnum);
+    handles.dbase.EventThresholds = inf*ones(size(originalValues,1),handles.TotalFileNumber);
+    handles.dbase.EventThresholds(:,newnum) = originalValues;
 
-    originalValues = handles.MarkerTimes(oldnum);
-    handles.MarkerTimes = cell(1,handles.TotalFileNumber);
-    handles.MarkerTimes(newnum) = originalValues;
+    originalValues = handles.dbase.MarkerTimes(oldnum);
+    handles.dbase.MarkerTimes = cell(1,handles.TotalFileNumber);
+    handles.dbase.MarkerTimes(newnum) = originalValues;
 
-    originalValues = handles.MarkerTitles(oldnum);
-    handles.MarkerTitles = cell(1,handles.TotalFileNumber);
-    handles.MarkerTitles(newnum) = originalValues;
+    originalValues = handles.dbase.MarkerTitles(oldnum);
+    handles.dbase.MarkerTitles = cell(1,handles.TotalFileNumber);
+    handles.dbase.MarkerTitles(newnum) = originalValues;
 
-    originalValues = handles.MarkerSelection(oldnum);
-    handles.MarkerSelection = cell(1,handles.TotalFileNumber);
-    handles.MarkerSelection(newnum) = originalValues;
+    originalValues = handles.dbase.MarkerIsSelected(oldnum);
+    handles.dbase.MarkerIsSelected = cell(1,handles.TotalFileNumber);
+    handles.dbase.MarkerIsSelected(newnum) = originalValues;
 
 
-    originalValues = handles.EventTimes;
+    originalValues = handles.dbase.EventTimes;
     for c = 1:length(originalValues)
-        handles.EventTimes{c} = cell(size(originalValues{c},1),handles.TotalFileNumber);
-        handles.EventTimes{c}(:,newnum) = originalValues{c}(:,oldnum);
+        handles.dbase.EventTimes{c} = cell(size(originalValues{c},1),handles.TotalFileNumber);
+        handles.dbase.EventTimes{c}(:,newnum) = originalValues{c}(:,oldnum);
     end
 
-    originalValues = handles.EventSelected;
+    originalValues = handles.dbase.EventIsSelected;
     for c = 1:length(originalValues)
-        handles.EventSelected{c} = cell(size(originalValues{c},1),handles.TotalFileNumber);
-        handles.EventSelected{c}(:,newnum) = originalValues{c}(:,oldnum);
+        handles.dbase.EventIsSelected{c} = cell(size(originalValues{c},1),handles.TotalFileNumber);
+        handles.dbase.EventIsSelected{c}(:,newnum) = originalValues{c}(:,oldnum);
     end
 
     originalProperties = handles.Properties;
     handles.Properties = false(handles.TotalFileNumber, getNumProperties(handles));
     handles.Properties(:, newnum) = originalProperties;
 
-    originalValues = handles.FileLength(:,oldnum);
-    handles.FileLength = zeros(1,handles.TotalFileNumber);
-    handles.FileLength(newnum) = originalValues;
+    originalValues = handles.dbase.FileLength(:,oldnum);
+    handles.dbase.FileLength = zeros(1,handles.TotalFileNumber);
+    handles.dbase.FileLength(newnum) = originalValues;
 
 
 % --------------------------------------------------------------------
@@ -9709,62 +9725,60 @@ function dbase = GetDBase(handles, includeDocumentation)
     end
 
     dbase.help.General = sprintf('This is a dbase created by electro_gui on %s. In the documentation, ''N'' refers to the number of groups of channel files, and ''C'' refers to the number of non-sound channels. Channel 0 is typically the sound channel.', datetime());
-    dbase.PathName = handles.DefaultRootPath;
+    dbase.PathName = handles.dbase.PathName;
     dbase.help.PathName = 'The root directory where the data can be found';
-    dbase.Times = handles.DatesAndTimes;
+    dbase.Times = handles.dbase.Times;
     dbase.help.Times = 'A 1xN list of timestamps for each group of channel files referenced in the dbase';
-    dbase.FileLength = handles.FileLength;
+    dbase.FileLength = handles.dbase.FileLength;
     dbase.help.FileLength = 'A 1xN list of the # of samples for each channel 0 (typically the sound channel) file. Note that this will only populate if it has been loaded by electro_gui, otherwise it will remain 0';
-    dbase.SoundFiles = handles.sound_files;
+    dbase.SoundFiles = handles.dbase.SoundFiles;
     dbase.help.SoundFiles = 'A Nx1 struct array of information about the channel 0 (typically the sound channel) files, of the same form returned by the built in ''dir'' function';
-    dbase.ChannelFiles = handles.chan_files;
+    dbase.ChannelFiles = handles.dbase.ChannelFiles;
     dbase.help.ChannelFiles = 'A 1xC cell array of struct arrays (each of which are Nx1), one for each non-sound channels (channels 1 - C, excluding 0, which is typically the sound channel). Each struct array contains information about the files, of the same form returned by the built in ''dir'' function';
-    dbase.SoundLoader = handles.sound_loader;
+    dbase.SoundLoader = handles.dbase.SoundLoader;
     dbase.help.SoundLoader = 'The name of the function used by electro_gui to load the sound files (channel 0), with the format ''egl_*.m''';
-    dbase.ChannelLoader = handles.chan_loader;
+    dbase.ChannelLoader = handles.dbase.ChannelLoader;
     dbase.help.ChannelLoader = 'A 1xC cell array containing the names of the functions used by electro_gui to load each of the non-sound (channels 1-C) files, with the format ''egl_*.m''';
-    dbase.Fs = handles.fs;
+    dbase.Fs = handles.dbase.Fs;
     dbase.help.Fs = 'The sampling rate of channel 0. Note that this may not be the same for all other channels.';
 
-    dbase.SegmentThresholds = handles.SoundThresholds;
+    dbase.SegmentThresholds = handles.dbase.SegmentThresholds;
     dbase.help.SegmentThresholds = 'Threshold value used for segmenting channel 0 (sound) into segments, a.k.a. syllables.';
-    dbase.SegmentTimes = handles.SegmentTimes;
+    dbase.SegmentTimes = handles.dbase.SegmentTimes;
     dbase.help.SegmentTimes = 'A 1xN cell array containing Sx2 arrays of segment (syllable) start and end times. For example, dbase.SegmentTimes{11}(7, 1) would give you the start time of segment #7 in file #11.';
-    dbase.SegmentTitles = handles.SegmentTitles;
+    dbase.SegmentTitles = handles.dbase.SegmentTitles;
     dbase.help.SegmentTitles = 'A 1xN cell array of 1xS cell arrays. Each sub-cell array contains the titles given to each segment. For example, dbase.SegmentTitles{11}{7} would give you the title of segment #7 in file #11';
-    dbase.SegmentIsSelected = handles.SegmentSelection;
+    dbase.SegmentIsSelected = handles.dbase.SegmentIsSelected;
     dbase.help.SegmentIsSelected = 'A 1xN cell array of 1xS logical arrays. Each logical array contains the selected/unselected state of each segment. For example, dbase.SegmentIsSelected{11}(7) would give you true/false indicating whether or not segment #7 in file #11 is selected';
 
-    dbase.MarkerTimes = handles.MarkerTimes;
+    dbase.MarkerTimes = handles.dbase.MarkerTimes;
     dbase.help.MarkerTimes = 'A 1xN cell array containing Sx2 arrays of marker start and end times. For example, dbase.SegmentTimes{11}(7, 1) would give you the start time of syllable #7 in file #11.';
-    dbase.MarkerTitles = handles.MarkerTitles;
+    dbase.MarkerTitles = handles.dbase.MarkerTitles;
     dbase.help.MarkerTitles = 'A 1xN cell array of 1xS cell arrays. Each sub-cell array contains the titles given to each marker. For example, dbase.MarkerTitles{11}{7} would give you the title of marker #7 in file #11';
-    dbase.MarkerIsSelected = handles.MarkerSelection;
+    dbase.MarkerIsSelected = handles.dbase.MarkerIsSelected;
     dbase.help.MarkerIsSelected = 'A 1xN cell array of 1xS logical arrays. Each logical array contains the selected/unselected state of each marker. For example, dbase.MarkerIsSelected{11}(7) would give you true/false indicating whether or not marker #7 in file #11 is selected';
 
-    dbase.EventChannels = handles.EventChannels;
+    dbase.EventChannels = handles.dbase.EventChannels;
     dbase.help.EventChannels = '';
-    dbase.EventChannelIsPseudo = handles.EventChannelIsPseudo;
+    dbase.EventChannelIsPseudo = handles.dbase.EventChannelIsPseudo;
     dbase.help.EventChannelIsPseudo = '';
-    dbase.EventSources = handles.EventSources;
+    dbase.EventSources = handles.dbase.EventSources;
     dbase.help.EventSources = '';
-    dbase.EventFunctions = handles.EventFunctions;
+    dbase.EventFunctions = handles.dbase.EventFunctions;
     dbase.help.EventFunctions = '';
-    dbase.EventFunctionParameters = handles.EventFunctionParameters;
+    dbase.EventFunctionParameters = handles.dbase.EventFunctionParameters;
     dbase.help.EventFunctionParameters = '';
-    dbase.EventDetectors = handles.EventDetectors;
+    dbase.EventDetectors = handles.dbase.EventDetectors;
     dbase.help.EventDetectors = '';
-    dbase.EventParameters = handles.EventParameters;
+    dbase.EventParameters = handles.dbase.EventParameters;
     dbase.help.EventParameters = '';
 
-    dbase.EventThresholds = handles.EventThresholds;
+    dbase.EventThresholds = handles.dbase.EventThresholds;
     dbase.help.EventThresholds = '';
-    dbase.EventTimes = handles.EventTimes;
+    dbase.EventTimes = handles.dbase.EventTimes;
     dbase.help.EventTimes = '';
-    dbase.EventIsSelected = handles.EventSelected;
+    dbase.EventIsSelected = handles.dbase.EventIsSelected;
     dbase.help.EventIsSelected = '';
-    dbase.EventXLims = handles.EventXLims;
-    dbase.help.EventXLims = '';
     dbase.EventParts = handles.EventParts;
     dbase.help.EventParts = '';
 
@@ -9789,8 +9803,8 @@ function dbase = GetDBase(handles, includeDocumentation)
     dbase.help.AnalysisState.CurrentFile = '';
     dbase.AnalysisState.CurrentAxesEventSources = [GetChannelAxesEventSourceIdx(handles, 1), GetChannelAxesEventSourceIdx(handles, 2)];
     dbase.help.AnalysisState.CurrentAxesEventSources = '';
-    dbase.AnalysisState.EventLims = handles.EventXLims;
-    dbase.help.AnalysisState.EventLims = '';
+    dbase.AnalysisState.EventXLims = handles.EventXLims;
+    dbase.help.AnalysisState.EventXLims = '';
     dbase.AnalysisState.FileReadState = handles.FileReadState;
     dbase.help.AnalysisState.FileReadState = '';
     dbase.AnalysisState.FileSortMethod = getFileSortMethod(handles);
@@ -10024,14 +10038,14 @@ function handles = eg_PopulateSoundSources(handles)
 
     % Set up list of sources for the sound axes
     sourceStrings = {'Sound'};
-    for c = 1:length(handles.chan_files)
-        if ~isempty(handles.chan_files{c})
+    for c = 1:length(handles.dbase.ChannelFiles)
+        if ~isempty(handles.dbase.ChannelFiles{c})
             sourceStrings{end+1} = sprintf('Channel %d', c);
         end
     end
     sourceStrings{end+1} = 'Calculated';
 
-    sourceIndices = num2cell(0:length(handles.chan_files));
+    sourceIndices = num2cell(0:length(handles.dbase.ChannelFiles));
     sourceIndices{end+1} = 'calculated';
 
     handles.popup_SoundSource.String = sourceStrings;
@@ -10485,7 +10499,7 @@ function action_Export_Callback(hObject, eventdata, handles)
                 delete(txtexp)
                 return
             end
-            handles.DefaultRootPath = path;
+            handles.dbase.PathName = path;
             handles.tempSettings.lastDirectory = path;
             updateTempFile(handles);
 
@@ -10495,8 +10509,8 @@ function action_Export_Callback(hObject, eventdata, handles)
                 labels = handles.DefaultLabels;
             else
                 labels = [];
-                for c = 1:length(handles.SegmentTitles{filenum})
-                    labels = [labels handles.SegmentTitles{filenum}{c}];
+                for c = 1:length(handles.dbase.SegmentTitles{filenum})
+                    labels = [labels handles.dbase.SegmentTitles{filenum}{c}];
                 end
                 if ~isempty(labels)
                     labels = unique(labels);
@@ -10526,8 +10540,8 @@ function action_Export_Callback(hObject, eventdata, handles)
             st = string(dtm);
             [~,name,~] = fileparts(handles.text_FileName.String);
             sf = name;
-            for c = 1:length(handles.SegmentTitles{filenum})
-                if ~isempty(strfind(newLabel,handles.SegmentTitles{filenum}{c})) || isempty(newLabel) || (isempty(handles.SegmentTitles{filenum}{c}) && contains(newLabel,''''''))
+            for c = 1:length(handles.dbase.SegmentTitles{filenum})
+                if ~isempty(strfind(newLabel,handles.dbase.SegmentTitles{filenum}{c})) || isempty(newLabel) || (isempty(handles.dbase.SegmentTitles{filenum}{c}) && contains(newLabel,''''''))
                     str = handles.SegmentFileFormat;
                     f = strfind(str,'\d');
                     for j = f
@@ -10543,7 +10557,7 @@ function action_Export_Callback(hObject, eventdata, handles)
                     end
                     f = strfind(str,'\l');
                     for j = f
-                        str = [str(1:j-1) handles.SegmentTitles{filenum}{c} str(j+2:end)];
+                        str = [str(1:j-1) handles.dbase.SegmentTitles{filenum}{c} str(j+2:end)];
                     end
                     f = strfind(str,'\i');
                     for j = f
@@ -10566,20 +10580,20 @@ function action_Export_Callback(hObject, eventdata, handles)
                         str = [str(1:j-1) indx str(j+3:end)];
                     end
 
-                    wav = handles.filtered_sound(handles.SegmentTimes{filenum}(c,1):handles.SegmentTimes{filenum}(c,2));
+                    wav = handles.filtered_sound(handles.dbase.SegmentTimes{filenum}(c,1):handles.dbase.SegmentTimes{filenum}(c,2));
 
-                    audiowrite(fullfile(path, [str, '.wav']), wav, handles.fs, 'BitsPerSample', 16);
+                    audiowrite(fullfile(path, [str, '.wav']), wav, handles.dbase.Fs, 'BitsPerSample', 16);
                 end
             end
         case 'Sonogram'
             if strcmp(exportTo, 'File')
                 [~, name, ~] = fileparts(handles.text_FileName.String);
-                [file, path] = uiputfile([handles.DefaultRootPath '\' name '.jpg'],'Save image');
+                [file, path] = uiputfile([handles.dbase.PathName '\' name '.jpg'],'Save image');
                 if ~ischar(file)
                     delete(txtexp)
                     return
                 end
-                handles.DefaultRootPath = path;
+                handles.dbase.PathName = path;
             end
             xl = handles.axes_Sonogram.XLim;
             yl = handles.axes_Sonogram.YLim;
@@ -10606,7 +10620,7 @@ function action_Export_Callback(hObject, eventdata, handles)
             else
                 xlim(xl);
                 ylim(yl);
-                xlp = round(xl*handles.fs);
+                xlp = round(xl*handles.dbase.Fs);
                 if xlp(1)<1; xlp(1) = 1; end
 
                 [handles, numSamples] = eg_GetSamplingInfo(handles);
@@ -10620,7 +10634,7 @@ function action_Export_Callback(hObject, eventdata, handles)
                     end
                 end
                 eg_runPlugin(handles.plugins.spectrums, alg, handles.axes_Sonogram, ...
-                    handles.filtered_sound(xlp(1):xlp(2)), handles.fs, handles.SonogramParams);
+                    handles.filtered_sound(xlp(1):xlp(2)), handles.dbase.Fs, handles.SonogramParams);
                 handles.axes_Sonogram.YDir = 'normal';
                 handles.NewSlope = handles.DerivativeSlope;
                 handles.DerivativeSlope = 0;
@@ -10636,11 +10650,11 @@ function action_Export_Callback(hObject, eventdata, handles)
 
         case 'Current sound'
             wav = GenerateSound(handles,'snd');
-            fs = handles.fs * handles.SoundSpeed;
+            fs = handles.dbase.Fs * handles.SoundSpeed;
 
         case 'Sound mix'
             wav = GenerateSound(handles,'mix');
-            fs = handles.fs * handles.SoundSpeed;
+            fs = handles.dbase.Fs * handles.SoundSpeed;
 
         case 'Events'
             switch exportTo
@@ -10843,14 +10857,14 @@ function action_Export_Callback(hObject, eventdata, handles)
 
                 case {'Current sound', 'Sound mix'}
                     [~,name,~] = fileparts(handles.text_FileName.String);
-                    [file, path] = uiputfile([handles.DefaultRootPath '\' name '.wav'],'Save sound');
+                    [file, path] = uiputfile([handles.dbase.PathName '\' name '.wav'],'Save sound');
                     if ~ischar(file)
                         delete(txtexp)
                         return
                     end
-                    handles.DefaultRootPath = path;
+                    handles.dbase.PathName = path;
 
-                    audiowrite(fullfile(path, file), wav, handles.fs, 'BitsPerSample', 16);
+                    audiowrite(fullfile(path, file), wav, handles.dbase.Fs, 'BitsPerSample', 16);
             end
 
         case 'PowerPoint'
@@ -10880,7 +10894,7 @@ function action_Export_Callback(hObject, eventdata, handles)
 
                     if handles.ExportSonogramIncludeClip > 0
                         wav = GenerateSound(handles,'snd');
-                        fs = handles.fs * handles.SoundSpeed;
+                        fs = handles.dbase.Fs * handles.SoundSpeed;
 
                         audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
 
@@ -11084,7 +11098,7 @@ function action_Export_Callback(hObject, eventdata, handles)
                                 else
                                     xlim(ax, xl);
                                     ylim(ax, yl);
-                                    xlp = round(xl*handles.fs);
+                                    xlp = round(xl*handles.dbase.Fs);
                                     if xlp(1)<1; xlp(1) = 1; end
                                     [handles, numSamples] = eg_GetSamplingInfo(handles);
 
@@ -11096,7 +11110,7 @@ function action_Export_Callback(hObject, eventdata, handles)
                                     end
                                     eg_runPlugin(handles.plugins.spectrums, ...
                                         alg, ax, handles.filtered_sound(xlp(1):xlp(2)), ...
-                                        handles.fs, handles.SonogramParams);
+                                        handles.dbase.Fs, handles.SonogramParams);
                                     ax.YDir = 'normal';
                                     handles.NewSlope = handles.DerivativeSlope;
                                     handles.DerivativeSlope = 0;
@@ -11114,17 +11128,17 @@ function action_Export_Callback(hObject, eventdata, handles)
                                     include_progbar = 1;
                                 end
 
-                                st = handles.SegmentTimes{getCurrentFileNum(handles)};
-                                sel = handles.SegmentSelection{getCurrentFileNum(handles)};
-                                f = find(st(:,1)>xl(1)*handles.fs & st(:,1)<xl(2)*handles.fs);
-                                g = find(st(:,2)>xl(1)*handles.fs & st(:,2)<xl(2)*handles.fs);
-                                h = find(st(:,1)<xl(1)*handles.fs & st(:,2)>xl(2)*handles.fs);
+                                st = handles.dbase.SegmentTimes{getCurrentFileNum(handles)};
+                                sel = handles.dbase.SegmentIsSelected{getCurrentFileNum(handles)};
+                                f = find(st(:,1)>xl(1)*handles.dbase.Fs & st(:,1)<xl(2)*handles.dbase.Fs);
+                                g = find(st(:,2)>xl(1)*handles.dbase.Fs & st(:,2)<xl(2)*handles.dbase.Fs);
+                                h = find(st(:,1)<xl(1)*handles.dbase.Fs & st(:,2)>xl(2)*handles.dbase.Fs);
                                 f = unique([f; g; h]);
 
                                 hold(ax, 'on');
                                 [handles, numSamples] = eg_GetSamplingInfo(handles);
 
-                                xs = linspace(0, numSamples/handles.fs, numSamples);
+                                xs = linspace(0, numSamples/handles.dbase.Fs, numSamples);
                                 for j = f'
                                     if sel(j)==1
                                         patch(xs([st(j,1) st(j,2) st(j,2) st(j,1)]),[0 0 1 1],handles.SegmentSelectColor);
@@ -11135,18 +11149,18 @@ function action_Export_Callback(hObject, eventdata, handles)
                                 axis(ax, 'off');
 
                             case 'Segment labels'
-                                st = handles.SegmentTimes{getCurrentFileNum(handles)};
-                                sel = handles.SegmentSelection{getCurrentFileNum(handles)};
-                                lab = handles.SegmentTitles{getCurrentFileNum(handles)};
-                                f = find(st(:,1)>xl(1)*handles.fs & st(:,1)<xl(2)*handles.fs);
-                                g = find(st(:,2)>xl(1)*handles.fs & st(:,2)<xl(2)*handles.fs);
-                                h = find(st(:,1)<xl(1)*handles.fs & st(:,2)>xl(2)*handles.fs);
+                                st = handles.dbase.SegmentTimes{getCurrentFileNum(handles)};
+                                sel = handles.dbase.SegmentIsSelected{getCurrentFileNum(handles)};
+                                lab = handles.dbase.SegmentTitles{getCurrentFileNum(handles)};
+                                f = find(st(:,1)>xl(1)*handles.dbase.Fs & st(:,1)<xl(2)*handles.dbase.Fs);
+                                g = find(st(:,2)>xl(1)*handles.dbase.Fs & st(:,2)<xl(2)*handles.dbase.Fs);
+                                h = find(st(:,1)<xl(1)*handles.dbase.Fs & st(:,2)>xl(2)*handles.dbase.Fs);
                                 f = unique([f; g; h]);
 
                                 hold(ax, 'on');
                                 [handles, numSamples] = eg_GetSamplingInfo(handles);
 
-                                xs = linspace(0, numSamples/handles.fs, numSamples);
+                                xs = linspace(0, numSamples/handles.dbase.Fs, numSamples);
                                 for j = f'
                                     if sel(j)==1
                                         if ~isempty(lab{j})
@@ -11432,7 +11446,7 @@ function action_Export_Callback(hObject, eventdata, handles)
                                 else
                                     wav = GenerateSound(handles,'mix');
                                 end
-                                fs = handles.fs * handles.SoundSpeed;
+                                fs = handles.dbase.Fs * handles.SoundSpeed;
 
                                 audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
 
@@ -11473,7 +11487,7 @@ function action_Export_Callback(hObject, eventdata, handles)
                         else
                             wav = GenerateSound(handles,'mix');
                         end
-                        fs = handles.fs * handles.SoundSpeed;
+                        fs = handles.dbase.Fs * handles.SoundSpeed;
 
                         audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
 
