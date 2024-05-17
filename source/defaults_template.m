@@ -6,12 +6,11 @@ handles.TooLong = 400000000; % Number of points for a file to be considered too 
 handles.FileString = '*chan%d.nc'; % File search string; must include a string formatting expression to handle an integer channel #, such as %02d for integers zero-padded to 2 digits, or %d for unpadded integers.handles.DefaultFileLoader = 'Intan_Bin'; % Default file loader. Choose from egl_* files.
 handles.DefaultFileLoader = 'Intan_Nc'; % Default file loader. Choose from egl_* files.
 handles.DefaultChannelNumber = 20; % Default number of channels
-handles.DefaultRootPath = '.';     % Default folder that file picker will open to when clicking "New" or "Open".
 handles.QuoteFile = 'quotes.txt';
 handles.IncludeDocumentation = true;  % Include field documentation in dbase? This adds a little size to the dbase file.
 
 % UNDO/REDO SETTINGS
-handles.UndoEnabled = true;     % Enable control-z for undo and control-y for redo - this adds some overhead.
+handles.UndoEnabled = true;     % Enable control-z for undo and control-y or control-shift-z for redo - this adds some overhead to operations.
 handles.MaxHistoryLength = 10;  % Maximum number of states to save (for undo/redo purposes). Higher = more memory, more undos
 handles.HistoryInterval = 3;    % Minimum time in seconds between saving states - set to zero to save the state on every change regardless of how fast.
 
@@ -24,6 +23,10 @@ handles.DefaultProperties.Types = [2, 2, 2, 2];   % Corresponding default types 
 handles.EnableFileCaching = true;   % Enable file caching - electrogui will load several files in the background around current file to improve loading time. Note that the first time MATLAB will need time to start parallel pool.
 handles.BackwardFileCacheSize = 2;  % Number of files to load before the current file in case user goes backwards
 handles.ForwardFileCacheSize = 4;   % Number of files to load after the current file in case user goes forwards
+
+% DBASE SETTINGS
+handles.IncludeDocumentation = true;  % Include documentation in dbase?
+handles.DefaultDbaseFilename = 'analysis.mat';
 
 % SONOGRAM SETTINGS
 handles.Colormap = 'parula';  % Default coloramp
@@ -70,7 +73,7 @@ handles.EventsDisplayMode = 1; % What should be displayed in the event browser? 
 handles.EventsAutoDisplay = 1; % Should events be updated automatically in the event browser each time they are changed?
 handles.SearchBefore = [0.001 0.001]; % When selecting events by dragging a box over a channel plot, tolerance in the negative time direction (sec)
 handles.SearchAfter = [0.001 0.001];% When selecting events by dragging a box over a channel plot, tolerance in the positive time direction (sec)
-handles.EventLims = [0.001 0.003]; % Time axes limits for the event browser
+handles.DefaultEventXLims = [0.001 0.003]; % Time axes limits for the event browser
 handles.DefaultEventFeatureX = 'AP_amplitude'; % Event feature to plot allong the x-axis of the event browser in the Features mode.
 handles.DefaultEventFeatureY = 'AP_width'; % Event feature to plot allong the y-axis of the event browser in the Features mode.
 
