@@ -326,18 +326,6 @@ function dbase = InitializeDbase(numFiles, baseDbase, options)
 
     dbase = UpdateChannelInfo(dbase);
 
-%     dbase.PseudoChannelNames =      getSetting(baseDbase, 'PseudoChannelNames', {});    % Cell array of pseudochannel names
-%     dbase.PseudoChannelTypes =      getSetting(baseDbase, 'PseudoChannelTypes', {});    % Cell array of pseudochannel type names
-%     dbase.PseudoChannelInfo =       getSetting(baseDbase, 'PseudoChannelInfo', {});     % Cell array of structs. The fields of the struct will vary based on the pseudochannel type
-                                        % All of them should have a
-                                        % Description field with a brief
-                                        % string summary of pseudochannel
-        % Type: 'event'
-        % Info fields:
-        %   eventSourceIdx  - index of the event source
-        %   eventPartIdx    - index of the event part
-        %   Description     - brief string summary
-
 function settingValue = getSetting(dbase, settingKey, default)
     if ~isfield(dbase, settingKey) || isempty(dbase.settingKey)
         settingValue = default;
@@ -1059,6 +1047,7 @@ function handles = changeFile(handles, delta)
         filenum = handles.FileSortOrder(shufflenum);
     end
     handles.edit_FileNumber.String = num2str(filenum);
+    handles.dbase.AnalysisState.CurrentFile = filenum;  
 
     handles = eg_LoadFile(handles);
 
@@ -1728,26 +1717,6 @@ function handles = setSelectedEventFunction(handles, axnum, eventFunction)
         error('Error: Could not set selected event function to ''%s'', as it is not in the option list.', eventFunction);
     end
     handles.popup_Functions(axnum).Value = newIndex;
-
-function [handles, isValidEventFunction] = updateEventFunctionInfo(handles, channelNum, newEventFunction)
-    % This appears to be unused? Kinda confused.
-    isValidEventFunction = isValidPlugin(handles.plugins.filters, newEventFunction);
-    if isempty(channelNum)
-        % Not a valid channel
-        return
-    end
-    filenum = getCurrentFileNum(handles.dbase);
-    if ~strcmp(getEventFunction(handles, filenum, channelNum), newEventFunction)
-        % This is a different event function (filter)
-        % Have to get new params
-        if isValidEventFunction
-            [handles.EventFunctionParams{filenum, channelNum}, ~] = eg_runPlugin(handles.plugins.filters, newEventFunction, 'params');
-        else
-            handles.EventFunctionParams{filenum, channelNum} = [];
-        end
-        % This function appears to not exist? Kinda confused.
-        handles = setEventFunction(handles, filenum, channelNum, newEventFunction);
-    end
 
 function [handles, channelData, channelSamplingRate, channelLabels, timestamp] = ...
     loadChannelData(handles, channelNum, options) %filterName, filterParams, filenum, isPseudoChannel)

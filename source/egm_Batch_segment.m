@@ -4,7 +4,9 @@ function handles = egm_Batch_segment(handles)
 % Uses current segmentation algorithm and parameters
 % Only works for segmentation based on sound amplitude
 
-answer = inputdlg({'File range'},'File range',1,{['1:' num2str(handles.TotalFileNumber)]});
+numFiles = electro_gui('getNumFiles', handles.dbase);
+
+answer = inputdlg({'File range'}, 'File range', 1, {sprintf('1:%d', numFiles)});
 if isempty(answer)
     return
 end
@@ -16,8 +18,10 @@ for filenum = 1:length(handles.menu_Segmenter)
     end
 end
 
+progressBar = waitbar(0, 'Segmenting...');
 for fileIdx = 1:length(filenums)
-    displayProgress('Segmenting file %d of %d, fileIdx', length(filenums), round(length(filenums)/10), true);
+    waitbar(fileIdx/length(filenums), progressBar);
+    %displayProgress('Segmenting file %d of %d, fileIdx', length(filenums), round(length(filenums)/10), true);
     filenum = filenums(fileIdx);
 
     [handles, sound] = electro_gui('getSound', handles, [], filenum);
@@ -35,7 +39,7 @@ for fileIdx = 1:length(filenums)
     handles.SegmentSelection{filenum} = ones(1,size(handles.SegmentTimes{filenum},1));
 
 end
-
+close(progressBar);
 msgbox(sprintf('Segmented %d files. Segmentation complete', fileIdx));
 
 function amp = eg_CalculateAmplitude(handles)
