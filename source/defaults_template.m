@@ -1,119 +1,130 @@
-function handles = defaults_template(handles)
+function settings = defaults_template(settings)
 % Default settings
 
 % GENERAL SETTINGS
-handles.TooLong = 400000000; % Number of points for a file to be considered too long for loading automatically
-handles.FileString = '*chan%d.nc'; % File search string; must include a string formatting expression to handle an integer channel #, such as %02d for integers zero-padded to 2 digits, or %d for unpadded integers.handles.DefaultFileLoader = 'Intan_Bin'; % Default file loader. Choose from egl_* files.
-handles.DefaultFileLoader = 'Intan_Nc'; % Default file loader. Choose from egl_* files.
-handles.DefaultChannelNumber = 20; % Default number of channels
-handles.QuoteFile = 'quotes.txt';
-handles.IncludeDocumentation = true;  % Include field documentation in dbase? This adds a little size to the dbase file.
+settings.TooLong = 400000000; % Number of points for a file to be considered too long for loading automatically
+settings.FileString = '*chan%d.nc'; % File search string; must include a string formatting expression to handle an integer channel #, such as %02d for integers zero-padded to 2 digits, or %d for unpadded integers.handles.DefaultFileLoader = 'Intan_Bin'; % Default file loader. Choose from egl_* files.
+settings.DefaultFileLoader = 'Intan_Nc'; % Default file loader. Choose from egl_* files.
+settings.DefaultChannelNumber = 20; % Default number of channels
+settings.QuoteFile = 'quotes.txt';
+settings.IncludeDocumentation = true;  % Include field documentation in dbase? This adds a little size to the dbase file.
 
 % UNDO/REDO SETTINGS
-handles.UndoEnabled = true;     % Enable control-z for undo and control-y or control-shift-z for redo - this adds some overhead to operations.
-handles.MaxHistoryLength = 10;  % Maximum number of states to save (for undo/redo purposes). Higher = more memory, more undos
-handles.HistoryInterval = 3;    % Minimum time in seconds between saving states - set to zero to save the state on every change regardless of how fast.
+settings.UndoEnabled = true;     % Enable control-z for undo and control-y or control-shift-z for redo - this adds some overhead to operations.
+settings.MaxHistoryLength = 10;  % Maximum number of states to save (for undo/redo purposes). Higher = more memory, more undos
+settings.HistoryInterval = 3;    % Minimum time in seconds between saving states - set to zero to save the state on every change regardless of how fast.
 
 % DEFAULT PROPERTIES
-handles.DefaultProperties.Names = {'bSorted', 'bDirected', 'bContainsStim', 'bUnusable'};   % Default property names to add to every loaded file
-handles.DefaultProperties.Values = {false, false, false, false};  % Corresponding default values for /\
-handles.DefaultProperties.Types = [2, 2, 2, 2];   % Corresponding default types for /\  (1=string, 2=boolean, 3=list)
+settings.DefaultProperties.Names = {'bSorted', 'bDirected', 'bContainsStim', 'bUnusable'};   % Default property names to add to every loaded file
+settings.DefaultProperties.Values = {false, false, false, false};  % Corresponding default values for /\
+settings.DefaultProperties.Types = [2, 2, 2, 2];   % Corresponding default types for /\  (1=string, 2=boolean, 3=list)
 
 % FILE CACHING
-handles.EnableFileCaching = true;   % Enable file caching - electrogui will load several files in the background around current file to improve loading time. Note that the first time MATLAB will need time to start parallel pool.
-handles.BackwardFileCacheSize = 2;  % Number of files to load before the current file in case user goes backwards
-handles.ForwardFileCacheSize = 4;   % Number of files to load after the current file in case user goes forwards
+settings.EnableFileCaching = true;   % Enable file caching - electrogui will load several files in the background around current file to improve loading time. Note that the first time MATLAB will need time to start parallel pool.
+settings.BackwardFileCacheSize = 2;  % Number of files to load before the current file in case user goes backwards
+settings.ForwardFileCacheSize = 4;   % Number of files to load after the current file in case user goes forwards
 
 % DBASE SETTINGS
-handles.IncludeDocumentation = true;  % Include documentation in dbase?
-handles.DefaultDbaseFilename = 'analysis.mat';
+settings.IncludeDocumentation = true;  % Include documentation in dbase?
+settings.DefaultDbaseFilename = 'analysis.mat';
 
 % SONOGRAM SETTINGS
-handles.Colormap = 'parula';  % Default coloramp
-handles.SonogramAutoCalculate = 1; % Automatically calculate and plot the sonogram when a file is loaded or axes changed?
-handles.FreqLim = [500 7500]; % Frequency axis limits (Hz)
-handles.AllowFrequencyZoom = 0; % Allow user to zoom along the frequency axis by dragging a box over the sonogram?
-handles.SonogramClim = [12.5 28]; % Minimum and maximum color saturation values for power spectra
-handles.DerivativeSlope = 0; % Brighness of spectral derivatives - values are divided by 10^slope
-handles.DerivativeOffset = 13.5; % Minimum saturation value for spectral derivatives
-handles.BackgroundColors = [0 0 0; 0.5 0.5 0.5]; % Background colors for sonograms. 1st row - for power spectra; 2nd row - for spectral derivatives
-handles.DefaultSonogramPlotter = 'AAquick_sonogram'; % Algorithm to use for plotting sonograms. Choose from egs_* files.
-handles.OverlayTop = 0; % Overlay the top plot over the sonogram?
-handles.OverlayBottom = 0; % Overlay the bottom plot over the sonogram?
+settings.Colormap = 'parula';  % Default coloramp
+settings.SonogramAutoCalculate = 1; % Automatically calculate and plot the sonogram when a file is loaded or axes changed?
+settings.FreqLim = [500 7500]; % Frequency axis limits (Hz)
+settings.AllowFrequencyZoom = 0; % Allow user to zoom along the frequency axis by dragging a box over the sonogram?
+settings.SonogramClim = [12.5 28]; % Minimum and maximum color saturation values for power spectra
+settings.DerivativeSlope = 0; % Brighness of spectral derivatives - values are divided by 10^slope
+settings.DerivativeOffset = 13.5; % Minimum saturation value for spectral derivatives
+settings.BackgroundColors = [0 0 0; 0.5 0.5 0.5]; % Background colors for sonograms. 1st row - for power spectra; 2nd row - for spectral derivatives
+settings.DefaultSonogramPlotter = 'AAquick_sonogram'; % Algorithm to use for plotting sonograms. Choose from egs_* files.
+settings.OverlayTop = 0; % Overlay the top plot over the sonogram?
+settings.OverlayBottom = 0; % Overlay the bottom plot over the sonogram?
+settings.SoundChannel = 0;   % Channel number to use as sound
+settings.SoundExpression = '';  % An expression to use to create a derived sound channel
 
 % AMPLITUDE SETTINGS
-handles.DefaultFilter = 'BandPass860to8600'; % Filter to use for calculating sound amplitudes. Choose from egf_* files.
-handles.AmplitudeLims = [0 50]; % Y-axis limits for the amplitude plot
-handles.SmoothWindow = 0.0025; % Smoothing window (sec) for calculating amplitude
-handles.AmplitudeColor = [0 0 0]; % Color of the amplitude plot
-handles.AmplitudeThresholdColor = [1 0 0]; % Color of the threshold line on the amplitude plot
-handles.AmplitudeDontPlot = 0; % Should the amplitude plot and segmentation be omitted?
+settings.DefaultFilter = 'BandPass860to8600'; % Filter to use for calculating sound amplitudes. Choose from egf_* files.
+settings.AmplitudeLims = [0 50]; % Y-axis limits for the amplitude plot
+settings.SmoothWindow = 0.0025; % Smoothing window (sec) for calculating amplitude
+settings.AmplitudeColor = [0 0 0]; % Color of the amplitude plot
+settings.AmplitudeThresholdColor = [1 0 0]; % Color of the threshold line on the amplitude plot
+settings.AmplitudeDontPlot = 0; % Should the amplitude plot and segmentation be omitted?
 
 % SEGMENTATION SETTINGS
-handles.AmplitudeSource = 0; % What should be used as the curve for segmentation? 0 - sound amplitude; 1 - top plot; 2 - bottom plot
-handles.AmplitudeAutoThreshold = 1; % Should the threshold for segmentation be chosen automatically, or carry over the current threshold?
-handles.DefaultSegmenter = 'fast_DA_segmenter'; % Algorithm to use for segmentation. Choose from egg_* files.
-handles.AutoSegment = 1; % Automatically segment when a new file is loaded or a different threshold is chosen?
+settings.AmplitudeSource = 0; % What should be used as the curve for segmentation? 0 - sound amplitude; 1 - top plot; 2 - bottom plot
+settings.AmplitudeAutoThreshold = 1; % Should the threshold for segmentation be chosen automatically, or carry over the current threshold?
+settings.DefaultSegmenter = 'fast_DA_segmenter'; % Algorithm to use for segmentation. Choose from egg_* files.
+settings.AutoSegment = 1; % Automatically segment when a new file is loaded or a different threshold is chosen?
+settings.ValidSegmentCharacters = num2cell('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%&*(){}[]_');  % Allowed characters for segment titles
+settings.SegmentSelectColor = 'r';
+settings.SegmentUnSelectColor = [0.7, 0.5, 0.5];
+settings.MarkerSelectColor = 'b';
+settings.MarkerUnSelectColor = [0.5, 0.5, 0.7];
+settings.SegmentActiveColor = 'y';
+settings.MarkerActiveColor = 'g';
+settings.SegmentInactiveColor = 'k';
+settings.MarkerInactiveColor = 'k';
 
 % CHANNEL PLOT SETTINGS
 % Settings with two numbers or rows refer to the top and bottom plot respectively
-handles.PeakDetect = [0 0]; % Use peak detection for plotting?
-handles.AutoYZoom = [1 1]; % Allow user to zoom vertically by dragging a box over the plot?
-handles.AutoYLimits = [1 1]; % Choose y-limits automatically for each file, or carry over the current limits?
-handles.ChanLimits = [-1 1; -1 1]; % Initial y-limits for the channel plots, if AutoYLimits is off
-handles.ChannelColor = [0 0 1; 0 0 1]; % Colors of the channel plots
-handles.ChannelThresholdColor = [1 0 0; 1 0 0]; % Colors of the threshold lines on the channel plots
-handles.ChannelLineWidth = [1 1]; % Line widths of the channel plots
-handles.DefaultChannelFunction = 'FIRBandPass';
+settings.PeakDetect = [0 0]; % Use peak detection for plotting?
+settings.AutoYZoom = [1 1]; % Allow user to zoom vertically by dragging a box over the plot?
+settings.AutoYLimits = [1 1]; % Choose y-limits automatically for each file, or carry over the current limits?
+settings.ChanLimits = [-1 1; -1 1]; % Initial y-limits for the channel plots, if AutoYLimits is off
+settings.ChannelColor = [0 0 1; 0 0 1]; % Colors of the channel plots
+settings.ChannelThresholdColor = [1 0 0; 1 0 0]; % Colors of the threshold lines on the channel plots
+settings.ChannelLineWidth = [1 1]; % Line widths of the channel plots
+settings.DefaultChannelFunction = 'FIRBandPass';
 
 % EVENT SETTINGS
 % Settings with two numbers or rows refer to the top and bottom plot respectively
-handles.EventsAutoDetect = [1 1]; % Should events be detected automatically when a file is loaded?
-handles.EventsDisplayMode = 1; % What should be displayed in the event browser? 1 - function values around each event; 2 - scatterplot of event features
-handles.EventsAutoDisplay = 1; % Should events be updated automatically in the event browser each time they are changed?
-handles.SearchBefore = [0.001 0.001]; % When selecting events by dragging a box over a channel plot, tolerance in the negative time direction (sec)
-handles.SearchAfter = [0.001 0.001];% When selecting events by dragging a box over a channel plot, tolerance in the positive time direction (sec)
-handles.DefaultEventXLims = [0.001 0.003]; % Time axes limits for the event browser
-handles.DefaultEventFeatureX = 'AP_amplitude'; % Event feature to plot allong the x-axis of the event browser in the Features mode.
-handles.DefaultEventFeatureY = 'AP_width'; % Event feature to plot allong the y-axis of the event browser in the Features mode.
+settings.EventsAutoDetect = [1 1]; % Should events be detected automatically when a file is loaded?
+settings.EventsDisplayMode = 1; % What should be displayed in the event browser? 1 - function values around each event; 2 - scatterplot of event features
+settings.EventsAutoDisplay = 1; % Should events be updated automatically in the event browser each time they are changed?
+settings.SearchBefore = [0.001 0.001]; % When selecting events by dragging a box over a channel plot, tolerance in the negative time direction (sec)
+settings.SearchAfter = [0.001 0.001];% When selecting events by dragging a box over a channel plot, tolerance in the positive time direction (sec)
+settings.DefaultEventXLims = [0.001 0.003]; % Time axes limits for the event browser
+settings.DefaultEventFeatureX = 'AP_amplitude'; % Event feature to plot allong the x-axis of the event browser in the Features mode.
+settings.DefaultEventFeatureY = 'AP_width'; % Event feature to plot allong the y-axis of the event browser in the Features mode.
 
 % SOUND SETTINGS
-handles.SoundWeights = [2 1 1]; % Relative weights of the sound, the top plot, and the bottom plot, respectively
-handles.SoundClippers = [.25 .25]; % The absolute level below which sounds are clipped (i.e., assigned zero value)
-handles.SoundSpeed = 1; % Speed of sound playback (1 = normal speed)
-handles.DefaultMix = [0 0 0]; % Include in the sound mix? Sound, top plot, and bottom plot, respectively
-handles.FilterSound = 1; % Play filtered sound or raw sound?
-handles.PlayReverse = 0; % Play sound in reverse?
+settings.SoundWeights = [2 1 1]; % Relative weights of the sound, the top plot, and the bottom plot, respectively
+settings.SoundClippers = [.25 .25]; % The absolute level below which sounds are clipped (i.e., assigned zero value)
+settings.SoundSpeed = 1; % Speed of sound playback (1 = normal speed)
+settings.DefaultMix = [0 0 0]; % Include in the sound mix? Sound, top plot, and bottom plot, respectively
+settings.FilterSound = 1; % Play filtered sound or raw sound?
+settings.PlayReverse = 0; % Play sound in reverse?
 
 % EXPORTING OPTIONS
-handles.template.Plot = {'Sonogram'}; % List of plots to include in a figure
-handles.template.Height = [1]; % Heights assigned to each of the figure plots (inches)
-handles.template.Interval = [0.1]; % Vertical intervals following each of the figure plots (inches)
-handles.template.YScaleType = [0]; % Type of a y-scale to use on each of the figure plots. 0 - none; 1 - scalebar; 2 - axis
-handles.template.AutoYLimits = [1]; % Choose automatic y-limits for each of the figure plots, or use limits currently in the gui?
-handles.AnimationType = 'Progress bar'; % Type of an animation to use when exporting a figure
-handles.ScalebarWidth = 0.5; % Preferred length of time-axis scalebars (inches). A value as close to this as possible will be chosen.
-handles.ScalebarHeight = 0.2; % Preferred length of vertical-axis scalebars (inches). A value as close to this as possible will be chosen.
-handles.VerticalScalebarPosition = -0.1; % Location of vertical-axis scalebars. Negative value are to the left of the figure; positive to the right.
-handles.ExportSonogramWidth = 2.5; % Figure width for exporting (inches/sec)
-handles.ExportSonogramHeight = 0.95; % Sonogram height for exporting (inches)
-handles.ExportSonogramResolution = 600; % Resolution (dpi) for exported sonogram images
-handles.ExportReplotSonogram = 1; % Replot sonogram at the specified resolution when exporting, or use the current screen resolution (lower quality)?
-handles.ExportSonogramIncludeLabel = 1; % Include timestamp label with exported objects?
-handles.ExportSonogramIncludeClip = 1; % Sound clip to include with exported objects. 0 - none; 1 - sound only; 2 - sound mix
-handles.SegmentFileFormat = 'Syll\l_Num\i2_File\n4_\dT\t'; % File name format for exporting syllable segments
+settings.template.Plot = {'Sonogram'}; % List of plots to include in a figure
+settings.template.Height = [1]; % Heights assigned to each of the figure plots (inches)
+settings.template.Interval = [0.1]; % Vertical intervals following each of the figure plots (inches)
+settings.template.YScaleType = [0]; % Type of a y-scale to use on each of the figure plots. 0 - none; 1 - scalebar; 2 - axis
+settings.template.AutoYLimits = [1]; % Choose automatic y-limits for each of the figure plots, or use limits currently in the gui?
+settings.AnimationType = 'Progress bar'; % Type of an animation to use when exporting a figure
+settings.ScalebarWidth = 0.5; % Preferred length of time-axis scalebars (inches). A value as close to this as possible will be chosen.
+settings.ScalebarHeight = 0.2; % Preferred length of vertical-axis scalebars (inches). A value as close to this as possible will be chosen.
+settings.VerticalScalebarPosition = -0.1; % Location of vertical-axis scalebars. Negative value are to the left of the figure; positive to the right.
+settings.ExportSonogramWidth = 2.5; % Figure width for exporting (inches/sec)
+settings.ExportSonogramHeight = 0.95; % Sonogram height for exporting (inches)
+settings.ExportSonogramResolution = 600; % Resolution (dpi) for exported sonogram images
+settings.ExportReplotSonogram = 1; % Replot sonogram at the specified resolution when exporting, or use the current screen resolution (lower quality)?
+settings.ExportSonogramIncludeLabel = 1; % Include timestamp label with exported objects?
+settings.ExportSonogramIncludeClip = 1; % Sound clip to include with exported objects. 0 - none; 1 - sound only; 2 - sound mix
+settings.SegmentFileFormat = 'Syll\l_Num\i2_File\n4_\dT\t'; % File name format for exporting syllable segments
 
 % ANIMATION SETTINGS
-handles.AnimationPlots = [0 0 0 0 0 0]; % Plot animation over sound wave, sonogram, segments, amplitude, top plot, and bottom plot, respectively
-handles.ProgressBarColor = [0 1 0];
-handles.SonogramFollowerPower = 10;
+settings.AnimationPlots = [0 0 0 0 0 0]; % Plot animation over sound wave, sonogram, segments, amplitude, top plot, and bottom plot, respectively
+settings.ProgressBarColor = [0 1 0];
+settings.SonogramFollowerPower = 10;
 
 % WORKSHEET SETTINGS
-handles.WorksheetMargin = 0.5; % Margin (inches) from the edge of the page
-handles.WorksheetTitleHeight = 0.3; % Vertical space (inches) to allocate to the title bar, if included
-handles.WorksheetVerticalInterval = 0.25; % Vertical space between images
-handles.WorksheetHorizontalInterval = 0.25; % Horizontal space between images
-handles.WorksheetIncludeTitle = 1; % Include a title on top of the worksheet?
-handles.WorksheetChronological = 0; % Sort worksheet entries chronologically?
-handles.WorksheetOnePerLine = 0; % Allow only one entry per line of the worksheet?
-handles.WorksheetOrientation = 'landscape'; % Orientation of the worksheet pages
+settings.WorksheetMargin = 0.5; % Margin (inches) from the edge of the page
+settings.WorksheetTitleHeight = 0.3; % Vertical space (inches) to allocate to the title bar, if included
+settings.WorksheetVerticalInterval = 0.25; % Vertical space between images
+settings.WorksheetHorizontalInterval = 0.25; % Horizontal space between images
+settings.WorksheetIncludeTitle = 1; % Include a title on top of the worksheet?
+settings.WorksheetChronological = 0; % Sort worksheet entries chronologically?
+settings.WorksheetOnePerLine = 0; % Allow only one entry per line of the worksheet?
+settings.WorksheetOrientation = 'landscape'; % Orientation of the worksheet pages
