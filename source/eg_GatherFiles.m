@@ -5,6 +5,7 @@ function [dbase, cancel] = eg_GatherFiles(PathName, FileString, FileLoader, NumC
         FileLoader
         NumChannels double = []
         options.TitleString char = 'Locate data files'
+        options.DefaultPathName char = '.'
         options.GUI (1, 1) logical = true
     end
 
@@ -12,7 +13,7 @@ function [dbase, cancel] = eg_GatherFiles(PathName, FileString, FileLoader, NumC
     dbase = struct();
 
     if options.GUI && isempty(PathName)
-        PathName = uigetdir(rootPath, 'Experiment Directory');
+        PathName = uigetdir(options.DefaultPathName, 'Experiment Directory');
         if ~ischar(PathName)
             cancel = true;
             return
@@ -33,39 +34,34 @@ function [dbase, cancel] = eg_GatherFiles(PathName, FileString, FileLoader, NumC
         NumChannels = length(FileLoader) - 1;
     end
 
-try
-    cancel = false;
-
-    if options.GUI
-        [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = SpecifyFilesGUI(PathName, FileString, FileLoader, NumChannels)
+    try
+        cancel = false;
+    
+        if options.GUI
+            [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = SpecifyFilesGUI(PathName, FileString, FileLoader, NumChannels, options.TitleString);
+        end
+    
+        % Assign fields to dbase
+        dbase.SoundFiles = dir(fullfile(dbase.PathName, SoundPattern));
+        dbase.SoundLoader = SoundLoader;
+        dbase.ChannelFiles = {};
+        for chan = 1:NumChannels
+            dbase.ChannelFiles{chan} = dir(fullfile(dbase.PathName, ChannelPatterns{chan}));
+        end
+        dbase.ChannelLoader{chan} = ChannelLoaders;
+    catch ME
+        if options.GUI
+            getReport(ME)
+        end
     end
 
-    % Assign fields to dbase
-    dbase.SoundFiles = dir(fullfile(dbase.PathName, SoundPattern));
-    dbase.SoundLoader = SoundLoader;
-    dbase.ChannelFiles = {};
-    for chan = 1:NumChannels
-        dbase.ChannelFiles{chan} = dir(fullfile(dbase.PathName, ChannelPatterns{chan}));
-    end
-    dbase.ChannelLoader{chan} = ChannelLoaders;
-
-    if options.GUI
-        delete(fig)
-    end
-catch ME
-    if options.GUI
-        getReport(ME)
-        delete(fig)
-    end
-end
-
-function [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = SpecifyFilesGUI(PathName, FileString, FileLoader, NumChannels)
+function [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = SpecifyFilesGUI(PathName, FileString, FileLoader, NumChannels, TitleString)
     % Create dialog figure
     screen_size = get(0,'screensize');
     figure_height = screen_size(4)*(0.035*(NumChannels+2));
     figure_width = screen_size(3)*.3;
 
-    fig = figure('Name',options.TitleString,'NumberTitle','off','MenuBar','none','doublebuffer','on','units','pixels','resize','off');
+    fig = figure('Name',TitleString,'NumberTitle','off','MenuBar','none','doublebuffer','on','units','pixels','resize','off');
     fig.Visible = 'on';
     fig.Position = [(screen_size(3)-figure_width)/2 (screen_size(4)-figure_height)/2 figure_width figure_height];
     fig.CloseRequestFcn = @CloseFig;

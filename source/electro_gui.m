@@ -218,13 +218,33 @@ function warnLegacyDefaults(handles)
         warning('Your defaults file is out of date - please replace ''EventLims'' with ''DefaultEventXLims''');
     end
 
-function dbase = InitializeDbase(numFiles, baseDbase, options)
+function dbase = InitializeDbase(options)
     % Build empty structure for dbase data to go into, or if a baseDbase is
     % supplied, clear the analyzed data without clearing the settings
     arguments
-        numFiles (1, 1) double = 0
-        baseDbase struct = struct()  %InitializeDbase(0, struct())
+        options.NumFiles (1, 1) double = NaN
+        options.NumChannels (1, 1) double = NaN
+        options.BaseDbase struct = struct()  %InitializeDbase(0, struct())
         options.IncludeHelp (1, 1) logical = false
+    end
+
+    numFiles = options.NumFiles;
+    numChannels = options.NumChannels;
+    baseDbase = options.BaseDbase;
+
+    if isnan(numFiles)
+        try
+            numFiles = getNumFiles(baseDbase);
+        catch
+            numFiles = 0;
+        end
+    end
+    if isnan(numChannels)
+        try
+            numChannels = getNumChannels(baseDbase);
+        catch
+            numChannels = 0;
+        end
     end
 
     if options.IncludeHelp
@@ -272,11 +292,11 @@ function dbase = InitializeDbase(numFiles, baseDbase, options)
         dbase.help.AnalysisState.EventThresholdDefaults = '';
     end
 
-    dbase.SoundFiles =          {};
-    dbase.ChannelFiles =        {};
-    dbase.SoundLoader =         getSetting(baseDbase, 'SoundLoader', '');
-    dbase.ChannelLoader =       getSetting(baseDbase, 'Channelloader', {});
-    dbase.PathName =            getSetting(baseDbase, 'PathName', '');
+    dbase.SoundFiles =          getValueOrDefault(baseDbase, 'SoundFiles', cell(1, numFiles));
+    dbase.ChannelFiles =        getValueOrDefault(baseDbase, 'ChannelFiles', repmat(cell(1, numFiles), 1, numChannels));
+    dbase.SoundLoader =         getValueOrDefault(baseDbase, 'SoundLoader', '');
+    dbase.ChannelLoader =       getValueOrDefault(baseDbase, 'Channelloader', {});
+    dbase.PathName =            getValueOrDefault(baseDbase, 'PathName', '');
 
     dbase.Times =               zeros(1,numFiles);
     dbase.FileLength =          zeros(1,numFiles);
@@ -292,18 +312,18 @@ function dbase = InitializeDbase(numFiles, baseDbase, options)
     dbase.EventThresholds =     zeros(0,numFiles);
 
     % Create properties info
-    dbase.PropertyNames =       getSetting(baseDbase, 'PropertyNames', {});
+    dbase.PropertyNames =       getValueOrDefault(baseDbase, 'PropertyNames', {});
     dbase.Properties =          false(numFiles, length(dbase.PropertyNames));
 
     % Initialize event-related variables
-    dbase.EventSources =            getSetting(baseDbase, 'EventSources', {});      % Array of event source channel names
-    dbase.EventChannels =           getSetting(baseDbase, 'EventChannels', {});     % Array of event source channel numbers
-    dbase.EventChannelIsPseudo =    getSetting(baseDbase, 'EventChannelIsPseudo', logical.empty());  % Array of flags indicating if the source channel is a pseudochannel
-    dbase.EventFunctions =          getSetting(baseDbase, 'EventFunctions', {});    % Array of event source filter names
-    dbase.EventFunctionParameters = getSetting(baseDbase, 'EventFunctionParameters', {});  % Array of event source filter parameters
-    dbase.EventDetectors =          getSetting(baseDbase, 'EventDetectors', {});    % Array of event source detector names
-    dbase.EventParameters =         getSetting(baseDbase, 'EventParameters', {});   % Array of event source detector parameters
-    dbase.EventParts =              getSetting(baseDbase, 'EventParts', {});        % Array of event parts
+    dbase.EventSources =            getValueOrDefault(baseDbase, 'EventSources', {});      % Array of event source channel names
+    dbase.EventChannels =           getValueOrDefault(baseDbase, 'EventChannels', {});     % Array of event source channel numbers
+    dbase.EventChannelIsPseudo =    getValueOrDefault(baseDbase, 'EventChannelIsPseudo', logical.empty());  % Array of flags indicating if the source channel is a pseudochannel
+    dbase.EventFunctions =          getValueOrDefault(baseDbase, 'EventFunctions', {});    % Array of event source filter names
+    dbase.EventFunctionParameters = getValueOrDefault(baseDbase, 'EventFunctionParameters', {});  % Array of event source filter parameters
+    dbase.EventDetectors =          getValueOrDefault(baseDbase, 'EventDetectors', {});    % Array of event source detector names
+    dbase.EventParameters =         getValueOrDefault(baseDbase, 'EventParameters', {});   % Array of event source detector parameters
+    dbase.EventParts =              getValueOrDefault(baseDbase, 'EventParts', {});        % Array of event parts
     for eventSourceIdx = 1:length(dbase.EventSources)
         dbase.EventTimes{eventSourceIdx} = cell(0, numFiles);
         dbase.EventIsSelected{eventSourceIdx} = cell(0, numFiles);
@@ -314,7 +334,7 @@ function dbase = InitializeDbase(numFiles, baseDbase, options)
         baseDbase.AnalysisState = struct();
     end
     dbase.AnalysisState.CurrentFile = 1;
-    dbase.AnalysisState.EventXLims = getSetting(baseDbase.AnalysisState, 'EventXLims', {});        % Array of event x limits
+    dbase.AnalysisState.EventXLims = getValueOrDefault(baseDbase.AnalysisState, 'EventXLims', {});        % Array of event x limits
     dbase.AnalysisState.FileSortPropertyName = '';   % In the case that we're sorting by Property, this stores which one
     dbase.AnalysisState.FileSortOrder = [];          % Order of file numbers in file info browser
     dbase.AnalysisState.InverseFileSortOrder = [];   % Inverse order of file numbers in file info browser
@@ -326,7 +346,7 @@ function dbase = InitializeDbase(numFiles, baseDbase, options)
 
     dbase = UpdateChannelInfo(dbase);
 
-function settingValue = getSetting(dbase, settingKey, default)
+function settingValue = getValueOrDefault(dbase, settingKey, default)
     if ~isfield(dbase, settingKey) || isempty(dbase.settingKey)
         settingValue = default;
     else
@@ -3745,9 +3765,11 @@ function menu_FreqLimits_Callback(hObject, ~, handles)
 function handles = eg_NewDbase(handles)
 
     handles.IsUpdating = 0;
+    handles.PathName = '';
     [dbase, cancel] = eg_GatherFiles(handles.PathName, handles.FileString, ...
-        handles.DefaultFileLoader, Handles.DefaultChannelNumber, ...
-        "TitleString", 'Identify files for new dbase', 'GUI', true);
+        handles.DefaultFileLoader, handles.DefaultChannelNumber, ...
+        "TitleString", 'Identify files for new dbase', 'GUI', true, ...
+        'DefaultPathName', handles.tempSettings.lastDirectory);
 
     if cancel
         return
@@ -3759,8 +3781,9 @@ function handles = eg_NewDbase(handles)
     if numFiles == 0
         return
     end
+    numChannels = getNumChannels(dbase);
     
-    handles.dbase = InitializeDbase(numFiles, dbase, 'IncludeHelp', false);
+    handles.dbase = InitializeDbase(numFiles, numChannels, dbase, 'IncludeHelp', false);
 
     % Placeholder for custom fields
     handles.OriginalDbase = struct();

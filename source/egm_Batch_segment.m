@@ -12,6 +12,10 @@ if isempty(answer)
 end
 
 filenums = eval(answer{1});
+if ~isnumeric(filenums) || ~all(filenums == floor(filenums)) || min(filenums) < 1 || max(filenums) > numFiles
+    errordlg(sprintf('Invalid file range: %s', answer{1}));
+    return;
+end
 for filenum = 1:length(handles.menu_Segmenter)
     if handles.menu_Segmenter(filenum).Checked
         segmenterAlgorithmName = handles.menu_Segmenter(filenum).Label;
