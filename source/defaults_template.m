@@ -18,9 +18,13 @@ settings.HistoryInterval = 3;            % Minimum time in seconds between savin
 % PROPERTIES SETTINGS
 settings.DefaultProperties.Names = {};      % {'bSorted', 'bDirected', 'bContainsStim', 'bUnusable'};   % Cell array of default property names to add to a new dbase
 settings.DefaultProperties.Values = [];     % [false, false, false, false];  % Corresponding default values for /\
+
+% FILE INFO BROWSER SETTINGS
 settings.FileSortMethod = 'File number';    % Default file sorting method - one of {'File number', 'Random', 'Property', 'Read status'}
 settings.FileSortPropertyName = '';         % Default property to sort by if FileSortMethod is 'Property'
 settings.FileSortReversed = false;
+settings.FileReadColor = [1, 1, 1];
+settings.FileUnreadColor = [1, 0.8, 0.8];
 
 % FILE CACHING
 settings.EnableFileCaching = true;      % Enable file caching - electrogui will load several files in the background around current file to improve loading time. Note that the first time MATLAB will need time to start parallel pool.
@@ -72,6 +76,9 @@ settings.SegmentActiveColor = 'y';
 settings.MarkerActiveColor = 'g';
 settings.SegmentInactiveColor = 'k';
 settings.MarkerInactiveColor = 'k';
+settings.CurrentThreshold = inf;
+settings.ActiveSegmentNum = [];
+settings.ActiveMarkerNum = [];
 
 % CHANNEL PLOT SETTINGS
 % Settings with two numbers or rows refer to the top and bottom plot respectively
@@ -94,6 +101,11 @@ settings.SearchAfter = [0.001 0.001];% When selecting events by dragging a box o
 settings.DefaultEventXLims = [0.001 0.003]; % Time axes limits for the event browser
 settings.DefaultEventFeatureX = 'AP_amplitude'; % Event feature to plot allong the x-axis of the event browser in the Features mode.
 settings.DefaultEventFeatureY = 'AP_width'; % Event feature to plot allong the y-axis of the event browser in the Features mode.
+settings.EventThresholdDefaults = [];  % Array of default thresholds for this event source
+settings.EventXLims = [];        % Array of event source x limits
+settings.ActiveEventNum = [];        % Index of the currently active event
+settings.ActiveEventPartNum = [];    % Event part of the currently active event
+settings.ActiveEventSourceIdx = [];  % Event source index of the currently active event
 
 % SOUND SETTINGS
 settings.SoundWeights = [2 1 1]; % Relative weights of the sound, the top plot, and the bottom plot, respectively
@@ -102,6 +114,15 @@ settings.SoundSpeed = 1; % Speed of sound playback (1 = normal speed)
 settings.DefaultMix = [0 0 0]; % Include in the sound mix? Sound, top plot, and bottom plot, respectively
 settings.FilterSound = 1; % Play filtered sound or raw sound?
 settings.PlayReverse = 0; % Play sound in reverse?
+
+% Plugin parameters
+blankParams = struct('Names', {{}}, 'Values', {{}});
+settings.ChannelAxesEventParams = {blankParams, blankParams};
+settings.ChannelAxesFunctionParams = {blankParams, blankParams};
+settings.ChannelAxesEventParams = {blankParams, blankParams};
+settings.FilterParams = blankParams;
+settings.SegmenterParams = blankParams;
+settings.SonogramParams = blankParams;
 
 % EXPORTING OPTIONS
 settings.template.Plot = {'Sonogram'}; % List of plots to include in a figure
@@ -135,3 +156,20 @@ settings.WorksheetIncludeTitle = 1; % Include a title on top of the worksheet?
 settings.WorksheetChronological = 0; % Sort worksheet entries chronologically?
 settings.WorksheetOnePerLine = 0; % Allow only one entry per line of the worksheet?
 settings.WorksheetOrientation = 'landscape'; % Orientation of the worksheet pages
+settings.WorksheetTitle = 'Untitled';   % Default title of worksheet
+settings.WorksheetWidth = 100;
+settings.WorksheetHeight = 100;
+settings.WorksheetXLims = {};
+settings.WorksheetYLims = {};
+settings.WorksheetXs = {};
+settings.WorksheetYs = {};
+settings.WorksheetMs = {};
+settings.WorksheetClim = {};
+settings.WorksheetColormap = {};
+settings.WorksheetSounds = {};
+settings.WorksheetFs = [];
+settings.WorksheetTimes = datetime.empty();
+settings.WorksheetCurrentPage = 1;
+settings.WorksheetList = [];
+settings.WorksheetUsed = [];
+settings.WorksheetWidths = [];

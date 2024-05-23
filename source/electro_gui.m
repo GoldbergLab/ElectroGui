@@ -2,6 +2,7 @@ classdef electro_gui < handle
     properties
         dbase struct
         settings struct
+        tempSettings struct
         plugins struct
         SourcePath char
         SourceDir char
@@ -16,7 +17,11 @@ classdef electro_gui < handle
         file_cache struct
         sound
         filtered_sound
-        loadedChannelData
+        amplitude
+        loadedChannelData = {}
+        loadedChannelFs = {}
+        loadedChannelLabels = {}
+        ChanYLimits
     end
     properties  % GUI widgets
         figure_Main
@@ -80,6 +85,7 @@ classdef electro_gui < handle
         menu_DontPlot
         menu_AmplitudeSource
         menu_Algorithm
+        menu_Segmenter
         menu_Filter
         menu_ColormapList
         menu_Colormap
@@ -288,6 +294,8 @@ classdef electro_gui < handle
         ChannelPlots cell
         Sonogram_Overlays matlab.graphics.Graphics
         WorksheetHandles
+        EventHandles = {{}, {}};
+        ActiveEventCursors matlab.graphics.Graphics
     end
     properties  % Graphics info
         Colormap double
@@ -380,23 +388,6 @@ classdef electro_gui < handle
             obj.Colormap = colormap(obj.figure_Main);
             obj.Colormap(1,:) = obj.settings.BackgroundColors(1,:);
 
-            % Set initial temporary parameter values
-            obj.settings.SegmenterParams.Names = {};
-            obj.settings.SegmenterParams.Values = {};
-            obj.settings.SonogramParams.Names = {};
-            obj.settings.SonogramParams.Values = {};
-            obj.settings.ChannelAxesEventParameters{1}.Names = {};       % Temporary place to record channel parameters before an event source is defined
-            obj.settings.ChannelAxesEventParameters{1}.Values = {};
-            obj.settings.ChannelAxesEventParameters{2}.Names = {};
-            obj.settings.ChannelAxesEventParameters{2}.Values = {};
-            obj.settings.ChannelAxesFunctionParams{1}.Names = {};
-            obj.settings.ChannelAxesFunctionParams{1}.Values = {};
-            obj.settings.ChannelAxesFunctionParams{2}.Names = {};
-            obj.settings.ChannelAxesFunctionParams{2}.Values = {};
-            obj.settings.FilterParams.Names = {};
-            obj.settings.FilterParams.Values = {};
-            obj.settings.CurrentTheshold = inf;
-
             obj.InitializeExportOptions();
 
             waitbar(0.1, progressBar, {'Starting parallel pool for file caching...', 'This can be disabled in defaults file'});
@@ -414,13 +405,7 @@ classdef electro_gui < handle
             waitbar(0.8, progressBar, 'Initializing electro_gui...');
 
             % Initialize event-related variables
-            obj.settings.EventThresholdDefaults = [];  % Array of default thresholds for this event source
             obj.dbase.EventParts = {};        % Array of event part options for the selected event detector
-            obj.settings.EventXLims = [];        % Array of event source x limits
-            obj.settings.EventHandles = {{}, {}};
-            obj.settings.ActiveEventNum = [];        % Index of the currently active event
-            obj.settings.ActiveEventPartNum = [];    % Event part of the currently active event
-            obj.settings.ActiveEventSourceIdx = [];  % Event source index of the currently active event
 
             % Initialize all graphics handles and GUI data
             obj.InitializeGraphics();
@@ -452,7 +437,7 @@ function InitializeGraphics(obj)
     obj.FileInfoBrowserFirstPropertyColumn = 3;  % First column that contains boolean property checkboxes
     obj.FileInfoBrowser.KeyPressFcn = @obj.keyPressHandler;
     obj.FileInfoBrowser.KeyReleaseFcn = @obj.keyReleaseHandler;
-    obj.FileInfoBrowser.CellSelectionCallback = @(src, event)HandleFileListChange(src.Parent, event);
+    obj.FileInfoBrowser.CellSelectionCallback = @(src, event)obj.HandleFileListChange(src.Parent, event);
     obj.FileInfoBrowser.CellEditCallback = @obj.GUIPropertyChangeHandler;
     % File sort order stuff
     obj.popup_FileSortOrder.String = {'File number', 'Random', 'Property', 'Read status'};
@@ -612,7 +597,7 @@ function loadTempFile(obj)
     tempSettingsFields =        {'lastDirectory',   'lastDBase', 'recentFiles'};
     tempSettingsDefaultValues = {obj.SourceDir,     '',          {}};
     try
-        obj.settings.tempSettings = load(obj.tempFile, tempSettingsFields{:});
+        obj.tempSettings = load(obj.tempFile, tempSettingsFields{:});
     catch ME
         switch ME.identifier
             case 'MATLAB:load:unableToReadMatFile'
@@ -626,13 +611,13 @@ function loadTempFile(obj)
                 warning('Unknown error when attempting to read temp file. Creating new one.');
         end
         delete(obj.tempFile);
-        obj.settings.tempSettings = struct();
+        obj.tempSettings = struct();
     end
     % Loop over expected temp settings fields and set defaults if they
     % aren't there
     for k = 1:length(tempSettingsFields)
-        if ~isfield(obj.settings.tempSettings, tempSettingsFields{k})
-            obj.settings.tempSettings.(tempSettingsFields{k}) = tempSettingsDefaultValues{k};
+        if ~isfield(obj.tempSettings, tempSettingsFields{k})
+            obj.tempSettings.(tempSettingsFields{k}) = tempSettingsDefaultValues{k};
         end
     end
     obj.updateTempFile();
@@ -640,7 +625,7 @@ end
 
 function updateTempFile(obj)
     % Update temp file
-    tempSettings = obj.settings.tempSettings;
+    tempSettings = obj.tempSettings;
     save(obj.tempFile, '-struct', 'tempSettings');
 end
 
@@ -652,26 +637,26 @@ function updateRecentFileList(obj)
             delete(recentFileItem);
         end
     end
-    obj.openRecent_None.Visible = isempty(obj.settings.tempSettings.recentFiles);
-    for k = 1:length(obj.settings.tempSettings.recentFiles)
-        recentFilePath = obj.settings.tempSettings.recentFiles{k};
+    obj.openRecent_None.Visible = isempty(obj.tempSettings.recentFiles);
+    for k = 1:length(obj.tempSettings.recentFiles)
+        recentFilePath = obj.tempSettings.recentFiles{k};
         uimenu(obj.menu_OpenRecent, 'Text', recentFilePath, 'UserData', recentFilePath, 'MenuSelectedFcn', @obj.click_recentFile);
     end
 end
 
 function addRecentFile(obj, filePath)
     % Add a file to a list of recent files in the temp settings struct
-    if ~isfield(obj.settings.tempSettings, 'recentFiles')
-        obj.settings.tempSettings.recentFiles = {};
+    if ~isfield(obj.tempSettings, 'recentFiles')
+        obj.tempSettings.recentFiles = {};
     end
     % Add file
-    obj.settings.tempSettings.recentFiles = [filePath, obj.settings.tempSettings.recentFiles];
+    obj.tempSettings.recentFiles = [filePath, obj.tempSettings.recentFiles];
     % Remove duplicates
-    obj.settings.tempSettings.recentFiles = unique(obj.settings.tempSettings.recentFiles, 'stable');
+    obj.tempSettings.recentFiles = unique(obj.tempSettings.recentFiles, 'stable');
     % Limit number of stored recent files
     maxFiles = 10;
-    numFiles = min(maxFiles, length(obj.settings.tempSettings.recentFiles));
-    obj.settings.tempSettings.recentFiles = obj.settings.tempSettings.recentFiles(1:numFiles);
+    numFiles = min(maxFiles, length(obj.tempSettings.recentFiles));
+    obj.tempSettings.recentFiles = obj.tempSettings.recentFiles(1:numFiles);
     obj.updateRecentFileList();
     obj.updateTempFile();
 end
@@ -908,7 +893,7 @@ function populatePluginMenus(obj)
     obj.menu_Algorithm = electro_gui.populatePluginMenuList(p.spectrums, obj.settings.DefaultSonogramPlotter, obj.menu_AlgorithmList, @obj.AlgorithmMenuClick);
 
     % Populate segmenting algorithm plugin menu
-    obj.menu_Algorithm = electro_gui.populatePluginMenuList(p.segmenters, obj.settings.DefaultSegmenter, obj.menu_SegmenterList, @obj.SegmenterMenuClick);
+    obj.menu_Segmenter = electro_gui.populatePluginMenuList(p.segmenters, obj.settings.DefaultSegmenter, obj.menu_SegmenterList, @obj.SegmenterMenuClick);
 
     % Populate filter algorithm plugin menu
     obj.menu_Filter = electro_gui.populatePluginMenuList(p.filters, obj.settings.DefaultFilter, obj.menu_FilterList, @obj.FilterMenuClick);
@@ -970,7 +955,7 @@ function changeFile(obj, delta)
     obj.edit_FileNumber.String = num2str(filenum);
     obj.settings.CurrentFile = filenum;
 
-    obj.eg_LoadFile();
+    obj.LoadFile();
 end
 function progress_play(obj, wav)
     % Get time limits for visible sonogram
@@ -1159,17 +1144,18 @@ function resetFileCache(obj)
     obj.file_cache(:) = [];
 end
 
-function eg_LoadFile(obj, showWaitBar)
-    if ~exist('showWaitBar', 'var') || isempty(showWaitBar)
-        showWaitBar = true;
+function LoadFile(obj, showWaitBar)
+    arguments
+        obj electro_gui
+        showWaitBar (1, 1) logical = true
     end
 
     if showWaitBar
         progressBar = waitbar(0, 'Loading file...', 'WindowStyle', 'modal');
     end
 
-    if obj.EnableFileCaching
-        obj = obj.refreshFileCache();
+    if obj.settings.EnableFileCaching
+        obj.refreshFileCache();
     end
 
     if showWaitBar
@@ -1211,7 +1197,7 @@ function eg_LoadFile(obj, showWaitBar)
     obj.dbase.FileLength(filenum) = numSamples;
     obj.text_DateAndTime.String = string(datetime(obj.dbase.Times(filenum), 'ConvertFrom', 'datenum'));
 
-    h = eg_peak_detect(obj.axes_Sound, linspace(0, numSamples/fs, numSamples), obj.filtered_sound);
+    h = electro_gui.eg_peak_detect(obj.axes_Sound, linspace(0, numSamples/fs, numSamples), obj.filtered_sound);
 
     [h.Color] = deal('c');
     obj.axes_Sound.XTick = [];
@@ -1335,7 +1321,7 @@ function selectedFunctionParameters = getSelectedFunctionParameters(obj, axnum)
                 selectedFunctionParameters = struct.empty();
             end
             % Store for next time
-            obj.ChannelAxesFunctionParameters{axnum} = selectedFunctionParameters;
+            obj.settings.ChannelAxesFunctionParams{axnum} = selectedFunctionParameters;
         end
     else
         selectedFunctionParameters = obj.dbase.EventFunctionParameters{eventSourceIdx};
@@ -1347,7 +1333,7 @@ function selectedEventParameters = getSelectedEventParameters(obj, axnum)
     if isempty(eventSourceIdx)
         % Current axis configuration does not correspond to a know event source
         % Use temporary axes params instead
-        selectedEventParameters = obj.settings.ChannelAxesEventParameters{axnum};
+        selectedEventParameters = obj.settings.ChannelAxesEventParams{axnum};
         if isempty(selectedEventParameters)
             % Get default params from event detector
             eventDetector = obj.getSelectedEventDetector(axnum);
@@ -1357,7 +1343,7 @@ function selectedEventParameters = getSelectedEventParameters(obj, axnum)
                 selectedEventParameters = struct.empty();
             end
             % Store for next time
-            obj.settings.ChannelAxesEventParameters{axnum} = selectedEventParameters;
+            obj.settings.ChannelAxesEventParams{axnum} = selectedEventParameters;
         end
     else
         selectedEventParameters = obj.dbase.EventParameters{eventSourceIdx};
@@ -1367,7 +1353,7 @@ function selectedEventLims = getSelectedEventLims(obj, axnum)
     eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
     if isempty(eventSourceIdx)
         % Use temporary axes params instead
-        selectedEventLims = obj.settings.EventXLims;
+        selectedEventLims = obj.settings.DefaultEventXLims;
     else
         selectedEventLims = obj.settings.EventXLims(eventSourceIdx, :);
     end
@@ -1487,7 +1473,7 @@ function [channelData, channelSamplingRate, channelLabels, timestamp] = loadChan
 
     if isPseudoChannel
         % This is a pseudochannel - load it based on type
-        channelIdx = getChannelIdxFromPseudoChannelNumber(obj.dbase, channelNum);
+        channelIdx = electro_gui.getChannelIdxFromPseudoChannelNumber(obj.dbase, channelNum);
         pChannelInfo = obj.dbase.ChannelInfo(channelIdx).PseudoChannelInfo;
         switch pChannelInfo.type
             case 'event'
@@ -1519,7 +1505,7 @@ function [channelData, channelSamplingRate, channelLabels, timestamp] = loadChan
             filePath = fullfile(obj.dbase.PathName, obj.dbase.ChannelFiles{channelNum}(fileNum).name);
         end
 
-        if obj.EnableFileCaching
+        if obj.settings.EnableFileCaching
             % File is already cached - retrieve data
             data = obj.retrieveFileFromCache(filePath, loader);
             [rawChannelData, channelSamplingRate, timestamp, channelLabels, ~] = data{:};
@@ -1573,7 +1559,7 @@ function eg_LoadChannel(obj, axnum)
     [selectedChannelNum, ~, ~, isPseudoChannel] = obj.getSelectedChannel(axnum);
     selectedFilter = getSelectedFilter(obj, axnum);
     selectedFilterParams = obj.settings.ChannelAxesFunctionParams{axnum};
-    [obj.loadedChannelData{axnum}, obj.loadedChannelFs{axnum}, obj.Labels{axnum}] = ...
+    [obj.loadedChannelData{axnum}, obj.loadedChannelFs{axnum}, obj.loadedChannelLabels{axnum}] = ...
         obj.loadChannelData(selectedChannelNum, ...
         'FilterName', selectedFilter, ...
         'FilterParams', selectedFilterParams, ...
@@ -1644,7 +1630,7 @@ function [sound, fs, timestamp] = getSound(obj, soundChannel, filenum, isPseudoC
         filenum = electro_gui.getCurrentFileNum(obj.settings);
     end
     if isempty(soundChannel)
-        soundChannel = obj.defaults.SoundChannel;
+        soundChannel = obj.settings.SoundChannel;
     end
     if ischar(soundChannel)
         % User must have passed a channel name here - convert to channel
@@ -1658,7 +1644,7 @@ function [sound, fs, timestamp] = getSound(obj, soundChannel, filenum, isPseudoC
         filePath = fullfile(obj.dbase.PathName, obj.dbase.SoundFiles(filenum).name);
         loader = obj.dbase.SoundLoader;
 
-        if obj.EnableFileCaching
+        if obj.settings.EnableFileCaching
             data = obj.retrieveFileFromCache(filePath, loader);
             [sound, fs, timestamp] = data{:};
         else
@@ -1666,7 +1652,7 @@ function [sound, fs, timestamp] = getSound(obj, soundChannel, filenum, isPseudoC
         end
     elseif strcmp(soundChannel, 'calculated')
         % Calculate a sound vector based on the user-supplied
-        % expression in obj.defaults.SoundExpression
+        % expression in obj.settings.SoundExpression
         [sound, fs, timestamp] = obj.getCalculatedSound(filenum);
     else
         % Use some other not-already-loaded channel data as sound
@@ -1718,7 +1704,7 @@ end
 
 function [calculatedSound, fs, timestamp] = getCalculatedSound(obj, filenum, useFilter)
     % Calculate a sound vector based on the user-supplied
-    % expression in obj.defaults.SoundExpression
+    % expression in obj.settings.SoundExpression
     arguments
         obj electro_gui
         filenum = electro_gui.getCurrentFileNum(obj.settings)
@@ -1735,7 +1721,7 @@ function [calculatedSound, fs, timestamp] = getCalculatedSound(obj, filenum, use
             otherwise
                 varName = sprintf('chan%d', channelNum);
         end
-        if regexp(obj.defaults.SoundExpression, varName)
+        if regexp(obj.settings.SoundExpression, varName)
             if strcmp(varName, 'sound')
                 if useFilter
                     [data, fs, timestamp] = obj.getFilteredSound([], [], [], filenum);
@@ -1750,9 +1736,9 @@ function [calculatedSound, fs, timestamp] = getCalculatedSound(obj, filenum, use
     end
     % Evaluate the user-supplied expression
     try
-        calculatedSound = evalin('base', obj.defaults.SoundExpression);
+        calculatedSound = evalin('base', obj.settings.SoundExpression);
     catch ME
-        fprintf('Error evaluating calculated channel: %s\n', obj.defaults.SoundExpression);
+        fprintf('Error evaluating calculated channel: %s\n', obj.settings.SoundExpression);
         disp(ME)
         fprintf('Using default sound instead.\n');
         [calculatedSound, fs, timestamp] = obj.getFilteredSound([], [], [], filenum);
@@ -1765,7 +1751,7 @@ function UpdateSound(obj, soundChannel)
     %   spectrogram, etc.
     arguments
         obj electro_gui
-        soundChannel = obj.defaults.SoundChannel
+        soundChannel = obj.settings.SoundChannel
     end
 
     [sound, fs, timestamp] = obj.getSound(soundChannel);
@@ -1816,14 +1802,14 @@ function eg_PlotChannel(obj, axnum)
         % Plot peak detection trace
         visibleTimeIdx = find(t>=tlimits(1) & t<=tlimits(2));
         if ~isempty(visibleTimeIdx)
-            obj.ChannelPlots{axnum} = eg_peak_detect(ax, t(visibleTimeIdx), obj.loadedChannelData{axnum}(visibleTimeIdx));
+            obj.ChannelPlots{axnum} = electro_gui.eg_peak_detect(ax, t(visibleTimeIdx), obj.loadedChannelData{axnum}(visibleTimeIdx));
         end
     else
         % Plot plain data
         obj.ChannelPlots{axnum} = ...
             plot(ax, t, obj.loadedChannelData{axnum}, ...
-                'Color',obj.ChannelColor(axnum,:), ...
-                'LineWidth',obj.ChannelLineWidth(axnum));
+                'Color',obj.settings.ChannelColor(axnum,:), ...
+                'LineWidth',obj.settings.ChannelLineWidth(axnum));
     end
 
     hold(ax, 'off');
@@ -1831,7 +1817,7 @@ function eg_PlotChannel(obj, axnum)
 
     ax.XTickLabel = [];
     box(ax, 'off');
-    ylabel(ax, obj.Labels{axnum});
+    ylabel(ax, obj.loadedChannelLabels{axnum});
 
     ax.UIContextMenu = obj.context_Channels(axnum);
     ax.ButtonDownFcn = @obj.click_Channel;
@@ -1888,9 +1874,9 @@ function SegmentSounds(obj, updateGUI)
         updateGUI = true
     end
 
-    for c = 1:length(obj.menu_Segmenter)
-        if obj.menu_Segmenter(c).Checked
-            segmentationAlgorithmName = obj.menu_Segmenter(c).Label;
+    for c = 1:length(obj.menu_SegmenterList.Children)
+        if obj.menu_SegmenterList.Children(c).Checked
+            segmentationAlgorithmName = obj.menu_SegmenterList.Children(c).Label;
         end
     end
 
@@ -2183,35 +2169,6 @@ function SanityCheckActiveAnnotation(obj, filenum)
     end
 end
 
-function h = eg_peak_detect(ax,x,y)
-    % Plot an envelope of the signal "y", downsampled to fit in the axes width
-    ax.Units = 'pixels';
-    ax.Parent.Units = 'pixels';
-    pos = ax.Position;
-    width = fix(pos(3));
-    ax.Parent.Units = 'normalized';
-    ax.Units = 'normalized';
-
-    xl = xlim(ax);
-    if length(y) < width*3
-        h = plot(ax, x,y);
-    else
-        ynew = zeros(1,ceil(length(y)/width)*width);
-        nadd = length(ynew)-length(y);
-        pos = round(linspace(1,length(ynew),nadd+2));
-        pos = pos(2:end-1);
-        ynew(setdiff(1:length(ynew),pos)) = y;
-        ynew(pos) = ynew(pos-1);
-        y = reshape(ynew,length(ynew)/width,width);
-
-        h(1) = plot(ax, linspace(min(x),max(x),size(y,2)),max(y,[],1));
-        hold(ax, 'on');
-        h(2) = plot(ax, linspace(min(x),max(x),size(y,2)),min(y,[],1));
-        hold(ax, 'off');
-    end
-    xlim(ax, xl);
-
-end
 function updateXLimBox(obj)
     % Update the yellow dotted line box on the sound axes that shows what
     % the zoomed in view is
@@ -2601,8 +2558,8 @@ function click_segmentaxes(obj, hObject, event)
         %   if less than half of the selected segments were selected. Which
         %   seems...convoluted and weird. So I changed it to just toggling all
         %   the selection statuses.
-        obj.axes_Segment.Units = 'pixels';
-        obj.axes_Segment.Parent.Units = 'pixels';
+        obj.axes_Segments.Units = 'pixels';
+        obj.axes_Segments.Parent.Units = 'pixels';
         rect = rbbox;
 
         if rect(3) < 10
@@ -2610,10 +2567,10 @@ function click_segmentaxes(obj, hObject, event)
             return
         end
 
-        pos = obj.axes_Segment.Position;
-        obj.axes_Segment.Parent.Units = 'normalized';
-        obj.axes_Segment.Units = 'normalized';
-        xl = xlim(obj.axes_Segment);
+        pos = obj.axes_Segments.Position;
+        obj.axes_Segments.Parent.Units = 'normalized';
+        obj.axes_Segments.Units = 'normalized';
+        xl = xlim(obj.axes_Segments);
 
         rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
         rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
@@ -3091,7 +3048,7 @@ function newSegmentNum = ConvertMarkerToSegment(obj, filenum, markerNum)
         ind = 1;
     else
         % Insert marker into appropriate place in segment arrays
-        ind = getSortedArrayInsertion(STs(:, 1), t0);
+        ind = electro_gui.getSortedArrayInsertion(STs(:, 1), t0);
     end
     obj.dbase.SegmentTimes{filenum} = [STs(1:ind-1, :); [t0, t1]; STs(ind:end, :)];
     obj.dbase.SegmentIsSelected{filenum} = [SSs(1:ind-1), MS, SSs(ind:end)];
@@ -3126,7 +3083,7 @@ function newMarkerNum = ConvertSegmentToMarker(obj, filenum, segmentNum)
         ind = 1;
     else
         % Insert segment into appropriate place in marker arrays
-        ind = getSortedArrayInsertion(MTs(:, 1), t0);
+        ind = electro_gui.getSortedArrayInsertion(MTs(:, 1), t0);
     end
     obj.dbase.MarkerTimes{filenum} = [MTs(1:ind-1, :); [t0, t1]; MTs(ind:end, :)];
     obj.dbase.MarkerIsSelected{filenum} = [MSs(1:ind-1), SS, MSs(ind:end)];
@@ -3147,10 +3104,6 @@ function newMarkerNum = ConvertSegmentToMarker(obj, filenum, segmentNum)
     end
 end
 
-function ind = getSortedArrayInsertion(sortedArr, value)
-    [~, ind] = min(abs(sortedArr-value));
-    ind = ind + (value > sortedArr(ind));
-end
 % --- Executes on button press in push_Calculate.
 function SetSonogramColors(obj)
 
@@ -3177,7 +3130,7 @@ function eg_NewDbase(obj)
     [dbase, cancel] = eg_GatherFiles('', obj.settings.FileString, ...
         obj.settings.DefaultFileLoader, obj.settings.DefaultChannelNumber, ...
         "TitleString", 'Identify files for new dbase', 'GUI', true, ...
-        'DefaultPathName', obj.settings.tempSettings.lastDirectory);
+        'DefaultPathName', obj.tempSettings.lastDirectory);
 
     if cancel
         return
@@ -3293,11 +3246,11 @@ function eg_NewDbase(obj)
         if isempty(ud{v}) && v>1
             str = obj.popup_EventDetectors(axnum).String;
             dtr = str{v};
-            [obj.settings.ChannelAxesEventParameters{axnum}, ~] = electro_gui.eg_runPlugin(obj.plugins.eventDetectors, dtr, 'params');
-            ud{v} = obj.settings.ChannelAxesEventParameters{axnum};
+            [obj.settings.ChannelAxesEventParams{axnum}, ~] = electro_gui.eg_runPlugin(obj.plugins.eventDetectors, dtr, 'params');
+            ud{v} = obj.settings.ChannelAxesEventParams{axnum};
             obj.popup_EventDetectors(axnum).UserData = ud;
         else
-            obj.settings.ChannelAxesEventParameters{axnum} = ud{v};
+            obj.settings.ChannelAxesEventParams{axnum} = ud{v};
         end
     end
 
@@ -3316,7 +3269,7 @@ function eg_NewDbase(obj)
         end
     end
 
-    obj.eg_LoadFile();
+    obj.LoadFile();
 end
 
 function OpenDbase(obj, filePathOrDbase, options)
@@ -3324,7 +3277,7 @@ function OpenDbase(obj, filePathOrDbase, options)
         obj electro_gui
         filePathOrDbase = ''
         options.SkipDbaseFormatUpdate = false
-        options.Settings = struct.empty()
+        options.Settings = defaults_template()
     end
 
     settings = options.Settings;
@@ -3390,7 +3343,7 @@ function OpenDbase(obj, filePathOrDbase, options)
                     dbase.PathName = RootSwap(dbase.PathName, oldRoot, newRoot);
                 end
             case choice2
-                dbase.PathName = uigetdir(obj.settings.tempSettings.lastDirectory, ...
+                dbase.PathName = uigetdir(obj.tempSettings.lastDirectory, ...
                     'Locate the data directory manually:');
                 if ~ischar(dbase.PathName)
                     % User cancelled
@@ -3408,7 +3361,7 @@ function OpenDbase(obj, filePathOrDbase, options)
 
     if exist('path', 'var')
         % Save the selected directory in temporary settings for next time
-        obj.settings.tempSettings.lastDirectory = path;
+        obj.tempSettings.lastDirectory = path;
         obj.updateTempFile();
 
         obj.settings.DefaultDbaseFilename = fullfile(path, file);
@@ -3416,13 +3369,15 @@ function OpenDbase(obj, filePathOrDbase, options)
 
     if ~options.SkipDbaseFormatUpdate
         % Do not ensure the dbase is in the most up-to-date format
-        [dbase, settings] = updateDbaseFormat(dbase, settings);
+        [dbase, settings] = electro_gui.updateDbaseFormat(dbase, settings);
     end
 
     % Store original dbase in case it has custom fields, so we can restore them
     %   when we save the dbase
     obj.dbase = dbase;
     obj.settings = settings;
+
+    % Adjust settings based on dbase contents
 
     obj.UpdateChannelPopups();
     obj.popup_Channel1.Value = 1;
@@ -3479,10 +3434,10 @@ function OpenDbase(obj, filePathOrDbase, options)
     obj.FileInfoBrowser.SelectedRow = settings.CurrentFile;
 
     % get segmenter parameters
-    for c = 1:length(obj.menu_Segmenter)
-        if obj.menu_Segmenter(c).Checked
-            h = obj.menu_Segmenter(c);
-            alg = obj.menu_Segmenter(c).Label;
+    for c = 1:length(obj.menu_SegmenterList.Children)
+        if obj.menu_SegmenterList.Children(c).Checked
+            h = obj.menu_SegmenterList.Children(c);
+            alg = obj.menu_SegmenterList.Children(c).Label;
         end
     end
     if isempty(h.UserData)
@@ -3513,11 +3468,11 @@ function OpenDbase(obj, filePathOrDbase, options)
         if isempty(ud{v}) && v>1
             str = obj.popup_EventDetectors(axnum).String;
             dtr = str{v};
-            [obj.settings.ChannelAxesEventParameters{axnum}, ~] = electro_gui.eg_runPlugin(obj.plugins.eventDetectors, dtr, 'params');
-            ud{v} = obj.settings.ChannelAxesEventParameters{axnum};
+            [obj.settings.ChannelAxesEventParams{axnum}, ~] = electro_gui.eg_runPlugin(obj.plugins.eventDetectors, dtr, 'params');
+            ud{v} = obj.settings.ChannelAxesEventParams{axnum};
             obj.popup_EventDetectors(axnum).UserData = ud;
         else
-            obj.settings.ChannelAxesEventParameters{axnum} = ud{v};
+            obj.settings.ChannelAxesEventParams{axnum} = ud{v};
         end
     end
 
@@ -3540,7 +3495,7 @@ function OpenDbase(obj, filePathOrDbase, options)
 
     obj.UpdateEventSourceList();
 
-    obj.eg_LoadFile(false);
+    obj.LoadFile(false);
 
     waitbar(1, progressBar)
     close(progressBar)
@@ -3561,452 +3516,23 @@ function SaveDbase(obj)
     obj.addRecentFile(savePath);
 end
 
-function threshold = eg_AutoThreshold(amp)
-
-    if mean(amp)<0
-        amp = -amp;
-        isneg=1;
-    else
-        isneg=0;
-    end
-    if range(amp)==0
-        threshold = inf;
-        return;
-    end
-
-    try
-        % Code from Aaron Andalman
-        [noiseEst, soundEst, noiseStd, soundStd] = eg_estimateTwoMeans(amp);
-        if (noiseEst>soundEst)
-            disc = max(amp)+eps;
-        else
-            %Compute the optimal classifier between the two gaussians...
-            p(1) = 1/(2*soundStd^2+eps) - 1/(2*noiseStd^2);
-            p(2) = (noiseEst)/(noiseStd^2) - (soundEst)/(soundStd^2+eps);
-            p(3) = (soundEst^2)/(2*soundStd^2+eps) - (noiseEst^2)/(2*noiseStd^2) + log(soundStd/noiseStd+eps);
-            disc = roots(p);
-            disc = disc(disc>noiseEst & disc<soundEst);
-            if(isempty(disc))
-                disc = max(amp)+eps;
-            else
-                disc = disc(1);
-                disc = soundEst - 0.5 * (soundEst - disc);
-            end
-        end
-        threshold = disc;
-
-        if ~isreal(threshold)
-            threshold = max(amp)*1.1;
-        end
-    catch
-        threshold = max(amp)*1.1;
-    end
-
-    if isneg
-        threshold = -threshold;
-    end
-
-    % by Aaron Andalman
-end
-function [dbase, settings] = updateDbaseFormat(dbase, settings, options)
-    % Update legacy dbase format to current format
-    arguments
-        dbase struct
-        settings struct = defaults_template()
-        options.SourceDir = fileparts(mfilename("fullpath"))
-    end
-
-    % If the legacy field AnalysisState exists, merge the given settings
-    % with the settings from defaults_template.
-    if isfield(dbase, 'AnalysisState')
-        settings = F(settings, dbase.AnalysisState, "Overwrite", true);
-        dbase = rmfield(dbase, 'AnalyisState');
-    end
-
-    sourceDir = options.SourceDir;
-
-    numFiles = length(dbase.SoundFiles);
-    numEventSources = length(dbase.EventTimes);
-
-    if ~isfield(dbase, 'EventParts')
-        % Legacy dbases did not have a list of event part names
-        dbase.EventParts = {};
-        if ~exist('plugins', 'var')
-            plugins = electro_gui.gatherPlugins(sourceDir); %#ok<*PROPLC>
-        end
-        for eventSourceIdx = 1:length(dbase.EventTimes)
-            eventDetectorName = dbase.EventDetectors{eventSourceIdx};
-            [~, eventParts] = electro_gui.eg_runPlugin(plugins.eventDetectors, eventDetectorName, 'params');
-            dbase.EventParts{eventSourceIdx} = eventParts;
-        end
-    end
-
-    if ~isfield(dbase, 'EventChannels')
-        % Legacy dbases do not have a list of channel numbers, only channel
-        % names (stored in "EventSources" field)
-        dbase.EventChannels = cellfun(@electro_gui.channelNameToNumLegacy, dbase.EventSources, 'UniformOutput', true);
-    end
-
-    if ~isfield(dbase, 'EventChannelIsPseudo')
-        dbase.EventChannelIsPseudo = false(1, numEventSources);
-    end
-
-    if ~isfield(dbase, 'ChannelInfo')
-        dbase = electro_gui.UpdateChannelInfo(dbase);
-        if isfield(dbase, 'PseudoChannelNames') || ...
-           isfield(dbase, 'PseudoChannelTypes') || ...
-           isfield(dbase, 'PseudoChannelInfo')
-            % Dbases briefly had these fields to keep track of
-            % pseudochannel info, but this has been combined into
-            % dbase.ChannelInfo
-            for k = 1:length(dbase.PseudoChannelNames)
-                info = dbase.PseudoChannelInfo{k};
-                dbase = electro_gui.createEventPseudoChannel(dbase, info.eventSourceIdx, info.eventPartIdx);
-            end
-        else
-            % For older legacy databases, we have to generate the pseudochannels
-            for eventSourceIdx = 1:length(dbase.EventTimes)
-                for eventPartIdx = 1:length(dbase.EventParts{eventSourceIdx})
-                    dbase = electro_gui.createEventPseudoChannel(dbase, eventSourceIdx, eventPartIdx);
-                end
-            end
-        end
-    end
-
-    % Ensure EventSelected field is all logical not double
-    for eventSourceIdx = 1:numEventSources
-        for filenum = 1:numFiles   %length(dbase.EventIsSelected{eventSourceIdx})
-            dbase.EventIsSelected{eventSourceIdx}{filenum} = logical(dbase.EventIsSelected{eventSourceIdx}{filenum});
-        end
-    end
-
-    if ~isfield(dbase, 'EventParameters')
-        % Legacy dbases do not have a list of event parameters
-        dbase.EventParameters = cell(1, numEventSources);
-        if ~exist('plugins', 'var')
-            plugins = electro_gui.gatherPlugins(sourceDir);
-        end
-
-        for eventSourceIdx = 1:numEventSources
-            eventDetectorName = dbase.EventDetectors{eventSourceIdx};
-            eventParameters = electro_gui.eg_runPlugin(plugins.eventDetectors, eventDetectorName, 'params');
-            dbase.EventParameters{eventSourceIdx} = eventParameters;
-        end
-    end
-
-    if ~isfield(dbase, 'EventFunctionParameters')
-        % Legacy dbases do not have a list of event parameters
-        dbase.EventFunctionParameters = cell(1, numEventSources);
-        if ~exist('plugins', 'var')
-            plugins = electro_gui.gatherPlugins(sourceDir);
-        end
-        for eventSourceIdx = 1:numEventSources
-            filterName = dbase.EventFunctions{eventSourceIdx};
-            try
-                filterParameters = electro_gui.eg_runPlugin(plugins.filters, filterName, 'params');
-                dbase.EventFunctionParameters{eventSourceIdx} = filterParameters;
-            catch
-                emptyParams.Names = {};
-                emptyParams.Values = {};
-                dbase.EventFunctionParameters{eventSourceIdx} = emptyParams;
-            end
-        end
-    end
-
-    % FileReadState has been moved from main dbase to settings
-    if ~isfield(settings, 'FileReadstate')
-        if isfield(dbase, 'FileReadState')
-            settings.FileReadState = dbase.FileReadState;
-        else
-            settings.FileReadState = false(1, numFiles);
-        end
-    end
-    if isfield(dbase, 'FileReadState')
-        dbase = rmfield(dbase, 'FileReadState');
-    end
-
-    if ~isfield(settings, 'EventThresholdDefaults')
-        % Legacy dbases did not have stored defaults - initialize a new one
-        if isempty(dbase.EventThresholds)
-            settings.EventThresholdDefaults = inf(1, length(dbase.EventTimes));
-        else
-            % Use the most common non-infinite threshold for each event
-            % source
-
-            % Make a copy of all the thresholds
-            thresholds = dbase.EventThresholds;
-            % Replace inf with NaN to exclude it from the mode calculation
-            thresholds(thresholds == inf) = NaN;
-            % Find the most commonly used threshold
-            thresholds = mode(thresholds, 2);
-            % If one of the event sources was all infinity ==> all nan,
-            % then the mode will show up as nan. Replace those with inf.
-            thresholds(isnan(thresholds)) = inf;
-            % Copy into defaults variable
-            settings.EventThresholdDefaults = thresholds;
-        end
-    end
-
-    if ~isfield(settings, 'CurrentFile')
-        settings.CurrentFile = 1;
-    end
-
-    if isstruct(dbase.Properties)
-        % This is a legacy format for properties - import it
-        % Get every property name across dbase
-        propertyNames = unique([dbase.Properties.Names{:}], 'stable');
-        propertyValues = false(numFiles, length(propertyNames));
-        for filenum = 1:numFiles
-            for oldPropertyIdx = 1:length(dbase.Properties.Names{filenum})
-                propertyType = dbase.Properties.Types{filenum}(oldPropertyIdx);
-                switch propertyType
-                    case 1
-                        %
-                    case 2
-                        % Boolean
-                        propertyName = dbase.Properties.Names{filenum}{oldPropertyIdx};
-                        newPropertyIdx = find(strcmp(propertyName, propertyNames), 1);
-                        propertyValues(filenum, newPropertyIdx) = dbase.Properties.Values{filenum}{oldPropertyIdx};
-                    case 3
-                        %
-                end
-            end
-        end
-        % Set properties
-        dbase = electro_gui.setProperties(dbase, propertyValues, propertyNames);
-    end
-
-    if ~isfield(settings, 'FileSortMethod')
-        settings.FileSortMethod = 'File number';
-    end
-
-    if ~isfield(settings, 'FileSortPropertyName')
-        if isfield(dbase, 'FileSortPropertyName')
-            settings.FileSortPropertyName = dbase.FileSortPropertyName;
-        else
-            settings.FileSortPropertyName = '';
-        end
-    end
-    if isfield(dbase, 'FileSortPropertyName')
-        dbase = rmfield(dbase, 'FileSortPropertyName');
-    end
-
-    if ~isfield(settings, 'FileSortReversed')
-        settings.FileSortReversed = false;
-    end
-
-    if ~isfield(dbase, 'Notes')
-        % Legacy dbase - create empty notes
-        dbase.Notes = repmat({''}, 1, numFiles);
-    end
-
-    if ~isfield(settings, 'AuxiliarySoundSources')
-        settings.AuxiliarySoundSources = {};
-    end
-
-    if ~isfield(dbase, 'MarkerTimes')
-        % This must be an older type of dbase - add blank marker field
-        dbase.MarkerTimes = cell(1,numFiles);
-    end
-    if ~isfield(dbase, 'MarkerTitles')
-        % This must be an older type of dbase - add blank marker field
-        dbase.MarkerTitles = cell(1,numFiles);
-    end
-    if ~isfield(dbase, 'MarkerIsSelected')
-        % This must be an older type of dbase - add blank marker field
-        dbase.MarkerIsSelected = cell(1,numFiles);
-    end
-
-    if isfield(dbase, 'EventXLims')
-        % This is now in settings.EventXLims, but legacy dbases
-        % may have it simply in dbase.EventXLims, so look for it here too
-        settings.EventXLims = dbase.EventXLims;
-    end
-    if isfield(dbase, 'EventLims')
-        % Due to a typo some dbases may have this as EventLims
-        settings.EventXLims = dbase.EventXLims;
-    end
-    if ~isfield(settings, 'EventXLims') || isempty(settings.EventXLims)
-        settings.EventXLims = settings.DefaultEventXLims;
-    end
-
-    if size(settings.EventXLims, 1) ~= length(dbase.EventSources)
-        % Legacy dbases had event xlims per channel axes, not per file,
-        % so not complete.
-        for eventSourceIdx = 1:length(dbase.EventTimes)
-            settings.EventXLims(eventSourceIdx, :) = settings.EventXLims;
-        end
-    end
-end
-function [uNoise, uSound, sdNoise, sdSound] = eg_estimateTwoMeans(audioLogPow)
-
-    %Run EM algorithm on mixture of two gaussian model:
-
-    %set initial conditions
-    l = length(audioLogPow);
-    len = 1/l;
-    m = sort(audioLogPow);
-    uNoise = median(m(fix(1:length(m)/2)));
-    uSound = median(m(fix(length(m)/2:length(m))));
-    sdNoise = 5;
-    sdSound = 20;
-
-    %compute estimated log likelihood given these initial conditions...
-    prob = zeros(2,l);
-    prob(1,:) = (exp(-(audioLogPow - uNoise).^2 / (2*sdNoise^2)))./sdNoise;
-    prob(2,:) = (exp(-(audioLogPow - uSound).^2 / (2*sdSound^2)))./sdSound;
-    [estProb, class] = max(prob);
-    warning off
-    logEstLike = sum(log(estProb)) * len;
-    warning on
-    logOldEstLike = -Inf;
-
-    %maximize using Estimation Maximization
-    while(abs(logEstLike-logOldEstLike) > .005)
-        logOldEstLike = logEstLike;
-
-        %Which samples are noise and which are sound.
-        nndx = find(class==1);
-        sndx = find(class==2);
-
-        %Maximize based on this classification.
-        uNoise = mean(audioLogPow(nndx));
-        sdNoise = std(audioLogPow(nndx));
-        if ~isempty(sndx)
-            uSound = mean(audioLogPow(sndx));
-            sdSound = std(audioLogPow(sndx));
-        else
-            uSound = max(audioLogPow);
-            sdSound = 0;
-        end
-
-        %Given new parameters, recompute log likelihood.
-        prob(1,:) = (exp(-(audioLogPow - uNoise).^2 / (2*sdNoise^2+eps)))./(sdNoise+eps);
-        prob(2,:) = (exp(-(audioLogPow - uSound).^2 / (2*sdSound^2+eps)))./(sdSound+eps)+eps;
-        [estProb, class] = max(prob);
-        logEstLike = sum(log(estProb+eps)) * len;
-    end
-
-
-end
-function inside = areCoordinatesIn(x, y, figureChild)
-    % Check if given normalized figure coordinates are inside the borders
-    % of one or more children of that figure.
-    for k = 1:length(figureChild)
-        if x < figureChild(k).Position(1)
-            inside = false;
-        elseif x > figureChild(k).Position(1) + figureChild(k).Position(3)
-            inside = false;
-        elseif y < figureChild(k).Position(2)
-            inside = false;
-        elseif y > figureChild(k).Position(2) + figureChild(k).Position(4)
-            inside = false;
-        else
-            inside = k;
-            return;
-        end
-    end
-end
-function [x, y] = convertFigCoordsToChildAxesCoords(xFig, yFig, childAxes)
-    xAx0 = childAxes.Position(1);
-    yAx0 = childAxes.Position(2);
-    wAx = childAxes.Position(3);
-    hAx = childAxes.Position(4);
-    xAx = (xFig - xAx0)/wAx;
-    yAx = (yFig - yAx0)/hAx;
-    x = childAxes.XLim(1) + diff(childAxes.XLim)*xAx;
-    y = childAxes.YLim(1) + diff(childAxes.YLim)*yAx;
-end
-function nextIdx = findNextTrueIdx(mask, startIdx, direction)
-    % Given a mask and a starting index, find the next true value in
-    % the mask in the given direction.
-
-    if direction > 0
-        nextIdx = find(mask(startIdx+1:end), 1);
-        if isempty(nextIdx)
-            % None found between startIdx and end - try from the beginning
-            % to the startIdx
-            nextIdx = find(mask(1:startIdx-1), 1);
-        end
-    elseif direction < 0
-        nextIdx = find(mask(1:startIdx-1), 1, "last");
-        if isempty(nextIdx)
-            % None found from startIdx to 1 - try from the end to startIdx
-            nextIdx = find(mask(startIdx+1:end), 1, "last");
-        end
-    else
-        nextIdx = startIdx;
-    end
-end
-function [dbase, eventSourceIdx] = addNewEventSource(dbase, settings, channelNum, ...
-        channelName, filterName, eventDetectorName, EventFunctionParameters, ...
-        eventParameters, eventXLims, eventParts, defaultEventThreshold, ...
-        baseChannelIsPseudo, createPseudoChannels)
-    % Add a new event source, update all event-source-indexed variables
-    arguments
-        dbase struct
-        settings struct
-        channelNum (1, 1) double
-        channelName (1, :) char
-        filterName (1, :) char
-        eventDetectorName (1, :) char
-        EventFunctionParameters struct
-        eventParameters struct
-        eventXLims (:, 2) double
-        eventParts (1, :) cell {mustBeText}
-        defaultEventThreshold (1, 1) double
-        baseChannelIsPseudo (1, 1) logical = false
-        createPseudoChannels (1, 1) logical = true
-    end
-    eventSourceIdx = length(dbase.EventSources) + 1;
-    dbase.EventSources{eventSourceIdx} = channelName;
-    dbase.EventChannels(eventSourceIdx) = channelNum;
-    dbase.EventFunctions{eventSourceIdx} = filterName;
-    dbase.EventFunctionParameters{eventSourceIdx} = EventFunctionParameters;
-    dbase.EventDetectors{eventSourceIdx} = eventDetectorName;
-    settings.EventThresholdDefaults(eventSourceIdx) = defaultEventThreshold;
-    dbase.EventParameters{eventSourceIdx} = eventParameters;
-    settings.EventXLims(eventSourceIdx, :) = eventXLims;
-    dbase.EventParts{eventSourceIdx} = eventParts;
-    dbase.EventChannelIsPseudo(eventSourceIdx) = baseChannelIsPseudo;
-    dbase.EventTimes{eventSourceIdx} = cell(length(eventParts), electro_gui.getNumFiles(dbase));
-    dbase.EventIsSelected{eventSourceIdx} = cell(length(eventParts), electro_gui.getNumFiles(dbase));
-
-    if createPseudoChannels
-        for eventPartIdx = 1:length(eventParts)
-            dbase = electro_gui.createEventPseudoChannel(dbase, eventSourceIdx, eventPartIdx);
-        end
-    end
-end
-function channelIdx = getChannelIdxFromPseudoChannelNumber(dbase, pseudoChannelNum)
-    channelIdx = [];
-    for k = 1:length(dbase.ChannelInfo)
-        if dbase.ChannelInfo(k).IsPseudoChannel && ...
-           ~isempty(dbase.ChannelInfo(k).Number) && ...
-           pseudoChannelNum == dbase.ChannelInfo(k).Number
-            channelIdx = k;
-            return;
-        end
-    end
-end
-
 function scrollHandler(obj, source, event)
 
     xy = event.Source.CurrentPoint;
     x = xy(1);
     y = xy(2);
-    if areCoordinatesIn(x, y, [obj.axes_Sonogram, obj.axes_Sound, obj.axes_Amplitude, obj.axes_Channel])
+    if electro_gui.areCoordinatesIn(x, y, [obj.axes_Sonogram, obj.axes_Sound, obj.axes_Amplitude, obj.axes_Channel])
         % Scroll in any of the stacked axes
-        [t, ~] = convertFigCoordsToChildAxesCoords(x, y, obj.axes_Sonogram);
+        [t, ~] = electro_gui.convertFigCoordsToChildAxesCoords(x, y, obj.axes_Sonogram);
         if obj.isShiftDown()
             obj.shiftInTime(event.VerticalScrollCount);
         else
             obj.zoomInTime(t, event.VerticalScrollCount);
         end
-    elseif areCoordinatesIn(x, y, obj.axes_Events) && ~isempty(obj.settings.ActiveEventNum)
+    elseif electro_gui.areCoordinatesIn(x, y, obj.axes_Events) && ~isempty(obj.settings.ActiveEventNum)
         % Scroll in event viewer axes
         visibleEventMask = isgraphics(obj.EventWaveHandles);
-        newActiveEventNum = findNextTrueIdx(visibleEventMask, obj.settings.ActiveEventNum, event.VerticalScrollCount);
+        newActiveEventNum = electro_gui.findNextTrueIdx(visibleEventMask, obj.settings.ActiveEventNum, event.VerticalScrollCount);
         obj.SetActiveEventDisplay(newActiveEventNum);
     end
 
@@ -4157,7 +3683,7 @@ function UpdateEventThresholdDisplay(obj, eventSourceIdx)
                 plot(obj.axes_Channel(axnum), ...
                      [0, numSamples/fs], ...
                      [threshold, threshold], ...
-                     ':', 'Color', obj.ChannelThresholdColor(axnum,:), 'HitTest', 'off', 'PickableParts', 'none');
+                     ':', 'Color', obj.settings.ChannelThresholdColor(axnum,:), 'HitTest', 'off', 'PickableParts', 'none');
             hold(obj.axes_Channel(axnum), 'off');
         else
             % Update threshold line y data
@@ -4171,7 +3697,7 @@ end
 
 function SetEventThreshold(obj, axnum, threshold)
     arguments
-        obj struct
+        obj electro_gui
         axnum (1, 1) double
         threshold double = []
     end
@@ -4241,10 +3767,10 @@ function eventSourceIdx = addNewEventSourceFromChannelAxes(obj, axnum, createPse
         eventSourceIdx = [];
         return;
     end
-    [obj.dbase, eventSourceIdx] = addNewEventSource(obj.dbase, obj.settings, ...
-        channelNum, channelName, filterName, eventDetectorName, ...
-        filterParameters, eventParameters, eventXLims, eventParts, ...
-        defaultEventThreshold, baseChannelIsPseudo, createPseudoChannels);
+    [eventSourceIdx] = obj.addNewEventSource(channelNum, channelName, ...
+        filterName, eventDetectorName, filterParameters, eventParameters, ...
+        eventXLims, eventParts, defaultEventThreshold, baseChannelIsPseudo, ...
+        createPseudoChannels);
 
     obj.UpdateChannelPopups();
 end
@@ -4325,7 +3851,7 @@ function numEvents = CheckEventCount(obj, eventSourceIdx, filenum)
         numEvents = 0;
     elseif filenum > size(obj.dbase.EventTimes{eventSourceIdx}, 2)
         numEvents = 0;
-    elseif obj.settings.EventThresholdDefaults
+    else
         numEvents = length(obj.dbase.EventTimes{eventSourceIdx}{1, filenum});
     end
 end
@@ -4531,7 +4057,7 @@ end
 
 function UpdateEventViewer(obj, keepView)
     arguments
-        obj struct
+        obj electro_gui
         keepView = false
     end
     if isempty(keepView)
@@ -4619,7 +4145,7 @@ function UpdateEventViewer(obj, keepView)
                     obj.EventWaveHandles(eventNum) = plot(obj.axes_Events, ((startTime:endTime)-eventTimes(eventNum))/fs*1000,channelData(startTime:endTime),'Color','k');
                 else
                     % If event is not selected, use graphics placeholder
-                    obj.EventWavehandles(eventNum) = gobjects();
+                    obj.EventWaveHandles(eventNum) = gobjects();
                 end
             end
             xlabel(obj.axes_Events, 'Time (ms)');
@@ -4995,7 +4521,7 @@ end
 
 function UnselectEvents(obj, eventNums, eventSourceIdx, filenum)
     arguments
-        obj struct
+        obj electro_gui
         eventNums (1, :) double
         eventSourceIdx double = obj.GetEventViewerEventSourceIdx()
             % Default is event source currently displayed on event viewer axes
@@ -5263,9 +4789,9 @@ function updateAmplitude(obj, forceRedraw)
         numSamples = obj.eg_GetSamplingInfo();
         filenum = electro_gui.getCurrentFileNum(obj.settings);
 
-        obj.AmplitudePlotHandle = plot(obj.axes_Amplitude, linspace(0, numSamples/fs, numSamples),obj.amplitude,'Color',obj.AmplitudeColor);
+        obj.AmplitudePlotHandle = plot(obj.axes_Amplitude, linspace(0, numSamples/fs, numSamples),obj.amplitude,'Color',obj.settings.AmplitudeColor);
         obj.axes_Amplitude.XTickLabel  = [];
-        ylim(obj.axes_Amplitude, obj.AmplitudeLims);
+        ylim(obj.axes_Amplitude, obj.settings.AmplitudeLims);
         box(obj.axes_Amplitude, 'off');
         ylabel(obj.axes_Amplitude, labels);
         obj.axes_Amplitude.UIContextMenu = obj.context_Amplitude;
@@ -5279,7 +4805,7 @@ function updateAmplitude(obj, forceRedraw)
 
         if obj.dbase.SegmentThresholds(filenum)==inf
             if obj.menu_AutoThreshold.Checked
-                obj.settings.CurrentThreshold = eg_AutoThreshold(obj.amplitude);
+                obj.settings.CurrentThreshold = electro_gui.eg_AutoThreshold(obj.amplitude);
             end
             obj.dbase.SegmentThresholds(filenum) = obj.settings.CurrentThreshold;
         else
@@ -5301,7 +4827,7 @@ function [amp, fs, labels] = calculateAmplitude(obj, filenum)
 
     [filteredSound, fs] = obj.getFilteredSound([], [], [], filenum);
 
-    windowSize = round(obj.SmoothWindow*fs);
+    windowSize = round(obj.settings.SmoothWindow*fs);
     if obj.menu_SourceSoundAmplitude.Checked
         amp = smooth(10*log10(filteredSound.^2+eps), windowSize);
         amp = amp-min(amp(windowSize:length(amp)-windowSize));
@@ -5390,7 +4916,7 @@ function snd = GenerateSound(obj, sound_type)
 end
 function setFileSortMethod(obj, sortMethod, updateGUI)
     arguments
-        obj struct
+        obj electro_gui
         sortMethod char
         updateGUI logical = true
     end
@@ -5608,7 +5134,7 @@ function controlDown = isControlDown(obj)
     controlDown = any(strcmp(obj.figure_Main.CurrentModifier, 'control'));
 end
 
-function GUIPropertyChangeHandler(obj)
+function GUIPropertyChangeHandler(obj, varargin)
     % Update stored property values from GUI
 
     firstPropertyColumn = obj.FileInfoBrowserFirstPropertyColumn;
@@ -5647,12 +5173,10 @@ function setFileReadState(obj, filenums, readState)
 
     obj.SaveState();
 
-    readColor = [1, 1, 1];
-    unreadColor = [1, 0.8, 0.8];
     if readState
-        color = readColor;
+        color = obj.settings.FileReadColor;
     else
-        color = unreadColor;
+        color = obj.settings.FileUnreadColor;
     end
 
     % Check if we need to extend obj.settings.FileReadState
@@ -5668,9 +5192,9 @@ function setFileReadState(obj, filenums, readState)
 
     obj.settings.FileReadState(filenums) = readState;
     backgroundColors = repmat(color, length(filenums), 1);
-    if electro_gui.areFilesSorted(obj.settings)
-        filenums = obj.settings.FileSortOrder(filenums);
-    end
+%     if electro_gui.areFilesSorted(obj.settings)
+%         filenums = obj.settings.FileSortOrder(filenums)
+%     end
     obj.FileInfoBrowser.BackgroundColor(filenums, :) = backgroundColors;
 end
 
@@ -9986,6 +9510,47 @@ function setupGUI(obj)
 
 end
 
+function eventSourceIdx = addNewEventSource(obj, channelNum, ...
+        channelName, filterName, eventDetectorName, EventFunctionParameters, ...
+        eventParameters, eventXLims, eventParts, defaultEventThreshold, ...
+        baseChannelIsPseudo, createPseudoChannels)
+    % Add a new event source, update all event-source-indexed variables
+    arguments
+        obj electro_gui
+        channelNum (1, 1) double
+        channelName (1, :) char
+        filterName (1, :) char
+        eventDetectorName (1, :) char
+        EventFunctionParameters struct
+        eventParameters struct
+        eventXLims (:, 2) double
+        eventParts (1, :) cell {mustBeText}
+        defaultEventThreshold (1, 1) double
+        baseChannelIsPseudo (1, 1) logical = false
+        createPseudoChannels (1, 1) logical = true
+    end
+    eventSourceIdx = length(obj.dbase.EventSources) + 1;
+    obj.dbase.EventSources{eventSourceIdx} = channelName;
+    obj.dbase.EventChannels(eventSourceIdx) = channelNum;
+    obj.dbase.EventFunctions{eventSourceIdx} = filterName;
+    obj.dbase.EventFunctionParameters{eventSourceIdx} = EventFunctionParameters;
+    obj.dbase.EventDetectors{eventSourceIdx} = eventDetectorName;
+    obj.settings.EventThresholdDefaults(eventSourceIdx) = defaultEventThreshold;
+    obj.dbase.EventParameters{eventSourceIdx} = eventParameters;
+    obj.settings.EventXLims(eventSourceIdx, :) = eventXLims;
+    obj.dbase.EventParts{eventSourceIdx} = eventParts;
+    obj.dbase.EventChannelIsPseudo(eventSourceIdx) = baseChannelIsPseudo;
+    obj.dbase.EventTimes{eventSourceIdx} = cell(length(eventParts), electro_gui.getNumFiles(obj.dbase));
+    obj.dbase.EventIsSelected{eventSourceIdx} = cell(length(eventParts), electro_gui.getNumFiles(obj.dbase));
+
+    if createPseudoChannels
+        for eventPartIdx = 1:length(eventParts)
+            obj.dbase = electro_gui.createEventPseudoChannel(obj.dbase, eventSourceIdx, eventPartIdx);
+        end
+    end
+end
+
+
     end
     methods            % GUI Callbacks
         function click_recentFile(obj, hObject, event)
@@ -10018,7 +9583,7 @@ end
 
             obj.SaveState();
 
-            obj.eg_LoadFile();
+            obj.LoadFile();
         end
 
         % --- Executes on button press in push_PreviousFile.
@@ -10116,7 +9681,7 @@ end
             cla(obj.axes_Sound);
             obj.UpdateFilteredSound();
             [numSamples, fs] = obj.eg_GetSamplingInfo();
-            h = eg_peak_detect(obj.axes_Sound, linspace(0, numSamples/fs, numSamples), obj.filtered_sound);
+            h = electro_gui.electro_gui.eg_peak_detect(obj.axes_Sound, linspace(0, numSamples/fs, numSamples), obj.filtered_sound);
             [h.Color] = deal('c');
             set(obj.axes_Sound,'XTick',[],'YTick',[]);
             obj.axes_Sound.Color = [0 0 0];
@@ -10263,9 +9828,9 @@ end
 
             obj.settings.SegmenterParams.Values = answer;
 
-            for c = 1:length(obj.menu_Segmenter)
-                if obj.menu_Segmenter(c).Checked
-                    h = obj.menu_Segmenter(c);
+            for c = 1:length(obj.menu_SegmenterList.Children)
+                if obj.menu_SegmenterList.Children(c).Checked
+                    h = obj.menu_SegmenterList.Children(c);
                     h.UserData = obj.settings.SegmenterParams;
                 end
             end
@@ -10278,8 +9843,8 @@ end
 
             obj.SaveState();
 
-            for c = 1:length(obj.menu_Segmenter)
-                obj.menu_Segmenter(c).Checked = 'off';
+            for c = 1:length(obj.menu_SegmenterList.Children)
+                obj.menu_SegmenterList.Children(c).Checked = 'off';
             end
             hObject.Checked = 'on';
 
@@ -10296,25 +9861,25 @@ end
         end
 
         function menu_AmplitudeAxisRange_Callback(obj, hObject, event)
-            answer = inputdlg({'Minimum','Maximum'},'Axis range',1,{num2str(obj.AmplitudeLims(1)) num2str(obj.AmplitudeLims(2))});
+            answer = inputdlg({'Minimum','Maximum'},'Axis range',1,{num2str(obj.settings.AmplitudeLims(1)) num2str(obj.settings.AmplitudeLims(2))});
             if isempty(answer)
                 return
             end
 
-            obj.AmplitudeLims(1) = str2double(answer{1});
-            obj.AmplitudeLims(2) = str2double(answer{2});
-            obj.axes_Amplitude.YLim = obj.AmplitudeLims;
+            obj.settings.AmplitudeLims(1) = str2double(answer{1});
+            obj.settings.AmplitudeLims(2) = str2double(answer{2});
+            obj.axes_Amplitude.YLim = obj.settings.AmplitudeLims;
 
 
 
 
         end
         function menu_SmoothingWindow_Callback(obj, hObject, event)
-            answer = inputdlg({'Smoothing window (ms)'},'Smoothing window',1,{num2str(obj.SmoothWindow*1000)});
+            answer = inputdlg({'Smoothing window (ms)'},'Smoothing window',1,{num2str(obj.settings.SmoothWindow*1000)});
             if isempty(answer)
                 return
             end
-            obj.SmoothWindow = str2double(answer{1})/1000;
+            obj.settings.SmoothWindow = str2double(answer{1})/1000;
 
             obj.updateAmplitude();
 
@@ -10393,7 +9958,7 @@ end
                 cursor_axes = [obj.axes_Amplitude, obj.axes_Sonogram, obj.axes_Segments, obj.axes_Channel, obj.axes_Sound];
 
                 % Check if mouse is inside one of the relevant display axes
-                inside = areCoordinatesIn(xy(1), xy(2), cursor_axes);
+                inside = electro_gui.areCoordinatesIn(xy(1), xy(2), cursor_axes);
 
                 if inside
                     % User is moving mouse within one of the designated cursor axes
@@ -10535,9 +10100,9 @@ end
                         obj.UpdateAnnotationTitleDisplay(changedAnnotationNums, annotationType);
                     case 'o'
                         % User pressed control-o - activate open dbase dialog
-                        if any(strcmp('shift', event.Modifier)) && ~isempty(obj.settings.tempSettings.recentFiles)
+                        if any(strcmp('shift', event.Modifier)) && ~isempty(obj.tempSettings.recentFiles)
                             % Shift is also down - open the most recent one
-                            obj.OpenDbase(obj.settings.tempSettings.recentFiles{1});
+                            obj.OpenDbase(obj.tempSettings.recentFiles{1});
                         else
                             obj.OpenDbase();
                         end
@@ -10575,26 +10140,26 @@ end
                         filenum = electro_gui.getCurrentFileNum(obj.settings);
                         filenum = filenum-1;
                         if filenum == 0
-                            filenum = electro_gui.getNumFiles(dbase);
+                            filenum = electro_gui.getNumFiles(obj.dbase);
                         end
                         obj.edit_FileNumber.String = num2str(filenum);
 
-                        obj.eg_LoadFile();
+                        obj.LoadFile();
 
                         return
                     case 'period'
                         % Keypress is a "period" - load next file
                         filenum = electro_gui.getCurrentFileNum(obj.settings);
                         filenum = filenum+1;
-                        if filenum > electro_gui.getNumFiles(dbase)
+                        if filenum > electro_gui.getNumFiles(obj.dbase)
                             filenum = 1;
                         end
                         obj.edit_FileNumber.String = num2str(filenum);
 
-                        obj.eg_LoadFile();
+                        obj.LoadFile();
 
                         return
-                    case obj.defaults.ValidSegmentCharacters
+                    case obj.settings.ValidSegmentCharacters
                         % Key was a valid character for naming a segment/marker
                         obj.SaveState();
                         obj.SetAnnotationTitle(event.Key, filenum);
@@ -10719,7 +10284,7 @@ end
                 %If available, use the default channel filter (from defaults file)
                 % obj.DefaultChannelFilter is defined
                 allFunctionNames = obj.popup_Functions(axnum).String;
-                defaultChannelFunctionIdx = find(strcmp(allFunctionNames, obj.DefaultChannelFunction));
+                defaultChannelFunctionIdx = find(strcmp(allFunctionNames, obj.settings.DefaultChannelFunction));
                 if ~isempty(defaultChannelFunctionIdx)
                     % Default channel function is valid
                     currentChannelFunctionIdx = obj.popup_Functions(axnum).Value;
@@ -10730,7 +10295,7 @@ end
                         obj.popup_Functions_Callback(axnum);
                     end
                 else
-                    warning('Found a default channel function in the defaults file, but it was not a recognized function: %s', obj.DefaultChannelFunction);
+                    warning('Found a default channel function in the defaults file, but it was not a recognized function: %s', obj.settings.DefaultChannelFunction);
                 end
             end
         end
@@ -10782,11 +10347,10 @@ end
         function click_Channel(obj, hObject, event)
             % Handle a click on the channel axes
 
-            obj = hObject;
-            if ~strcmp(obj.Type,'axes')
-                obj = obj.Parent;
+            if ~strcmp(hObject.Type,'axes')
+                hObject = hObject.Parent;
             end
-            if obj==obj.axes_Channel1
+            if hObject==obj.axes_Channel1
                 axnum = 1;
             else
                 axnum = 2;
@@ -11390,7 +10954,7 @@ end
 
         end
 
-        function HandleAuxiliarySoundSourceClick(src, event)
+        function HandleAuxiliarySoundSourceClick(obj, src, event)
             % Handle a click on an auxiliary sound source menu
 
             src.Checked = ~src.Checked;
@@ -11404,7 +10968,7 @@ end
         function popup_SoundSource_Callback(obj, hObject, event)
 
             % Handle a user change of the "Sound source" popup menu.
-            % This menu controls the obj.defaults.SoundChannel variable, which determines
+            % This menu controls the obj.settings.SoundChannel variable, which determines
             % which channel is used for displaying the spectrogram etc.
             if ~electro_gui.isDataLoaded(obj.dbase)
                 % No data yet, do nothing
@@ -11413,23 +10977,23 @@ end
 
             sourceIndices = obj.popup_SoundSource.UserData;
             idx = obj.popup_SoundSource.Value;
-            obj.defaults.SoundChannel = sourceIndices{idx};
+            obj.settings.SoundChannel = sourceIndices{idx};
 
-            if strcmp(obj.defaults.SoundChannel, 'calculated')
+            if strcmp(obj.settings.SoundChannel, 'calculated')
                 % Allow user to input expression for calculated sound channel
-                expression = inputdlg('Enter expression for calculated channel, using ''sound'', ''chan1'', ''chan2'', etc. as variables.', 'Input calculated channel expression', 1, {obj.defaults.SoundExpression});
+                expression = inputdlg('Enter expression for calculated channel, using ''sound'', ''chan1'', ''chan2'', etc. as variables.', 'Input calculated channel expression', 1, {obj.settings.SoundExpression});
 
                 if isempty(expression) || isempty(strtrim(expression{1}))
                     % User did not provide an expression - default to normal sound
                     % channel.
-                    obj.defaults.SoundChannel = sourceIndices{1};
-                    obj.defaults.SoundExpression = '';
+                    obj.settings.SoundChannel = sourceIndices{1};
+                    obj.settings.SoundExpression = '';
                 else
-                    obj.defaults.SoundExpression = expression{1};
+                    obj.settings.SoundExpression = expression{1};
                 end
             end
 
-            obj.eg_LoadFile();
+            obj.LoadFile();
 
         end
 
@@ -11472,8 +11036,8 @@ end
                 obj.setSelectedChannel(axnum, channelName);
                 obj.setSelectedFilter(axnum, filterName);
                 obj.setSelectedEventDetector(axnum, eventDetectorName);
-                obj.settings.ChannelAxesEventParameters{axnum} = eventParameters;
-                obj.ChannelAxesFunctionParameters{axnum} = filterParameters;
+                obj.settings.ChannelAxesEventParams{axnum} = eventParameters;
+                obj.settings.ChannelAxesFunctionParams{axnum} = filterParameters;
             end
 
             obj.eg_LoadChannel(axnum);
@@ -11646,13 +11210,13 @@ end
 
             switch exportAs
                 case 'Segments'
-                    path = uigetdir(obj.settings.tempSettings.lastDirectory, 'Directory for segments');
+                    path = uigetdir(obj.tempSettings.lastDirectory, 'Directory for segments');
                     if ~ischar(path)
                         delete(txtexp)
                         return
                     end
                     obj.dbase.PathName = path;
-                    obj.settings.tempSettings.lastDirectory = path;
+                    obj.tempSettings.lastDirectory = path;
                     obj.updateTempFile();
 
                     filenum = electro_gui.getCurrentFileNum(obj.settings);
@@ -13118,8 +12682,10 @@ end
                 % Do nothing
                 return
             end
-            obj.edit_FileNumber.String = num2str(obj.FileInfoBrowser.SelectedRow);
-            obj.eg_LoadFile();
+            newFileNum = obj.FileInfoBrowser.SelectedRow;
+            obj.edit_FileNumber.String = num2str(newFileNum);
+            obj.settings.CurrentFile = newFileNum;
+            obj.LoadFile();
 
 
         end
@@ -13178,7 +12744,7 @@ end
         function menu_AutoThreshold_Callback(obj, hObject, event)
             if ~obj.menu_AutoThreshold.Checked
                 obj.menu_AutoThreshold.Checked = 'on';
-                obj.settings.CurrentThreshold = eg_AutoThreshold(obj.amplitude);
+                obj.settings.CurrentThreshold = electro_gui.eg_AutoThreshold(obj.amplitude);
                 obj.dbase.SegmentThresholds(electro_gui.getCurrentFileNum(obj.settings)) = obj.settings.CurrentThreshold;
                 obj.SetSegmentThreshold();
             else
@@ -13192,8 +12758,8 @@ end
         
         end
         function menu_PlotColor1_Callback(obj, hObject, event)
-            c = uisetcolor(obj.ChannelColor(1,:), 'Select color');
-            obj.ChannelColor(1,:) = c;
+            c = uisetcolor(obj.settings.ChannelColor(1,:), 'Select color');
+            obj.settings.ChannelColor(1,:) = c;
             obj = findobj('Parent',obj.axes_Channel1,'LineStyle','-');
             obj.Color = c;
         
@@ -13202,8 +12768,8 @@ end
         
         end
         function menu_ThresholdColor1_Callback(obj, hObject, event)
-            c = uisetcolor(obj.ChannelThresholdColor(1,:), 'Select color');
-            obj.ChannelThresholdColor(1,:) = c;
+            c = uisetcolor(obj.settings.ChannelThresholdColor(1,:), 'Select color');
+            obj.settings.ChannelThresholdColor(1,:) = c;
             obj = findobj('Parent',obj.axes_Channel1,'LineStyle',':');
             obj.Color = c;
         
@@ -13214,8 +12780,8 @@ end
         
         end
         function menu_PlotColor2_Callback(obj, hObject, event)
-            c = uisetcolor(obj.ChannelColor(2,:), 'Select color');
-            obj.ChannelColor(2,:) = c;
+            c = uisetcolor(obj.settings.ChannelColor(2,:), 'Select color');
+            obj.settings.ChannelColor(2,:) = c;
             obj = findobj('Parent',obj.axes_Channel2,'LineStyle','-');
             obj.Color = c;
         
@@ -13224,8 +12790,8 @@ end
         
         end
         function menu_ThresholdColor2_Callback(obj, hObject, event)
-            c = uisetcolor(obj.ChannelThresholdColor(2,:), 'Select color');
-            obj.ChannelThresholdColor(2,:) = c;
+            c = uisetcolor(obj.settings.ChannelThresholdColor(2,:), 'Select color');
+            obj.settings.ChannelThresholdColor(2,:) = c;
             obj = findobj('Parent',obj.axes_Channel2,'LineStyle',':');
             obj.Color = c;
         
@@ -13307,8 +12873,8 @@ end
         
         end
         function menu_AmplitudeColor_Callback(obj, hObject, event)
-            c = uisetcolor(obj.AmplitudeColor, 'Select color');
-            obj.AmplitudeColor = c;
+            c = uisetcolor(obj.settings.AmplitudeColor, 'Select color');
+            obj.settings.AmplitudeColor = c;
         
             if isempty(obj.AmplitudePlotHandle) || ~isgraphics(obj.AmplitudePlotHandle)
                 obj.AmplitudePlotHandle.Color = c;
@@ -13706,7 +13272,8 @@ end
         
         end
         function menu_WorksheetDimensions_Callback(obj, hObject, event)
-            answer = inputdlg({'Width (in)','Height (in)','Margin (in)','Title height (in)','Vertical interval (in)','Horizontal interval (in)'},'Worksheet dimensions',1,{num2str(obj.settings.WorksheetWidth),num2str(obj.settings.WorksheetHeight),num2str(obj.settings.WorksheetMargin),num2str(obj.settings.WorksheetTitleHeight),num2str(obj.settings.WorksheetVerticalInterval),num2str(obj.settings.WorksheetHorizontalInterval)});
+            answer = inputdlg({'Width (in)',                         'Height (in)',                         'Margin (in)',                         'Title height (in)',                        'Vertical interval (in)',                        'Horizontal interval (in)'},'Worksheet dimensions',1, ...
+                              {num2str(obj.settings.WorksheetWidth), num2str(obj.settings.WorksheetHeight), num2str(obj.settings.WorksheetMargin), num2str(obj.settings.WorksheetTitleHeight), num2str(obj.settings.WorksheetVerticalInterval), num2str(obj.settings.WorksheetHorizontalInterval)});
             if isempty(answer)
                 return
             end
@@ -13790,26 +13357,26 @@ end
         
         end
         function menu_LineWidth1_Callback(obj, hObject, event)
-            answer = inputdlg({'Line width'},'Line width',1,{num2str(obj.ChannelLineWidth(1))});
+            answer = inputdlg({'Line width'},'Line width',1,{num2str(obj.settings.ChannelLineWidth(1))});
             if isempty(answer)
                 return
             end
-            obj.ChannelLineWidth(1) = str2double(answer{1});
+            obj.settings.ChannelLineWidth(1) = str2double(answer{1});
             obj = findobj('Parent',obj.axes_Channel1,'LineStyle','-');
-            obj.LineWidth  = obj.ChannelLineWidth(1);
+            obj.LineWidth  = obj.settings.ChannelLineWidth(1);
         
             obj.eg_Overlay();
         
         
         end
         function menu_LineWidth2_Callback(obj, hObject, event)
-            answer = inputdlg({'Line width'},'Line width',1,{num2str(obj.ChannelLineWidth(2))});
+            answer = inputdlg({'Line width'},'Line width',1,{num2str(obj.settings.ChannelLineWidth(2))});
             if isempty(answer)
                 return
             end
-            obj.ChannelLineWidth(2) = str2double(answer{1});
+            obj.settings.ChannelLineWidth(2) = str2double(answer{1});
             obj = findobj('Parent',obj.axes_Channel2,'LineStyle','-');
-            obj.LineWidth  = obj.ChannelLineWidth(2);
+            obj.LineWidth  = obj.settings.ChannelLineWidth(2);
         
             obj.eg_Overlay();
         
@@ -13921,7 +13488,7 @@ end
         
         function menu_EventParams(obj,axnum)
         
-            pr = obj.settings.ChannelAxesEventParameters{axnum};
+            pr = obj.settings.ChannelAxesEventParams{axnum};
         
             if ~isfield(pr,'Names') || isempty(pr.Names)
                 errordlg('Current event detector does not require parameters.','Event detector error');
@@ -13934,11 +13501,11 @@ end
             end
             pr.Values = answer;
         
-            obj.settings.ChannelAxesEventParameters{axnum} = pr;
+            obj.settings.ChannelAxesEventParams{axnum} = pr;
         
             v = obj.popup_EventDetectors(axnum).Value;
             ud = obj.popup_EventDetectors(axnum).UserData;
-            ud{v} = obj.settings.ChannelAxesEventParameters{axnum};
+            ud{v} = obj.settings.ChannelAxesEventParams{axnum};
             obj.popup_EventDetectors(axnum).UserData = ud;
         
             obj.DetectEventsInAxes(axnum);
@@ -13970,9 +13537,9 @@ end
             rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
             rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
         
-            for c = 1:length(obj.menu_Segmenter)
-                if obj.menu_Segmenter(c).Checked
-                    alg = obj.menu_Segmenter(c).Label;
+            for c = 1:length(obj.menu_SegmenterList.Children)
+                if obj.menu_SegmenterList.Children(c).Checked
+                    alg = obj.menu_SegmenterList.Children(c).Label;
                 end
             end
         
@@ -14083,7 +13650,7 @@ end
                 obj.menu_DontPlot.Checked = 'off';
             end
         
-            obj.eg_LoadFile();
+            obj.LoadFile();
         
         end
         function menu_FilterList_Callback(obj, hObject, event)
@@ -14114,7 +13681,7 @@ end
             cla(obj.axes_Sound);
             numSamples = obj.eg_GetSamplingInfo();
         
-            h = eg_peak_detect(obj.axes_Sound, linspace(0, numSamples/obj.dbase.Fs, numSamples), obj.filtered_sound);
+            h = electro_gui.eg_peak_detect(obj.axes_Sound, linspace(0, numSamples/obj.dbase.Fs, numSamples), obj.filtered_sound);
             h.Color = 'c';
             obj.axes_Sound.XTick = [];
             obj.axes_Sound.YTick = [];
@@ -14136,9 +13703,9 @@ end
         function menu_AmplitudeAutoRange_Callback(obj, hObject, event)
             mn = min(obj.amplitude);
             mx = max(obj.amplitude);
-            obj.AmplitudeLims = [mn-0.05*(mx-mn) mx+0.05*(mx-mn)];
+            obj.settings.AmplitudeLims = [mn-0.05*(mx-mn) mx+0.05*(mx-mn)];
         
-            obj.axes_Amplitude.YLim = obj.AmplitudeLims;
+            obj.axes_Amplitude.YLim = obj.settings.AmplitudeLims;
         
         end
         function menu_Properties_Callback(obj, hObject, eventdata)
@@ -14406,7 +13973,7 @@ end
         
             obj.UpdateFiles(old_sound_files);
         
-            obj.eg_LoadFile();
+            obj.LoadFile();
         
         
         
@@ -14437,7 +14004,7 @@ end
         
             obj.UpdateFiles(old_sound_files);
         
-            obj.eg_LoadFile();
+            obj.LoadFile();
         
         end
         function menu_AutoApplyYLim_Callback(obj, hObject, event)
@@ -14770,6 +14337,17 @@ end
             end
             dbase.PropertyNames = propertyNames;
         end
+        function channelIdx = getChannelIdxFromPseudoChannelNumber(dbase, pseudoChannelNum)
+            channelIdx = [];
+            for k = 1:length(dbase.ChannelInfo)
+                if dbase.ChannelInfo(k).IsPseudoChannel && ...
+                   ~isempty(dbase.ChannelInfo(k).Number) && ...
+                   pseudoChannelNum == dbase.ChannelInfo(k).Number
+                    channelIdx = k;
+                    return;
+                end
+            end
+        end
     end
     methods (Static)   % Other utility functions
         function user = getUser()
@@ -14791,10 +14369,12 @@ end
                 defaults.DefaultProperties.Values = cell2mat(defaults.DefaultProperties.Values);
             end
             if ~isempty(msgs)
+                fprintf('\n*************************************************************************************************************\n')
                 warning('Your defaults file is out of date - please address the following issues:');
                 for k = 1:length(msgs)
-                    fprintf('\t%s\n', msgs{k});
+                    fprintf('\t%d) %s\n', k, msgs{k});
                 end
+                fprintf('***************************************************************************************************************\n\n')
             end
         end
         function settingValue = getValueOrDefault(dbase, settingKey, default)
@@ -15040,7 +14620,415 @@ end
             '', ...
             '');
         end
-
-
+        
+        function threshold = eg_AutoThreshold(amp)
+        
+            if mean(amp)<0
+                amp = -amp;
+                isneg=1;
+            else
+                isneg=0;
+            end
+            if range(amp)==0
+                threshold = inf;
+                return;
+            end
+        
+            try
+                % Code from Aaron Andalman
+                [noiseEst, soundEst, noiseStd, soundStd] = eg_estimateTwoMeans(amp);
+                if (noiseEst>soundEst)
+                    disc = max(amp)+eps;
+                else
+                    %Compute the optimal classifier between the two gaussians...
+                    p(1) = 1/(2*soundStd^2+eps) - 1/(2*noiseStd^2);
+                    p(2) = (noiseEst)/(noiseStd^2) - (soundEst)/(soundStd^2+eps);
+                    p(3) = (soundEst^2)/(2*soundStd^2+eps) - (noiseEst^2)/(2*noiseStd^2) + log(soundStd/noiseStd+eps);
+                    disc = roots(p);
+                    disc = disc(disc>noiseEst & disc<soundEst);
+                    if(isempty(disc))
+                        disc = max(amp)+eps;
+                    else
+                        disc = disc(1);
+                        disc = soundEst - 0.5 * (soundEst - disc);
+                    end
+                end
+                threshold = disc;
+        
+                if ~isreal(threshold)
+                    threshold = max(amp)*1.1;
+                end
+            catch
+                threshold = max(amp)*1.1;
+            end
+        
+            if isneg
+                threshold = -threshold;
+            end
+        
+            % by Aaron Andalman
+        end
+        function [dbase, settings] = updateDbaseFormat(dbase, settings, options)
+            % Update legacy dbase format to current format
+            arguments
+                dbase struct
+                settings struct = defaults_template()
+                options.SourceDir = fileparts(mfilename("fullpath"))
+            end
+        
+            % If the legacy field AnalysisState exists, merge the given settings
+            % with the settings from defaults_template.
+            if isfield(dbase, 'AnalysisState')
+                settings = mergeStructures(settings, dbase.AnalysisState, "Overwrite", true);
+                dbase = rmfield(dbase, 'AnalysisState');
+            end
+        
+            sourceDir = options.SourceDir;
+        
+            numFiles = length(dbase.SoundFiles);
+            numEventSources = length(dbase.EventTimes);
+        
+            if ~isfield(dbase, 'EventParts')
+                % Legacy dbases did not have a list of event part names
+                dbase.EventParts = {};
+                if ~exist('plugins', 'var')
+                    plugins = electro_gui.gatherPlugins(sourceDir); %#ok<*PROPLC>
+                end
+                for eventSourceIdx = 1:length(dbase.EventTimes)
+                    eventDetectorName = dbase.EventDetectors{eventSourceIdx};
+                    [~, eventParts] = electro_gui.eg_runPlugin(plugins.eventDetectors, eventDetectorName, 'params');
+                    dbase.EventParts{eventSourceIdx} = eventParts;
+                end
+            end
+        
+            if ~isfield(dbase, 'EventChannels')
+                % Legacy dbases do not have a list of channel numbers, only channel
+                % names (stored in "EventSources" field)
+                dbase.EventChannels = cellfun(@electro_gui.channelNameToNumLegacy, dbase.EventSources, 'UniformOutput', true);
+            end
+        
+            if ~isfield(dbase, 'EventChannelIsPseudo')
+                dbase.EventChannelIsPseudo = false(1, numEventSources);
+            end
+        
+            if ~isfield(dbase, 'ChannelInfo')
+                dbase = electro_gui.UpdateChannelInfo(dbase);
+                if isfield(dbase, 'PseudoChannelNames') || ...
+                   isfield(dbase, 'PseudoChannelTypes') || ...
+                   isfield(dbase, 'PseudoChannelInfo')
+                    % Dbases briefly had these fields to keep track of
+                    % pseudochannel info, but this has been combined into
+                    % dbase.ChannelInfo
+                    for k = 1:length(dbase.PseudoChannelNames)
+                        info = dbase.PseudoChannelInfo{k};
+                        dbase = electro_gui.createEventPseudoChannel(dbase, info.eventSourceIdx, info.eventPartIdx);
+                    end
+                else
+                    % For older legacy databases, we have to generate the pseudochannels
+                    for eventSourceIdx = 1:length(dbase.EventTimes)
+                        for eventPartIdx = 1:length(dbase.EventParts{eventSourceIdx})
+                            dbase = electro_gui.createEventPseudoChannel(dbase, eventSourceIdx, eventPartIdx);
+                        end
+                    end
+                end
+            end
+        
+            % Ensure EventSelected field is all logical not double
+            for eventSourceIdx = 1:numEventSources
+                for filenum = 1:numFiles   %length(dbase.EventIsSelected{eventSourceIdx})
+                    dbase.EventIsSelected{eventSourceIdx}{filenum} = logical(dbase.EventIsSelected{eventSourceIdx}{filenum});
+                end
+            end
+        
+            if ~isfield(dbase, 'EventParameters')
+                % Legacy dbases do not have a list of event parameters
+                dbase.EventParameters = cell(1, numEventSources);
+                if ~exist('plugins', 'var')
+                    plugins = electro_gui.gatherPlugins(sourceDir);
+                end
+        
+                for eventSourceIdx = 1:numEventSources
+                    eventDetectorName = dbase.EventDetectors{eventSourceIdx};
+                    eventParameters = electro_gui.eg_runPlugin(plugins.eventDetectors, eventDetectorName, 'params');
+                    dbase.EventParameters{eventSourceIdx} = eventParameters;
+                end
+            end
+        
+            if ~isfield(dbase, 'EventFunctionParameters')
+                % Legacy dbases do not have a list of event parameters
+                dbase.EventFunctionParameters = cell(1, numEventSources);
+                if ~exist('plugins', 'var')
+                    plugins = electro_gui.gatherPlugins(sourceDir);
+                end
+                for eventSourceIdx = 1:numEventSources
+                    filterName = dbase.EventFunctions{eventSourceIdx};
+                    try
+                        filterParameters = electro_gui.eg_runPlugin(plugins.filters, filterName, 'params');
+                        dbase.EventFunctionParameters{eventSourceIdx} = filterParameters;
+                    catch
+                        emptyParams.Names = {};
+                        emptyParams.Values = {};
+                        dbase.EventFunctionParameters{eventSourceIdx} = emptyParams;
+                    end
+                end
+            end
+        
+            % FileReadState has been moved from main dbase to settings
+            if ~isfield(settings, 'FileReadstate')
+                if isfield(dbase, 'FileReadState')
+                    settings.FileReadState = dbase.FileReadState;
+                else
+                    settings.FileReadState = false(1, numFiles);
+                end
+            end
+            if isfield(dbase, 'FileReadState')
+                dbase = rmfield(dbase, 'FileReadState');
+            end
+        
+            if ~isfield(settings, 'EventThresholdDefaults') || length(settings.EventThresholdDefaults) ~= numEventSources
+                % Legacy dbases did not have stored defaults - initialize a new one
+                if isempty(dbase.EventThresholds)
+                    settings.EventThresholdDefaults = inf(1, numEventSources);
+                else
+                    % Use the most common non-infinite threshold for each event
+                    % source
+        
+                    % Make a copy of all the thresholds
+                    thresholds = dbase.EventThresholds;
+                    % Replace inf with NaN to exclude it from the mode calculation
+                    thresholds(thresholds == inf) = NaN;
+                    % Find the most commonly used threshold
+                    thresholds = mode(thresholds, 2);
+                    % If one of the event sources was all infinity ==> all nan,
+                    % then the mode will show up as nan. Replace those with inf.
+                    thresholds(isnan(thresholds)) = inf;
+                    % Copy into defaults variable
+                    settings.EventThresholdDefaults = thresholds;
+                end
+            end
+        
+            if ~isfield(settings, 'CurrentFile')
+                settings.CurrentFile = 1;
+            end
+        
+            if isstruct(dbase.Properties)
+                % This is a legacy format for properties - import it
+                % Get every property name across dbase
+                propertyNames = unique([dbase.Properties.Names{:}], 'stable');
+                propertyValues = false(numFiles, length(propertyNames));
+                for filenum = 1:numFiles
+                    for oldPropertyIdx = 1:length(dbase.Properties.Names{filenum})
+                        propertyType = dbase.Properties.Types{filenum}(oldPropertyIdx);
+                        switch propertyType
+                            case 1
+                                %
+                            case 2
+                                % Boolean
+                                propertyName = dbase.Properties.Names{filenum}{oldPropertyIdx};
+                                newPropertyIdx = find(strcmp(propertyName, propertyNames), 1);
+                                propertyValues(filenum, newPropertyIdx) = dbase.Properties.Values{filenum}{oldPropertyIdx};
+                            case 3
+                                %
+                        end
+                    end
+                end
+                % Set properties
+                dbase = electro_gui.setProperties(dbase, propertyValues, propertyNames);
+            end
+        
+            if ~isfield(settings, 'FileSortMethod')
+                settings.FileSortMethod = 'File number';
+            end
+        
+            if ~isfield(settings, 'FileSortPropertyName')
+                if isfield(dbase, 'FileSortPropertyName')
+                    settings.FileSortPropertyName = dbase.FileSortPropertyName;
+                else
+                    settings.FileSortPropertyName = '';
+                end
+            end
+            if isfield(dbase, 'FileSortPropertyName')
+                dbase = rmfield(dbase, 'FileSortPropertyName');
+            end
+        
+            if ~isfield(settings, 'FileSortReversed')
+                settings.FileSortReversed = false;
+            end
+        
+            if ~isfield(dbase, 'Notes')
+                % Legacy dbase - create empty notes
+                dbase.Notes = repmat({''}, 1, numFiles);
+            end
+        
+            if ~isfield(settings, 'AuxiliarySoundSources')
+                settings.AuxiliarySoundSources = {};
+            end
+        
+            if ~isfield(dbase, 'MarkerTimes')
+                % This must be an older type of dbase - add blank marker field
+                dbase.MarkerTimes = cell(1,numFiles);
+            end
+            if ~isfield(dbase, 'MarkerTitles')
+                % This must be an older type of dbase - add blank marker field
+                dbase.MarkerTitles = cell(1,numFiles);
+            end
+            if ~isfield(dbase, 'MarkerIsSelected')
+                % This must be an older type of dbase - add blank marker field
+                dbase.MarkerIsSelected = cell(1,numFiles);
+            end
+        
+            if isfield(dbase, 'EventXLims')
+                % This is now in settings.EventXLims, but legacy dbases
+                % may have it simply in dbase.EventXLims, so look for it here too
+                settings.EventXLims = dbase.EventXLims;
+            end
+            if isfield(dbase, 'EventLims')
+                % Due to a typo some dbases may have this as EventLims
+                settings.EventXLims = dbase.EventXLims;
+            end
+            if ~isfield(settings, 'EventXLims') || isempty(settings.EventXLims)
+                settings.EventXLims = settings.DefaultEventXLims;
+            end
+        
+            if size(settings.EventXLims, 1) ~= length(dbase.EventSources)
+                % Legacy dbases had event xlims per channel axes, not per file,
+                % so not complete.
+                for eventSourceIdx = 1:length(dbase.EventTimes)
+                    settings.EventXLims(eventSourceIdx, :) = settings.EventXLims;
+                end
+            end
+        end
+        function [uNoise, uSound, sdNoise, sdSound] = eg_estimateTwoMeans(audioLogPow)
+        
+            %Run EM algorithm on mixture of two gaussian model:
+        
+            %set initial conditions
+            l = length(audioLogPow);
+            len = 1/l;
+            m = sort(audioLogPow);
+            uNoise = median(m(fix(1:length(m)/2)));
+            uSound = median(m(fix(length(m)/2:length(m))));
+            sdNoise = 5;
+            sdSound = 20;
+        
+            %compute estimated log likelihood given these initial conditions...
+            prob = zeros(2,l);
+            prob(1,:) = (exp(-(audioLogPow - uNoise).^2 / (2*sdNoise^2)))./sdNoise;
+            prob(2,:) = (exp(-(audioLogPow - uSound).^2 / (2*sdSound^2)))./sdSound;
+            [estProb, class] = max(prob);
+            warning off
+            logEstLike = sum(log(estProb)) * len;
+            warning on
+            logOldEstLike = -Inf;
+        
+            %maximize using Estimation Maximization
+            while(abs(logEstLike-logOldEstLike) > .005)
+                logOldEstLike = logEstLike;
+        
+                %Which samples are noise and which are sound.
+                nndx = find(class==1);
+                sndx = find(class==2);
+        
+                %Maximize based on this classification.
+                uNoise = mean(audioLogPow(nndx));
+                sdNoise = std(audioLogPow(nndx));
+                if ~isempty(sndx)
+                    uSound = mean(audioLogPow(sndx));
+                    sdSound = std(audioLogPow(sndx));
+                else
+                    uSound = max(audioLogPow);
+                    sdSound = 0;
+                end
+        
+                %Given new parameters, recompute log likelihood.
+                prob(1,:) = (exp(-(audioLogPow - uNoise).^2 / (2*sdNoise^2+eps)))./(sdNoise+eps);
+                prob(2,:) = (exp(-(audioLogPow - uSound).^2 / (2*sdSound^2+eps)))./(sdSound+eps)+eps;
+                [estProb, class] = max(prob);
+                logEstLike = sum(log(estProb+eps)) * len;
+            end
+        
+        
+        end
+        function inside = areCoordinatesIn(x, y, figureChild)
+            % Check if given normalized figure coordinates are inside the borders
+            % of one or more children of that figure.
+            for k = 1:length(figureChild)
+                if x < figureChild(k).Position(1)
+                    inside = false;
+                elseif x > figureChild(k).Position(1) + figureChild(k).Position(3)
+                    inside = false;
+                elseif y < figureChild(k).Position(2)
+                    inside = false;
+                elseif y > figureChild(k).Position(2) + figureChild(k).Position(4)
+                    inside = false;
+                else
+                    inside = k;
+                    return;
+                end
+            end
+        end
+        function [x, y] = convertFigCoordsToChildAxesCoords(xFig, yFig, childAxes)
+            xAx0 = childAxes.Position(1);
+            yAx0 = childAxes.Position(2);
+            wAx = childAxes.Position(3);
+            hAx = childAxes.Position(4);
+            xAx = (xFig - xAx0)/wAx;
+            yAx = (yFig - yAx0)/hAx;
+            x = childAxes.XLim(1) + diff(childAxes.XLim)*xAx;
+            y = childAxes.YLim(1) + diff(childAxes.YLim)*yAx;
+        end
+        function nextIdx = findNextTrueIdx(mask, startIdx, direction)
+            % Given a mask and a starting index, find the next true value in
+            % the mask in the given direction.
+        
+            if direction > 0
+                nextIdx = find(mask(startIdx+1:end), 1) + startIdx;
+                if isempty(nextIdx)
+                    % None found between startIdx and end - try from the beginning
+                    % to the startIdx
+                    nextIdx = find(mask(1:startIdx-1), 1);
+                end
+            elseif direction < 0
+                nextIdx = find(mask(1:startIdx-1), 1, "last");
+                if isempty(nextIdx)
+                    % None found from startIdx to 1 - try from the end to startIdx
+                    nextIdx = find(mask(startIdx+1:end), 1, "last") + startIdx;
+                end
+            else
+                nextIdx = startIdx;
+            end
+        end
+        function h = eg_peak_detect(ax,x,y)
+            % Plot an envelope of the signal "y", downsampled to fit in the axes width
+            ax.Units = 'pixels';
+            ax.Parent.Units = 'pixels';
+            pos = ax.Position;
+            width = fix(pos(3));
+            ax.Parent.Units = 'normalized';
+            ax.Units = 'normalized';
+        
+            xl = xlim(ax);
+            if length(y) < width*3
+                h = plot(ax, x,y);
+            else
+                ynew = zeros(1,ceil(length(y)/width)*width);
+                nadd = length(ynew)-length(y);
+                pos = round(linspace(1,length(ynew),nadd+2));
+                pos = pos(2:end-1);
+                ynew(setdiff(1:length(ynew),pos)) = y;
+                ynew(pos) = ynew(pos-1);
+                y = reshape(ynew,length(ynew)/width,width);
+        
+                h(1) = plot(ax, linspace(min(x),max(x),size(y,2)),max(y,[],1));
+                hold(ax, 'on');
+                h(2) = plot(ax, linspace(min(x),max(x),size(y,2)),min(y,[],1));
+                hold(ax, 'off');
+            end
+            xlim(ax, xl);
+        end
+        function ind = getSortedArrayInsertion(sortedArr, value)
+            [~, ind] = min(abs(sortedArr-value));
+            ind = ind + (value > sortedArr(ind));
+        end
     end
 end
