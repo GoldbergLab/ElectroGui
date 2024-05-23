@@ -557,7 +557,8 @@ function SaveState(obj)
     newTimestamp = datetime("now");
     if (newTimestamp - obj.LastHistoryTimestamp) > (obj.settings.HistoryInterval / (60*60*24))
         try
-            obj.History.SaveState(GetDBase(obj, false));
+            [dbase, settings] = obj.GetDBase(false);
+            obj.History.SaveState({dbase, settings});
             obj.LastHistoryTimestamp = newTimestamp;
         catch
             % Eh, don't sweat it.
@@ -569,16 +570,20 @@ function Undo(obj)
     if ~obj.settings.UndoEnabled
         warning('Undo/redo is disabled - enable it by adding ''obj.settings.UndoEnabled = true;'' to your defaults file');
     end
-    dbase = obj.History.UndoState(GetDBase(obj, false)); %#ok<*PROP>
-    obj.OpenDbase(dbase);
+    state = obj.History.UndoState(obj.GetDBase(false)); %#ok<*PROP>
+    dbase = state{1};
+    settings = state{2};
+    obj.OpenDbase(dbase, 'Settings', settings);
 end
 
 function Redo(obj)
     if ~obj.settings.UndoEnabled
         warning('Undo/redo is disabled - enable it by adding ''obj.settings.UndoEnabled = true;'' to your defaults file');
     end
-    dbase = obj.History.RedoState(GetDBase(obj, false));
-    obj.OpenDbase(dbase);
+    state = obj.History.RedoState(obj.GetDBase(false));
+    dbase = state{1};
+    settings = state{2};
+    obj.OpenDbase(dbase, 'Settings', settings);
 end
 
 function disableAxesPopupToolbars(obj)
@@ -903,7 +908,7 @@ function populatePluginMenus(obj)
     obj.menu_ColormapList = electro_gui.populatePluginMenuList(p.colorMaps, '(Default)', obj.menu_Colormap, @ColormapClick);
 
     % Populate macro plugin menu
-    obj.menu_Macros = electro_gui.populatePluginMenuList(p.macros, [], obj.menu_Macros, @MacrosMenuclick);
+    obj.menu_Macros = electro_gui.populatePluginMenuList(p.macros, [], obj.menu_Macros, @obj.MacrosMenuclick);
 
     % Populate x-axis event feature algorithm plugin menu
     obj.menu_XAxis_List = electro_gui.populatePluginMenuList(p.eventFeatures, obj.settings.DefaultEventFeatureX, obj.menu_XAxis, @XAxisMenuClick);
@@ -5347,7 +5352,7 @@ function UpdateFiles(obj, old_sound_files)
 
 end
 
-function dbase = GetDBase(obj, includeDocumentation)
+function [dbase, settings] = GetDBase(obj, includeDocumentation)
     arguments
         obj electro_gui
         includeDocumentation (1,1) logical = obj.settings.IncludeDocumentation
@@ -5370,9 +5375,11 @@ function dbase = GetDBase(obj, includeDocumentation)
         end
     end
 
-    if ~includeDocumentation
+    if ~includeDocumentation && isfield(dbase, 'help')
         dbase = rmfield(dbase, 'help');
     end
+
+    settings = obj.settings;
 end
 
 function eg_PopulateSoundSources(obj)
@@ -13312,12 +13319,8 @@ end
         function menu_WorksheetView_Callback(obj, hObject, event)
             obj.ViewWorksheet();
         end
-        
         function MacrosMenuclick(obj, hObject, event)
-        
             obj.SaveState();
-        
-            obj.dbase = obj.GetDBase();
         
             f = find(obj.menu_Macros==hObject);
         
@@ -14622,7 +14625,8 @@ end
         end
         
         function threshold = eg_AutoThreshold(amp)
-        
+            % by Aaron Andalman
+
             if mean(amp)<0
                 amp = -amp;
                 isneg=1;
@@ -14666,7 +14670,6 @@ end
                 threshold = -threshold;
             end
         
-            % by Aaron Andalman
         end
         function [dbase, settings] = updateDbaseFormat(dbase, settings, options)
             % Update legacy dbase format to current format
