@@ -2,60 +2,67 @@ function settings = defaults_template(settings)
 % Default settings
 
 % GENERAL SETTINGS
-settings.TooLong = 400000000; % Number of points for a file to be considered too long for loading automatically
-settings.FileString = '*chan%d.nc'; % File search string; must include a string formatting expression to handle an integer channel #, such as %02d for integers zero-padded to 2 digits, or %d for unpadded integers.handles.DefaultFileLoader = 'Intan_Bin'; % Default file loader. Choose from egl_* files.
+settings.TooLong = 400000000;            % Number of points for a file to be considered too long for loading automatically
+settings.FileString = '*chan%d.nc';      % File search string; must include a string formatting expression to handle an integer channel #, such as %02d for integers zero-padded to 2 digits, or %d for unpadded integers.handles.DefaultFileLoader = 'Intan_Bin'; % Default file loader. Choose from egl_* files.
 settings.DefaultFileLoader = 'Intan_Nc'; % Default file loader. Choose from egl_* files.
-settings.DefaultChannelNumber = 20; % Default number of channels
-settings.QuoteFile = 'quotes.txt';
-settings.IncludeDocumentation = true;  % Include field documentation in dbase? This adds a little size to the dbase file.
+settings.DefaultChannelNumber = 20;      % Default number of channels
+settings.QuoteFile = 'quotes.txt';       % File to get startup quotes from
+settings.IncludeDocumentation = true;    % Include field documentation in dbase? This adds a little size to the dbase file.
+settings.CurrentFile = 1;                % File number to start at
 
 % UNDO/REDO SETTINGS
-settings.UndoEnabled = true;     % Enable control-z for undo and control-y or control-shift-z for redo - this adds some overhead to operations.
-settings.MaxHistoryLength = 10;  % Maximum number of states to save (for undo/redo purposes). Higher = more memory, more undos
-settings.HistoryInterval = 3;    % Minimum time in seconds between saving states - set to zero to save the state on every change regardless of how fast.
+settings.UndoEnabled = true;             % Enable control-z for undo and control-y or control-shift-z for redo - this adds some overhead to operations.
+settings.MaxHistoryLength = 10;          % Maximum number of states to save (for undo/redo purposes). Higher = more memory, more undos
+settings.HistoryInterval = 3;            % Minimum time in seconds between saving states - set to zero to save the state on every change regardless of how fast.
 
-% DEFAULT PROPERTIES
-settings.DefaultProperties.Names = {'bSorted', 'bDirected', 'bContainsStim', 'bUnusable'};   % Default property names to add to every loaded file
-settings.DefaultProperties.Values = {false, false, false, false};  % Corresponding default values for /\
-settings.DefaultProperties.Types = [2, 2, 2, 2];   % Corresponding default types for /\  (1=string, 2=boolean, 3=list)
+% PROPERTIES SETTINGS
+settings.DefaultProperties.Names = {};      % {'bSorted', 'bDirected', 'bContainsStim', 'bUnusable'};   % Cell array of default property names to add to a new dbase
+settings.DefaultProperties.Values = [];     % [false, false, false, false];  % Corresponding default values for /\
+settings.FileSortMethod = 'File number';    % Default file sorting method - one of {'File number', 'Random', 'Property', 'Read status'}
+settings.FileSortPropertyName = '';         % Default property to sort by if FileSortMethod is 'Property'
+settings.FileSortReversed = false;
 
 % FILE CACHING
-settings.EnableFileCaching = true;   % Enable file caching - electrogui will load several files in the background around current file to improve loading time. Note that the first time MATLAB will need time to start parallel pool.
-settings.BackwardFileCacheSize = 2;  % Number of files to load before the current file in case user goes backwards
-settings.ForwardFileCacheSize = 4;   % Number of files to load after the current file in case user goes forwards
+settings.EnableFileCaching = true;      % Enable file caching - electrogui will load several files in the background around current file to improve loading time. Note that the first time MATLAB will need time to start parallel pool.
+settings.BackwardFileCacheSize = 2;     % Number of files to load before the current file in case user goes backwards
+settings.ForwardFileCacheSize = 4;      % Number of files to load after the current file in case user goes forwards
 
 % DBASE SETTINGS
-settings.IncludeDocumentation = true;  % Include documentation in dbase?
+settings.IncludeDocumentation = true;                 % Include documentation in saved dbase?
 settings.DefaultDbaseFilename = 'analysis.mat';
+settings.LegacyOptions.IncludeAnalysisState = false;  % Recent versions of 
+    % electro_gui save settings in a separate 'settings' variable in the 
+    % dbase mat file. Make this true to save them instead in the subfield
+    % "AnalysisSettings".
 
 % SONOGRAM SETTINGS
-settings.Colormap = 'parula';  % Default coloramp
-settings.SonogramAutoCalculate = 1; % Automatically calculate and plot the sonogram when a file is loaded or axes changed?
-settings.FreqLim = [500 7500]; % Frequency axis limits (Hz)
-settings.AllowFrequencyZoom = 0; % Allow user to zoom along the frequency axis by dragging a box over the sonogram?
-settings.SonogramClim = [12.5 28]; % Minimum and maximum color saturation values for power spectra
-settings.DerivativeSlope = 0; % Brighness of spectral derivatives - values are divided by 10^slope
-settings.DerivativeOffset = 13.5; % Minimum saturation value for spectral derivatives
+settings.Colormap = 'parula';               % Default coloramp
+settings.SonogramAutoCalculate = 1;         % Automatically calculate and plot the sonogram when a file is loaded or axes changed?
+settings.FreqLim = [500 7500];              % Frequency axis limits (Hz)
+settings.AllowFrequencyZoom = 0;            % Allow user to zoom along the frequency axis by dragging a box over the sonogram?
+settings.SonogramClim = [12.5 28];          % Minimum and maximum color saturation values for power spectra
+settings.DerivativeSlope = 0;               % Brighness of spectral derivatives - values are divided by 10^slope
+settings.DerivativeOffset = 13.5;           % Minimum saturation value for spectral derivatives
 settings.BackgroundColors = [0 0 0; 0.5 0.5 0.5]; % Background colors for sonograms. 1st row - for power spectra; 2nd row - for spectral derivatives
 settings.DefaultSonogramPlotter = 'AAquick_sonogram'; % Algorithm to use for plotting sonograms. Choose from egs_* files.
-settings.OverlayTop = 0; % Overlay the top plot over the sonogram?
-settings.OverlayBottom = 0; % Overlay the bottom plot over the sonogram?
-settings.SoundChannel = 0;   % Channel number to use as sound
-settings.SoundExpression = '';  % An expression to use to create a derived sound channel
+settings.OverlayTop = 0;                    % Overlay the top plot over the sonogram?
+settings.OverlayBottom = 0;                 % Overlay the bottom plot over the sonogram?
+settings.SoundChannel = 0;                  % Channel number to use as sound
+settings.SoundExpression = '';              % An expression to use to create a derived sound channel
 
 % AMPLITUDE SETTINGS
 settings.DefaultFilter = 'BandPass860to8600'; % Filter to use for calculating sound amplitudes. Choose from egf_* files.
-settings.AmplitudeLims = [0 50]; % Y-axis limits for the amplitude plot
-settings.SmoothWindow = 0.0025; % Smoothing window (sec) for calculating amplitude
-settings.AmplitudeColor = [0 0 0]; % Color of the amplitude plot
+settings.AmplitudeLims = [0 50];            % Y-axis limits for the amplitude plot
+settings.SmoothWindow = 0.0025;             % Smoothing window (sec) for calculating amplitude
+settings.AmplitudeColor = [0 0 0];          % Color of the amplitude plot
 settings.AmplitudeThresholdColor = [1 0 0]; % Color of the threshold line on the amplitude plot
-settings.AmplitudeDontPlot = 0; % Should the amplitude plot and segmentation be omitted?
+settings.AmplitudeDontPlot = 0;             % Should the amplitude plot and segmentation be omitted?
 
 % SEGMENTATION SETTINGS
-settings.AmplitudeSource = 0; % What should be used as the curve for segmentation? 0 - sound amplitude; 1 - top plot; 2 - bottom plot
-settings.AmplitudeAutoThreshold = 1; % Should the threshold for segmentation be chosen automatically, or carry over the current threshold?
+settings.AmplitudeSource = 0;               % What should be used as the curve for segmentation? 0 - sound amplitude; 1 - top plot; 2 - bottom plot
+settings.AmplitudeAutoThreshold = 1;        % Should the threshold for segmentation be chosen automatically, or carry over the current threshold?
 settings.DefaultSegmenter = 'fast_DA_segmenter'; % Algorithm to use for segmentation. Choose from egg_* files.
-settings.AutoSegment = 1; % Automatically segment when a new file is loaded or a different threshold is chosen?
+settings.AutoSegment = 1;                   % Automatically segment when a new file is loaded or a different threshold is chosen?
 settings.ValidSegmentCharacters = num2cell('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%&*(){}[]_');  % Allowed characters for segment titles
 settings.SegmentSelectColor = 'r';
 settings.SegmentUnSelectColor = [0.7, 0.5, 0.5];
