@@ -461,8 +461,6 @@ function InitializeGraphics(obj)
     obj.SegmentLabelHandles = gobjects().empty;
     obj.MarkerLabelHandles = gobjects().empty;
 
-    obj.setUpSegmentAndMarkerColors();
-
     obj.settings.ActiveSegmentNum = [];
     obj.settings.ActiveMarkerNum = [];
 
@@ -716,14 +714,6 @@ function setUpWorksheet(obj)
     obj.settings.WorksheetList = [];
     obj.settings.WorksheetUsed = [];
     obj.settings.WorksheetWidths = [];
-end
-
-function setUpSegmentAndMarkerColors(obj)
-    % Segment/Marker colors
-    obj.settings.SegmentSelectColors = {obj.settings.SegmentUnSelectColor, obj.settings.SegmentSelectColor};
-    obj.settings.MarkerSelectColors = {obj.settings.MarkerUnSelectColor, obj.settings.MarkerSelectColor};
-    obj.settings.SegmentActiveColors = {obj.settings.SegmentInactiveColor, obj.settings.SegmentActiveColor};
-    obj.settings.SegmentInactiveColors = {obj.settings.MarkerInactiveColor, obj.settings.SegmentInactiveColor};
 end
 
 function isNewUser = ensureDefaultsFileExists(obj, user)
@@ -1202,19 +1192,9 @@ function LoadFile(obj, showWaitBar)
     obj.dbase.FileLength(filenum) = numSamples;
     obj.text_DateAndTime.String = string(datetime(obj.dbase.Times(filenum), 'ConvertFrom', 'datenum'));
 
-    h = electro_gui.eg_peak_detect(obj.axes_Sound, linspace(0, numSamples/fs, numSamples), obj.filtered_sound);
+    obj.RedrawSoundEnvelope();
 
-    [h.Color] = deal('c');
-    obj.axes_Sound.XTick = [];
-    obj.axes_Sound.YTick = [];
-    obj.axes_Sound.Color = [0 0 0];
-    axis(obj.axes_Sound, 'tight');
-    yl = max(abs(ylim(obj.axes_Sound)));
-    ylim(obj.axes_Sound, [-yl*1.2, yl*1.2]);
-
-    box(obj.axes_Sound, 'on');
-
-    clearAxes(obj);
+    obj.clearAxes();
 
     tmax = numSamples/fs;
     obj.settings.TLim = [0, tmax];
@@ -1237,7 +1217,7 @@ function LoadFile(obj, showWaitBar)
         waitbar(0.7, progressBar);
     end
 
-    obj.updateAmplitude(true);
+    obj.updateAmplitude('ForceRedraw', true);
 
     obj.UpdateTimescaleView();
 
@@ -1539,7 +1519,7 @@ end
 function eg_LoadChannel(obj, axnum)
     % Load a new channel of data
 
-    if obj.popup_Channels(axnum).Value==1
+    if isempty(obj.getSelectedChannel(axnum))
         % This is "(None)" channel selection, so disable everything
         cla(obj.axes_Channel(axnum));
         obj.axes_Channel(axnum).Visible = 'off';
@@ -1783,6 +1763,22 @@ function UpdateFilteredSound(obj)
     % Update the obj.filtered_sound field
     obj.UpdateSound();
     obj.filtered_sound = obj.filterSound(obj.sound);
+end
+
+function RedrawSoundEnvelope(obj)
+    % Redraw the sound envelope on the top navigation axes
+    [numSamples, fs] = obj.eg_GetSamplingInfo();
+    h = electro_gui.eg_peak_detect(obj.axes_Sound, linspace(0, numSamples/fs, numSamples), obj.filtered_sound);
+
+    [h.Color] = deal('c');
+    obj.axes_Sound.XTick = [];
+    obj.axes_Sound.YTick = [];
+    obj.axes_Sound.Color = [0 0 0];
+    axis(obj.axes_Sound, 'tight');
+    yl = max(abs(ylim(obj.axes_Sound)));
+    ylim(obj.axes_Sound, [-yl*1.2, yl*1.2]);
+
+    box(obj.axes_Sound, 'on');
 end
 
 function eg_PlotChannel(obj, axnum)
@@ -2623,13 +2619,51 @@ function ToggleAnnotationSelect(obj, filenum, annotationNum, annotationType)
             % Do nothing
     end
 end
+function color = getAnnotationFaceColor(obj, annotationType, selectionState)
+    switch annotationType
+        case 'segment'
+            if selectionState
+                color = obj.settings.SegmentSelectColor;
+            else
+                color = obj.settings.SegmentUnSelectColor;
+            end
+        case 'marker'
+            if selectionState
+                color = obj.settings.MarkerSelectColor;
+            else
+                color = obj.settings.MarkerUnSelectColor;
+            end
+        otherwise
+            error('Unknown annotation type: %s', annotationType);
+    end
+end
+function color = getAnnotationEdgeColor(obj, annotationType, activeState)
+    switch annotationType
+        case 'segment'
+            if activeState
+                color = obj.settings.SegmentActiveColor;
+            else
+                color = obj.settings.SegmentInactiveColor;
+            end
+        case 'marker'
+            if activeState
+                color = obj.settings.MarkerActiveColor;
+            else
+                color = obj.settings.MarkerInactiveColor;
+            end
+        otherwise
+            error('Unknown annotation type: %s', annotationType);
+    end
+end
 function ToggleSegmentSelect(obj, filenum, segmentNum)
     obj.dbase.SegmentIsSelected{filenum}(segmentNum) = ~obj.dbase.SegmentIsSelected{filenum}(segmentNum);
-    obj.SegmentHandles(segmentNum).FaceColor = obj.settings.SegmentSelectColors{obj.dbase.SegmentIsSelected{filenum}(segmentNum)+1};
+    obj.SegmentHandles(segmentNum).FaceColor = obj.getAnnotationFaceColor('segment', ...
+        obj.dbase.SegmentIsSelected{filenum}(segmentNum));
 end
 function ToggleMarkerSelect(obj, filenum, markerNum)
     obj.dbase.MarkerIsSelected{filenum}(markerNum) = ~obj.dbase.MarkerIsSelected{filenum}(markerNum);
-    obj.MarkerHandles(markerNum).FaceColor = obj.settings.MarkerSelectColors{obj.dbase.MarkerIsSelected{filenum}(markerNum)+1};
+    obj.MarkerHandles(markerNum).FaceColor = obj.getAnnotationFaceColor('marker', ...
+        obj.dbase.MarkerIsSelected{filenum}(markerNum));
 end
 function annotationType = FindActiveAnnotationType(obj)
     [~, annotationType] = FindActiveAnnotation(obj);
@@ -3712,7 +3746,7 @@ function SetEventThreshold(obj, axnum, threshold)
     end
     if isempty(eventSourceIdx)
         % Still no event source - axes must not be ready
-        msgbox('Please select a channel number and an event detector before setting the threshold.')
+        msgbox('Please select both a channel number and an event detector before setting the threshold.')
         return;
     end
 
@@ -4773,12 +4807,14 @@ function menu_FunctionParams(obj,axnum)
 
 
 end
-function updateAmplitude(obj, forceRedraw)
+function updateAmplitude(obj, options)
     % Update amplitude axes according to data in obj.amplitude
-
-    if ~exist('forceRedraw', 'var') || isempty(forceRedraw)
-        forceRedraw = false;
+    arguments
+        obj electro_gui
+        options.ForceRedraw logical = false
     end
+
+    forceRedraw = options.ForceRedraw;
 
     % Recalculate amplitude data
     if obj.menu_DontPlot.Checked
@@ -9687,18 +9723,10 @@ end
 
             cla(obj.axes_Sound);
             obj.UpdateFilteredSound();
-            [numSamples, fs] = obj.eg_GetSamplingInfo();
-            h = electro_gui.electro_gui.eg_peak_detect(obj.axes_Sound, linspace(0, numSamples/fs, numSamples), obj.filtered_sound);
-            [h.Color] = deal('c');
-            set(obj.axes_Sound,'XTick',[],'YTick',[]);
-            obj.axes_Sound.Color = [0 0 0];
-            axis(obj.axes_Sound, 'tight');
-            yl = max(abs(ylim(obj.axes_Sound)));
-            ylim(obj.axes_Sound, [-yl*1.2 yl*1.2]);
+
+            obj.RedrawSoundEnvelope();
 
             obj.updateXLimBox();
-
-            box(obj.axes_Sound, 'on');
 
             obj.setClickSoundCallback(obj.axes_Sonogram);
             obj.setClickSoundCallback(obj.axes_Sound);
@@ -9734,10 +9762,10 @@ end
                     switch clickedAnnotationType
                         case 'segment'
                             obj.dbase.SegmentIsSelected{filenum}(clickedAnnotationNum) = ~obj.dbase.SegmentIsSelected{filenum}(clickedAnnotationNum);
-                            hObject.FaceColor = obj.settings.SegmentSelectColors{obj.dbase.SegmentIsSelected{filenum}(clickedAnnotationNum+1)};
+                            hObject.FaceColor = obj.getAnnotationFaceColor('segment', obj.dbase.SegmentIsSelected{filenum}(clickedAnnotationNum));
                         case 'marker'
                             obj.dbase.MarkerIsSelected{filenum}(clickedAnnotationNum) = ~obj.dbase.MarkerIsSelected{filenum}(clickedAnnotationNum);
-                            hObject.FaceColor = obj.settings.MarkerSelectColors{obj.dbase.MarkerIsSelected{filenum}(clickedAnnotationNum+1)};
+                            hObject.FaceColor = obj.getAnnotationFaceColor('marker',  obj.dbase.MarkerIsSelected{filenum}(clickedAnnotationNum));
                     end
                 case 'open'
                     switch clickedAnnotationType
@@ -13682,20 +13710,10 @@ end
             obj.UpdateFilteredSound();
         
             cla(obj.axes_Sound);
-            numSamples = obj.eg_GetSamplingInfo();
-        
-            h = electro_gui.eg_peak_detect(obj.axes_Sound, linspace(0, numSamples/obj.dbase.Fs, numSamples), obj.filtered_sound);
-            h.Color = 'c';
-            obj.axes_Sound.XTick = [];
-            obj.axes_Sound.YTick = [];
-            obj.axes_Sound.Color = [0 0 0];
-            axis(obj.axes_Sound, 'tight');
-            yl = max(abs(obj.axes_Sound.YLim));
-            obj.axes_Sound.YLim = [-yl*1.2 yl*1.2];
+
+            obj.RedrawSoundEnvelope();
         
             obj.updateXLimBox();
-        
-            box(obj.axes_Sound, 'on');
         
             obj.setClickSoundCallback(obj.axes_Sonogram);
             obj.setClickSoundCallback(obj.axes_Sound);
