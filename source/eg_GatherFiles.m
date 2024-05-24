@@ -34,26 +34,20 @@ function [dbase, cancel] = eg_GatherFiles(PathName, FileString, FileLoader, NumC
         NumChannels = length(FileLoader) - 1;
     end
 
-    try
-        cancel = false;
-    
-        if options.GUI
-            [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = SpecifyFilesGUI(PathName, FileString, FileLoader, NumChannels, options.TitleString);
-        end
-    
-        % Assign fields to dbase
-        dbase.SoundFiles = dir(fullfile(dbase.PathName, SoundPattern));
-        dbase.SoundLoader = SoundLoader;
-        dbase.ChannelFiles = {};
-        for chan = 1:NumChannels
-            dbase.ChannelFiles{chan} = dir(fullfile(dbase.PathName, ChannelPatterns{chan}));
-        end
-        dbase.ChannelLoader{chan} = ChannelLoaders;
-    catch ME
-        if options.GUI
-            getReport(ME)
-        end
+    cancel = false;
+
+    if options.GUI
+        [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = SpecifyFilesGUI(PathName, FileString, FileLoader, NumChannels, options.TitleString);
     end
+
+    % Assign fields to dbase
+    dbase.SoundFiles = dir(fullfile(dbase.PathName, SoundPattern));
+    dbase.SoundLoader = SoundLoader;
+    dbase.ChannelFiles = {};
+    for chan = 1:NumChannels
+        dbase.ChannelFiles{chan} = dir(fullfile(dbase.PathName, ChannelPatterns{chan}));
+    end
+    dbase.ChannelLoader{chan} = ChannelLoaders;
 
 function [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = SpecifyFilesGUI(PathName, FileString, FileLoader, NumChannels, TitleString)
     % Create dialog figure
@@ -73,8 +67,10 @@ function [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = 
     fig.UserData.PathName = PathName;
     fig.UserData.NumChannels = NumChannels;
 
-    % Find all loader files
-    loader_files = dir('egl_*.m');
+    sourcePath = fileparts(mfilename("fullpath"));
+
+    % Find all loader plugins
+    loader_files = dir(fullfile(sourcePath, 'egl_*.m'));
     loader_names = cell(1, length(loader_files));
     default_loader_indices = ones(NumChannels + 1);
     for loader_idx = 1:length(loader_files)

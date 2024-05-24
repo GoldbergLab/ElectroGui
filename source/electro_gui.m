@@ -3195,11 +3195,10 @@ function eg_NewDbase(obj)
     obj.text_TotalFileNumber.String = ['of ' num2str(numFiles)];
     obj.edit_FileNumber.String = '1';
 
-    obj.UpdateFileInfoBrowser();
-
     obj.updateFileNotes();
 
     obj.RefreshSortOrder();
+    obj.UpdateFileInfoBrowser();
 
     obj.FileInfoBrowser.SelectedRow = 1;
     obj.popup_Channel1.Value = 1;
@@ -3437,7 +3436,6 @@ function OpenDbase(obj, filePathOrDbase, options)
 
     % Set properties
     obj.dbase = electro_gui.setProperties(obj.dbase, obj.dbase.Properties, obj.dbase.PropertyNames);
-    obj.UpdateFileInfoBrowser();
 
     % Load file sorting info from dbase
     fileSortMethod = obj.settings.FileSortMethod;
@@ -3445,17 +3443,11 @@ function OpenDbase(obj, filePathOrDbase, options)
     fileSortReversed = obj.settings.FileSortReversed;
     obj.setFileSortInfo(fileSortMethod, fileSortPropertyName, fileSortReversed);
 
-    % Update file browser
-    obj.UpdateFileInfoBrowser();
     waitbar(0.45, progressBar)
-
-    % Update file read state
-    obj.UpdateFileInfoBrowserReadState();
 
     % Update auxiliary sound sources
     obj.setAuxiliarySoundSources(settings.AuxiliarySoundSources, false);
 
-    obj.RefreshSortOrder();
     waitbar(0.51, progressBar)
 
     obj.text_TotalFileNumber.String = ['of ' num2str(electro_gui.getNumFiles(obj.dbase))];
@@ -3464,14 +3456,17 @@ function OpenDbase(obj, filePathOrDbase, options)
     obj.popup_EventDetector1.Value = 1;
     obj.popup_EventDetector2.Value = 1;
 
-    obj.edit_FileNumber.String = '1';
-    obj.FileInfoBrowser.SelectedRow = 1;
-    obj.setFileNames({obj.dbase.SoundFiles.name});
     waitbar(0.57, progressBar)
 
     obj.edit_FileNumber.String = num2str(settings.CurrentFile);
-    obj.FileInfoBrowser.SelectedRow = settings.CurrentFile;
 
+    % Update file browser
+    obj.edit_FileNumber.String = '1';
+    obj.FileInfoBrowser.SelectedRow = 1;
+    obj.UpdateFileInfoBrowser();
+    
+    obj.FileInfoBrowser.SelectedRow = settings.CurrentFile;
+    
     % get segmenter parameters
     for c = 1:length(obj.menu_SegmenterList.Children)
         if obj.menu_SegmenterList.Children(c).Checked
@@ -4955,77 +4950,6 @@ function snd = GenerateSound(obj, sound_type)
 
 
 end
-function setFileSortMethod(obj, sortMethod, updateGUI)
-    arguments
-        obj electro_gui
-        sortMethod char
-        updateGUI logical = true
-    end
-
-    sortMethodIdx = find(strcmp(sortMethod, obj.popup_FileSortOrder.String), 1);
-    if isempty(sortMethodIdx)
-        error('Invalid sort method: ''%s''', sortMethod);
-    end
-    obj.settings.FileSortMethod = sortMethod;
-    obj.popup_FileSortOrder.Value = sortMethodIdx;
-    if updateGUI
-        obj.RefreshSortOrder();
-    end
-end
-
-function setFileSortInfo(obj, fileSortMethod, fileSortPropertyName, fileSortReversed, updateGUI)
-    % Set all the file sort info at once, then update
-    if ~exist('updateGUI', 'var') || isempty(updateGUI)
-        updateGUI = true;
-    end
-
-    obj.setFileSortMethod(fileSortMethod, false);
-    obj.settings.FileSortPropertyName = fileSortPropertyName;
-    obj.setFileSortReversed(fileSortReversed);
-
-    if updateGUI
-        obj.RefreshSortOrder();
-    end
-end
-
-function setFileSortReversed(obj, reversed)
-    obj.settings.IsFileSortReversed = reversed;
-    obj.check_ReverseSort.Value = reversed;
-end
-
-function RefreshSortOrder(obj)
-    % Create a new random order for the files
-    sortMethod = obj.settings.FileSortMethod;
-    sortReversed = obj.settings.IsFileSortReversed;
-    numFiles = electro_gui.getNumFiles(obj.dbase);
-
-    switch sortMethod
-        case 'File number'
-            obj.settings.FileSortOrder = [];
-        case 'Random'
-            obj.settings.FileSortOrder = randperm(numFiles);
-        case 'Property'
-            propertyValues = obj.getPropertyValue(...
-                obj.settings.FileSortPropertyName, 1:numFiles);
-            [~, obj.settings.FileSortOrder] = sort(~propertyValues);
-        case 'Read status'
-            [~, obj.settings.FileSortOrder] = sort(obj.settings.FileReadState);
-        otherwise
-            error('Unknown sort method: ''%s''', sortMethod)
-    end
-    if sortReversed
-        obj.settings.FileSortOrder = reverse(obj.settings.FileSortOrder);
-    end
-    if isempty(obj.settings.FileSortOrder)
-        obj.settings.InverseFileSortOrder = [];
-    else
-        obj.settings.InverseFileSortOrder = zeros(size(obj.settings.FileSortOrder));
-        obj.settings.InverseFileSortOrder(obj.settings.FileSortOrder) = 1:numFiles;
-    end
-    obj.UpdateFileInfoBrowser();
-    obj.UpdateFileInfoBrowserReadState();
-
-end
 
 function note = getNote(obj, filenum)
     % Get the note for the given file
@@ -5175,7 +5099,7 @@ function controlDown = isControlDown(obj)
     controlDown = any(strcmp(obj.figure_Main.CurrentModifier, 'control'));
 end
 
-function GUIPropertyChangeHandler(obj, varargin)
+function GUIPropertyChangeHandler(obj, hObject, event)
     % Update stored property values from GUI
 
     firstPropertyColumn = obj.FileInfoBrowserFirstPropertyColumn;
@@ -5184,7 +5108,7 @@ function GUIPropertyChangeHandler(obj, varargin)
 
         changeIndices = event.Indices - [0, firstPropertyColumn - 1];
 
-        selection = obj.FileInfoBrowser.Selection;
+        selection = obj.FileInfoBrowser.Selection - [0, firstPropertyColumn - 1];
         if any(all(changeIndices == selection, 2))
             % Change was inside selection
 
@@ -5196,6 +5120,8 @@ function GUIPropertyChangeHandler(obj, varargin)
 
 end
 
+%% File info browser functions
+
 function fileNames = getFileNames(obj)
     fileNames = {obj.dbase.SoundFiles.name};
 end
@@ -5205,7 +5131,7 @@ function setFileNames(obj, fileList)
     if electro_gui.areFilesSorted(obj.settings)
         fileList = fileList(obj.settings.FileSortOrder);
     end
-    obj.FileInfoBrowser.Data(:, 2) = electro_gui.getMinimalFilenmes(fileList);
+    obj.FileInfoBrowser.Data(:, 2) = electro_gui.getMinimalFilenames(fileList);
 end
 
 function setFileReadState(obj, filenums, readState)
@@ -5256,13 +5182,13 @@ function UpdateFileInfoBrowserReadState(obj)
     obj.FileInfoBrowser.BackgroundColor = backgroundColors;
 end
 
-function UpdateFileInfoBrowser(obj, updateValues, updateNames, update)
+function UpdateFileInfoBrowser(obj)
     % Initialize table data
     % Column 1 is filenames
     % Rest of the columns are properties
     data = cell(electro_gui.getNumFiles(obj.dbase), obj.getNumProperties() + 2);
     data(:, 1) = num2cell(1:electro_gui.getNumFiles(obj.dbase));
-    data(:, 2) = electro_gui.getMinimalFilenmes({obj.dbase.SoundFiles.name});
+    data(:, 2) = electro_gui.getMinimalFilenames({obj.dbase.SoundFiles.name});
     [propertyArray, propertyNames] = obj.getProperties();
     data(:, 3:end) = num2cell(propertyArray);
     if electro_gui.areFilesSorted(obj.settings)
@@ -5275,16 +5201,89 @@ function UpdateFileInfoBrowser(obj, updateValues, updateNames, update)
     obj.FileInfoBrowser.ColumnWidth = num2cell([20, 135, repmat(30, 1, length(propertyNames))]);
     obj.FileInfoBrowser.ColumnSelectable = [true, true, false(1, length(propertyNames))];
     obj.FileInfoBrowser.ColumnFormat = [{'char', 'char'}, repmat({'logical'}, 1, length(propertyNames))];
+
+    obj.UpdateFileInfoBrowserReadState();
+end
+
+function setFileSortMethod(obj, sortMethod, updateGUI)
+    arguments
+        obj electro_gui
+        sortMethod char
+        updateGUI logical = true
+    end
+
+    sortMethodIdx = find(strcmp(sortMethod, obj.popup_FileSortOrder.String), 1);
+    if isempty(sortMethodIdx)
+        error('Invalid sort method: ''%s''', sortMethod);
+    end
+    obj.settings.FileSortMethod = sortMethod;
+    obj.popup_FileSortOrder.Value = sortMethodIdx;
+    if updateGUI
+        obj.RefreshSortOrder();
+        obj.UpdateFileInfoBrowser();
+    end
+end
+
+function setFileSortInfo(obj, fileSortMethod, fileSortPropertyName, fileSortReversed, updateGUI)
+    % Set all the file sort info at once, then update
+    if ~exist('updateGUI', 'var') || isempty(updateGUI)
+        updateGUI = true;
+    end
+
+    obj.setFileSortMethod(fileSortMethod, false);
+    obj.settings.FileSortPropertyName = fileSortPropertyName;
+    obj.setFileSortReversed(fileSortReversed);
+
+    if updateGUI
+        obj.RefreshSortOrder();
+        obj.UpdateFileInfoBrowser();
+    end
+end
+
+function setFileSortReversed(obj, reversed)
+    obj.settings.IsFileSortReversed = reversed;
+    obj.check_ReverseSort.Value = reversed;
+end
+
+function RefreshSortOrder(obj)
+    % Create a new random order for the files
+    sortMethod = obj.settings.FileSortMethod;
+    sortReversed = obj.settings.IsFileSortReversed;
+    numFiles = electro_gui.getNumFiles(obj.dbase);
+
+    switch sortMethod
+        case 'File number'
+            obj.settings.FileSortOrder = [];
+        case 'Random'
+            obj.settings.FileSortOrder = randperm(numFiles);
+        case 'Property'
+            propertyValues = obj.getPropertyValue(...
+                obj.settings.FileSortPropertyName, 1:numFiles);
+            [~, obj.settings.FileSortOrder] = sort(~propertyValues);
+        case 'Read status'
+            [~, obj.settings.FileSortOrder] = sort(obj.settings.FileReadState);
+        otherwise
+            error('Unknown sort method: ''%s''', sortMethod)
+    end
+    if sortReversed
+        obj.settings.FileSortOrder = reverse(obj.settings.FileSortOrder);
+    end
+    if isempty(obj.settings.FileSortOrder)
+        obj.settings.InverseFileSortOrder = [];
+    else
+        obj.settings.InverseFileSortOrder = zeros(size(obj.settings.FileSortOrder));
+        obj.settings.InverseFileSortOrder(obj.settings.FileSortOrder) = 1:numFiles;
+    end
 end
 
 function UpdateFiles(obj, old_sound_files)
 
-    numFiles = electro_gui.getNumFiles(dbase);
+    numFiles = electro_gui.getNumFiles(obj.dbase);
     if numFiles == 0
         return
     end
 
-    obj.dbase = electro_gui.InitializeDbase(numFiles, obj.dbase);
+    obj.dbase = electro_gui.InitializeDbase(obj.settings, 'BaseDbase', obj.dbase);
 
     obj.text_TotalFileNumber.String = sprintf('of %s', numFiles);
     if electro_gui.areFilesSorted(obj.settings)
@@ -5311,18 +5310,6 @@ function UpdateFiles(obj, old_sound_files)
                     newSelectedFilenum = newIdx;
                 end
             end
-        end
-    end
-
-    fileList = {obj.dbase.SoundFiles.name};
-    obj.setFileNames(fileList);
-    if ~isempty(newSelectedFilenum)
-        obj.edit_FileNumber.String = num2str(newSelectedFilenum);
-        if electro_gui.areFilesSorted(obj.settings)
-            obj.RefreshSortOrder();
-            obj.FileInfoBrowser.SelectedRow = obj.settings.InverseFileSortOrder(newSelectedFilenum);
-        else
-            obj.FileInfoBrowser.SelectedRow = newSelectedFilenum;
         end
     end
 
@@ -5379,13 +5366,29 @@ function UpdateFiles(obj, old_sound_files)
 
     originalProperties = obj.dbase.Properties;
     obj.dbase.Properties = false(numFiles, obj.getNumProperties());
-    obj.dbase.Properties(:, newnum) = originalProperties;
+    obj.dbase.Properties(newnum, :) = originalProperties;
+
+    originalFileReadState = obj.settings.FileReadState;
+    obj.settings.FileReadState = false(1, numFiles);
+    obj.settings.FileReadState(newnum) = originalFileReadState;
+
+    fileList = {obj.dbase.SoundFiles.name};
+    obj.setFileNames(fileList);
+    if ~isempty(newSelectedFilenum)
+        obj.edit_FileNumber.String = num2str(newSelectedFilenum);
+        if electro_gui.areFilesSorted(obj.settings)
+            obj.RefreshSortOrder();
+            obj.FileInfoBrowser.SelectedRow = obj.settings.InverseFileSortOrder(newSelectedFilenum);
+        else
+            obj.FileInfoBrowser.SelectedRow = newSelectedFilenum;
+        end
+    end
+
+
 
     originalValues = obj.dbase.FileLength(:,oldnum);
     obj.dbase.FileLength = zeros(1,numFiles);
     obj.dbase.FileLength(newnum) = originalValues;
-
-
 end
 
 function [dbase, settings] = GetDBase(obj, includeDocumentation)
@@ -12676,7 +12679,7 @@ end
             end
 
             obj.RefreshSortOrder();
-
+            obj.UpdateFileInfoBrowser();
 
         end
 
@@ -13977,11 +13980,11 @@ end
                 % No data yet, do nothing
                 return
             end
-        
-            obj.IsUpdating = 1;
+
             old_sound_files = obj.dbase.SoundFiles;
-            [dbase, cancel] = eg_GatherFiles(obj.PathName, obj.settings.FileString, ...
-                obj.settings.DefaultFileLoader, obj.settings.DefaultChannelNumber, ...
+            [dbase, cancel] = eg_GatherFiles(obj.dbase.PathName, ...
+                obj.settings.FileString, obj.settings.DefaultFileLoader, ...
+                obj.settings.DefaultChannelNumber, ...
                 "TitleString", "Update file lists", "GUI", true);
         
             if cancel
@@ -13989,14 +13992,14 @@ end
             end
         
             obj.SaveState();
-        
+
             obj.dbase = mergeStructures(obj.dbase, dbase);
-        
+
             obj.UpdateFiles(old_sound_files);
         
+            obj.UpdateFileInfoBrowser();
+
             obj.LoadFile();
-        
-        
         
         end
         function menu_DeleteFiles_Callback(obj, hObject, event)
@@ -14024,7 +14027,9 @@ end
             end
         
             obj.UpdateFiles(old_sound_files);
-        
+
+            obj.UpdateFileInfoBrowser();
+            
             obj.LoadFile();
         
         end
@@ -14399,7 +14404,7 @@ end
             end
         end
         function settingValue = getValueOrDefault(dbase, settingKey, default)
-            if ~isfield(dbase, settingKey) || isempty(dbase.settingKey)
+            if ~isfield(dbase, settingKey) || isempty(dbase.(settingKey))
                 settingValue = default;
             else
                 settingValue = dbase.(settingKey);
@@ -14551,7 +14556,7 @@ end
                 hObject.BackgroundColor = 'white';
             end
         end
-        function shortFilenames = getMinimalFilenmes(filenames)
+        function shortFilenames = getMinimalFilenames(filenames)
             % Look through a list of filenames and discard chunks at the beginning
             % and/or end that are the same for all of them. A chunk is delimited by
             % '_', '-', '.', or ' '
@@ -14706,7 +14711,7 @@ end
         
             sourceDir = options.SourceDir;
         
-            numFiles = length(dbase.SoundFiles);
+            numFiles = electro_gui.getNumFiles(dbase);
             numEventSources = length(dbase.EventTimes);
         
             if ~isfield(dbase, 'EventParts')
