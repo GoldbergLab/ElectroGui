@@ -141,6 +141,8 @@ settings.ExportReplotSonogram = 1; % Replot sonogram at the specified resolution
 settings.ExportSonogramIncludeLabel = 1; % Include timestamp label with exported objects?
 settings.ExportSonogramIncludeClip = 1; % Sound clip to include with exported objects. 0 - none; 1 - sound only; 2 - sound mix
 settings.SegmentFileFormat = 'Syll\l_Num\i2_File\n4_\dT\t'; % File name format for exporting syllable segments
+settings.ScalebarPresets = [0.001,  0.002,  0.005,  0.01,    0.02,    0.025,   0.05,    0.1,      0.2,      0.25,     0.5,      1,     2,     5,     10,     20,     30,     60];
+settings.ScalebarLabels =  {'1 ms', '2 ms', '5 ms', '10 ms', '20 ms', '25 ms', '50 ms', '100 ms', '200 ms', '250 ms', '500 ms', '1 s', '2 s', '5 s', '10 s', '20 s', '30 s', '1 min'};
 
 % ANIMATION SETTINGS
 settings.AnimationPlots = [0 0 0 0 0 0]; % Plot animation over sound wave, sonogram, segments, amplitude, top plot, and bottom plot, respectively

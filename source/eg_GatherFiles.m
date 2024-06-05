@@ -142,11 +142,13 @@ function [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = 
     SoundLoader = loader_names{fig.UserData.popups(1).Value};
     ChannelPatterns = {fig.UserData.textboxes(2:end).String};
     ChannelLoaders = loader_names([fig.UserData.popups(2:end).Value]);
+    
+    delete(fig);
 
 function PushOK(src, ~)
     src = ancestor(src, 'figure');
     src.UserData.cancel = false;
-    uiresume()
+    uiresume(src);
 
 function DialogKeyPress(src, event)
     src = ancestor(src, 'figure');
