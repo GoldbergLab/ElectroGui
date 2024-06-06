@@ -14846,16 +14846,16 @@ end
                 end
             end
         
-            % FileReadState has been moved from main dbase to settings
-            if ~isfield(settings, 'FileReadstate')
-                if isfield(dbase, 'FileReadState')
-                    dbase.FileReadState = dbase.FileReadState;
+            % FileReadState has been moved from settings to main dbase
+            if ~isfield(dbase, 'FileReadstate')
+                if isfield(settings, 'FileReadState')
+                    dbase.FileReadState = settings.FileReadState;
                 else
                     dbase.FileReadState = false(1, numFiles);
                 end
             end
-            if isfield(dbase, 'FileReadState')
-                dbase = rmfield(dbase, 'FileReadState');
+            if isfield(settings, 'FileReadState')
+                dbase = rmfield(settings, 'FileReadState');
             end
         
             if ~isfield(settings, 'EventThresholdDefaults') || length(settings.EventThresholdDefaults) ~= numEventSources
