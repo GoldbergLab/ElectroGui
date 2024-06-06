@@ -1,5 +1,5 @@
 classdef electro_gui < handle
-    properties
+    properties % Main properties
         dbase struct
         settings struct
         tempSettings struct
@@ -10,7 +10,7 @@ classdef electro_gui < handle
         UserFile
         OriginalDbase struct
     end
-    properties
+    properties % Temporary/cached properties
         History StateStack
         LastHistoryTimestamp datetime
         tempFile char
@@ -26,6 +26,9 @@ classdef electro_gui < handle
     properties  % GUI widgets
         figure_Main
         panel_files                     % Panel for file widgets
+        FileInfoBrowser uitable2
+        context_FileInfoBrowser matlab.ui.container.ContextMenu
+        menu_ShowFileNameColumn matlab.ui.container.Menu
         popup_FileSortOrder matlab.ui.control.UIControl
         axes_Sound matlab.graphics.axis.Axes
         axes_Sonogram matlab.graphics.axis.Axes
@@ -280,7 +283,6 @@ classdef electro_gui < handle
         EventWaveHandles matlab.graphics.Graphics
         EventThresholdHandles matlab.graphics.Graphics
         menu_EventsDisplayList
-        FileInfoBrowser uitable2
         xlimbox matlab.graphics.Graphics
         TimeResolutionBarHandle matlab.graphics.Graphics
         TimeResolutionBarText matlab.graphics.Graphics
@@ -1241,6 +1243,7 @@ classdef electro_gui < handle
             obj.FileInfoBrowser.KeyReleaseFcn = @obj.keyReleaseHandler;
             obj.FileInfoBrowser.CellSelectionCallback = @(src, event)obj.HandleFileListChange(src.Parent, event);
             obj.FileInfoBrowser.CellEditCallback = @obj.GUIPropertyChangeHandler;
+            obj.FileInfoBrowser.ContextMenu = obj.context_FileInfoBrowser;
             % File sort order stuff
             obj.popup_FileSortOrder.String = {'File number', 'Random', 'Property', 'Read status'};
             obj.popup_FileSortOrder.Value = 1;
@@ -3378,9 +3381,11 @@ function eg_NewDbase(obj)
         return
     end
 
+    dbase = electro_gui.InitializeDbase(obj.settings, 'NumFiles', numFiles, 'BaseDbase', dbase, 'IncludeHelp', false);
+
     obj.SaveState();
 
-    obj.dbase = electro_gui.InitializeDbase(obj.settings, 'NumFiles', numFiles, 'BaseDbase', dbase, 'IncludeHelp', false);
+    obj.dbase = dbase;
 
     % Placeholder for custom fields
     obj.OriginalDbase = struct();
@@ -4977,25 +4982,50 @@ end
 
 function UpdateFileInfoBrowser(obj)
     % Initialize table data
-    % Column 1 is filenames
+    % Column 1 is filenums
+    % Column 2 may be filenames, depending on settings
     % Rest of the columns are properties
-    data = cell(electro_gui.getNumFiles(obj.dbase), obj.getNumProperties() + 2);
+
+    % Set up first two column values
+    if obj.settings.ShowFileNameColumn
+        obj.FileInfoBrowserFirstPropertyColumn = 3;
+        firstColumnsNames = {'#', 'Name'};
+        firstColumnsEditable = [false, false];
+        firstColumnsSelectable = [true, true];
+        firstColumnsFormat = {'char', 'char'};
+        firstColumnsWidth = [24, 135];
+    else
+        obj.FileInfoBrowserFirstPropertyColumn = 2;
+        firstColumnsNames = {'#'};
+        firstColumnsEditable = false;
+        firstColumnsSelectable = true;
+        firstColumnsFormat = {'char'};
+        firstColumnsWidth = 24;
+    end
+    
+    data = cell(electro_gui.getNumFiles(obj.dbase), obj.getNumProperties() + obj.FileInfoBrowserFirstPropertyColumn-1);
     data(:, 1) = num2cell(1:electro_gui.getNumFiles(obj.dbase));
-    data(:, 2) = electro_gui.getMinimalFilenames({obj.dbase.SoundFiles.name});
+    if obj.settings.ShowFileNameColumn
+        data(:, 2) = electro_gui.getMinimalFilenames({obj.dbase.SoundFiles.name});
+    end
     [propertyArray, propertyNames] = obj.getProperties();
-    data(:, 3:end) = num2cell(propertyArray);
+    data(:, obj.FileInfoBrowserFirstPropertyColumn:end) = num2cell(propertyArray);
     if electro_gui.areFilesSorted(obj.settings)
         % Shuffle data
         data = data(obj.settings.FileSortOrder, :);
     end
+
     obj.FileInfoBrowser.Data = data;
-    obj.FileInfoBrowser.ColumnName = [{'#', 'Name'}, propertyNames];
-    obj.FileInfoBrowser.ColumnEditable = [false, false, true(1, length(propertyNames))];
-    obj.FileInfoBrowser.ColumnWidth = num2cell([20, 135, repmat(30, 1, length(propertyNames))]);
-    obj.FileInfoBrowser.ColumnSelectable = [true, true, false(1, length(propertyNames))];
-    obj.FileInfoBrowser.ColumnFormat = [{'char', 'char'}, repmat({'logical'}, 1, length(propertyNames))];
+    obj.FileInfoBrowser.ColumnName = [firstColumnsNames, propertyNames];
+    obj.FileInfoBrowser.ColumnEditable = [firstColumnsEditable, true(1, length(propertyNames))];
+    obj.FileInfoBrowser.ColumnWidth = num2cell([firstColumnsWidth, repmat(30, 1, length(propertyNames))]);
+    obj.FileInfoBrowser.ColumnSelectable = [firstColumnsSelectable, false(1, length(propertyNames))];
+    obj.FileInfoBrowser.ColumnFormat = [firstColumnsFormat, repmat({'logical'}, 1, length(propertyNames))];
 
     obj.UpdateFileInfoBrowserReadState();
+
+    % Update show file name column checkbox
+    obj.menu_ShowFileNameColumn.Checked = obj.settings.ShowFileNameColumn;
 end
 
 function setFileSortMethod(obj, sortMethod, updateGUI)
@@ -7282,6 +7312,17 @@ function setupGUI(obj)
         'Parent',obj.figure_Main,...
         'Callback',@obj.context_Sonogram_Callback,...
         'Tag','context_Sonogram');
+
+    obj.context_FileInfoBrowser = uicontextmenu(...
+        'Parent',obj.figure_Main,...
+        'Tag','context_FileInfoBrowser');
+
+    obj.menu_ShowFileNameColumn = uimenu(...
+        'Parent', obj.context_FileInfoBrowser, ...
+        'Callback', @obj.menu_ShowFileNameColumn_Callback,...
+        'Checked', false, ...
+        'Label', 'Show filename column', ...
+        'Tag', 'menu_ShowFileNameColumn');
 
     obj.menu_AutoCalculate = uimenu(...
         'Parent',obj.context_Sonogram,...
@@ -9577,6 +9618,13 @@ end
         function menu_AlgorithmList_Callback(obj, hObject, event)
 
         end
+
+        function menu_ShowFileNameColumn_Callback(obj, hObject, event)
+            obj.menu_ShowFileNameColumn.Checked = ~obj.menu_ShowFileNameColumn.Checked;
+            obj.settings.ShowFileNameColumn = logical(obj.menu_ShowFileNameColumn.Checked);
+            obj.UpdateFileInfoBrowser();
+        end
+
         function menu_AutoCalculate_Callback(obj, hObject, event)
             if ~electro_gui.isDataLoaded(obj.dbase)
                 % No data yet, do nothing
@@ -14182,6 +14230,27 @@ end
 
             dbase = electro_gui.UpdateChannelInfo(dbase);
         end
+        function dbase = CreateDbase(settings, rootDir, savePath)
+            % Take a set of electro_gui settings, a root directory in which
+            % to look for files, and a save path, and create a fresh dbase.
+            arguments
+                settings struct = defaults_template()
+                rootDir = '.'
+                savePath = '.\analysis.mat'
+            end
+
+            dbase = eg_GatherFiles(rootDir, settings.FileString, ...
+                settings.DefaultFileLoader, settings.DefaultChannelNumber, ...
+                'GUI', false);
+            
+            numFiles = electro_gui.getNumFiles(dbase);
+            dbase = electro_gui.InitializeDbase(settings, 'NumFiles', numFiles, 'BaseDbase', dbase, 'IncludeHelp', false);
+
+            if ~isempty(savePath)
+                save(savePath, 'dbase');
+            end
+
+        end
         function isLoaded = isDataLoaded(dbase)
             % Check if data is loaded yet
             isLoaded = (electro_gui.getNumFiles(dbase) > 0);
@@ -14268,7 +14337,7 @@ end
             listIdx = find(strcmp(channelName, {dbase.ChannelInfo.Name}), 1);
             if length(listIdx) ~= 1 || listIdx == 1
                 % Either not found, multiple matches, or the (None) entry
-                channelNum = [];
+                channelNum = NaN;
                 isPseudoChannel = false;
             else
                 % One match found
@@ -14898,7 +14967,7 @@ end
                 % Legacy dbases had event xlims per channel axes, not per file,
                 % so not complete.
                 for eventSourceIdx = 1:length(dbase.EventTimes)
-                    settings.EventXLims(eventSourceIdx, :) = settings.EventXLims;
+                    settings.EventXLims(eventSourceIdx, :) = settings.EventXLims(1, :);
                 end
             end
         end

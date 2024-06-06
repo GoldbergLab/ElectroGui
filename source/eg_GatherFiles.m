@@ -33,11 +33,59 @@ function [dbase, cancel] = eg_GatherFiles(PathName, FileString, FileLoader, NumC
         % determine # of channels
         NumChannels = length(FileLoader) - 1;
     end
+    
+    % Determine the sound and channel file patterns and loaders
+    ChannelPatterns = cell(1, NumChannels);
+    ChannelLoaders = cell(1, NumChannels);
+    for chanIdx = 1:NumChannels+1
+        if iscell(FileString)
+            % Defaults file has a different file string for each channel
+            file_string_pattern = FileString{chanIdx};
+        else
+            % Defaults file has only one file string for all channels
+            file_string_pattern = FileString;
+        end
+        file_string = sprintf(file_string_pattern, chanIdx-1);
+
+        if iscell(FileLoader)
+            % User provided a different default file loader for each channel
+            file_loader = FileLoader{chanIdx-1};
+        else
+            % User provided a single default file loader for all channels
+            file_loader = FileLoader;
+        end
+
+        if strcmp(file_string, file_string_pattern) && contains(file_string_pattern, '#')
+            % fstr is the same as FileString, so it must not contain a
+            % formatting pattern, and it does contain ##, which indicates this
+            % is the legacy format.
+            if ~legacyWarningGiven
+                if options.GUI
+                    w = @msgbox;
+                else
+                    w = @warning;
+                end
+                w('Legacy FileString specification detected. Please edit your defaults_*.m file to update the ''FileString'' to the new format. FileString should be a string containing a standard string formatting pattern such as %02d or %d', 'Legacy FileString detected!');
+                % Only warn once
+                legacyWarningGiven = true;
+            end
+            file_string_pattern = regexprep(file_string_pattern, '\#\#', '%02d');
+            file_string = sprintf(file_string_pattern, chanIdx-1);
+        end
+
+        if chanIdx == 1
+            SoundPattern = file_string;
+            SoundLoader = file_loader;
+        else
+            ChannelPatterns{chanIdx-1} = file_string;
+            ChannelLoaders{chanIdx-1} = file_loader;
+        end
+    end
 
     cancel = false;
 
     if options.GUI
-        [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = SpecifyFilesGUI(PathName, FileString, FileLoader, NumChannels, options.TitleString);
+        [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = SpecifyFilesGUI(PathName, SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, NumChannels, options.TitleString);
     end
 
     % Assign fields to dbase
@@ -49,7 +97,7 @@ function [dbase, cancel] = eg_GatherFiles(PathName, FileString, FileLoader, NumC
     end
     dbase.ChannelLoader{chan} = ChannelLoaders;
 
-function [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = SpecifyFilesGUI(PathName, FileString, FileLoader, NumChannels, TitleString)
+function [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = SpecifyFilesGUI(PathName, SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, NumChannels, TitleString)
     % Create dialog figure
     screen_size = get(0,'screensize');
     figure_height = screen_size(4)*(0.035*(NumChannels+2));
@@ -78,51 +126,30 @@ function [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = 
         loader_names{loader_idx} = regexprep(loader_full_name, '^egl_', '');
     end
 
-    if iscell(FileLoader)
-        % User provided a different default file loader for each channel
-        for chan = 1:NumChannels+1
-            default_loader_indices(chan) = find(strcmp(loader_names, FileLoader{chan}));
-        end
-    else
-        % User provided a single default file loader for all channels
-        default_loader_indices(1:NumChannels+1) = find(strcmp(loader_names, FileLoader));
-    end
-
-    legacyWarningGiven = false;
+    loaders = [{SoundLoader}, ChannelLoaders];
+    patterns = [{SoundPattern}, ChannelPatterns];
 
     % Put objects into figure
     for chanIdx = 1:NumChannels+1
-        if iscell(FileString)
-            % Defaults file has a different file string for each channel
-            file_string_pattern = FileString{chanIdx};
-        else
-            % Defaults file has only one file string for all channels
-            file_string_pattern = FileString;
-        end
-        file_string = sprintf(file_string_pattern, chanIdx-1);
-
-        if strcmp(file_string, file_string_pattern) && contains(file_string_pattern, '#')
-            % fstr is the same as FileString, so it must not contain a
-            % formatting pattern, and it does contain ##, which indicates this
-            % is the legacy format.
-            if ~legacyWarningGiven
-                msgbox('Legacy FileString specification detected. Please edit your defaults_*.m file to update the ''FileString'' to the new format. FileString should be a string containing a standard string formatting pattern such as %02d or %d', 'Legacy FileString detected!');
-                % Only warn once
-                legacyWarningGiven = true;
-            end
-            file_string_pattern = regexprep(file_string_pattern, '\#\#', '%02d');
-            file_string = sprintf(file_string_pattern, chanIdx-1);
-        end
-
-        fig.UserData.textlabels(chanIdx) = uicontrol('Style','text','Units','normalized','String','',...
-            'position',[0.05 (NumChannels-chanIdx+2+0.5)/(NumChannels+2) 0.5 0.3/(NumChannels+2)],'FontSize',10,...
-            'HorizontalAlignment','left','BackgroundColor',[.8 .8 .8]);
-        fig.UserData.textboxes(chanIdx) = uicontrol('Style','edit','Units','normalized','String',file_string,...
-            'Position',[0.05 (NumChannels-chanIdx+2)/(NumChannels+2) 0.5 0.4/(NumChannels+2)],'FontSize',10,...
-            'HorizontalAlignment','left','BackgroundColor',[1 1 1],'callback',@ChangeText);
-        fig.UserData.popups(chanIdx) = uicontrol('Style','popupmenu','Units','normalized','String',loader_names,...
-            'Position',[0.6 (NumChannels-chanIdx+2)/(NumChannels+2) 0.35 0.4/(NumChannels+2)],'FontSize',10,...
-            'BackgroundColor',[1 1 1],'Value',default_loader_indices(chanIdx));
+        fig.UserData.textlabels(chanIdx) = uicontrol(...
+            'Style', 'text', 'Units', 'normalized', 'String','',...
+            'Position',[0.05 (NumChannels-chanIdx+2+0.5)/(NumChannels+2) 0.5 0.3/(NumChannels+2)],...
+            'FontSize',10, 'HorizontalAlignment', 'left', ...
+            'BackgroundColor',[.8 .8 .8]);
+        fig.UserData.textboxes(chanIdx) = uicontrol(...
+            'Style', 'edit', 'Units', 'normalized', ...
+            'String', patterns{chanIdx}, ...
+            'Position', [0.05 (NumChannels-chanIdx+2)/(NumChannels+2) 0.5 0.4/(NumChannels+2)], ...
+            'FontSize', 10, 'HorizontalAlignment', 'left', ...
+            'BackgroundColor', [1 1 1], 'Callback', @ChangeText);
+        default_loader_indices(chanIdx) = find(strcmp(loader_names, loaders{chanIdx}));
+        fig.UserData.popups(chanIdx) = uicontrol(...
+            'Style', 'popupmenu', 'Units', 'normalized', ...
+            'String', loader_names, ...
+            'Position', [0.6 (NumChannels-chanIdx+2)/(NumChannels+2) 0.35 0.4/(NumChannels+2)], ...
+            'FontSize', 10,...
+            'BackgroundColor', [1 1 1], ...
+            'Value', default_loader_indices(chanIdx));
     end
 
     uicontrol('Style','pushbutton','Units','normalized','String','OK',...

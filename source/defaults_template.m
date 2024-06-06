@@ -25,6 +25,7 @@ settings.FileSortPropertyName = '';         % Default property to sort by if Fil
 settings.FileSortReversed = false;
 settings.FileReadColor = [1, 1, 1];
 settings.FileUnreadColor = [1, 0.8, 0.8];
+settings.ShowFileNameColumn = false;
 
 % FILE CACHING
 settings.EnableFileCaching = true;      % Enable file caching - electrogui will load several files in the background around current file to improve loading time. Note that the first time MATLAB will need time to start parallel pool.
