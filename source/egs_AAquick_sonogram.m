@@ -2,17 +2,23 @@ function [ispower, timeResolution, spectrogram_handle] = egs_AAquick_sonogram(ax
 % ElectroGui spectrum algorithm
 % Aaron Andalman's algorithm that accounts for screen resolution
 
-if isstr(ax) & strcmp(ax,'params')
-    ispower.Names = {};
-    ispower.Values = {};
+defaultParams.Names = {'NFFT', 'windowSize (must be >= NFFT)'};
+defaultParams.Values = {'512', '512'};
+
+if ischar(ax) && strcmp(ax, 'params')
+    ispower = defaultParams;
     return
+end
+
+if ~exist('params', 'var') || isempty(params)
+    params = defaultParams;
 end
 
 originalAxesUnits = ax.Units;
 
-NFFT = 512;
+NFFT = str2double(params.Values{1});
 nCourse = 1;
-windowSize = 512;
+windowSize = str2double(params.Values{2});
 freqRange = get(ax,'ylim');
 
 %determine size of axis relative to size of the signal,
