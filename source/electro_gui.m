@@ -122,7 +122,7 @@ classdef electro_gui < handle
         context_Sonogram
         menu_LongFiles
         menu_SonogramParameters
-        center_Timescale
+        menu_center_Timescale
         menu_ColorScale
         menu_BackgroundColor
         menu_FreqLimits
@@ -284,6 +284,8 @@ classdef electro_gui < handle
         EventThresholdHandles matlab.graphics.Graphics
         menu_EventsDisplayList
         xlimbox matlab.graphics.Graphics
+        SonogramHandle matlab.graphics.Graphics
+        AuxiliarySonogramHandles matlab.graphics.Graphics
         TimeResolutionBarHandle matlab.graphics.Graphics
         TimeResolutionBarText matlab.graphics.Graphics
         AmplitudePlotHandle  matlab.graphics.Graphics    % Handle to amplitude plot
@@ -773,7 +775,7 @@ classdef electro_gui < handle
             else
                 ylim(obj.axes_Sonogram, obj.settings.FreqLim);
             end
-            [obj.settings.CurrentSonnogramIsPower, timeResolution, spectrogram_handle] = ...
+            [obj.settings.CurrentSonogramIsPower, timeResolution, obj.SonogramHandle] = ...
                     electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, ...
                         obj.axes_Sonogram, obj.sound(sampleLims(1):sampleLims(2)), fs, ...
                         obj.settings.SonogramParams);
@@ -781,20 +783,20 @@ classdef electro_gui < handle
             auxiliarySoundSources = obj.getAuxiliarySoundSources();
             if ~isempty(auxiliarySoundSources)
                 % User has one or more selected auxiliary sound sources
-                auxiliary_spectrogram_handles = gobjects().empty;
+                obj.AuxiliarySonogramHandles = gobjects().empty;
                 hold(obj.axes_Sonogram, 'on');
                 for k = 1:length(auxiliarySoundSources)
                     [auxiliarySound, fs] = obj.getSound(auxiliarySoundSources{k});
-                    [obj.settings.CurrentSonnogramIsPower, timeResolution, auxiliary_spectrogram_handles(k)] = electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, ...
+                    [obj.settings.CurrentSonogramIsPower, timeResolution, obj.AuxiliarySonogramHandles(k)] = electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, ...
                         obj.axes_Sonogram, auxiliarySound(sampleLims(1):sampleLims(2)), fs, ...
                         obj.settings.SonogramParams);
                 end
-                nSpectrograms = 1 + length(auxiliary_spectrogram_handles);
+                nSpectrograms = 1 + length(obj.AuxiliarySonogramHandles);
                 if nSpectrograms > 1
                     % Arrange spectrograms
                     freqRange = obj.axes_Sonogram.YLim;
                     freqBounds = linspace(freqRange(1), freqRange(2), nSpectrograms+1);
-                    allSpectrograms = [auxiliary_spectrogram_handles, spectrogram_handle];
+                    allSpectrograms = [obj.AuxiliarySonogramHandles, obj.SonogramHandle];
                     for k = 1:nSpectrograms
                         allSpectrograms(k).YData = freqBounds(k:k+1);
                     end
@@ -826,7 +828,7 @@ classdef electro_gui < handle
             obj.axes_Sonogram.Box = 'off';
         end
         function updateSonogramColors(obj)
-            if obj.settings.CurrentSonnogramIsPower == 1
+            if obj.settings.CurrentSonogramIsPower == 1
                 colormap(obj.axes_Sonogram, obj.Colormap);
                 obj.axes_Sonogram.CLim = obj.settings.SonogramClim;
             else
@@ -1223,6 +1225,8 @@ classdef electro_gui < handle
         end
         function initializeGraphics(obj)
             % Initialize and configure all the stored graphics handles for the GUI
+    
+            obj.FileInfoBrowserFirstPropertyColumn = 3;  % First column that contains boolean property checkboxes
         
             % Event-related graphics stuff
             obj.EventWaveHandles = gobjects().empty;
@@ -1235,15 +1239,6 @@ classdef electro_gui < handle
             obj.menu_EventsDisplayList = {gobjects().empty, gobjects().empty};
             obj.updateEventSourceList();
         
-            % File browser-related stuff
-            obj.FileInfoBrowser = uitable2(obj.panel_files, 'Units', 'normalized', 'Position', [0.025, 0.145, 0.944, 0.703], 'Data', {}, 'RowName', {});
-            obj.FileInfoBrowser.ColumnRearrangeable = true;
-            obj.FileInfoBrowserFirstPropertyColumn = 3;  % First column that contains boolean property checkboxes
-            obj.FileInfoBrowser.KeyPressFcn = @obj.keyPressHandler;
-            obj.FileInfoBrowser.KeyReleaseFcn = @obj.keyReleaseHandler;
-            obj.FileInfoBrowser.CellSelectionCallback = @(src, event)obj.HandleFileListChange(src.Parent, event);
-            obj.FileInfoBrowser.CellEditCallback = @obj.GUIPropertyChangeHandler;
-            obj.FileInfoBrowser.ContextMenu = obj.context_FileInfoBrowser;
             % File sort order stuff
             obj.popup_FileSortOrder.String = {'File number', 'Random', 'Property', 'Read status'};
             obj.popup_FileSortOrder.Value = 1;
@@ -7347,7 +7342,7 @@ function setupGUI(obj)
         'Label','Sonogram parameters...',...
         'Tag','menu_SonogramParameters');
 
-    obj.center_Timescale = uimenu(...
+    obj.menu_center_Timescale = uimenu(...
         'Parent',obj.context_Sonogram,...
         'Callback',@obj.center_Timescale_Callback,...
         'Label','Center timescale',...
@@ -9385,6 +9380,20 @@ function setupGUI(obj)
     
     obj.popup_EventListAlign.UIContextMenu = obj.context_EventListAlign;
 
+    % File browser-related stuff
+    obj.FileInfoBrowser = uitable2(...
+        obj.panel_files, ...
+        'Units', 'normalized', ...
+        'Position', [0.025, 0.145, 0.944, 0.703], ...
+        'Data', {}, ...
+        'RowName', {});
+    obj.FileInfoBrowser.ColumnRearrangeable = true;
+    obj.FileInfoBrowser.KeyPressFcn = @obj.keyPressHandler;
+    obj.FileInfoBrowser.KeyReleaseFcn = @obj.keyReleaseHandler;
+    obj.FileInfoBrowser.CellSelectionCallback = @(src, event)obj.HandleFileListChange(src.Parent, event);
+    obj.FileInfoBrowser.CellEditCallback = @obj.GUIPropertyChangeHandler;
+    obj.FileInfoBrowser.ContextMenu = obj.context_FileInfoBrowser;
+
 end
 
 function eventSourceIdx = addNewEventSource(obj, channelNum, ...
@@ -9467,6 +9476,7 @@ end
         
             % If the direct object clicked on was not an axes, find the axes
             % ancestor.
+
             while ~isa(hObject, 'matlab.graphics.axis.Axes')
                 hObject = hObject.Parent;
                 if isa(hObject, 'matlab.ui.Figure')
@@ -9550,7 +9560,7 @@ end
                     obj.settings.CustomFreqLim = obj.settings.FreqLim;
                 end
                 % Update spectrogram scales
-            elseif strcmp(obj.figure_Main.SelectionType, 'alt') && ~isempty(obj.figure_Main.CurrentModifier) && strcmp(obj.figure_Main.CurrentModifier, 'control')
+            elseif strcmp(obj.figure_Main.SelectionType, 'alt') && length(obj.figure_Main.CurrentModifier)==1 && strcmp(obj.figure_Main.CurrentModifier, 'control')
                 % User control-clicked on axes_Spectrogram
         
                 % Switch the axes back to normalized units
@@ -9569,13 +9579,61 @@ end
         
                 % I think we're converting the x coordinate and width of rectangle to
                 % units of audio samples?
-                x = [];
-                x(1) = (xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1)));
-                x(2) = x(1) + (rect(3)/pos(3)*(xl(2)-xl(1)));
-                x = round(obj.dbase.Fs * x);
+                time = [];
+                time(1) = (xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1)));
+                time(2) = time(1) + (rect(3)/pos(3)*(xl(2)-xl(1)));
+                time = round(obj.dbase.Fs * time);
         
                 % Add new marker to backend
-                obj.CreateNewMarker(x);
+                obj.CreateNewMarker(time);
+            elseif any(strcmp(obj.figure_Main.CurrentModifier, 'control')) && any(strcmp(obj.figure_Main.CurrentModifier, 'alt'))
+                % Control-alt clicked on axes_Spectrogram - measure power
+                % Switch the axes back to normalized units
+
+                if ~isgraphics(obj.SonogramHandle) || ~isvalid(obj.SonogramHandle)
+                    % Sonogram has not been plotted - abort
+                    return;
+                end
+                
+                current_axes.Parent.Units = 'normalized';
+                current_axes.Units = 'normalized';
+                % Set up a "rubber band box" to display user mouse click/drag. This
+                %   blocks until user lets go of mouse, and returns the *figure*
+                %   coordinates of the click/drag rectangle
+                rect = rbbox;
+        
+                % Get axis upper left position to subtract off
+                pos = current_axes.Position;
+        
+                xl = xlim(current_axes);
+                yl = ylim(current_axes);
+        
+                % I think we're converting the x coordinate and width of rectangle to
+                % units of audio samples?
+                time = [];
+                time(1) = (xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1)));
+                time(2) = time(1) + (rect(3)/pos(3)*(xl(2)-xl(1)));
+                freq = [];
+                freq(1) = (yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1)));
+                freq(2) = freq(1) + (rect(4)/pos(4)*(yl(2)-yl(1)));
+
+                times = obj.SonogramHandle.XData;
+                freqs = obj.SonogramHandle.YData;
+                power = obj.SonogramHandle.CData;
+                
+                [~, minTimeIdx] = min(abs(times-time(1)));
+                [~, maxTimeIdx] = min(abs(times-time(2)));
+                [~, minFreqIdx] = min(abs(freqs-freq(1)));
+                [~, maxFreqIdx] = min(abs(freqs-freq(2)));
+
+                power = power(:, minTimeIdx:maxTimeIdx);
+                bandPower = power(minFreqIdx:maxFreqIdx, :);
+                totalPower = sum(power, 'all');
+                totalBandPower = sum(bandPower, 'all');
+                bandPowerFrac = totalBandPower/totalPower;
+                bandPowerFracPerHz = (totalBandPower / diff(freq)) / (totalPower / (max(freqs) - min(freqs)));
+
+                msgbox(sprintf('Fractional band power from %.03f - %.03f s, %d - %d Hz: %f%% of power in band (%f relative power density)', time(1), time(2), round(freq(1)), round(freq(2)), bandPowerFrac*100, bandPowerFracPerHz));
             end
         
         end
@@ -12772,7 +12830,7 @@ end
         
         end
         function menu_ColorScale_Callback(obj, hObject, event)
-            if obj.settings.CurrentSonnogramIsPower == 1
+            if obj.settings.CurrentSonogramIsPower == 1
                 climGUI = CLimGUI(obj.axes_Sonogram);
                 uiwait(climGUI.ParentFigure);
                 obj.settings.SonogramClim = climGUI.CLim;
@@ -12869,7 +12927,7 @@ end
                 return;
             end
         
-            if obj.settings.CurrentSonnogramIsPower == 1
+            if obj.settings.CurrentSonogramIsPower == 1
                 if obj.settings.SonogramClim(2) > obj.settings.SonogramClim(1)+0.5
                     obj.settings.SonogramClim(2) = obj.settings.SonogramClim(2)-0.5;
                 end
@@ -12887,7 +12945,7 @@ end
                 return;
             end
         
-            if obj.settings.CurrentSonnogramIsPower == 1
+            if obj.settings.CurrentSonogramIsPower == 1
                 obj.settings.SonogramClim(2) = obj.settings.SonogramClim(2)+0.5;
             else
                 obj.settings.NewDerivativeSlope = obj.settings.DerivativeSlope-0.2;
@@ -12904,7 +12962,7 @@ end
                 return;
             end
         
-            if obj.settings.CurrentSonnogramIsPower == 1
+            if obj.settings.CurrentSonogramIsPower == 1
                 if obj.settings.SonogramClim(1) < obj.settings.SonogramClim(2)-0.5
                     obj.settings.SonogramClim(1) = obj.settings.SonogramClim(1)+0.5;
                 end
@@ -12922,7 +12980,7 @@ end
                 return;
             end
         
-            if obj.settings.CurrentSonnogramIsPower == 1
+            if obj.settings.CurrentSonogramIsPower == 1
                 obj.settings.SonogramClim(1) = obj.settings.SonogramClim(1)-0.5;
             else
                 obj.settings.DerivativeOffset = obj.settings.DerivativeOffset - 0.05;
@@ -13369,8 +13427,6 @@ end
             obj.settings.WorksheetTimes = datetime.empty();
         
             obj.updateWorksheet();
-        
-        
         end
         function menu_WorksheetView_Callback(obj, hObject, event)
             obj.ViewWorksheet();
@@ -13444,10 +13500,10 @@ end
         end
         function menu_BackgroundColor_Callback(obj, hObject, event)
         
-            c = uisetcolor(obj.settings.BackgroundColors(2-obj.settings.CurrentSonnogramIsPower,:), 'Select color');
-            obj.settings.BackgroundColors(2-obj.settings.CurrentSonnogramIsPower,:) = c;
+            c = uisetcolor(obj.settings.BackgroundColors(2-obj.settings.CurrentSonogramIsPower,:), 'Select color');
+            obj.settings.BackgroundColors(2-obj.settings.CurrentSonogramIsPower,:) = c;
         
-            if obj.settings.CurrentSonnogramIsPower == 1
+            if obj.settings.CurrentSonogramIsPower == 1
                 obj.Colormap(1,:) = c;
                 colormap(obj.Colormap);
             else
@@ -14108,7 +14164,6 @@ end
         
         end
 
-
     end
     methods (Static)   % dbase manipulation methods
         function dbase = InitializeDbase(settings, options)
@@ -14510,6 +14565,7 @@ end
             allowedCharacters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_';
             pattern = sprintf('%s_.*\\.m', prefix);
             pluginPaths = findFiles(root, "RegexPattern", pattern, "SearchSubdirectories", false);
+            badPluginIdx = [];
             for k = 1:length(pluginPaths)
                 [~, fileName, ~] = fileparts(pluginPaths{k});
                 name = regexp(fileName, [prefix, '_(.*)'], 'tokens', 'once');
@@ -14521,12 +14577,22 @@ end
                     warning('Name of plugin ''%s'' contains disallowed characters: ''%s''\nPlease change plugin name so it only includes the characters: \n%s', name, disallowedChars, allowedCharacters);
                     continue;
                 end
-                func = str2func(fileName);
-                out(k).name = name;
-                out(k).func = func;
-                out(k).nargout = nargout(func);
-                out(k).prefix = prefix;
-                out(k).path = pluginPaths{k};
+                try
+                    func = str2func(fileName);
+                    out(k).name = name;
+                    out(k).func = func;
+                    out(k).nargout = nargout(func);
+                    out(k).prefix = prefix;
+                    out(k).path = pluginPaths{k};
+                catch
+                    badPluginIdx = [badPluginIdx, k];
+                end
+            end
+            if ~isempty(badPluginIdx)
+                for k = badPluginIdx
+                    warning('Plugin %s appears to be non-runnable.', pluginPaths{k});
+                end
+                out(badPluginIdx) = [];
             end
         end
         function plugins = gatherPlugins(sourceDir)
@@ -14679,6 +14745,7 @@ end
             '        Click-drag on spectrogram: Zoom in', ...
             '        Double-click on spectrogram: Zoom all the way out', ...
             '        Scroll wheel over any axes: Zoom in/out', ...
+            '        Control-alt click and drag on spectrogram: Calculate band power', ...
             '    Segment/Marker related:', ...
             '        Ctrl-click-drag on spectrogram: Create marker', ...
             '        Shift-click on sound amplitude: Set segment threshold',...
