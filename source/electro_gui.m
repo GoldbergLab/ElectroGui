@@ -4913,11 +4913,10 @@ function GUIPropertyChangeHandler(obj, hObject, event)
             % Change was inside selection
 
             obj.dbase.Properties(unique(selection(:, 1)), changeIndices(2)) = event.NewData;
-            obj.UpdateFileInfoBrowser();
         end
     end
     obj.dbase.Properties = cell2mat(obj.FileInfoBrowser.Data(:, firstPropertyColumn:end));
-
+    obj.UpdateFileInfoBrowser();
 end
 
 function fileNames = getFileNames(obj)
@@ -4944,18 +4943,18 @@ function setFileReadState(obj, filenums, readState)
         color = obj.settings.FileUnreadColor;
     end
 
-    % Check if we need to extend obj.settings.FileReadState
+    % Check if we need to extend obj.dbase.FileReadState
     maxFilenum = electro_gui.getNumFiles(obj.dbase);
-    if maxFilenum > length(obj.settings.FileReadState)
+    if maxFilenum > length(obj.dbase.FileReadState)
         % Extend file read state list
-        numToAdd = maxFilenum - length(obj.settings.FileReadState);
-        obj.settings.FileReadState(end+1:end+numToAdd) = false;
-    elseif maxFilenum < length(obj.settings.FileReadState)
+        numToAdd = maxFilenum - length(obj.dbase.FileReadState);
+        obj.dbase.FileReadState(end+1:end+numToAdd) = false;
+    elseif maxFilenum < length(obj.dbase.FileReadState)
         % Shorten file read state list
-        obj.settings.FileReadState(maxFileNum+1:end) = [];
+        obj.dbase.FileReadState(maxFileNum+1:end) = [];
     end
 
-    obj.settings.FileReadState(filenums) = readState;
+    obj.dbase.FileReadState(filenums) = readState;
     backgroundColors = repmat(color, length(filenums), 1);
 %     if electro_gui.areFilesSorted(obj.settings)
 %         filenums = obj.settings.FileSortOrder(filenums)
@@ -4965,11 +4964,11 @@ end
 
 function UpdateFileInfoBrowserReadState(obj)
     % Update background color of all filenames in FileInfoBrowser to match
-    % the read/unread state of the file, as stored in obj.settings.FileReadState
+    % the read/unread state of the file, as stored in obj.dbase.FileReadState
     readColor = [1, 1, 1];
     unreadColor = [1, 0.8, 0.8];
-    readFilenums = find(obj.settings.FileReadState);
-    unreadFilenums = find(~obj.settings.FileReadState);
+    readFilenums = find(obj.dbase.FileReadState);
+    unreadFilenums = find(~obj.dbase.FileReadState);
     if electro_gui.areFilesSorted(obj.settings)
         readFilenums = obj.settings.InverseFileSortOrder(readFilenums);
         unreadFilenums = obj.settings.InverseFileSortOrder(unreadFilenums);
@@ -5084,7 +5083,7 @@ function RefreshSortOrder(obj)
                 obj.settings.FileSortPropertyName, 1:numFiles);
             [~, obj.settings.FileSortOrder] = sort(~propertyValues);
         case 'Read status'
-            [~, obj.settings.FileSortOrder] = sort(obj.settings.FileReadState);
+            [~, obj.settings.FileSortOrder] = sort(obj.dbase.FileReadState);
         otherwise
             error('Unknown sort method: ''%s''', sortMethod)
     end
@@ -5191,9 +5190,9 @@ function UpdateFiles(obj, old_sound_files)
     obj.dbase.Properties = false(numFiles, obj.getNumProperties());
     obj.dbase.Properties(newnum, :) = originalProperties(oldnum, :);
 
-    originalFileReadState = obj.settings.FileReadState(oldnum);
-    obj.settings.FileReadState = false(1, numFiles);
-    obj.settings.FileReadState(newnum) = originalFileReadState;
+    originalFileReadState = obj.dbase.FileReadState(oldnum);
+    obj.dbase.FileReadState = false(1, numFiles);
+    obj.dbase.FileReadState(newnum) = originalFileReadState;
 
     fileList = {obj.dbase.SoundFiles.name};
     obj.setFileNames(fileList);
@@ -14190,7 +14189,7 @@ end
             dbase.SoundFiles =          gvod(baseDbase, 'SoundFiles', cell(1, numFiles));
             dbase.ChannelFiles =        gvod(baseDbase, 'ChannelFiles', repmat(cell(1, numFiles), 1, numChannels));
             dbase.SoundLoader =         gvod(baseDbase, 'SoundLoader', '');
-            dbase.ChannelLoader =       gvod(baseDbase, 'Channelloader', {});
+            dbase.ChannelLoader =       gvod(baseDbase, 'ChannelLoader', {});
             dbase.PathName =            gvod(baseDbase, 'PathName', '');
 
             dbase.Times =               zeros(1,numFiles);
@@ -14212,13 +14211,14 @@ end
 
             % Initialize event-related variables
             dbase.EventSources =            gvod(baseDbase, 'EventSources', {});      % Array of event source channel names
-            dbase.EventChannels =           gvod(baseDbase, 'EventChannels', {});     % Array of event source channel numbers
+            dbase.EventChannels =           gvod(baseDbase, 'EventChannels', []);     % Array of event source channel numbers
             dbase.EventChannelIsPseudo =    gvod(baseDbase, 'EventChannelIsPseudo', logical.empty());  % Array of flags indicating if the source channel is a pseudochannel
             dbase.EventFunctions =          gvod(baseDbase, 'EventFunctions', {});    % Array of event source filter names
             dbase.EventFunctionParameters = gvod(baseDbase, 'EventFunctionParameters', {});  % Array of event source filter parameters
             dbase.EventDetectors =          gvod(baseDbase, 'EventDetectors', {});    % Array of event source detector names
             dbase.EventParameters =         gvod(baseDbase, 'EventParameters', {});   % Array of event source detector parameters
             dbase.EventParts =              gvod(baseDbase, 'EventParts', {});        % Array of event parts
+            dbase.EventTimes =              gvod(baseDbase, 'EventTimes', {});
             for eventSourceIdx = 1:length(dbase.EventSources)
                 dbase.EventTimes{eventSourceIdx} = cell(0, numFiles);
                 dbase.EventIsSelected{eventSourceIdx} = cell(0, numFiles);
@@ -14849,9 +14849,9 @@ end
             % FileReadState has been moved from main dbase to settings
             if ~isfield(settings, 'FileReadstate')
                 if isfield(dbase, 'FileReadState')
-                    settings.FileReadState = dbase.FileReadState;
+                    dbase.FileReadState = dbase.FileReadState;
                 else
-                    settings.FileReadState = false(1, numFiles);
+                    dbase.FileReadState = false(1, numFiles);
                 end
             end
             if isfield(dbase, 'FileReadState')

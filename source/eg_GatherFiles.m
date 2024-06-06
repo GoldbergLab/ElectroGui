@@ -95,7 +95,7 @@ function [dbase, cancel] = eg_GatherFiles(PathName, FileString, FileLoader, NumC
     for chan = 1:NumChannels
         dbase.ChannelFiles{chan} = dir(fullfile(dbase.PathName, ChannelPatterns{chan}));
     end
-    dbase.ChannelLoader{chan} = ChannelLoaders;
+    dbase.ChannelLoader = ChannelLoaders;
 
 function [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = SpecifyFilesGUI(PathName, SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, NumChannels, TitleString)
     % Create dialog figure
