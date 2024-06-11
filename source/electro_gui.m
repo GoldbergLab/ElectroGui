@@ -2807,11 +2807,12 @@ end
 function updateSegmentSelectHighlight(obj)
     % Set the color of the segment handle depending on whether or not
     % the segment is selected
+    filenum = electro_gui.getCurrentFileNum(obj.settings);
     for segmentNum = 1:length(obj.SegmentHandles)
         if obj.dbase.SegmentIsSelected{filenum}(segmentNum)
-            obj.SegmentHandles(k).FaceColor = obj.settings.SegmentSelectColor;
+            obj.SegmentHandles(segmentNum).FaceColor = obj.settings.SegmentSelectColor;
         else
-            obj.SegmentHandles(k).FaceColor = obj.settings.SegmentUnSelectColor;
+            obj.SegmentHandles(segmentNum).FaceColor = obj.settings.SegmentUnSelectColor;
         end
     end
 end
@@ -9495,29 +9496,9 @@ end
                 %   click/drag, or just shift the zoom box over to click location if
                 %   it's just a click.
         
-                % Temporarily switch axes units to pixels to make it easier to convert
-                % the user click coordinates?
-                current_axes.Units = 'pixels';
-                current_axes.Parent.Units = 'pixels';
-                % Set up a "rubber band box" to display user mouse click/drag. This
-                %   blocks until user lets go of mouse, and returns the *figure*
-                %   coordinates of the click/drag rectangle
-                rect = rbbox;
-        
-                % Get axis upper left position to subtract off
-                pos = current_axes.Position;
-        
-                % Switch the axes back to normalized units
-                current_axes.Parent.Units = 'normalized';
-                current_axes.Units = 'normalized';
-                xl = xlim(current_axes);
-                yl = ylim(current_axes);
-        
-                % I think we're converting the x coordinate and width of rectangle to
-                % units of audio samples?
-                rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
-                rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
-        
+                rect = rbbox();
+                rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Segments);
+
                 if rect(3) == 0
                     % Click/drag box has zero width, so we're going to shift the zoom
                     % box so the left size aligns with the cllick location
@@ -9527,8 +9508,6 @@ end
                 else
                     if obj.menu_FrequencyZoom.Checked && (hObject==obj.axes_Sonogram || hObject.Parent==obj.axes_Sonogram)
                         % We're zooming along the y-axis (frequency) as well as x
-                        rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
-                        rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
                         obj.settings.CustomFreqLim = [rect(2) rect(2)+rect(4)];
                         ylim([rect(2) rect(2)+rect(4)]);
                     end
@@ -9563,77 +9542,33 @@ end
             elseif strcmp(obj.figure_Main.SelectionType, 'alt') && length(obj.figure_Main.CurrentModifier)==1 && strcmp(obj.figure_Main.CurrentModifier, 'control')
                 % User control-clicked on axes_Spectrogram
         
-                % Switch the axes back to normalized units
-                current_axes.Parent.Units = 'normalized';
-                current_axes.Units = 'normalized';
-                % Set up a "rubber band box" to display user mouse click/drag. This
-                %   blocks until user lets go of mouse, and returns the *figure*
-                %   coordinates of the click/drag rectangle
-                rect = rbbox;
-        
-                % Get axis upper left position to subtract off
-                pos = current_axes.Position;
-        
-                xl = xlim(current_axes);
-            %    yl = ylim(current_axes);
-        
-                % I think we're converting the x coordinate and width of rectangle to
-                % units of audio samples?
-                time = [];
-                time(1) = (xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1)));
-                time(2) = time(1) + (rect(3)/pos(3)*(xl(2)-xl(1)));
+                rect = rbbox();
+                rect = getFigureCoordsInAxesDataUnits(rect, current_axes);
+
+                time = [rect(1), rect(1) + rect(3)];
                 time = round(obj.dbase.Fs * time);
         
                 % Add new marker to backend
                 obj.CreateNewMarker(time);
             elseif any(strcmp(obj.figure_Main.CurrentModifier, 'control')) && any(strcmp(obj.figure_Main.CurrentModifier, 'alt'))
                 % Control-alt clicked on axes_Spectrogram - measure power
-                % Switch the axes back to normalized units
 
                 if ~isgraphics(obj.SonogramHandle) || ~isvalid(obj.SonogramHandle)
                     % Sonogram has not been plotted - abort
                     return;
                 end
                 
-                current_axes.Parent.Units = 'normalized';
-                current_axes.Units = 'normalized';
                 % Set up a "rubber band box" to display user mouse click/drag. This
                 %   blocks until user lets go of mouse, and returns the *figure*
                 %   coordinates of the click/drag rectangle
-                rect = rbbox;
+                rect = rbbox();
+                rect = getFigureCoordsInAxesDataUnits(rect, current_axes);
         
-                % Get axis upper left position to subtract off
-                pos = current_axes.Position;
-        
-                xl = xlim(current_axes);
-                yl = ylim(current_axes);
-        
-                % I think we're converting the x coordinate and width of rectangle to
-                % units of audio samples?
-                time = [];
-                time(1) = (xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1)));
-                time(2) = time(1) + (rect(3)/pos(3)*(xl(2)-xl(1)));
-                freq = [];
-                freq(1) = (yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1)));
-                freq(2) = freq(1) + (rect(4)/pos(4)*(yl(2)-yl(1)));
+                [totalBandPower, totalPower, tlim, flim] = electro_gui.CalculateSpectrogramPower(rect, obj.SonogramHandle, obj.axes_Sonogram);
 
-                times = obj.SonogramHandle.XData;
-                freqs = obj.SonogramHandle.YData;
-                power = obj.SonogramHandle.CData;
-                
-                [~, minTimeIdx] = min(abs(times-time(1)));
-                [~, maxTimeIdx] = min(abs(times-time(2)));
-                [~, minFreqIdx] = min(abs(freqs-freq(1)));
-                [~, maxFreqIdx] = min(abs(freqs-freq(2)));
-
-                power = power(:, minTimeIdx:maxTimeIdx);
-                bandPower = power(minFreqIdx:maxFreqIdx, :);
-                totalPower = sum(power, 'all');
-                totalBandPower = sum(bandPower, 'all');
                 bandPowerFrac = totalBandPower/totalPower;
-                bandPowerFracPerHz = (totalBandPower / diff(freq)) / (totalPower / (max(freqs) - min(freqs)));
 
-                msgbox(sprintf('Fractional band power from %.03f - %.03f s, %d - %d Hz: %f%% of power in band (%f relative power density)', time(1), time(2), round(freq(1)), round(freq(2)), bandPowerFrac*100, bandPowerFracPerHz));
+                msgbox(sprintf('Fractional band power from %.03f - %.03f s, %d - %d Hz: %f%% of power in band', tlim(1), tlim(2), round(flim(1)), round(flim(2)), bandPowerFrac*100));
             end
         
         end
@@ -9698,6 +9633,7 @@ end
         end
         function scrollHandler(obj, source, event)
         
+            obj.figure_Main.Units = 'normalized';
             xy = event.Source.CurrentPoint;
             x = xy(1);
             y = xy(2);
@@ -9789,14 +9725,8 @@ end
                     return
                 end
         
-                pos = obj.axes_Segments.Position;
-                obj.axes_Segments.Parent.Units = 'normalized';
-                obj.axes_Segments.Units = 'normalized';
-                xl = xlim(obj.axes_Segments);
-        
-                rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
-                rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
-        
+                rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Segments);
+
                 f = find(obj.dbase.SegmentTimes{filenum}(:,1)>rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*obj.dbase.Fs);
                 g = find(obj.dbase.SegmentTimes{filenum}(:,2)>rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*obj.dbase.Fs);
                 h = find(obj.dbase.SegmentTimes{filenum}(:,1)<rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*obj.dbase.Fs);
@@ -10015,17 +9945,8 @@ end
                 obj.updateTimescaleView();
 
             elseif strcmp(obj.figure_Main.SelectionType,'normal')
-                obj.axes_Amplitude.Units = 'pixels';
-                obj.axes_Amplitude.Parent.Units = 'pixels';
-                rect = rbbox;
-
-                pos = obj.axes_Amplitude.Position;
-                obj.axes_Amplitude.Units = 'normalized';
-                obj.axes_Amplitude.Parent.Units = 'normalized';
-                xl = xlim(obj.axes_Amplitude);
-
-                rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
-                rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
+                rect = rbbox();
+                rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Amplitude);
 
                 if rect(3) == 0
                     shift = rect(1) - obj.settings.TLim(1);
@@ -10033,6 +9954,7 @@ end
                 else
                     obj.settings.TLim = [rect(1), rect(1)+rect(3)];
                 end
+                obj.settings.TLim
                 obj.updateTimescaleView();
             elseif strcmp(obj.figure_Main.SelectionType,'extend')
                 pos = obj.axes_Amplitude.CurrentPoint;
@@ -10040,9 +9962,6 @@ end
                 obj.dbase.SegmentThresholds(electro_gui.getCurrentFileNum(obj.settings)) = obj.settings.CurrentThreshold;
                 obj.SetSegmentThreshold();
             end
-
-
-
 
         end
         function menu_SetThreshold_Callback(obj, hObject, event)
@@ -10502,21 +10421,9 @@ end
             elseif strcmp(obj.figure_Main.SelectionType,'normal')
                 % Left click
 
-                ax.Units = 'pixels';
-                ax.Parent.Units = 'pixels';
                 rect = rbbox();
-
-                pos = ax.Position;
-                ax.Parent.Units = 'normalized';
-                ax.Units = 'normalized';
-                xl = xlim(ax);
-                yl = ylim(ax);
-
-                rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
-                rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
-                rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
-                rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
-
+                rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Amplitude);
+                
                 if rect(3) == 0
                     shift = rect(1) - obj.settings.TLim(1);
                     obj.settings.TLim = obj.settings.TLim + shift;
@@ -10544,23 +10451,14 @@ end
                 % Remove active event cursor
                 delete(obj.ActiveEventCursors);
 
-                ax.Units = 'pixels';
-                ax.Parent.Units = 'pixels';
-                rect = rbbox();
-                boxWidthPixels = rect(3);
-
                 eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
 
-                pos = ax.Position;
-                ax.Parent.Units = 'normalized';
+                ax.Units = 'pixels';
+                rect = rbbox();
+                boxWidthPixels = rect(3);
                 ax.Units = 'normalized';
-                xl = xlim(ax);
-                yl = ylim(ax);
 
-                rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
-                rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
-                rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
-                rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
+                rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Channel(axnum));
 
                 if boxWidthPixels < 3
                     % Simple control-click on axes
@@ -10649,21 +10547,8 @@ end
                     % Remove active event cursor
                     delete(obj.ActiveEventCursors);
 
-                    ax.Units = 'pixels';
-                    ax.Parent.Units = 'pixels';
                     rect = rbbox();
-
-                    pos = ax.Position;
-                    ax.Parent.Units = 'normalized';
-                    ax.Units = 'normalized';
-                    xl = xlim(ax);
-                    yl = ylim(ax);
-
-                    % Get coordinates of box in data coordinate system
-                    rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
-                    rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
-                    rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
-                    rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
+                    rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Channel(axnum));                    
 
                     % Find events that fall within time bounds of box
                     filenum = electro_gui.getCurrentFileNum(obj.settings);
@@ -10984,30 +10869,15 @@ end
 
             if strcmp(obj.figure_Main.SelectionType,'normal')
                 % Left click
-                obj.axes_Events.Units = 'pixels';
-                obj.axes_Events.Parent.Units = 'pixels';
-                obj.figure_Main.Units = 'pixels';
                 rect = rbbox;
 
                 if rect(3)>0 && rect(4)>0
                     % Left click and drag
-                    pos = obj.axes_Events.Position;
-                    pospan = obj.axes_Events.Parent.Position;
-                    xl = xlim(obj.axes_Events);
-                    yl = ylim(obj.axes_Events);
-
-                    rect(1) = xl(1)+(rect(1)-pos(1)-pospan(1))/pos(3)*(xl(2)-xl(1));
-                    rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
-                    rect(2) = yl(1)+(rect(2)-pos(2)-pospan(2))/pos(4)*(yl(2)-yl(1));
-                    rect(4) = rect(4)/pos(4)*(yl(2)-yl(1));
+                    rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Events);
 
                     xlim(obj.axes_Events, [rect(1) rect(1)+rect(3)]);
                     ylim(obj.axes_Events, [rect(2) rect(2)+rect(4)]);
                 end
-
-                obj.figure_Main.Units = 'normalized';
-                obj.axes_Events.Parent.Units = 'normalized';
-                obj.axes_Events.Units = 'normalized';
 
             elseif strcmp(obj.figure_Main.SelectionType,'open')
                 % Double click
@@ -11033,26 +10903,15 @@ end
                 % Shift-click
                 obj.SaveState();
 
-                obj.axes_Events.Units = 'pixels';
-                obj.axes_Events.Parent.Units = 'pixels';
-                obj.figure_Main.Units = 'pixels';
-
                 % User defines a rectangle such that any waves that pass through
                 % the rectangle get de-selected
                 rect = rbbox;
+                rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Events);
 
-                pos = obj.axes_Events.Position;
-                pospan = obj.axes_Events.Parent.Position;
-                obj.figure_Main.Units = 'normalized';
-                obj.axes_Events.Parent.Units = 'normalized';
-                obj.axes_Events.Units = 'normalized';
-                xl = xlim(obj.axes_Events);
-                yl = ylim(obj.axes_Events);
-
-                x1 = xl(1)+(rect(1)-pos(1)-pospan(1))/pos(3)*(xl(2)-xl(1));
-                x2 = rect(3)/pos(3)*(xl(2)-xl(1)) + x1;
-                y1 = yl(1)+(rect(2)-pos(2)-pospan(2))/pos(4)*(yl(2)-yl(1));
-                y2 = rect(4)/pos(4)*(yl(2)-yl(1)) + y1;
+                x1 = rect(1);
+                x2 = x1 + rect(3);
+                y1 = rect(2);
+                y2 = y1 + rect(4);
 
                 % Determine which event numbers to delete
                 eventNums = [];
@@ -13723,20 +13582,11 @@ end
         
         function menu_Concatenate_Callback(obj, hObject, event)
             filenum = electro_gui.getCurrentFileNum(obj.settings);
-        
-            obj.axes_Segments.Units = 'pixels';
-            obj.figure_Main.Units = 'pixels';
+
             ginput(1);
-            rect = rbbox;
-        
-            pos = obj.axes_Segments.Position;
-            obj.figure_Main.Units = 'normalized';
-            obj.axes_Segments.Units = 'normalized';
-            xl = xlim;
-        
-            rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
-            rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
-        
+            rect = rbbox();
+            rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Segments);
+
             f = find(obj.dbase.SegmentTimes{filenum}(:,1)>rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*obj.dbase.Fs);
             g = find(obj.dbase.SegmentTimes{filenum}(:,2)>rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*obj.dbase.Fs);
             h = find(obj.dbase.SegmentTimes{filenum}(:,1)<rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*obj.dbase.Fs);
@@ -15093,13 +14943,14 @@ end
             % Check if given normalized figure coordinates are inside the borders
             % of one or more children of that figure.
             for k = 1:length(figureChild)
-                if x < figureChild(k).Position(1)
+                position = getPositionWithUnits(figureChild(k), 'normalized');
+                if x < position(1)
                     inside = false;
-                elseif x > figureChild(k).Position(1) + figureChild(k).Position(3)
+                elseif x > position(1) + position(3)
                     inside = false;
-                elseif y < figureChild(k).Position(2)
+                elseif y < position(2)
                     inside = false;
-                elseif y > figureChild(k).Position(2) + figureChild(k).Position(4)
+                elseif y > position(2) + position(4)
                     inside = false;
                 else
                     inside = k;
@@ -15169,6 +15020,27 @@ end
         function ind = getSortedArrayInsertion(sortedArr, value)
             [~, ind] = min(abs(sortedArr-value));
             ind = ind + (value > sortedArr(ind));
+        end
+        function [totalBandPower, totalPower, tlim, flim] = CalculateSpectrogramPower(...
+                dataRect, spectrogramHandle, spectrogramAxes)
+            % Converting the rectangle to units of time & freq
+        
+            tlim = [dataRect(1), dataRect(1) + dataRect(3)];
+            flim = [dataRect(2), dataRect(2) + dataRect(4)];
+
+            times = spectrogramHandle.XData;
+            freqs = spectrogramHandle.YData;
+            power = spectrogramHandle.CData;
+            
+            [~, minTimeIdx] = min(abs(times-tlim(1)));
+            [~, maxTimeIdx] = min(abs(times-tlim(2)));
+            [~, minFreqIdx] = min(abs(freqs-flim(1)));
+            [~, maxFreqIdx] = min(abs(freqs-flim(2)));
+
+            power = power(:, minTimeIdx:maxTimeIdx);
+            bandPower = power(minFreqIdx:maxFreqIdx, :);
+            totalPower = sum(power, 'all');
+            totalBandPower = sum(bandPower, 'all');
         end
     end
 end
