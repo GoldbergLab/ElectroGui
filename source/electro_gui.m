@@ -1471,7 +1471,7 @@ end
             set(ax.Children, 'UIContextMenu', ax.UIContextMenu);
             set(ax.Children, 'ButtonDownFcn', ax.ButtonDownFcn);
         end
-        function updateAnnotations(obj, modes)
+        function updateAnnotations(obj)
             % Get segment axes
             ax = obj.axes_Segments;
         
@@ -2632,7 +2632,7 @@ function [annotationHandles, labelHandles] = CreateAnnotations(obj, ax, times, t
 
         % Attach click handler "click_segment" to segment rectangle
         newAnnotation.ButtonDownFcn = @obj.click_segment;
-        newLabel.ButtonDownFcn = @(hObject, event)electro_gui.click_segment(newAnnotation, event);
+        newLabel.ButtonDownFcn = @(hObject, event)obj.click_segment(newAnnotation, event);
 
         % Put new handles in list
         labelHandles(annotationNum) = newLabel;

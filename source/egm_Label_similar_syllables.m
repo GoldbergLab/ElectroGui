@@ -1,6 +1,9 @@
 function egm_Label_similar_syllables(obj)
 % ElectroGui macro
 % Export snippets that match criteria
+arguments
+    obj electro_gui
+end
 
 numFiles = electro_gui.getNumFiles(obj.dbase);
 
@@ -51,7 +54,7 @@ if ~isrow(filenums)
 end
 
 if ~isrow(filenums) || ~isnumeric(filenums)
-    filenums
+    filenums %#ok<NOPRT> 
     error('File nums must be a 1D vector of file numbers');
 end
 
@@ -116,6 +119,8 @@ for filenum = filenums
     % Clear sound
     sound = [];
 end
+
+obj.updateAnnotations()
 
 close(progressBar);
 msgbox(sprintf('Found and labeled %d similar syllables.', numFound), 'modal');
