@@ -15095,6 +15095,7 @@ end
             t = linspace(min(t)-dt/2, max(t)+dt/2, length(t));
             f = linspace(min(f)-df/2, max(f)+df/2, length(f));
             ax.Colormap = axes_Sonogram.Colormap;
+            ax.CLim = axes_Sonogram.CLim;
             hold(ax, 'on');
             m = max(p, [], 'all');
             fRange = range(f)/6;
@@ -15105,7 +15106,7 @@ end
             plot(ax, tMean + max(t), f);
             r1 = rectangle(ax, 'Position', [min(t), max(f), range(t), fRange]); %#ok<NASGU> 
             r2 = rectangle(ax, 'Position', [max(t), min(f), tRange, range(f)]); %#ok<NASGU> 
-            rBand = rectangle(ax, 'Position', [min(t), flim(1), range(t)+tRange, flim(2)-flim(1)], 'LineStyle', '--'); %#ok<NASGU> 
+            rBand = rectangle(ax, 'Position', [min(t), flim(1), range(t)+tRange, flim(2)-flim(1)], 'LineStyle', '--', 'LineWidth', 2); %#ok<NASGU> 
             xlim(ax, [min(t), min(t) + range(t) + tRange]);
             ylim(ax, [min(f), min(f) + range(f) + fRange]);            
         end
