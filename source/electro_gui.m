@@ -14622,7 +14622,7 @@ end
         
             try
                 % Code from Aaron Andalman
-                [noiseEst, soundEst, noiseStd, soundStd] = eg_estimateTwoMeans(amp);
+                [noiseEst, soundEst, noiseStd, soundStd] = electro_gui.eg_estimateTwoMeans(amp);
                 if (noiseEst>soundEst)
                     disc = max(amp)+eps;
                 else
@@ -14644,7 +14644,8 @@ end
                 if ~isreal(threshold)
                     threshold = max(amp)*1.1;
                 end
-            catch
+            catch ME
+                getReport(ME)
                 threshold = max(amp)*1.1;
             end
         
