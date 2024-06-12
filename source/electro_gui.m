@@ -2002,9 +2002,10 @@ function progress_play(obj, wav)
     end
     axs = axs(indx);
 
-    fs = obj.dbase.Fs * obj.SoundSpeed;
+    fs = obj.dbase.Fs * obj.settings.SoundSpeed;
     if isempty(axs)
-        sound(wav,fs); %#ok<*CPROPLC> 
+        playbackFcn = @sound;
+        playbackFcn(wav,fs);
     else
         for c = length(axs):-1:1
             if ~axs(c).Visible
@@ -2014,9 +2015,9 @@ function progress_play(obj, wav)
         for c = 1:length(axs)
             hold(axs(c), 'on')
             if ~obj.playback_Reverse.Checked
-                h(c) = plot(axs(c), [sampleLimits(1) sampleLimits(1)]/obj.dbase.Fs,ylim,'Color',obj.ProgressBarColor,'LineWidth',2);
+                h(c) = plot(axs(c), [sampleLimits(1) sampleLimits(1)]/obj.dbase.Fs,ylim,'Color',obj.settings.ProgressBarColor,'LineWidth',2);
             else
-                h(c) = plot(axs(c), [sampleLimits(2) sampleLimits(2)]/obj.dbase.Fs,ylim,'Color',obj.ProgressBarColor,'LineWidth',2);
+                h(c) = plot(axs(c), [sampleLimits(2) sampleLimits(2)]/obj.dbase.Fs,ylim,'Color',obj.settings.ProgressBarColor,'LineWidth',2);
             end
         end
         ap = audioplayer(wav,fs);
@@ -4699,17 +4700,17 @@ function snd = GenerateSound(obj, sound_type)
     if obj.playback_SoundInMix.Checked==1 || strcmp(sound_type,'snd')
         if obj.playback_FilteredSound.Checked
             filtered_sound = obj.filterSound(sound);
-            snd = snd + filtered_sound * obj.SoundWeights(1);
+            snd = snd + filtered_sound * obj.settings.SoundWeights(1);
         else
-            snd = snd + sound * obj.SoundWeights(1);
+            snd = snd + sound * obj.settings.SoundWeights(1);
         end
     end
 
     if strcmp(sound_type,'mix')
         if obj.axes_Channel1.Visible && obj.playback_TopInMix.Checked==1
             addval = obj.loadedChannelData{1};
-            addval(abs(addval) < obj.SoundClippers(1)) = 0;
-            addval = addval * obj.SoundWeights(2);
+            addval(abs(addval) < obj.settings.SoundClippers(1)) = 0;
+            addval = addval * obj.settings.SoundWeights(2);
             if size(addval,2)>size(addval,1)
                 addval = addval';
             end
@@ -4717,8 +4718,8 @@ function snd = GenerateSound(obj, sound_type)
         end
         if obj.axes_Channel2.Visible && obj.playback_BottomInMix.Checked==1
             addval = obj.loadedChannelData{2};
-            addval(abs(addval) < obj.SoundClippers(2)) = 0;
-            addval = addval * obj.SoundWeights(3);
+            addval(abs(addval) < obj.settings.SoundClippers(2)) = 0;
+            addval = addval * obj.settings.SoundWeights(3);
             if size(addval,2)>size(addval,1)
                 addval = addval';
             end
@@ -9563,12 +9564,7 @@ end
                 %   coordinates of the click/drag rectangle
                 rect = rbbox();
                 rect = getFigureCoordsInAxesDataUnits(rect, current_axes);
-        
-                [totalBandPower, totalPower, tlim, flim] = electro_gui.CalculateSpectrogramPower(rect, obj.SonogramHandle, obj.axes_Sonogram);
-
-                bandPowerFrac = totalBandPower/totalPower;
-
-                msgbox(sprintf('Fractional band power from %.03f - %.03f s, %d - %d Hz: %f%% of power in band', tlim(1), tlim(2), round(flim(1)), round(flim(2)), bandPowerFrac*100));
+                electro_gui.CreatePowerSpectrumInfoPopup(rect, obj.axes_Sonogram, obj.SonogramHandle);
             end
         
         end
@@ -9747,7 +9743,6 @@ end
                 end
                 obj.updateSegmentSelectHighlight();
             end
-        
         end
 
         function click_segment(obj, hObject, event)
@@ -11078,29 +11073,29 @@ end
 
         end
         function playback_Weights_Callback(obj, hObject, eventdata)
-            answer = inputdlg({'Sound','Top plot','Bottom plot'},'Sound weights',1,{num2str(obj.SoundWeights(1)),num2str(obj.SoundWeights(2)),num2str(obj.SoundWeights(3))});
+            answer = inputdlg({'Sound','Top plot','Bottom plot'},'Sound weights',1,{num2str(obj.settings.SoundWeights(1)),num2str(obj.settings.SoundWeights(2)),num2str(obj.settings.SoundWeights(3))});
             if isempty(answer)
                 return
             end
-            obj.SoundWeights = [str2double(answer{1}), str2double(answer{2}), str2double(answer{3})];
+            obj.settings.SoundWeights = [str2double(answer{1}), str2double(answer{2}), str2double(answer{3})];
 
 
         end
         function playback_Clippers_Callback(obj, hObject, eventdata)
-            answer = inputdlg({'Top plot','Bottom plot'},'Sound clippers',1,{num2str(obj.SoundClippers(1)),num2str(obj.SoundClippers(2))});
+            answer = inputdlg({'Top plot','Bottom plot'},'Sound clippers',1,{num2str(obj.settings.SoundClippers(1)),num2str(obj.settings.SoundClippers(2))});
             if isempty(answer)
                 return
             end
-            obj.SoundClippers = [str2double(answer{1}), str2double(answer{2})];
+            obj.settings.SoundClippers = [str2double(answer{1}), str2double(answer{2})];
 
 
         end
         function playback_Speed_Callback(obj, hObject, eventdata)
-            answer = inputdlg({'Playback speed (relative to normal)'},'Play speed',1,{num2str(obj.SoundSpeed)});
+            answer = inputdlg({'Playback speed (relative to normal)'},'Play speed',1,{num2str(obj.settings.SoundSpeed)});
             if isempty(answer)
                 return
             end
-            obj.SoundSpeed = str2double(answer{1});
+            obj.settings.SoundSpeed = str2double(answer{1});
 
 
         end
@@ -11123,8 +11118,8 @@ end
 
         end
         function playback_ProgressBarColor_Callback(obj, hObject, eventdata)
-            selectedColor = uisetcolor(obj.ProgressBarColor, 'Select color');
-            obj.ProgressBarColor = selectedColor;
+            selectedColor = uisetcolor(obj.settings.ProgressBarColor, 'Select color');
+            obj.settings.ProgressBarColor = selectedColor;
 
 
         end
@@ -11346,11 +11341,11 @@ end
 
                 case 'Current sound'
                     wav = obj.GenerateSound('snd');
-                    fs = obj.dbase.Fs * obj.SoundSpeed;
+                    fs = obj.dbase.Fs * obj.settings.SoundSpeed;
 
                 case 'Sound mix'
                     wav = obj.GenerateSound('mix');
-                    fs = obj.dbase.Fs * obj.SoundSpeed;
+                    fs = obj.dbase.Fs * obj.settings.SoundSpeed;
 
                 case 'Events'
                     switch exportTo
@@ -11590,7 +11585,7 @@ end
 
                             if obj.settings.ExportSonogramIncludeClip > 0
                                 wav = obj.GenerateSound('snd');
-                                fs = obj.dbase.Fs * obj.SoundSpeed;
+                                fs = obj.dbase.Fs * obj.settings.SoundSpeed;
 
                                 audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
 
@@ -12142,7 +12137,7 @@ end
                                         else
                                             wav = obj.GenerateSound('mix');
                                         end
-                                        fs = obj.dbase.Fs * obj.SoundSpeed;
+                                        fs = obj.dbase.Fs * obj.settings.SoundSpeed;
 
                                         audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
 
@@ -12183,7 +12178,7 @@ end
                                 else
                                     wav = obj.GenerateSound('mix');
                                 end
-                                fs = obj.dbase.Fs * obj.SoundSpeed;
+                                fs = obj.dbase.Fs * obj.settings.SoundSpeed;
 
                                 audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
 
@@ -12215,7 +12210,7 @@ end
                                             ycoord(c,3) = -ycoord(c,3);
                                         end
 
-                                        col = obj.ProgressBarColor;
+                                        col = obj.settings.ProgressBarColor;
                                         col = 255*col(1) + 256*255*col(2) + 256^2*255*col(3);
                                         switch animopt
                                             case 'Progress bar'
@@ -13069,7 +13064,7 @@ end
             delete(fig);
         
             wav = obj.GenerateSound('snd');
-            ys = obj.dbase.Fs * obj.SoundSpeed;
+            ys = obj.dbase.Fs * obj.settings.SoundSpeed;
         
             obj.settings.WorksheetXLims{end+1} = xl;
             obj.settings.WorksheetYLims{end+1} = yl;
@@ -14772,7 +14767,7 @@ end
                 end
             end
             if isfield(settings, 'FileReadState')
-                dbase = rmfield(settings, 'FileReadState');
+                settings = rmfield(settings, 'FileReadState');
             end
         
             if ~isfield(settings, 'EventThresholdDefaults') || length(settings.EventThresholdDefaults) ~= numEventSources
@@ -15021,26 +15016,98 @@ end
             [~, ind] = min(abs(sortedArr-value));
             ind = ind + (value > sortedArr(ind));
         end
-        function [totalBandPower, totalPower, tlim, flim] = CalculateSpectrogramPower(...
-                dataRect, spectrogramHandle, spectrogramAxes)
-            % Converting the rectangle to units of time & freq
+        function [totalBandPower, totalPower, totalFlim] = CalculateSpectrogramPower(...
+                spectrogramHandle, spectrogramAxes, tlim, flim)
         
-            tlim = [dataRect(1), dataRect(1) + dataRect(3)];
-            flim = [dataRect(2), dataRect(2) + dataRect(4)];
-
+            % Get the time and frequency coordinate info for spectrogram
             times = spectrogramHandle.XData;
             freqs = spectrogramHandle.YData;
+            % Get the spectrogram power matrix
             power = spectrogramHandle.CData;
             
+            % Get total frequency limits
+            [totalMinF, totalMaxF] = bounds(freqs);
+            totalFlim = [totalMinF, totalMaxF];
+
+            % Get spectrogram indices closest to requested tlim/flim
             [~, minTimeIdx] = min(abs(times-tlim(1)));
             [~, maxTimeIdx] = min(abs(times-tlim(2)));
             [~, minFreqIdx] = min(abs(freqs-flim(1)));
             [~, maxFreqIdx] = min(abs(freqs-flim(2)));
 
+            % Extract power matrix for given time
             power = power(:, minTimeIdx:maxTimeIdx);
+            % Extract power matrix for given frequency band
             bandPower = power(minFreqIdx:maxFreqIdx, :);
             totalPower = sum(power, 'all');
             totalBandPower = sum(bandPower, 'all');
+        end
+        function CreatePowerSpectrumInfoPopup(rect, axes_Sonogram, sonogramHandle)
+            % Rect is the position of the selected box in data units
+            % axes_Sonogram is the sonogram axes
+            % sonogramHandle is a handle to the sonogram object
+            tlim = [rect(1), rect(1) + rect(3)];
+            flim = [rect(2), rect(2) + rect(4)];
+
+            [totalBandPower, totalPower, totalFlim] = electro_gui.CalculateSpectrogramPower(sonogramHandle, axes_Sonogram, tlim, flim);
+
+            bandPowerFrac = totalBandPower/totalPower;
+            bandPowerDensity = (totalBandPower / diff(flim)) / (totalPower / diff(totalFlim));
+
+            msg = {sprintf('Selected time: %.03f - %.03f s', tlim(1), tlim(2)), ...
+                    sprintf('Selected freq: %.02f - %.02f kHz:', flim(1)/1000, flim(2)/1000) ...
+                    sprintf('    %.01f ms duration', diff(tlim)*1000), ...
+                    sprintf('    %.01f%% of frequency spectrum', (diff(flim)/diff(totalFlim))*100), ...
+                    sprintf('    %.01f%% of power in band', bandPowerFrac*100), ...
+                    sprintf('    %.02f relative power enrichment', bandPowerDensity)};
+
+            fig = figure('Units', 'normalized', 'ToolBar', 'none', 'MenuBar', 'none', 'NumberTitle', 'off');
+            pan = uipanel(fig, 'Units', 'normalized', ...
+                'Position', [0.025, 0.025, 0.95, 0.95]);
+            titleText = uicontrol(pan, ...
+                "Style", "text", ...
+                "String", 'Power spectrum information', ...
+                'Units', 'normalized', ...
+                'Position', [0, 0.9, 1, 0.1], ...
+                'HorizontalAlignment', 'center', ...
+                'FontSize', 24); %#ok<NASGU> 
+            text = uicontrol(pan, ...
+                "Style", "text", ...
+                "String", msg, ...
+                'Units', 'normalized', ...
+                'Position', [0, 0, 0.4, 0.85], ...
+                'HorizontalAlignment', 'left', ...
+                'FontSize', 10); %#ok<NASGU> 
+            ax = axes(pan, "Position", [0.5, 0.1, 0.5, 0.75], ...
+                'Units', 'normalized');
+            t = sonogramHandle.XData;
+            f = sonogramHandle.YData;
+            p = sonogramHandle.CData;
+            df = diff(f(1:2));
+            dt = diff(t(1:2));
+            [~, tMinIdx] = min(abs(t - tlim(1)));
+            [~, tMaxIdx] = min(abs(t - tlim(2)));
+            t = t(tMinIdx:tMaxIdx);
+            p = p(:, tMinIdx:tMaxIdx);
+            h = imagesc(ax, 'CData', p, 'XData', t, 'YData', f); %#ok<NASGU> 
+            % Fudge the time and frequency axes to account for the
+            % images being centered on half-integers eyeroll
+            t = linspace(min(t)-dt/2, max(t)+dt/2, length(t));
+            f = linspace(min(f)-df/2, max(f)+df/2, length(f));
+            ax.Colormap = axes_Sonogram.Colormap;
+            hold(ax, 'on');
+            m = max(p, [], 'all');
+            fRange = range(f)/6;
+            tRange = range(t)/6;
+            fMean = fRange * mean(p, 1)/m; % Mean power averaged across frequencies
+            tMean = tRange * mean(p, 2)/m; % Mean power averaged across time
+            plot(ax, t, fMean + max(f));
+            plot(ax, tMean + max(t), f);
+            r1 = rectangle(ax, 'Position', [min(t), max(f), range(t), fRange]); %#ok<NASGU> 
+            r2 = rectangle(ax, 'Position', [max(t), min(f), tRange, range(f)]); %#ok<NASGU> 
+            rBand = rectangle(ax, 'Position', [min(t), flim(1), range(t)+tRange, flim(2)-flim(1)], 'LineStyle', '--'); %#ok<NASGU> 
+            xlim(ax, [min(t), min(t) + range(t) + tRange]);
+            ylim(ax, [min(f), min(f) + range(f) + fRange]);            
         end
     end
 end
