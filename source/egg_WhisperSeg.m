@@ -59,7 +59,7 @@ try
     response = webwrite(service_url, jsonData, options);
     % Reply received! Reformat the results into electro_gui's Nx2 segment
     % time array format
-    segments = round([response.onset, response.offset]*whisperSegFs);
+    segments = round([response.onset, response.offset]*whisperSegFs) + 1;  % + 1 to convert from python's zero-indexing to MATLAB's one-indexing
 catch ME
     % Request failed
     if strcmp(ME.identifier, 'MATLAB:webservices:UnknownHost')
