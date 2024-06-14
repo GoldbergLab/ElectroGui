@@ -35,6 +35,8 @@ classdef electro_gui < handle
         axes_Amplitude matlab.graphics.axis.Axes
         axes_Segments matlab.graphics.axis.Axes
         axes_Events matlab.graphics.axis.Axes
+        ExportWindow struct
+        ExportControlPanel struct
         popup_Channels
         popup_Channel1
         popup_Channel2
@@ -100,8 +102,10 @@ classdef electro_gui < handle
         menu_FilterList
         playback_FilteredSound
         playback_Reverse
-        menu_export_options_Animation
-        menu_export_options_Animation_ProgressBar
+%         menu_export_options_Animation
+%         menu_export_options_Animation_ProgressBar
+        menu_ShowExportControlPanel
+        menu_ShowExportWindow
         playback_SoundInMix
         playback_TopInMix
         playback_BottomInMix
@@ -187,25 +191,6 @@ classdef electro_gui < handle
         menu_YAxis
         menu_AutoApplyYLim
         menu_EventsAxisLimits
-        panel_Worksheet
-        axes_Worksheet
-        push_WorksheetAppend
-        push_WorksheetOptions
-        push_PageLeft
-        push_PageRight
-        context_Worksheet
-        menu_WorksheetView
-        menu_WorksheetDelete
-        context_WorksheetOptions
-        menu_SortChronologically
-        menu_OnePerLine
-        menu_IncludeTitle
-        menu_EditTitle
-        menu_WorksheetDimensions
-        menu_Orientation
-        menu_Portrait
-        menu_Landscape
-        menu_ClearWorksheet
         popup_SoundSource
         text_SoundSource
         context_EventListAlign
@@ -244,38 +229,6 @@ classdef electro_gui < handle
         menu_SearchNot
         menu_Export
         action_Export
-        menu_ExportAs
-        export_asSonogram
-        export_asFigure
-        export_asWorksheet
-        export_asCurrentSound
-        export_asSoundMix
-        export_asEvents
-        menu_ExportTo
-        export_toMATLAB
-        export_toPowerPoint
-        export_toFile
-        export_toClipboard
-        export_Options
-        export_options_SonogramHeight
-        export_options_ImageTimescape
-        export_options_IncludeTimestamp
-        menu_export_options_IncludeSoundClip
-        export_options_IncludeSoundClip_None
-        export_options_IncludeSoundClip_SoundOnly
-        export_options_IncludeSoundClip_SoundMix
-        export_options_Animation_None
-        export_options_Animation_ProgressBar
-        export_options_Animation_ArrowAbove
-        export_options_Animation_ArrowBelow
-        export_options_Animation_ValueFollower
-        export_options_Animation_SonogramFollower
-        export_options_ImageResolution
-        menu_export_options_SonogramImageMode
-        export_options_SonogramImageMode_ScreenImage
-        export_options_SonogramImageMode_Recalculate
-        export_options_ScalebarDimensions
-        export_options_EditFigureTemplate
         menu_Help
         help_ControlsHelp
     end
@@ -297,7 +250,6 @@ classdef electro_gui < handle
         Cursors matlab.graphics.Graphics
         ChannelPlots cell
         Sonogram_Overlays matlab.graphics.Graphics
-        WorksheetHandles
         EventHandles = {{}, {}};
         ActiveEventCursors matlab.graphics.Graphics
     end
@@ -511,24 +463,24 @@ classdef electro_gui < handle
             end
             
             obj.settings.AnimationPlots = fliplr(obj.settings.AnimationPlots);
-            ch = obj.menu_export_options_Animation.Children;
+%             ch = obj.menu_export_options_Animation.Children;
             for c = 1:length(ch)
                 if obj.settings.AnimationPlots(c) == 1
                     ch(c).Checked = 'on';
                 end
             end
             
-            ch = obj.menu_export_options_Animation.Children;
-            ischeck = false;
-            for c = 1:length(ch)
-                if strcmp(ch(c).Label, obj.settings.AnimationType)
-                    ch(c).Checked = 'on';
-                    ischeck = true;
-                end
-            end
-            if ~ischeck
-                obj.menu_export_options_Animation_ProgressBar.Checked = 'on';
-            end
+%             ch = obj.menu_export_options_Animation.Children;
+%             ischeck = false;
+%             for c = 1:length(ch)
+%                 if strcmp(ch(c).Label, obj.settings.AnimationType)
+%                     ch(c).Checked = 'on';
+%                     ischeck = true;
+%                 end
+%             end
+%             if ~ischeck
+%                 obj.menu_export_options_Animation_ProgressBar.Checked = 'on';
+%             end
             
             obj.playback_SoundInMix.Checked = obj.settings.DefaultMix(1);
             obj.playback_TopInMix.Checked = obj.settings.DefaultMix(2);
@@ -1273,8 +1225,6 @@ classdef electro_gui < handle
             % Sonogram overlay handles
             obj.Sonogram_Overlays = gobjects(1, 2);
         
-            obj.setUpWorksheet();
-        
             %% Set up axes-indexed lists of GUI elements, to make code more extensible
             % obj.popup_Channels are dropdown menus for the channel axes to select a channel of data to display.
             obj.popup_Channels = [obj.popup_Channel1, obj.popup_Channel2];
@@ -1321,28 +1271,7 @@ classdef electro_gui < handle
                 end
             end
         end
-        function initializeExportOptions(obj)
-            obj.export_options_EditFigureTemplate.UserData = obj.settings.template;
-        
-            if obj.settings.ExportReplotSonogram == 1
-                obj.export_options_SonogramImageMode_Recalculate.Checked = 'on';
-            else
-                obj.export_options_SonogramImageMode_ScreenImage.Checked = 'on';
-            end
-            switch obj.settings.ExportSonogramIncludeClip
-                case 0
-                    obj.export_options_IncludeSoundClip_None.Checked = 'on';
-                case 1
-                    obj.export_options_IncludeSoundClip_SoundOnly.Checked = 'on';
-                case 2
-                    obj.export_options_IncludeSoundClip_SoundMix.Checked = 'on';
-            end
-            if obj.settings.ExportSonogramIncludeLabel
-                obj.export_options_IncludeTimestamp.Checked = 'on';
-            else
-                obj.export_options_IncludeTimestamp.Checked = 'off';
-            end
-        
+        function initializeExportOptions(obj) %#ok<MANU> 
         end
         function clearAxes(obj)
     % Delete old plots
@@ -1505,21 +1434,25 @@ end
         
             filenum = electro_gui.getCurrentFileNum(obj.settings);
         
-            [obj.SegmentHandles, obj.SegmentLabelHandles] = obj.CreateAnnotations(...
+            [numSamples, fs] = obj.eg_GetSamplingInfo();
+
+            [obj.SegmentHandles, obj.SegmentLabelHandles] = electro_gui.CreateAnnotations(...
                 obj.axes_Segments, ...
                 obj.dbase.SegmentTimes{filenum}, ...
                 obj.dbase.SegmentTitles{filenum}, ...
                 obj.dbase.SegmentIsSelected{filenum}, ...
                 obj.settings.SegmentSelectColor, obj.settings.SegmentUnSelectColor, ...
-                obj.settings.SegmentActiveColor, obj.settings.SegmentInactiveColor, [-1, 1]);
+                obj.settings.SegmentActiveColor, obj.settings.SegmentInactiveColor, ...
+                [-1, 1], numSamples, fs, [], @obj.click_segment);
         
-            [obj.MarkerHandles, obj.MarkerLabelHandles] = obj.CreateAnnotations(...
+            [obj.MarkerHandles, obj.MarkerLabelHandles] = electro_gui.CreateAnnotations(...
                 obj.axes_Segments, ...
                 obj.dbase.MarkerTimes{filenum}, ...
                 obj.dbase.MarkerTitles{filenum}, ...
                 obj.dbase.MarkerIsSelected{filenum}, ...
                 obj.settings.MarkerSelectColor, obj.settings.MarkerUnSelectColor, ...
-                obj.settings.SegmentInactiveColor, obj.settings.MarkerInactiveColor, [1, 3]);
+                obj.settings.SegmentInactiveColor, obj.settings.MarkerInactiveColor, ...
+                [1, 3], numSamples, fs, [], @obj.click_segment);
         
             % Ensure active annotation setting is valid
             obj.SanityCheckActiveAnnotation(filenum);
@@ -1560,8 +1493,6 @@ end
                 obj.xlimbox.YData = ydata;
             end
         end
-
-
 
     end
     methods %% GUI querying - functions that get information from GUI widgets
@@ -1836,58 +1767,6 @@ function addRecentFile(obj, filePath)
     obj.updateTempFile();
 end
 
-function setUpWorksheet(obj)
-    sz = obj.figure_Main.PaperSize;
-    if strcmp(obj.settings.WorksheetOrientation,'portrait')
-        obj.menu_Portrait.Checked = 'on';
-    else
-        obj.settings.WorksheetOrientation = 'landscape';
-        obj.menu_Landscape.Checked = 'on';
-    end
-    if ~strcmp(obj.settings.WorksheetOrientation,obj.figure_Main.PaperOrientation)
-        obj.settings.WorksheetHeight = sz(1);
-        obj.settings.WorksheetWidth = sz(2);
-    else
-        obj.settings.WorksheetHeight = sz(2);
-        obj.settings.WorksheetWidth = sz(1);
-    end
-
-    patch(obj.axes_Worksheet, [0, obj.settings.WorksheetWidth, obj.settings.WorksheetWidth, 0], [0, 0, obj.settings.WorksheetHeight, obj.settings.WorksheetHeight], 'w');
-    axis(obj.axes_Worksheet, 'equal');
-    axis(obj.axes_Worksheet, 'tight');
-    axis(obj.axes_Worksheet, 'off');
-
-    obj.settings.WorksheetTitle = 'Untitled';
-
-    obj.settings.WorksheetXLims = {};
-    obj.settings.WorksheetYLims = {};
-    obj.settings.WorksheetXs = {};
-    obj.settings.WorksheetYs = {};
-    obj.settings.WorksheetMs = {};
-    obj.settings.WorksheetClim = {};
-    obj.settings.WorksheetColormap = {};
-    obj.settings.WorksheetSounds = {};
-    obj.settings.WorksheetFs = [];
-    obj.settings.WorksheetTimes = datetime.empty();
-
-    obj.settings.WorksheetCurrentPage = 1;
-
-    if obj.settings.WorksheetIncludeTitle == 1
-        obj.menu_IncludeTitle.Checked = 'on';
-    end
-    if obj.settings.WorksheetChronological == 1
-        obj.menu_SortChronologically.Checked = 'on';
-    end
-    if obj.settings.WorksheetOnePerLine == 1
-        obj.menu_OnePerLine.Checked = 'on';
-    end
-
-    obj.WorksheetHandles = gobjects().empty();
-    obj.settings.WorksheetList = [];
-    obj.settings.WorksheetUsed = [];
-    obj.settings.WorksheetWidths = [];
-end
-
 function isNewUser = ensureDefaultsFileExists(obj, user)
     % Check if a defaults file exists for the given user. If not, create
     % one for the user using the settings in defaults_template file.
@@ -2160,7 +2039,6 @@ function resetFileCache(obj)
     obj.file_cache(1).data_future = parallel.FevalFuture;
     obj.file_cache(:) = [];
 end
-
 function LoadFile(obj, showWaitBar)
     arguments
         obj electro_gui
@@ -2212,7 +2090,7 @@ function LoadFile(obj, showWaitBar)
     [numSamples, fs] = obj.eg_GetSamplingInfo();
 
     obj.dbase.FileLength(filenum) = numSamples;
-    obj.text_DateAndTime.String = string(datetime(obj.dbase.Times(filenum), 'ConvertFrom', 'datenum'));
+    obj.text_DateAndTime.String = electro_gui.getFileTimestamp(obj.dbase, filenum);
 
     obj.updateSoundEnvelope();
 
@@ -2581,62 +2459,6 @@ function SegmentSounds(obj, updateGUI)
 
     if updateGUI
         obj.updateAnnotations();
-    end
-end
-
-function [annotationHandles, labelHandles] = CreateAnnotations(obj, ax, times, titles, selects, selectColor, unselectColor, activeColor, inactiveColor, yExtent, activeIndex)
-    % Create the annotations for a set of timed segments (used for plotting both
-    % "segments" and "markers")
-
-    if ~exist('activeIndex', 'var')
-        activeIndex = [];
-    end
-
-    % Create a time vector that corresponds to the loaded audio samples
-    numSamples = obj.eg_GetSamplingInfo();
-    ts = linspace(0, numSamples/obj.dbase.Fs, numSamples);
-
-    y0 = yExtent(1);
-    y1 = yExtent(1) + (yExtent(2) - yExtent(1))*0.3;
-    % y2 = yExtent(2);
-
-    annotationHandles = gobjects().empty;
-    labelHandles = gobjects().empty;
-
-    % Loop over stored segment start/end times pairs
-    for annotationNum = 1:size(times,1)
-        % Extract the start (x1) and end (x2) times of this segment
-        t1 = ts(times(annotationNum,1));
-        t2 = ts(times(annotationNum,2));
-        if selects(annotationNum)
-            faceColor = selectColor;
-        else
-            faceColor = unselectColor;
-        end
-        % Create a rectangle to represent the segment
-        newAnnotation = patch(ax, [t1 t2 t2 t1], [y0 y0 y1 y1], faceColor, 'ContextMenu', ax.ContextMenu);
-        % Create a text graphics object right above the middle of the segment
-        % rectangle
-        newLabel = text(ax, (t1+t2)/2,y1,titles(annotationNum), 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'center', 'ContextMenu', ax.ContextMenu);
-
-        % Set annotation style to inactive
-        if activeIndex == annotationNum
-            newAnnotation.EdgeColor = activeColor;
-            newAnnotation.LineWidth = 2;
-            newAnnotation.LineStyle = '-';
-        else
-            newAnnotation.EdgeColor = inactiveColor;
-            newAnnotation.LineWidth = 1;
-            newAnnotation.LineStyle = '-';
-        end
-
-        % Attach click handler "click_segment" to segment rectangle
-        newAnnotation.ButtonDownFcn = @obj.click_segment;
-        newLabel.ButtonDownFcn = @(hObject, event)obj.click_segment(newAnnotation, event);
-
-        % Put new handles in list
-        labelHandles(annotationNum) = newLabel;
-        annotationHandles(annotationNum) = newAnnotation;
     end
 end
 
@@ -3387,11 +3209,6 @@ function eg_NewDbase(obj)
     % Placeholder for custom fields
     obj.OriginalDbase = struct();
 
-    if strcmp(obj.settings.WorksheetTitle,'Untitled')
-        f = strfind(obj.dbase.PathName,'\');
-        obj.settings.WorksheetTitle = obj.dbase.PathName(f(end)+1:end);
-    end
-
     obj.text_TotalFileNumber.String = ['of ' num2str(numFiles)];
     obj.edit_FileNumber.String = '1';
 
@@ -3624,11 +3441,6 @@ function OpenDbase(obj, filePathOrDbase, options)
     obj.popup_EventListAlign.Value = 1;
     obj.axes_Events.Visible = 'off';
 
-    if strcmp(obj.settings.WorksheetTitle,'Untitled')
-        f = strfind(obj.dbase.PathName,'\');
-        obj.settings.WorksheetTitle = obj.dbase.PathName(f(end)+1:end);
-    end
-
     % Update channel lists again to include pseudochannels
     obj.updateChannelPopups();
 
@@ -3792,55 +3604,58 @@ function zoomInTime(obj, tCenter, zoomLevels)
     obj.settings.TLim = [tCenter - tFraction * newTWidth, tCenter + (1-tFraction) * newTWidth];
     obj.updateTimescaleView();
 end
-
+function tab = getExportFileTab(obj)
+    % Get existing or new tab based on current file for exporting to
+    obj.ensureExportWindowExists();
+    titles = {obj.ExportWindow.tabs.Title};
+    filenum = obj.getCurrentFileNum();
+    currentFileTitle = sprintf('File %d', filenum);
+    idx = find(strcmp(titles, currentFileTitle), 1);
+    if isempty(idx)
+        tab = obj.addExportTab(currentFileTitle);
+    else
+        tab = obj.ExportWindow.tabs(idx);
+    end
+end
+function tab = getCurrentExportTab(obj)
+    tab = obj.ExportWindow.tabGroup.SelectedTab;
+end
 function exportView(obj)
-    f_export = figure();
+    obj.ensureExportSettingsExist();
 
-    % Determine how many channels are visible
-    numChannels = 0;
-    for c = 1:length(obj.axes_Channel)
-        if obj.axes_Channel(c).Visible
-            numChannels = numChannels + 1;
-        end
+    switch obj.settings.Export.LayoutTabMode
+        case 'LayoutTabCurrent'
+            tab = obj.getCurrentExportTab();
+        case 'LayoutTabFile'
+            tab = obj.getExportFileTab();
     end
+    filenum = electro_gui.getCurrentFileNum(obj.settings);
+    filename = electro_gui.getCurrentFileName(obj.dbase, obj.settings);
+    fileTimestamp = electro_gui.getFileTimestamp(obj.dbase, filenum);
+    fileDatetime = electro_gui.getFileDatetime(obj.dbase, filenum);
+    panel = obj.addExportPanel(tab, filenum, filename, fileTimestamp, fileDatetime, obj.settings.TLim);
 
-    % Copy sonogram
-    sonogram_export = subplot(numChannels+1, 1, 1, 'Parent', f_export);
-    sonogram_children = obj.axes_Sonogram.Children;
-    for k = 1:length(sonogram_children)
-        copyobj(sonogram_children(k), sonogram_export);
+    % Determine how many axes we'll need
+    numAxes = ...
+        obj.settings.Export.IncludeSpectrogram + ...
+        obj.settings.Export.IncludeAmplitude + ...
+        obj.settings.Export.IncludeSyllables || obj.settings.Export.IncludeMarkers + ...
+        obj.settings.Export.IncludeTopChannelAxes && obj.axes_Channel(1).Visible + ...
+        obj.settings.Export.IncludeBotChannelAxes && obj.axes_Channel(2).Visible; %#ok<*BDLOG> 
+
+    axesNum = 0;
+    y = 0;
+    if obj.settings.Export.IncludeSpectrogram
+        axesNum = axesNum + 1;
+        axes_Sonogram_exported = copyobj(obj.axes_Sonogram, panel);
+        axes_Sonogram_exported.Units = 'pixels';
+        axes_Sonogram_exported.Position(1) = 0;
+        axes_Sonogram_exported.Position(2) = y;
     end
-    % Match axes limits
-    xlim(sonogram_export, xlim(obj.axes_Sonogram));
-    ylim(sonogram_export, ylim(obj.axes_Sonogram));
-    sonogram_export.CLim = obj.axes_Sonogram.CLim;
-    colormap(sonogram_export, obj.Colormap);
-
-    % Set figure size to match contents
-    sonogram_export.Units = obj.axes_Sonogram.Units;
-%     curr_pos = sonogram_export.Position;
-    son_pos = obj.axes_Sonogram.Position;
-    aspect_ratio = 1.2*(1+numChannels)*son_pos(4) / son_pos(3);
-    f_pos = f_export.Position;
-    f_pos(4) = f_pos(3) * aspect_ratio;
-    f_export.Position = f_pos;
-
-    % Add title to sonogram (file name)
-    currentFileName = electro_gui.getCurrentFileName(obj.dbase, obj.settings);
-    title(sonogram_export, currentFileName, 'Interpreter', 'none');
-
-    % Loop over any channels that are currently visible, and copy them
-    chan = 0;
-    for c = 1:length(obj.axes_Channel)
-        if obj.axes_Channel(c).Visible
-            chan = chan + 1;
-            channel_export = subplot(numChannels+1, 1, 1+chan, 'Parent', f_export);
-            channel_children = obj.axes_Channel(c).Children;
-            for k = 1:length(channel_children)
-                copyobj(channel_children(k), channel_export);
-            end
-        end
-    end
+%     sonogram_export.CLim = obj.axes_Sonogram.CLim;
+%     colormap(sonogram_export, obj.Colormap);
+    shrinkToContent(panel, "Margin", [3, 3], 'MarginUnits', 'pixels');
+    obj.arrangeExportPanels();
 end
 
 function boxedEventMask = GetBoxedEventMask(obj, axnum, filenum, minTime, maxTime, minVolt, maxVolt)
@@ -4432,142 +4247,6 @@ function UnselectEvents(obj, eventNums, eventSourceIdx, filenum)
     end
 end
 
-function txt = addWorksheetTextBox(obj, newslide, text, fontSize, x, y, horizontalAnchor, verticalAnchor, paragraphAlignment, rotation)
-    txt = invoke(newslide.Shapes,'AddTextBox',1,0,0,0,0);
-    txt.TextFrame.TextRange.Text = text;
-    if exist('verticalAnchor', 'var') && ~isempty(verticalAnchor)
-        txt.TextFrame.VerticalAnchor = verticalAnchor;
-    end
-    if exist('horizontalAnchor', 'var') && ~isempty(horizontalAnchor)
-        txt.TextFrame.HorizontalAnchor = horizontalAnchor;
-    end
-    txt.TextFrame.WordWrap = 'msoFalse';
-    txt.TextFrame.MarginLeft = 0;
-    txt.TextFrame.MarginRight = 0;
-    txt.TextFrame.MarginTop = 0;
-    txt.TextFrame.MarginBottom = 0;
-    txt.TextFrame.TextRange.Font.Size = fontSize;
-    txt.Height = txt.TextFrame.TextRange.BoundHeight;
-    txt.Width = txt.TextFrame.TextRange.BoundWidth;
-    if exist('x', 'var') && ~isempty(x)
-        txt.Left = x;
-    end
-    if exist('y', 'var') && ~isempty(y)
-        txt.Top = y;
-    end
-    if exist('paragraphAlignment', 'var') && ~isempty(paragraphAlignment)
-        txt.TextFrame.TextRange.ParagraphFormat.Alignment = paragraphAlignment;
-    end
-    if exist('rotation', 'var') && ~isempty(rotation)
-        txt.Rotation = rotation;
-    end
-end
-function updateWorksheet(obj)
-
-    max_width = obj.settings.WorksheetWidth - 2*obj.settings.WorksheetMargin;
-    widths = [];
-    for c = 1:length(obj.settings.WorksheetXLims)
-        widths(c) = (obj.settings.WorksheetXLims{c}(2)-obj.settings.WorksheetXLims{c}(1))*obj.settings.ExportSonogramWidth;
-    end
-
-    if obj.settings.WorksheetChronological == 1
-        [~, sortOrder] = sort(obj.settings.WorksheetTimes);
-    else
-        sortOrder = 1:length(obj.settings.WorksheetXLims);
-    end
-
-    worksheetList = [];
-    used = [];
-    for c = 1:length(sortOrder)
-        indx = sortOrder(c);
-        if obj.settings.WorksheetOnePerLine == 1 || isempty(used)
-            worksheetList{end+1} = indx;
-            used(end+1) = widths(indx);
-        else
-            if obj.settings.WorksheetChronological == 1
-                if used(end)+widths(indx) <= max_width
-                    worksheetList{end}(end+1) = indx;
-                    used(end) = used(end) + widths(indx) + obj.settings.WorksheetHorizontalInterval;
-                else
-                    worksheetList{end+1} = indx;
-                    used(end+1) = widths(indx);
-                end
-            else
-                f = find(used+widths(indx) <= max_width);
-                if isempty(f)
-                    worksheetList{end+1} = indx;
-                    used(end+1) = widths(indx);
-                else
-                    [~, j] = max(used(f));
-                    ins = f(j(1));
-                    worksheetList{ins}(end+1) = indx;
-                    used(ins) = used(ins) + widths(indx) + obj.settings.WorksheetHorizontalInterval;
-                end
-            end
-        end
-    end
-
-    obj.settings.WorksheetList = worksheetList;
-    obj.settings.WorksheetUsed = used;
-    obj.settings.WorksheetWidths = widths;
-
-    perpage = fix(0.001+(obj.settings.WorksheetHeight - 2*obj.settings.WorksheetMargin - obj.settings.WorksheetIncludeTitle*obj.settings.WorksheetTitleHeight)/(obj.settings.ExportSonogramHeight + obj.settings.WorksheetVerticalInterval));
-    pagenum = fix((0:length(worksheetList)-1)/perpage)+1;
-
-    cla(obj.axes_Worksheet);
-    patch(obj.axes_Worksheet, [0, obj.settings.WorksheetWidth, obj.settings.WorksheetWidth, 0], [0, 0, obj.settings.WorksheetHeight, obj.settings.WorksheetHeight],'w');
-    hold(obj.axes_Worksheet, 'on');
-    if obj.settings.WorksheetCurrentPage > max(pagenum)
-        obj.settings.WorksheetCurrentPage = max(pagenum);
-    end
-    f = find(pagenum==obj.settings.WorksheetCurrentPage);
-    obj.WorksheetHandles = gobjects().empty;
-    for c = 1:length(f)
-        indx = f(c);
-        for d = 1:length(worksheetList{indx})
-            x = (obj.settings.WorksheetWidth-used(indx))/2 + sum(widths(worksheetList{indx}(1:d-1))) + obj.settings.WorksheetHorizontalInterval*(d-1);
-            wd = widths(worksheetList{indx}(d));
-            y = obj.settings.WorksheetHeight - obj.settings.WorksheetMargin - obj.settings.WorksheetIncludeTitle*obj.settings.WorksheetTitleHeight - obj.settings.WorksheetVerticalInterval*c - obj.settings.ExportSonogramHeight*c;
-            obj.WorksheetHandles(worksheetList{indx}(d)) = patch(obj.axes_Worksheet, [x, x+wd, x+wd, x], [y, y, y+obj.settings.ExportSonogramHeight, y+obj.settings.ExportSonogramHeight], [.5, .5, .5]);
-        end
-    end
-
-    for k = 1:length(obj.WorksheetHandles)
-        obj.WorksheetHandles(k).ButtonDownFcn = @obj.click_Worksheet;
-        obj.WorksheetHandles(k).UIContextMenu = obj.context_Worksheet;
-    end
-
-    axis(obj.axes_Worksheet, 'equal');
-    axis(obj.axes_Worksheet, 'tight');
-    axis(obj.axes_Worksheet, 'off');
-
-    obj.panel_Worksheet.Title = ['Worksheet: Page ' num2str(obj.settings.WorksheetCurrentPage) '/' num2str(max([1 max(pagenum)]))];
-end
-
-function ViewWorksheet(obj)
-
-    f = find(obj.WorksheetHandles==findobj('Parent',obj.axes_Worksheet,'FaceColor','r'));
-
-    fig = figure;
-    fig.Visible = 'off';
-    fig.Units = 'inches';
-    pos = fig.Position;
-    pos(3) = obj.settings.ExportSonogramWidth*(obj.settings.WorksheetXLims{f}(2)-obj.settings.WorksheetXLims{f}(1));
-    pos(4) = obj.settings.ExportSonogramHeight;
-    fig.Position = pos;
-    ax = subplot('Position',[0 0 1 1]);
-    hold(ax, 'on');
-    for c = 1:length(obj.settings.WorksheetMs{f})
-        imagesc(ax, obj.settings.WorksheetXs{f}{c},obj.settings.WorksheetYs{f}{c},obj.settings.WorksheetMs{f}{c});
-    end
-    ax.CLim = obj.settings.WorksheetClim{f};
-    fig.Colormap = obj.settings.WorksheetColormap{f};
-    axis(ax, 'tight');
-    axis(ax, 'off');
-    fig.Visible = 'on';
-end
-
-
 function menu_FunctionParams(obj,axnum)
 
     pr = obj.settings.ChannelAxesFunctionParams{axnum};
@@ -4989,14 +4668,14 @@ function UpdateFileInfoBrowser(obj)
         firstColumnsEditable = [false, false];
         firstColumnsSelectable = [true, true];
         firstColumnsFormat = {'char', 'char'};
-        firstColumnsWidth = [24, 135];
+        firstColumnsWidth = [28, 135];
     else
         obj.FileInfoBrowserFirstPropertyColumn = 2;
         firstColumnsNames = {'#'};
         firstColumnsEditable = false;
         firstColumnsSelectable = true;
         firstColumnsFormat = {'char'};
-        firstColumnsWidth = 24;
+        firstColumnsWidth = 28;
     end
     
     data = cell(electro_gui.getNumFiles(obj.dbase), obj.getNumProperties() + obj.FileInfoBrowserFirstPropertyColumn-1);
@@ -5304,14 +4983,28 @@ function updateFileNotes(obj)
     obj.edit_FileNotes.String = obj.dbase.Notes{filenum};
 end
 
+function figure_Main_Closerequest_Handler(obj, hObject, event)
+    % Handle cleanup, including of auxiliary windows.
+    if isfield(obj.ExportControlPanel, 'fig')
+        delete(obj.ExportControlPanel.fig);
+    end
+    if isfield(obj.ExportWindow, 'fig')
+        delete(obj.ExportWindow.fig);
+    end
+    delete(obj.figure_Main);
+end
+
 function setupGUI(obj)
+    alignedAxesX = 0.018;
+    alignedAxesW = 0.697;
+
     obj.figure_Main = figure(...
             'PaperUnits',get(0,'defaultfigurePaperUnits'),...
             'Units','normalized',...
             'Position',[0.0244791666666667 0.0191666666666667 0.990625 0.891666666666667],...
             'Visible',get(0,'defaultfigureVisible'),...
             'Color',get(0,'defaultfigureColor'),...
-            'CloseRequestFcn',get(0,'defaultfigureCloseRequestFcn'),...
+            'CloseRequestFcn',@obj.figure_Main_Closerequest_Handler,...
             'CurrentAxesMode','manual',...
             'CurrentObjectMode','manual',...
             'CurrentPointMode','manual',...
@@ -5385,8 +5078,8 @@ function setupGUI(obj)
         'YRulerMode',get(0,'defaultaxesYRulerMode'),...
         'ZRulerMode',get(0,'defaultaxesZRulerMode'),...
         'AmbientLightSourceMode',get(0,'defaultaxesAmbientLightSourceMode'),...
-        'Position',[0.018 0.905294171840009 0.697 0.0681818181818182],...
-        'InnerPosition',[0.018 0.905294171840009 0.697 0.0681818181818182],...
+        'Position',[alignedAxesX 0.905294171840009 alignedAxesW 0.0681818181818182],...
+        'InnerPosition',[alignedAxesX 0.905294171840009 alignedAxesW 0.0681818181818182],...
         'ActivePositionProperty','position',...
         'ActivePositionPropertyMode',get(0,'defaultaxesActivePositionPropertyMode'),...
         'PositionConstraint','innerposition',...
@@ -5674,8 +5367,8 @@ function setupGUI(obj)
         'YRulerMode',get(0,'defaultaxesYRulerMode'),...
         'ZRulerMode',get(0,'defaultaxesZRulerMode'),...
         'AmbientLightSourceMode',get(0,'defaultaxesAmbientLightSourceMode'),...
-        'Position',[0.0177824267782427 0.64265668849392 0.697175732217573 0.262862488306829],...
-        'InnerPosition',[0.0177824267782427 0.64265668849392 0.697175732217573 0.262862488306829],...
+        'Position',[alignedAxesX 0.64265668849392 alignedAxesW 0.262862488306829],...
+        'InnerPosition',[alignedAxesX 0.64265668849392 alignedAxesW 0.262862488306829],...
         'ActivePositionProperty','position',...
         'ActivePositionPropertyMode',get(0,'defaultaxesActivePositionPropertyMode'),...
         'PositionConstraint','innerposition',...
@@ -5963,8 +5656,8 @@ function setupGUI(obj)
         'YRulerMode',get(0,'defaultaxesYRulerMode'),...
         'ZRulerMode',get(0,'defaultaxesZRulerMode'),...
         'AmbientLightSourceMode',get(0,'defaultaxesAmbientLightSourceMode'),...
-        'Position',[0.018 0.525568181818182 0.697 0.0558712121212122],...
-        'InnerPosition',[0.018 0.525568181818182 0.697 0.0558712121212122],...
+        'Position',[alignedAxesX 0.525568181818182 alignedAxesW 0.0558712121212122],...
+        'InnerPosition',[alignedAxesX 0.525568181818182 alignedAxesW 0.0558712121212122],...
         'ActivePositionProperty','position',...
         'ActivePositionPropertyMode',get(0,'defaultaxesActivePositionPropertyMode'),...
         'PositionConstraint','innerposition',...
@@ -6252,8 +5945,8 @@ function setupGUI(obj)
         'YRulerMode',get(0,'defaultaxesYRulerMode'),...
         'ZRulerMode',get(0,'defaultaxesZRulerMode'),...
         'AmbientLightSourceMode',get(0,'defaultaxesAmbientLightSourceMode'),...
-        'Position',[0.018 0.425189393939394 0.697 0.100378787878788],...
-        'InnerPosition',[0.018 0.425189393939394 0.697 0.100378787878788],...
+        'Position',[alignedAxesX 0.425189393939394 alignedAxesW 0.100378787878788],...
+        'InnerPosition',[alignedAxesX 0.425189393939394 alignedAxesW 0.100378787878788],...
         'ActivePositionProperty','position',...
         'ActivePositionPropertyMode',get(0,'defaultaxesActivePositionPropertyMode'),...
         'PositionConstraint','innerposition',...
@@ -6542,8 +6235,8 @@ function setupGUI(obj)
         'YRulerMode',get(0,'defaultaxesYRulerMode'),...
         'ZRulerMode',get(0,'defaultaxesZRulerMode'),...
         'AmbientLightSourceMode',get(0,'defaultaxesAmbientLightSourceMode'),...
-        'Position',[0.018 0.21780303030303 0.697 0.145833333333333],...
-        'InnerPosition',[0.018 0.21780303030303 0.697 0.145833333333333],...
+        'Position',[alignedAxesX 0.21780303030303 alignedAxesW 0.145833333333333],...
+        'InnerPosition',[alignedAxesX 0.21780303030303 alignedAxesW 0.145833333333333],...
         'ActivePositionProperty','position',...
         'ActivePositionPropertyMode',get(0,'defaultaxesActivePositionPropertyMode'),...
         'PositionConstraint','innerposition',...
@@ -6831,8 +6524,8 @@ function setupGUI(obj)
         'YRulerMode',get(0,'defaultaxesYRulerMode'),...
         'ZRulerMode',get(0,'defaultaxesZRulerMode'),...
         'AmbientLightSourceMode',get(0,'defaultaxesAmbientLightSourceMode'),...
-        'Position',[0.018 0.0123106060606061 0.697 0.146780303030303],...
-        'InnerPosition',[0.018 0.0123106060606061 0.697 0.146780303030303],...
+        'Position',[alignedAxesX 0.0123106060606061 alignedAxesW 0.146780303030303],...
+        'InnerPosition',[alignedAxesX 0.0123106060606061 alignedAxesW 0.146780303030303],...
         'ActivePositionProperty','position',...
         'ActivePositionPropertyMode',get(0,'defaultaxesActivePositionPropertyMode'),...
         'PositionConstraint','innerposition',...
@@ -8432,427 +8125,6 @@ function setupGUI(obj)
         'Label','Set limits...',...
         'Tag','menu_EventsAxisLimits');
 
-    obj.panel_Worksheet = uipanel(...
-        'Parent',obj.figure_Main,...
-        'FontUnits',get(0,'defaultuipanelFontUnits'),...
-        'Units',get(0,'defaultuipanelUnits'),...
-        'BorderType','beveledout',...
-        'TitlePosition','centertop',...
-        'Title','Worksheet: Page 1/1',...
-        'Tag','panel_Worksheet',...
-        'Clipping','off',...
-        'Position',[0.725 0.0112254443405051 0.27 0.165575304022451],...
-        'Layout',[]);
-
-    obj.axes_Worksheet = axes(...
-        'Parent',obj.panel_Worksheet,...
-        'FontUnits',get(0,'defaultaxesFontUnits'),...
-        'Units',get(0,'defaultaxesUnits'),...
-        'CameraPosition',[0.5 0.5 9.16025403784439],...
-        'CameraPositionMode',get(0,'defaultaxesCameraPositionMode'),...
-        'CameraTarget',[0.5 0.5 0.5],...
-        'CameraTargetMode',get(0,'defaultaxesCameraTargetMode'),...
-        'CameraViewAngle',6.60861036031192,...
-        'CameraViewAngleMode',get(0,'defaultaxesCameraViewAngleMode'),...
-        'PlotBoxAspectRatio',[1 0.466867469879518 0.466867469879518],...
-        'PlotBoxAspectRatioMode',get(0,'defaultaxesPlotBoxAspectRatioMode'),...
-        'Colormap',[0 0 0.5625;0 0 0.625;0 0 0.6875;0 0 0.75;0 0 0.8125;0 0 0.875;0 0 0.9375;0 0 1;0 0.0625 1;0 0.125 1;0 0.1875 1;0 0.25 1;0 0.3125 1;0 0.375 1;0 0.4375 1;0 0.5 1;0 0.5625 1;0 0.625 1;0 0.6875 1;0 0.75 1;0 0.8125 1;0 0.875 1;0 0.9375 1;0 1 1;0.0625 1 1;0.125 1 0.9375;0.1875 1 0.875;0.25 1 0.8125;0.3125 1 0.75;0.375 1 0.6875;0.4375 1 0.625;0.5 1 0.5625;0.5625 1 0.5;0.625 1 0.4375;0.6875 1 0.375;0.75 1 0.3125;0.8125 1 0.25;0.875 1 0.1875;0.9375 1 0.125;1 1 0.0625;1 1 0;1 0.9375 0;1 0.875 0;1 0.8125 0;1 0.75 0;1 0.6875 0;1 0.625 0;1 0.5625 0;1 0.5 0;1 0.4375 0;1 0.375 0;1 0.3125 0;1 0.25 0;1 0.1875 0;1 0.125 0;1 0.0625 0;1 0 0;0.9375 0 0;0.875 0 0;0.8125 0 0;0.75 0 0;0.6875 0 0;0.625 0 0;0.5625 0 0],...
-        'ColormapMode',get(0,'defaultaxesColormapMode'),...
-        'Alphamap',[0 0.0159 0.0317 0.0476 0.0635 0.0794 0.0952 0.1111 0.127 0.1429 0.1587 0.1746 0.1905 0.2063 0.2222 0.2381 0.254 0.2698 0.2857 0.3016 0.3175 0.3333 0.3492 0.3651 0.381 0.3968 0.4127 0.4286 0.4444 0.4603 0.4762 0.4921 0.5079 0.5238 0.5397 0.5556 0.5714 0.5873 0.6032 0.619 0.6349 0.6508 0.6667 0.6825 0.6984 0.7143 0.7302 0.746 0.7619 0.7778 0.7937 0.8095 0.8254 0.8413 0.8571 0.873 0.8889 0.9048 0.9206 0.9365 0.9524 0.9683 0.9841 1],...
-        'AlphamapMode',get(0,'defaultaxesAlphamapMode'),...
-        'XTick',[0 0.2 0.4 0.6 0.8 1],...
-        'XTickMode',get(0,'defaultaxesXTickMode'),...
-        'XTickLabel',{  '0'; '0.2'; '0.4'; '0.6'; '0.8'; '1' },...
-        'XTickLabelMode',get(0,'defaultaxesXTickLabelMode'),...
-        'YTick',[0 0.5 1],...
-        'YTickMode',get(0,'defaultaxesYTickMode'),...
-        'YTickLabel',{  '0'; '0.5'; '1' },...
-        'YTickLabelMode',get(0,'defaultaxesYTickLabelMode'),...
-        'Color',get(0,'defaultaxesColor'),...
-        'CameraMode',get(0,'defaultaxesCameraMode'),...
-        'DataSpaceMode',get(0,'defaultaxesDataSpaceMode'),...
-        'ColorSpaceMode',get(0,'defaultaxesColorSpaceMode'),...
-        'DecorationContainerMode',get(0,'defaultaxesDecorationContainerMode'),...
-        'ChildContainerMode',get(0,'defaultaxesChildContainerMode'),...
-        'BoxFrame',[],...
-        'BoxFrameMode',get(0,'defaultaxesBoxFrameMode'),...
-        'XRulerMode',get(0,'defaultaxesXRulerMode'),...
-        'YRulerMode',get(0,'defaultaxesYRulerMode'),...
-        'ZRulerMode',get(0,'defaultaxesZRulerMode'),...
-        'AmbientLightSourceMode',get(0,'defaultaxesAmbientLightSourceMode'),...
-        'Position',[0.029126213592233 0.0661764705882361 0.650485436893204 0.889705882352941],...
-        'InnerPosition',[0.029126213592233 0.0661764705882361 0.650485436893204 0.889705882352941],...
-        'ActivePositionProperty','position',...
-        'ActivePositionPropertyMode',get(0,'defaultaxesActivePositionPropertyMode'),...
-        'PositionConstraint','innerposition',...
-        'PositionConstraintMode',get(0,'defaultaxesPositionConstraintMode'),...
-        'LooseInset',[0.148777777777778 0.101081081081081 0.108722222222222 0.0689189189189189],...
-        'ColorOrder',get(0,'defaultaxesColorOrder'),...
-        'SortMethod','childorder',...
-        'SortMethodMode',get(0,'defaultaxesSortMethodMode'),...
-        'Tag','axes_Worksheet');
-
-    set(obj.axes_Worksheet.Title,...
-        'Parent',obj.axes_Worksheet,...
-        'Units','data',...
-        'FontUnits','points',...
-        'DecorationContainer',[],...
-        'DecorationContainerMode','auto',...
-        'Color',[0 0 0],...
-        'ColorMode','auto',...
-        'Position',[0.500000522797366 1.01612903225806 0.500000000000007],...
-        'PositionMode','auto',...
-        'String',blanks(0),...
-        'Interpreter','tex',...
-        'Rotation',0,...
-        'RotationMode','auto',...
-        'FontName','Helvetica',...
-        'FontSize',10,...
-        'FontAngle','normal',...
-        'FontWeight','normal',...
-        'HorizontalAlignment','center',...
-        'HorizontalAlignmentMode','auto',...
-        'VerticalAlignment','bottom',...
-        'VerticalAlignmentMode','auto',...
-        'EdgeColor','none',...
-        'LineStyle','-',...
-        'LineWidth',0.5,...
-        'BackgroundColor','none',...
-        'Margin',2,...
-        'Clipping','off',...
-        'Layer','middle',...
-        'LayerMode','auto',...
-        'FontSmoothing','on',...
-        'FontSmoothingMode','auto',...
-        'DisplayName',blanks(0),...
-        'IncludeRenderer','on',...
-        'IsContainer','off',...
-        'IsContainerMode','auto',...
-        'DimensionNames',{  'X' 'Y' 'Z' },...
-        'DimensionNamesMode','auto',...
-        'XLimInclude','on',...
-        'YLimInclude','on',...
-        'ZLimInclude','on',...
-        'CLimInclude','on',...
-        'ALimInclude','on',...
-        'Description','Axes Title',...
-        'DescriptionMode','auto',...
-        'Visible','on',...
-        'Serializable','on',...
-        'HandleVisibility','off',...
-        'TransformForPrintFcnImplicitInvoke','on',...
-        'TransformForPrintFcnImplicitInvokeMode','auto',...
-        'HelpTopicKey',blanks(0),...
-        'ButtonDownFcn',blanks(0),...
-        'BusyAction','queue',...
-        'Interruptible','on',...
-        'DeleteFcn',blanks(0),...
-        'Tag',blanks(0),...
-        'HitTest','on',...
-        'PickableParts','visible',...
-        'PickablePartsMode','auto');
-
-    set(obj.axes_Worksheet.XLabel,...
-        'Parent',obj.axes_Worksheet,...
-        'Units','data',...
-        'FontUnits','points',...
-        'DecorationContainer',[],...
-        'DecorationContainerMode','auto',...
-        'Color',[0.15 0.15 0.15],...
-        'ColorMode','auto',...
-        'Position',[0.500000476837158 -0.148924734105346 7.105427357601e-15],...
-        'PositionMode','auto',...
-        'String',blanks(0),...
-        'Interpreter','tex',...
-        'Rotation',0,...
-        'RotationMode','auto',...
-        'FontName','Helvetica',...
-        'FontSize',10,...
-        'FontAngle','normal',...
-        'FontWeight','normal',...
-        'HorizontalAlignment','center',...
-        'HorizontalAlignmentMode','auto',...
-        'VerticalAlignment','top',...
-        'VerticalAlignmentMode','auto',...
-        'EdgeColor','none',...
-        'LineStyle','-',...
-        'LineWidth',0.5,...
-        'BackgroundColor','none',...
-        'Margin',2,...
-        'Clipping','off',...
-        'Layer','back',...
-        'LayerMode','auto',...
-        'FontSmoothing','on',...
-        'FontSmoothingMode','auto',...
-        'DisplayName',blanks(0),...
-        'IncludeRenderer','on',...
-        'IsContainer','off',...
-        'IsContainerMode','auto',...
-        'DimensionNames',{  'X' 'Y' 'Z' },...
-        'DimensionNamesMode','auto',...
-        'XLimInclude','on',...
-        'YLimInclude','on',...
-        'ZLimInclude','on',...
-        'CLimInclude','on',...
-        'ALimInclude','on',...
-        'Description','AxisRulerBase Label',...
-        'DescriptionMode','auto',...
-        'Visible','on',...
-        'Serializable','on',...
-        'HandleVisibility','off',...
-        'TransformForPrintFcnImplicitInvoke','on',...
-        'TransformForPrintFcnImplicitInvokeMode','auto',...
-        'HelpTopicKey',blanks(0),...
-        'ButtonDownFcn',blanks(0),...
-        'BusyAction','queue',...
-        'Interruptible','on',...
-        'DeleteFcn',blanks(0),...
-        'Tag',blanks(0),...
-        'HitTest','on',...
-        'PickableParts','visible',...
-        'PickablePartsMode','auto');
-
-    set(obj.axes_Worksheet.YLabel,...
-        'Parent',obj.axes_Worksheet,...
-        'Units','data',...
-        'FontUnits','points',...
-        'DecorationContainer',[],...
-        'DecorationContainerMode','auto',...
-        'Color',[0.15 0.15 0.15],...
-        'ColorMode','auto',...
-        'Position',[-0.0788152624804332 0.500000476837158 7.105427357601e-15],...
-        'PositionMode','auto',...
-        'String',blanks(0),...
-        'Interpreter','tex',...
-        'Rotation',90,...
-        'RotationMode','auto',...
-        'FontName','Helvetica',...
-        'FontSize',10,...
-        'FontAngle','normal',...
-        'FontWeight','normal',...
-        'HorizontalAlignment','center',...
-        'HorizontalAlignmentMode','auto',...
-        'VerticalAlignment','bottom',...
-        'VerticalAlignmentMode','auto',...
-        'EdgeColor','none',...
-        'LineStyle','-',...
-        'LineWidth',0.5,...
-        'BackgroundColor','none',...
-        'Margin',2,...
-        'Clipping','off',...
-        'Layer','back',...
-        'LayerMode','auto',...
-        'FontSmoothing','on',...
-        'FontSmoothingMode','auto',...
-        'DisplayName',blanks(0),...
-        'IncludeRenderer','on',...
-        'IsContainer','off',...
-        'IsContainerMode','auto',...
-        'DimensionNames',{  'X' 'Y' 'Z' },...
-        'DimensionNamesMode','auto',...
-        'XLimInclude','on',...
-        'YLimInclude','on',...
-        'ZLimInclude','on',...
-        'CLimInclude','on',...
-        'ALimInclude','on',...
-        'Description','AxisRulerBase Label',...
-        'DescriptionMode','auto',...
-        'Visible','on',...
-        'Serializable','on',...
-        'HandleVisibility','off',...
-        'TransformForPrintFcnImplicitInvoke','on',...
-        'TransformForPrintFcnImplicitInvokeMode','auto',...
-        'HelpTopicKey',blanks(0),...
-        'ButtonDownFcn',blanks(0),...
-        'BusyAction','queue',...
-        'Interruptible','on',...
-        'DeleteFcn',blanks(0),...
-        'Tag',blanks(0),...
-        'HitTest','on',...
-        'PickableParts','visible',...
-        'PickablePartsMode','auto');
-
-    set(obj.axes_Worksheet.ZLabel,...
-        'Parent',obj.axes_Worksheet,...
-        'Units','data',...
-        'FontUnits','points',...
-        'DecorationContainer',[],...
-        'DecorationContainerMode','auto',...
-        'Color',[0.15 0.15 0.15],...
-        'ColorMode','auto',...
-        'Position',[0 0 0],...
-        'PositionMode','auto',...
-        'String',blanks(0),...
-        'Interpreter','tex',...
-        'Rotation',0,...
-        'RotationMode','auto',...
-        'FontName','Helvetica',...
-        'FontSize',10,...
-        'FontAngle','normal',...
-        'FontWeight','normal',...
-        'HorizontalAlignment','center',...
-        'HorizontalAlignmentMode','auto',...
-        'VerticalAlignment','middle',...
-        'VerticalAlignmentMode','auto',...
-        'EdgeColor','none',...
-        'LineStyle','-',...
-        'LineWidth',0.5,...
-        'BackgroundColor','none',...
-        'Margin',2,...
-        'Clipping','off',...
-        'Layer','middle',...
-        'LayerMode','auto',...
-        'FontSmoothing','on',...
-        'FontSmoothingMode','auto',...
-        'DisplayName',blanks(0),...
-        'IncludeRenderer','on',...
-        'IsContainer','off',...
-        'IsContainerMode','auto',...
-        'DimensionNames',{  'X' 'Y' 'Z' },...
-        'DimensionNamesMode','auto',...
-        'XLimInclude','on',...
-        'YLimInclude','on',...
-        'ZLimInclude','on',...
-        'CLimInclude','on',...
-        'ALimInclude','on',...
-        'Description','AxisRulerBase Label',...
-        'DescriptionMode','auto',...
-        'Visible','off',...
-        'Serializable','on',...
-        'HandleVisibility','off',...
-        'TransformForPrintFcnImplicitInvoke','on',...
-        'TransformForPrintFcnImplicitInvokeMode','auto',...
-        'HelpTopicKey',blanks(0),...
-        'ButtonDownFcn',blanks(0),...
-        'BusyAction','queue',...
-        'Interruptible','on',...
-        'DeleteFcn',blanks(0),...
-        'Tag',blanks(0),...
-        'HitTest','on',...
-        'PickableParts','visible',...
-        'PickablePartsMode','auto');
-
-    obj.push_WorksheetAppend = uicontrol(...
-        'Parent',obj.panel_Worksheet,...
-        'Units','normalized',...
-        'FontUnits',get(0,'defaultuicontrolFontUnits'),...
-        'String','Append',...
-        'Position',[0.70873786407767 0.727941176470589 0.262135922330097 0.227941176470588],...
-        'Callback',@obj.push_WorksheetAppend_Callback,...
-        'Children',[],...
-        'Tag','push_WorksheetAppend');
-
-    obj.push_WorksheetOptions = uicontrol(...
-        'Parent',obj.panel_Worksheet,...
-        'Units','normalized',...
-        'FontUnits',get(0,'defaultuicontrolFontUnits'),...
-        'String','Options...',...
-        'Position',[0.70873786407767 0.433823529411765 0.262135922330097 0.227941176470588],...
-        'Callback',@obj.push_WorksheetOptions_Callback,...
-        'Children',[],...
-        'Tag','push_WorksheetOptions');
-
-    obj.push_PageLeft = uicontrol(...
-        'Parent',obj.panel_Worksheet,...
-        'Units','normalized',...
-        'FontUnits',get(0,'defaultuicontrolFontUnits'),...
-        'String','<<',...
-        'Position',[0.70873786407767 0.0661764705882359 0.121359223300971 0.227941176470588],...
-        'Callback',@obj.push_PageLeft_Callback,...
-        'Children',[],...
-        'Tag','push_PageLeft',...
-        'UserData',[]);
-
-    obj.push_PageRight = uicontrol(...
-        'Parent',obj.panel_Worksheet,...
-        'Units','normalized',...
-        'FontUnits',get(0,'defaultuicontrolFontUnits'),...
-        'String','>>',...
-        'Position',[0.84789644012945 0.0661764705882359 0.122977346278317 0.227941176470588],...
-        'Callback',@obj.push_PageRight_Callback,...
-        'Children',[],...
-        'Tag','push_PageRight');
-
-    obj.context_Worksheet = uicontextmenu(...
-        'Parent',obj.figure_Main,...
-        'Callback',@obj.context_Worksheet_Callback,...
-        'Tag','context_Worksheet');
-
-    obj.menu_WorksheetView = uimenu(...
-        'Parent',obj.context_Worksheet,...
-        'Callback',@obj.menu_WorksheetView_Callback,...
-        'Label','View',...
-        'Tag','menu_WorksheetView');
-
-    obj.menu_WorksheetDelete = uimenu(...
-        'Parent',obj.context_Worksheet,...
-        'Callback',@obj.menu_WorksheetDelete_Callback,...
-        'Label','Delete',...
-        'Tag','menu_WorksheetDelete');
-
-    % obj.context_WorksheetOptions
-    obj.context_WorksheetOptions = uicontextmenu(...
-        'Parent',obj.figure_Main,...
-        'Callback',@obj.context_WorksheetOptions_Callback,...
-        'Tag','context_WorksheetOptions');
-
-    obj.menu_SortChronologically = uimenu(...
-        'Parent',obj.context_WorksheetOptions,...
-        'Callback',@obj.menu_SortChronologically_Callback,...
-        'Label','Sort chronologically',...
-        'Tag','menu_SortChronologically');
-
-    obj.menu_OnePerLine = uimenu(...
-        'Parent',obj.context_WorksheetOptions,...
-        'Callback',@obj.menu_OnePerLine_Callback,...
-        'Label','One per line',...
-        'Tag','menu_OnePerLine');
-
-    obj.menu_IncludeTitle = uimenu(...
-        'Parent',obj.context_WorksheetOptions,...
-        'Separator','on',...
-        'Callback',@obj.menu_IncludeTitle_Callback,...
-        'Label','Include title',...
-        'Tag','menu_IncludeTitle');
-
-    obj.menu_EditTitle = uimenu(...
-        'Parent',obj.context_WorksheetOptions,...
-        'Callback',@obj.menu_EditTitle_Callback,...
-        'Label','Edit title...',...
-        'Tag','menu_EditTitle');
-
-    obj.menu_WorksheetDimensions = uimenu(...
-        'Parent',obj.context_WorksheetOptions,...
-        'Separator','on',...
-        'Callback',@obj.menu_WorksheetDimensions_Callback,...
-        'Label','Dimensions...',...
-        'Tag','menu_WorksheetDimensions');
-
-    obj.menu_Orientation = uimenu(...
-        'Parent',obj.context_WorksheetOptions,...
-        'Callback',@obj.menu_Orientation_Callback,...
-        'Label','Orientation',...
-        'Tag','menu_Orientation');
-
-    obj.menu_Portrait = uimenu(...
-        'Parent',obj.menu_Orientation,...
-        'Callback',@obj.menu_Portrait_Callback,...
-        'Label','Portrait',...
-        'Tag','menu_Portrait');
-
-    obj.menu_Landscape = uimenu(...
-        'Parent',obj.menu_Orientation,...
-        'Callback',@obj.menu_Landscape_Callback,...
-        'Label','Landscape',...
-        'Tag','menu_Landscape');
-
-    obj.menu_ClearWorksheet = uimenu(...
-        'Parent',obj.context_WorksheetOptions,...
-        'Separator','on',...
-        'Callback',@obj.menu_ClearWorksheet_Callback,...
-        'Label','Clear worksheet',...
-        'Tag','menu_ClearWorksheet');
-
     obj.popup_SoundSource = uicontrol(...
         'Parent',obj.figure_Main,...
         'Units','normalized',...
@@ -8896,7 +8168,7 @@ function setupGUI(obj)
         'Label','View in bottom axes',...
         'Tag','EventViewerSourceToBottomAxes');
 
-    % obj.menu_File
+    %% File menu
     obj.menu_File = uimenu(...
         'Parent',obj.figure_Main,...
         'Callback',@obj.menu_File_Callback,...
@@ -8955,7 +8227,7 @@ function setupGUI(obj)
         'Label','Delete files...',...
         'Tag','menu_DeleteFiles');
 
-    % obj.menu_Playback
+    %% Playback menu
     obj.menu_Playback = uimenu(...
         'Parent',obj.figure_Main,...
         'Callback',@obj.menu_Playback_Callback,...
@@ -9072,6 +8344,7 @@ function setupGUI(obj)
         'Label','Animation pointer color...',...
         'Tag','playback_ProgressBarColor');
 
+    %% Properties menu
     obj.menu_Properties = uimenu(...
         'Parent',obj.figure_Main,...
         'Callback',@obj.menu_Properties_Callback,...
@@ -9132,7 +8405,7 @@ function setupGUI(obj)
         'Label','NOT current',...
         'Tag','menu_SearchNot');
 
-    % obj.menu_Export
+    %% Export menu
     obj.menu_Export = uimenu(...
         'Parent',obj.figure_Main,...
         'Callback',@obj.menu_Export_Callback,...
@@ -9142,223 +8415,28 @@ function setupGUI(obj)
     obj.action_Export = uimenu(...
         'Parent',obj.menu_Export,...
         'Callback',@obj.action_Export_Callback,...
-        'Label','Export',...
+        'Label','Export (Ctrl-e)',...
         'Tag','action_Export');
 
-    % obj.menu_ExportAs
-    obj.menu_ExportAs = uimenu(...
+    obj.menu_ShowExportControlPanel = uimenu(...
         'Parent',obj.menu_Export,...
-        'Callback',@obj.menu_ExportAs_Callback,...
-        'Label','Export as',...
-        'Tag','menu_ExportAs');
-
-    obj.export_asSonogram = uimenu(...
-        'Parent',obj.menu_ExportAs,...
-        'Separator','on',...
-        'Callback',@obj.export_asSonogram_Callback,...
-        'Checked','on',...
-        'Label','Sonogram',...
-        'Tag','export_asSonogram');
-
-    obj.export_asFigure = uimenu(...
-        'Parent',obj.menu_ExportAs,...
-        'Callback',@obj.export_asFigure_Callback,...
-        'Label','Figure',...
-        'Tag','export_asFigure');
-
-    obj.export_asWorksheet = uimenu(...
-        'Parent',obj.menu_ExportAs,...
-        'Callback',@obj.export_asWorksheet_Callback,...
-        'Label','Worksheet',...
-        'Tag','export_asWorksheet');
-
-    obj.export_asCurrentSound = uimenu(...
-        'Parent',obj.menu_ExportAs,...
-        'Callback',@obj.export_asCurrentSound_Callback,...
-        'Label','Current sound',...
-        'Tag','export_asCurrentSound');
-
-    obj.export_asSoundMix = uimenu(...
-        'Parent',obj.menu_ExportAs,...
-        'Callback',@obj.export_asSoundMix_Callback,...
-        'Label','Sound mix',...
-        'Tag','export_asSoundMix');
-
-    obj.export_asEvents = uimenu(...
-        'Parent',obj.menu_ExportAs,...
-        'Callback',@obj.export_asEvents_Callback,...
-        'Label','Events',...
-        'Tag','export_asEvents');
-
-    % obj.menu_ExportTo
-    obj.menu_ExportTo = uimenu(...
+        'Callback',@obj.menu_ShowExportControlPanel_Callback,...
+        'Label','Show export control panel',...
+        'Tag','menu_ShowExportControlPanel');
+    obj.menu_ShowExportWindow = uimenu(...
         'Parent',obj.menu_Export,...
-        'Separator','on',...
-        'Callback',@obj.menu_ExportTo_Callback,...
-        'Label','Export to',...
-        'Tag','menu_ExportTo');
+        'Callback',@obj.menu_ShowExportWindow_Callback,...
+        'Label','Show export window',...
+        'Tag','menu_ShowExportWindow');
 
-    obj.export_toMATLAB = uimenu(...
-        'Parent',obj.menu_ExportTo,...
-        'Callback',@obj.export_toMATLAB_Callback,...
-        'Checked','on',...
-        'Label','MATLAB',...
-        'Tag','export_toMATLAB');
-
-    obj.export_toPowerPoint = uimenu(...
-        'Parent',obj.menu_ExportTo,...
-        'Callback',@obj.export_toPowerPoint_Callback,...
-        'Label','PowerPoint',...
-        'Tag','export_toPowerPoint');
-
-    obj.export_toFile = uimenu(...
-        'Parent',obj.menu_ExportTo,...
-        'Callback',@obj.export_toFile_Callback,...
-        'Label','File',...
-        'Tag','export_toFile');
-
-    obj.export_toClipboard = uimenu(...
-        'Parent',obj.menu_ExportTo,...
-        'Callback',@obj.export_toClipboard_Callback,...
-        'Label','Clipboard',...
-        'Tag','export_toClipboard');
-
-    obj.export_Options = uimenu(...
-        'Parent',obj.menu_Export,...
-        'Callback',@obj.export_Options_Callback,...
-        'Label','Options',...
-        'Tag','export_Options');
-
-    obj.export_options_SonogramHeight = uimenu(...
-        'Parent',obj.export_Options,...
-        'Callback',@obj.export_options_SonogramHeight_Callback,...
-        'Label','Sonogram height...',...
-        'Tag','export_options_SonogramHeight');
-
-    obj.export_options_ImageTimescape = uimenu(...
-        'Parent',obj.export_Options,...
-        'Callback',@obj.export_options_ImageTimescape_Callback,...
-        'Label','Image timescale...',...
-        'Tag','export_options_ImageTimescape');
-
-    obj.export_options_IncludeTimestamp = uimenu(...
-        'Parent',obj.export_Options,...
-        'Separator','on',...
-        'Callback',@obj.export_options_IncludeTimestamp_Callback,...
-        'Label','Include timestamp',...
-        'Tag','export_options_IncludeTimestamp');
-
-    obj.menu_export_options_IncludeSoundClip = uimenu(...
-        'Parent',obj.export_Options,...
-        'Callback',@obj.menu_export_options_IncludeSoundClip_Callback,...
-        'Label','Include sound clip',...
-        'Tag','menu_export_options_IncludeSoundClip');
-
-    obj.export_options_IncludeSoundClip_None = uimenu(...
-        'Parent',obj.menu_export_options_IncludeSoundClip,...
-        'Callback',@obj.export_options_IncludeSoundClip_None_Callback,...
-        'Label','None',...
-        'Tag','export_options_IncludeSoundClip_None');
-
-    obj.export_options_IncludeSoundClip_SoundOnly = uimenu(...
-        'Parent',obj.menu_export_options_IncludeSoundClip,...
-        'Callback',@obj.export_options_IncludeSoundClip_SoundOnly_Callback,...
-        'Checked','on',...
-        'Label','Sound only',...
-        'Tag','export_options_IncludeSoundClip_SoundOnly');
-
-    obj.export_options_IncludeSoundClip_SoundMix = uimenu(...
-        'Parent',obj.menu_export_options_IncludeSoundClip,...
-        'Callback',@obj.export_options_IncludeSoundClip_SoundMix_Callback,...
-        'Label','Sound mix',...
-        'Tag','export_options_IncludeSoundClip_SoundMix');
-
-    obj.menu_export_options_Animation = uimenu(...
-        'Parent',obj.export_Options,...
-        'Callback',@obj.menu_export_options_Animation_Callback,...
-        'Label','Animation',...
-        'Tag','menu_export_options_Animation');
-
-    obj.export_options_Animation_None = uimenu(...
-        'Parent',obj.menu_export_options_Animation,...
-        'Callback',@obj.export_options_Animation_None_Callback,...
-        'Label','None',...
-        'Tag','export_options_Animation_None');
-
-    obj.export_options_Animation_ProgressBar = uimenu(...
-        'Parent',obj.menu_export_options_Animation,...
-        'Callback',@obj.export_options_Animation_ProgressBar_Callback,...
-        'Label','Progress bar',...
-        'Tag','export_options_Animation_ProgressBar');
-
-    obj.export_options_Animation_ArrowAbove = uimenu(...
-        'Parent',obj.menu_export_options_Animation,...
-        'Callback',@obj.export_options_Animation_ArrowAbove_Callback,...
-        'Label','Arrow above',...
-        'Tag','export_options_Animation_ArrowAbove');
-
-    obj.export_options_Animation_ArrowBelow = uimenu(...
-        'Parent',obj.menu_export_options_Animation,...
-        'Callback',@obj.export_options_Animation_ArrowBelow_Callback,...
-        'Label','Arrow below',...
-        'Tag','export_options_Animation_ArrowBelow');
-
-    obj.export_options_Animation_ValueFollower = uimenu(...
-        'Parent',obj.menu_export_options_Animation,...
-        'Callback',@obj.export_options_Animation_ValueFollower_Callback,...
-        'Label','Value follower',...
-        'Tag','export_options_Animation_ValueFollower');
-
-    obj.export_options_Animation_SonogramFollower = uimenu(...
-        'Parent',obj.menu_export_options_Animation,...
-        'Callback',@obj.export_options_Animation_SonogramFollower_Callback,...
-        'Label','Sonogram follower...',...
-        'Tag','export_options_Animation_SonogramFollower');
-
-    obj.export_options_ImageResolution = uimenu(...
-        'Parent',obj.export_Options,...
-        'Separator','on',...
-        'Callback',@obj.export_options_ImageResolution_Callback,...
-        'Label','Image resolution...',...
-        'Tag','export_options_ImageResolution');
-
-    obj.menu_export_options_SonogramImageMode = uimenu(...
-        'Parent',obj.export_Options,...
-        'Callback',@obj.menu_export_options_SonogramImageMode_Callback,...
-        'Label','Sonogram image mode',...
-        'Tag','menu_export_options_SonogramImageMode');
-
-    obj.export_options_SonogramImageMode_ScreenImage = uimenu(...
-        'Parent',obj.menu_export_options_SonogramImageMode,...
-        'Callback',@obj.export_options_SonogramImageMode_ScreenImage_Callback,...
-        'Label','Screen image',...
-        'Tag','export_options_SonogramImageMode_ScreenImage');
-
-    obj.export_options_SonogramImageMode_Recalculate = uimenu(...
-        'Parent',obj.menu_export_options_SonogramImageMode,...
-        'Callback',@obj.export_options_SonogramImageMode_Recalculate_Callback,...
-        'Label','Recalculate',...
-        'Tag','export_options_SonogramImageMode_Recalculate');
-
-    obj.export_options_ScalebarDimensions = uimenu(...
-        'Parent',obj.export_Options,...
-        'Callback',@obj.export_options_ScalebarDimensions_Callback,...
-        'Label','Scalebar dimensions...',...
-        'Tag','export_options_ScalebarDimensions');
-
-    obj.export_options_EditFigureTemplate = uimenu(...
-        'Parent',obj.export_Options,...
-        'Callback',@obj.export_options_EditFigureTemplate_Callback,...
-        'Label','Edit figure template',...
-        'Tag','export_options_EditFigureTemplate');
-
+    %% Macros menu
     obj.menu_Macros = uimenu(...
         'Parent',obj.figure_Main,...
         'Callback',@obj.menu_Macros_Callback,...
         'Label','Macros',...
         'Tag','menu_Macros');
 
-    % obj.menu_Help
+    %% Help menu
     obj.menu_Help = uimenu(...
         'Parent',obj.figure_Main,...
         'Callback',@obj.menu_Help_Callback,...
@@ -9378,8 +8456,6 @@ function setupGUI(obj)
     
     obj.axes_Segments.UIContextMenu = obj.context_Segments;
     
-    obj.push_WorksheetOptions.UIContextMenu = obj.context_WorksheetOptions;
-    
     obj.popup_EventListAlign.UIContextMenu = obj.context_EventListAlign;
 
     % File browser-related stuff
@@ -9396,6 +8472,586 @@ function setupGUI(obj)
     obj.FileInfoBrowser.CellEditCallback = @obj.GUIPropertyChangeHandler;
     obj.FileInfoBrowser.ContextMenu = obj.context_FileInfoBrowser;
 
+    obj.createExportControlPanel();
+    obj.ensureExportSettingsExist();
+    obj.createExportWindow();
+end
+function createExportControlPanel(obj)
+    if isfield(obj.ExportControlPanel, 'fig')
+        delete(obj.ExportControlPanel.fig);
+    end
+    currentY = 45;
+    width = 50;
+    obj.ExportControlPanel = struct();
+    obj.ExportControlPanel.fig = figure('Visible', false, ...
+        'Name', 'Export control panel', ...
+        'Units', 'characters', ...
+        'CloseRequestFcn', @obj.exportControlPanelClosereq_Callback, ...
+        'ToolBar', 'none', ...
+        'NumberTitle', 'off', ...
+        'MenuBar', 'none', ...
+        'SizeChangedFcn', @(varargin)obj.arrangeExportPanels());
+
+    % Time range panel widgets
+    % Define list of time range options
+    obj.ExportControlPanel.timeRangeOptions(1).Name = 'TimeRangeVisible';
+    obj.ExportControlPanel.timeRangeOptions(1).Label = 'Current view';
+    obj.ExportControlPanel.timeRangeOptions(2).Name = 'TimeRangeActiveAnnotation';
+    obj.ExportControlPanel.timeRangeOptions(2).Label = 'Active segment/marker';
+    obj.ExportControlPanel.timeRangeOptions(3).Name = 'TimeRangeAllAnnotations';
+    obj.ExportControlPanel.timeRangeOptions(3).Label = 'All segments/markers';
+    numOptions = length(obj.ExportControlPanel.timeRangeOptions);
+    height = numOptions + 1.5;
+    currentY = currentY - height;
+    obj.ExportControlPanel.TimeRangeGroup =   uibuttongroup(...
+        obj.ExportControlPanel.fig,...
+        "Title", "Time range to export", ...
+        'Units', 'characters', ...
+        "Position",[0, currentY, width, height], ...
+        "SelectionChangedFcn", @obj.exportControlValuesChanged_Callback);
+    % Create time range option radiobutton widgets
+    for k = 1:numOptions
+        obj.ExportControlPanel.(obj.ExportControlPanel.timeRangeOptions(k).Name) = uicontrol(...
+            obj.ExportControlPanel.TimeRangeGroup, ...
+            "Style", 'radiobutton', ...
+            "Value", false, ...
+            "String", obj.ExportControlPanel.timeRangeOptions(k).Label, ...
+            'Units', 'characters', ...
+            "Position", [0, numOptions-k, width, 1]);
+    end
+
+    % Include widgets
+    obj.ExportControlPanel.includeOptions(1).Name = 'IncludeSpectrogram';
+    obj.ExportControlPanel.includeOptions(1).Label = 'Spectrogram';
+    obj.ExportControlPanel.includeOptions(1).Default = true;
+    obj.ExportControlPanel.includeOptions(2).Name = 'IncludeAmplitude';
+    obj.ExportControlPanel.includeOptions(2).Label = 'Amplitude';
+    obj.ExportControlPanel.includeOptions(2).Default = false;
+    obj.ExportControlPanel.includeOptions(3).Name = 'IncludeSyllables';
+    obj.ExportControlPanel.includeOptions(3).Label = 'Syllables'; 
+    obj.ExportControlPanel.includeOptions(3).Default = false;
+    obj.ExportControlPanel.includeOptions(4).Name = 'IncludeMarkers';
+    obj.ExportControlPanel.includeOptions(4).Label = 'Markers'; 
+    obj.ExportControlPanel.includeOptions(4).Default = false;
+    obj.ExportControlPanel.includeOptions(5).Name = 'IncludeTopChannelAxes';
+    obj.ExportControlPanel.includeOptions(5).Label = 'Top channel axes'; 
+    obj.ExportControlPanel.includeOptions(5).Default = false;
+    obj.ExportControlPanel.includeOptions(6).Name = 'IncludeBotChannelAxes';
+    obj.ExportControlPanel.includeOptions(6).Label = 'Bottom channel axes'; 
+    obj.ExportControlPanel.includeOptions(6).Default = false;
+    obj.ExportControlPanel.includeOptions(7).Name = 'IncludeEvents';
+    obj.ExportControlPanel.includeOptions(7).Label = 'Events'; 
+    obj.ExportControlPanel.includeOptions(7).Default = false;
+    obj.ExportControlPanel.includeOptions(8).Name = 'IncludeFilename';
+    obj.ExportControlPanel.includeOptions(8).Label = 'Filename'; 
+    obj.ExportControlPanel.includeOptions(8).Default = false;
+    obj.ExportControlPanel.includeOptions(9).Name = 'IncludeTimestamp';
+    obj.ExportControlPanel.includeOptions(9).Label = 'Timestamp';
+    obj.ExportControlPanel.includeOptions(9).Default = false;
+    numOptions = length(obj.ExportControlPanel.includeOptions);
+    height = numOptions + 1.5;
+    currentY = currentY - height;
+    obj.ExportControlPanel.IncludePanel = uipanel(...
+        obj.ExportControlPanel.fig, ...
+        'Title', 'What to include in export', ...
+        'Units', 'characters', ...
+        'Position', [0, currentY, width, height]);
+    for k = 1:numOptions
+        obj.ExportControlPanel.(obj.ExportControlPanel.includeOptions(k).Name) = uicontrol(...
+            obj.ExportControlPanel.IncludePanel, ...
+            "Style", 'checkbox', ...
+            "Value", obj.ExportControlPanel.includeOptions(k).Default, ...
+            "String", obj.ExportControlPanel.includeOptions(k).Label, ...
+            "Units", 'characters', ...
+            "Position", [0, numOptions - k, width, 1], ...
+            "Callback", @obj.exportControlValuesChanged_Callback, ...
+            "Visible", true);
+    end
+    
+    % Layout widgets
+    obj.ExportControlPanel.layoutTabOptions(1).Name = 'LayoutTabCurrent';
+    obj.ExportControlPanel.layoutTabOptions(1).Label = 'Use visible tab';
+    obj.ExportControlPanel.layoutTabOptions(2).Name = 'LayoutTabFile';
+    obj.ExportControlPanel.layoutTabOptions(2).Label = 'Use/create tab based on current file';
+    numTabOptions = length(obj.ExportControlPanel.layoutTabOptions);
+
+    obj.ExportControlPanel.layoutSortOptions(1).Name = 'LayoutSortChronological';
+    obj.ExportControlPanel.layoutSortOptions(1).Label = 'Sort based on chronological order';
+    obj.ExportControlPanel.layoutSortOptions(2).Name = 'LayoutSortAddOrder';
+    obj.ExportControlPanel.layoutSortOptions(2).Label = 'Sort based on export order';
+    numSortOptions = length(obj.ExportControlPanel.layoutSortOptions);
+
+    obj.ExportControlPanel.layoutLineOptions(1).Name = 'LayoutLineOne';
+    obj.ExportControlPanel.layoutLineOptions(1).Label = 'One export per line';
+    obj.ExportControlPanel.layoutLineOptions(2).Name = 'LayoutLineFree';
+    obj.ExportControlPanel.layoutLineOptions(2).Label = 'As many per line as fit';
+    numLineOptions = length(obj.ExportControlPanel.layoutLineOptions);
+
+    obj.ExportControlPanel.layoutScaleOptions(1).Name = 'LayoutScaleEqualTime';
+    obj.ExportControlPanel.layoutScaleOptions(1).Label = 'Scale by time range';
+    obj.ExportControlPanel.layoutScaleOptions(2).Name = 'LayoutScaleEqualWidth';
+    obj.ExportControlPanel.layoutScaleOptions(2).Label = 'Scale to same display width';
+    obj.ExportControlPanel.layoutScaleOptions(3).Name = 'LayoutScaleFullWidth';
+    obj.ExportControlPanel.layoutScaleOptions(3).Label = 'Scale to fill page width';
+    numScaleOptions = length(obj.ExportControlPanel.layoutScaleOptions);
+    numScaleInputs = 1;
+
+    height = 1.5 + (1.5 + numTabOptions) + (1.5 + numSortOptions) + (1.5 + numLineOptions) + (1.5 + numScaleOptions) + numScaleInputs;
+    currentY = currentY - height;
+    obj.ExportControlPanel.LayoutPanel = uipanel(...
+        obj.ExportControlPanel.fig, ...
+        'Title', 'Layout', ...
+        'Units', 'characters', ...
+        'Position', [0, currentY, width, height]);
+
+    subCurrentY = height - 1.5;
+    subHeight = numTabOptions + 1.5;
+    subCurrentY = subCurrentY - subHeight;
+    obj.ExportControlPanel.LayoutTabGroup = uibuttongroup(...
+        obj.ExportControlPanel.LayoutPanel,...
+        "Title", "Which tab", ...
+        'Units', 'characters', ...
+        "Position", [0, subCurrentY, width, subHeight], ...
+        "SelectionChangedFcn", @obj.exportControlValuesChanged_Callback);
+    for k = 1:numTabOptions
+        obj.ExportControlPanel.(obj.ExportControlPanel.layoutTabOptions(k).Name) = uicontrol(...
+            obj.ExportControlPanel.LayoutTabGroup, ...
+            "Style", 'radiobutton', ...
+            "Value", false, ...
+            "String", obj.ExportControlPanel.layoutTabOptions(k).Label, ... 
+            "Units", 'characters', ...
+            "Position", [0, numTabOptions-k, width, 1], ...
+            "Visible", true);
+    end
+
+    subHeight = numSortOptions + 1.5;
+    subCurrentY = subCurrentY - subHeight;
+    obj.ExportControlPanel.LayoutSortGroup = uibuttongroup(...
+        obj.ExportControlPanel.LayoutPanel,...
+        "Title", "Sorting", ...
+        'Units', 'characters', ...
+        "Position", [0, subCurrentY, width, subHeight], ...
+        "SelectionChangedFcn", @obj.exportControlValuesChanged_Callback);
+    for k = 1:numSortOptions
+        obj.ExportControlPanel.(obj.ExportControlPanel.layoutSortOptions(k).Name) = uicontrol(...
+            obj.ExportControlPanel.LayoutSortGroup, ...
+            "Style", 'radiobutton', ...
+            "Value", false, ...
+            "String", obj.ExportControlPanel.layoutSortOptions(k).Label, ... 
+            "Units", 'characters', ...
+            "Position", [0, numSortOptions-k, width, 1], ...
+            "Visible", true);
+    end
+
+    subHeight = numLineOptions + 1.5;
+    subCurrentY = subCurrentY - subHeight;
+    obj.ExportControlPanel.LayoutLineGroup = uibuttongroup(...
+        obj.ExportControlPanel.LayoutPanel,...
+        "Title", "Line grouping", ...
+        'Units', 'characters', ...
+        "Position", [0, subCurrentY, width, subHeight], ...
+        "SelectionChangedFcn", @obj.exportControlValuesChanged_Callback);
+    for k = 1:numLineOptions
+        obj.ExportControlPanel.(obj.ExportControlPanel.layoutLineOptions(k).Name) = uicontrol(obj.ExportControlPanel.LayoutLineGroup, ...
+            "Style", 'radiobutton', ...
+            "Value", false, ...
+            "String", obj.ExportControlPanel.layoutLineOptions(k).Label, ... 
+            "Units", 'characters', ...
+            "Position", [0, numLineOptions-k, width, 1], ...
+            "Visible", true);
+    end
+
+    subHeight = numScaleOptions + 1.5 + numScaleInputs;
+    subCurrentY = subCurrentY - subHeight;
+    obj.ExportControlPanel.LayoutScaleGroup = uibuttongroup(...
+        obj.ExportControlPanel.LayoutPanel,...
+        "Title", "Width scale", ...
+        'Units', 'characters', ...
+        "Position", [0, subCurrentY, width, subHeight], ...
+        "SelectionChangedFcn", @obj.exportControlValuesChanged_Callback);
+    for k = 1:numScaleOptions
+        obj.ExportControlPanel.(obj.ExportControlPanel.layoutScaleOptions(k).Name) = uicontrol(obj.ExportControlPanel.LayoutScaleGroup, ...
+            "Style", 'radiobutton', ...
+            "Value", false, ...
+            "String", obj.ExportControlPanel.layoutScaleOptions(k).Label, ... 
+            "Units", 'characters', ...
+            "Position", [0, numScaleOptions + numScaleInputs - k, width, 1], ...
+            "Visible", true);
+    end
+    obj.ExportControlPanel.LayoutScaleWidthInputLabel = uicontrol(...
+        obj.ExportControlPanel.LayoutPanel, ...
+        "Style", 'Text', ...
+        'String', 'Width (inches or inches/sec)', ...
+        'HorizontalAlignment', 'left', ...
+        'Units', 'characters', ...
+        'Position', [0, 0, width*0.5, 1]);
+    obj.ExportControlPanel.LayoutScaleWidthInput = uicontrol(...
+        obj.ExportControlPanel.LayoutPanel, ...
+        "Style", 'Edit', ...
+        'String', '1.5', ...
+        'HorizontalAlignment', 'left', ...
+        'Tooltip', 'How many inches wide, or inches per second, should the exported clips be?', ...
+        'Units', 'characters', ...
+        'Position', [width*0.5, 0, width*0.5, 1], ...
+        'Callback', @obj.exportControlValuesChanged_Callback);
+    
+    shrinkToContent(obj.ExportControlPanel.fig);
+
+end
+function updateExportPanelLayout(obj) %#ok<MANU> 
+end
+function updateExportControlGUIValues(obj)
+    % obj.settings.Export ==> GUI
+    % Update GUI export control values from obj.settings.Export
+
+    if ~isfield(obj.settings, 'Export')
+        % Settings has not Export field - create it first.
+        obj.recordExportControlValues();
+    end
+
+    obj.ensureExportControlPanelExists();
+    if isfield(obj.settings, 'ExportControlValues')
+        % Update time range mode in GUI
+        if isfield(obj.ExportControlPanel, obj.settings.Export.TimeRangeMode)
+            radioButton = obj.ExportControlPanel.(obj.settings.Export.TimeRangeMode);
+            radioButton.Value = true;
+        else
+            warning('Invalid time range mode found in settings: %s', obj.settings.Export.TimeRangeMode);
+        end
+
+        % Update include values in GUI
+        options = obj.ExportControlPanel.includeOptions;
+        for k = 1:length(options)
+            % Loop over settings and update each checkbox
+            checkbox = obj.ExportControlPanel.(options(k).Name);
+            checkbox.value = obj.settings.Export.(options(k).Name);
+        end
+
+        % Update layout values in GUI
+        %   Update layout tab mode in GUI
+        if isfield(obj.ExportControlPanel, obj.settings.Export.LayoutTabMode)
+            radioButton = obj.ExportControlPanel.(obj.settings.Export.LayoutTabMode);
+            radioButton.Value = true;
+        else
+            warning('Invalid layout tab mode found in settings: %s', obj.settings.Export.LayoutTabMode);
+        end
+        %   Update layout sort mode in GUI
+        if isfield(obj.ExportControlPanel, obj.settings.Export.LayoutSortMode)
+            radioButton = obj.ExportControlPanel.(obj.settings.Export.LayoutSortMode);
+            radioButton.Value = true;
+        else
+            warning('Invalid layout sort mode found in settings: %s', obj.settings.Export.LayoutSortMode);
+        end
+        %   Update layout line mode in GUI
+        if isfield(obj.ExportControlPanel, obj.settings.Export.LayoutLineMode)
+            radioButton = obj.ExportControlPanel.(obj.settings.Export.LayoutLineMode);
+            radioButton.Value = true;
+        else
+            warning('Invalid layout line mode found in settings: %s', obj.settings.Export.LayoutLineMode);
+        end
+        %   Update layout scale mode in GUI
+        if isfield(obj.ExportControlPanel, obj.settings.Export.LayoutScaleMode)
+            radioButton = obj.ExportControlPanel.(obj.settings.Export.LayoutScaleMode);
+            radioButton.Value = true;
+        else
+            warning('Invalid layout line mode found in settings: %s', obj.settings.Export.LayoutLineMode);
+        end
+
+        %   Update layout scale width
+        obj.ExportControlPanel.LayoutScaleWidthInput.String = num2str(obj.settings.Export.LayoutScaleWidth);
+    end
+end
+function ensureExportControlPanelExists(obj)
+    % Make sure export control panel figure exists. If not, create it.
+    if isempty(obj.ExportControlPanel.fig) || ...
+            ~isgraphics(obj.ExportControlPanel.fig) || ...
+            ~isvalid(obj.ExportControlPanel.fig)
+        obj.createExportControlPanel();
+    end
+end
+function ensureExportSettingsExist(obj)
+    % Make sure settings.Export already has the required settings, and if
+    % not, add them.
+
+    if ~isfield(obj.settings, 'Export')
+        obj.settings.Export = struct();
+    end
+
+    exportControlValues = obj.getExportControlValues();
+    obj.settings.Export = mergeStructures(exportControlValues, obj.settings.Export);
+end
+function exportControlValuesChanged_Callback(obj, hObject, event)
+    obj.recordExportControlValues();
+end
+function exportSettings = getExportControlValues(obj)
+    % Get time range options from export control panel GUI
+    options = obj.ExportControlPanel.timeRangeOptions;
+    for k = 1:length(options)
+        % Loop over radio buttons
+        radioButton = obj.ExportControlPanel.(options(k).Name);
+        if radioButton.Value
+            % This radio button is checked - record the mode name and stop.
+            exportSettings.TimeRangeMode = options(k).Name;
+            break;
+        end
+    end
+
+    % Get include options from export control panel GUI
+    options = obj.ExportControlPanel.includeOptions;
+    for k = 1:length(options)
+        % Loop over check boxes and record each value
+        checkbox = obj.ExportControlPanel.(options(k).Name);
+        exportSettings.(options(k).Name) = checkbox.Value;
+    end
+
+    % Get layout options from export control panel GUI
+    %   Get layout tab mode
+    options = obj.ExportControlPanel.layoutTabOptions;
+    for k = 1:length(options)
+        % Loop over radio buttons
+        radioButton = obj.ExportControlPanel.(options(k).Name);
+        if radioButton.Value
+            % This radio button is checked - record the mode name and stop.
+            exportSettings.LayoutTabMode = options(k).Name;
+            break;
+        end
+    end
+    %   Get layout sort mode
+    options = obj.ExportControlPanel.layoutSortOptions;
+    for k = 1:length(options)
+        % Loop over radio buttons
+        radioButton = obj.ExportControlPanel.(options(k).Name);
+        if radioButton.Value
+            % This radio button is checked - record the mode name and stop.
+            exportSettings.LayoutSortMode = options(k).Name;
+            break;
+        end
+    end
+    %   Get layout line mode
+    options = obj.ExportControlPanel.layoutLineOptions;
+    for k = 1:length(options)
+        % Loop over radio buttons
+        radioButton = obj.ExportControlPanel.(options(k).Name);
+        if radioButton.Value
+            % This radio button is checked - record the mode name and stop.
+            exportSettings.LayoutLineMode = options(k).Name;
+            break;
+        end
+    end
+    %   Get layout scale mode
+    options = obj.ExportControlPanel.layoutScaleOptions;
+    for k = 1:length(options)
+        % Loop over radio buttons
+        radioButton = obj.ExportControlPanel.(options(k).Name);
+        if radioButton.Value
+            % This radio button is checked - record the mode name and stop.
+            exportSettings.LayoutScaleMode = options(k).Name;
+            break;
+        end
+    end
+
+    %   Get layout scale width
+    exportSettings.LayoutScaleWidth = str2double(obj.ExportControlPanel.LayoutScaleWidthInput.String);
+    exportSettings.DefaultTabName = 'Export_1';
+end
+function recordExportControlValues(obj)
+    % GUI ==> obj.settings.Export
+    % Store export control GUI values in obj.settings.Export
+    obj.ensureExportControlPanelExists();
+
+    obj.settings.Export = obj.getExportControlValues();
+
+    obj.updateExportWindow();
+end
+function createExportWindow(obj)
+    %% Export window
+    if isfield(obj.ExportWindow, 'fig')
+        delete(obj.ExportWindow.fig);
+    end
+    obj.ExportWindow = struct();
+    obj.ExportWindow.fig = figure(...
+        'Visible', false, ...
+        'Units', 'normalized');
+    obj.ExportWindow.tabGroup = uitabgroup(obj.ExportWindow.fig, ...
+        'Units', 'normalized', ...
+        'Position', [0.01, 0.01, 0.98, 0.98]);
+    obj.ExportWindow.tabs = matlab.ui.container.Tab.empty();
+    obj.ExportWindow.panels = {};  % Cell array of panels, one cell per tab
+    obj.addExportTab(obj.settings.Export.DefaultTabName);
+end
+function newTab = addExportTab(obj, name)
+    % Make sure tab name is unique
+    tabNames = {obj.ExportWindow.tabs.Title};
+    name = getUniqueName(name, tabNames);
+    
+    % Create a new tab
+    newTab = uitab(...
+        'Parent', obj.ExportWindow.tabGroup, ...
+        'Title', name);
+    tabIdx = length(obj.ExportWindow.tabs) + 1;
+    obj.ExportWindow.tabs(tabIdx) = newTab;
+    obj.ExportWindow.panels{tabIdx} = matlab.ui.container.Panel.empty();
+end
+function newPanel = addExportPanel(obj, nameIdxOrTab, filenum, filename, fileTimestamp, fileDatetime, viewTimeRange)
+    arguments
+        obj electro_gui
+        nameIdxOrTab
+        filenum (1, 1) double
+        filename {mustBeText}
+        fileTimestamp {mustBeText}
+        fileDatetime datetime
+        viewTimeRange (1, 2) double
+    end
+
+    [~, ~, tab] = obj.getExportTab(nameIdxOrTab);
+    info.filenum = filenum;
+    info.filename = filename;
+    info.fileTimestamp = fileTimestamp;
+    info.fileDatetime = fileDatetime;
+    info.timeRange = viewTimeRange;
+    startTimeInSeconds = viewTimeRange(1) / (60*60*24);
+    info.time = fileDatetime + startTimeInSeconds;
+    newPanel = uipanel(tab, ...
+        'UserData', info, ...
+        'BorderType', 'none', ...
+        'Title', '');
+end
+function arrangeExportPanels(obj)
+%     obj.settings.Export.LayoutSortMode
+%     obj.settings.Export.LayoutLineMode
+    
+    sortedPanels = {};
+    for tabNum = 1:length(obj.ExportWindow.tabs)
+        switch obj.settings.Export.LayoutSortMode
+            case 'LayoutSortChronological'
+                if isempty(obj.ExportWindow.panels{tabNum})
+                    sortOrder = [];
+                else
+                    [~, sortOrder] = sort([obj.ExportWindow.panels{tabNum}.UserData.time]);
+                end
+            case 'LayoutSortAddOrder'
+                sortOrder = 1:length(obj.ExportWindow.panels{tabNum});
+        end
+        sortedPanels{tabNum} = obj.ExportWindow.panels{tabNum}(sortOrder);
+    end
+
+    if obj.settings.Export.LayoutLineMode
+        % One panel per line
+        for tabNum = 1:length(obj.ExportWindow.tabs)
+            tabPos = getPositionWithUnits(obj.ExportWindow.tabs, 'pixels');
+            tabHeight = tabPos(4);
+            currentY = tabHeight;
+            for panelNum = 1:length(sortedPanels{tabNum})
+                % Get panel
+                panel = sortedPanels{tabNum}(panelNum);
+                % Get current position
+                panelHeight = getPositionWithUnits(panel, 'pixels', 4);
+                % Find lower y bound
+                currentY = currentY - panelHeight;
+                % Set new position
+                setPositionWithUnits(panel, [0, currentY], 'pixels', [1, 2]);
+            end
+        end
+    else
+        % Multiple panels per line
+        for tabNum = 1:length(obj.ExportWindow.tabs)
+            tabPos = getPositionWithUnits(obj.ExportWindow.tabs, 'pixels');
+            filledWidth = 0;
+            tabWidth = tabPos(3);
+            tabHeight = tabPos(4);
+            currentLineNum = 1;
+            lineAssignments = zeros(size(sortedPanels{tabNum}));
+            lineTopYs = tabHeight;
+            lineHeights = 0;
+
+            for panelNum = 1:length(sortedPanels{tabNum})
+                % Get panel
+                panel = sortedPanels{tabNum}(panelNum);
+                % Get current position
+                panelPos = getPositionWithUnits(panel, 'pixels');
+                panelWidth = panelPos(3);
+                panelHeight = panelPos(4);
+                if panelNum > 1 && filledWidth + panelWidth > tabWidth
+                    % Time for a new line
+                    currentLineNum = currentLineNum + 1;
+                    lineHeights(currentLineNum) = 0;
+                    filledWidth = 0;
+                end
+                lineHeights(currentLineNum) = max([lineHeights(currentLineNum), panelHeight]);
+                lineTopYs(currentLineNum) = tabHeight - sum(lineHeights(1:currentLineNum-1));
+                lineAssignments(panelNum) = currentLineNum;
+                filledWidth = filledWidth + panelWidth;
+            end
+        end
+        for lineIdx = 1:length(lineHeights)
+            filledWidth = 0;
+            currentTopY = lineTopYs(lineIdx);
+            for panelIdx= 1:length(sortedPanels{tabNum})
+                panel = sortedPanels{tabNum}(panelIdx);
+                panelPos = getPositionWithUnits(panel, 'pixels');
+                panelWidth = panelPos(3);
+                panelHeight = panelPos(4);
+                if lineAssignments(panelNum) == lineIdx
+                    x = filledWidth;
+                    y = currentTopY - panelHeight;
+                    w = panelWidth;
+                    h = panelHeight;
+                    setPositionWithUnits(panel, [x, y, w, h], 'pixels');
+                    filledWidth = filledWidth + w;
+                end
+            end
+        end
+
+    end
+end
+function [idx, name, tab] = getExportTab(obj, nameIdxOrTab)
+    % Get the tag index from either the index or name of the tab or the tab
+    %   object itself
+    switch class(nameIdxOrTab)
+        case 'double'
+            % User passed in tab index
+            idx = nameIdxOrTab;
+            tab = obj.ExportWindow.tabs(idx);
+            name = tab.Title;
+        case {'char', 'string'}
+            % User passed in tab name
+            name = nameIdxOrTab;
+            tabNames = {obj.ExportWindow.tabs.Title};
+            idx = find(strcmp(tabName, tabNames), 1);
+            tab = obj.ExportWindow.tabs(idx);
+        case 'matlab.ui.container.Tab'
+            % User passed in tab object
+            tab = nameIdxOrTab;
+            idx = find(tab == obj.ExportWindow.tabs, 1);
+            name = tab.Title;
+    end
+end
+function deleteExportTab(obj, nameIdxOrTab)
+    % Properly delete a tab based either on the tab index, the name, or the
+    %   tab object itself.
+    [tabIdx, ~, tab] = obj.getExportTab(nameIdxOrTab);
+
+    % Destroy tab object
+    delete(tab);
+    % Remove tab from list
+    obj.ExportWindow.tabs(tabIdx) = [];
+    % Delete panels
+    for panelIdx = 1:length(obj.ExportWindow.panels{tabIdx})
+        delete(obj.ExportWindow.panels{tabIdx}(panelIdx));
+    end
+    % Remove panel list
+    obj.ExportWindow.panels{tabIdx} = [];
+end
+function ensureExportWindowExists(obj)
+    % Make sure export control panel figure exists. If not, create it.
+    if isempty(obj.ExportWindow.fig) || ...
+            ~isgraphics(obj.ExportWindow.fig) || ...
+            ~isvalid(obj.ExportWindow.fig)
+        obj.createExportWindow();
+    end
+end
+
+function updateExportWindow(obj) %#ok<MANU> 
 end
 
 function eventSourceIdx = addNewEventSource(obj, channelNum, ...
@@ -9541,7 +9197,7 @@ end
                 end
                 % Update spectrogram scales
             elseif strcmp(obj.figure_Main.SelectionType, 'alt') && length(obj.figure_Main.CurrentModifier)==1 && strcmp(obj.figure_Main.CurrentModifier, 'control')
-                % User control-clicked on axes_Spectrogram
+                % User control-clicked on axes_Sonogram
         
                 rect = rbbox();
                 rect = getFigureCoordsInAxesDataUnits(rect, current_axes);
@@ -9552,7 +9208,7 @@ end
                 % Add new marker to backend
                 obj.CreateNewMarker(time);
             elseif any(strcmp(obj.figure_Main.CurrentModifier, 'control')) && any(strcmp(obj.figure_Main.CurrentModifier, 'alt'))
-                % Control-alt clicked on axes_Spectrogram - measure power
+                % Control-alt clicked on axes_Sonogram - measure power
 
                 if ~isgraphics(obj.SonogramHandle) || ~isvalid(obj.SonogramHandle)
                     % Sonogram has not been plotted - abort
@@ -9886,7 +9542,6 @@ end
         end
 
         function SegmenterMenuClick(obj, hObject, event)
-
             obj.SaveState();
 
             for c = 1:length(obj.menu_SegmenterList.Children)
@@ -11153,1145 +10808,29 @@ end
         end
         function playback_animation_TopPlot_Callback(obj, hObject, eventdata)
             obj.ChangeProgress(hObject);
-
-
         end
         function playback_animation_BottomPlot_Callback(obj, hObject, eventdata)
             obj.ChangeProgress(hObject);
-
-
-
         end
         function menu_Export_Callback(obj, hObject, eventdata)
+            % Open export menu
         end
         function action_Export_Callback(obj, hObject, eventdata)
-            if ~electro_gui.isDataLoaded(obj.dbase)
-                % No data yet, do nothing
-                return;
-            end
-
-            txtexp = text(mean(xlim(obj.axes_Sonogram)),mean(ylim(obj.axes_Sonogram)),'Exporting...',...
-                'HorizontalAlignment','center','Color','r','backgroundcolor',[1 1 1],'fontsize',14);
-            drawnow
-
-            tempFilename = 'eg_temp.wav';
-
-            %%%
-
-            obj.updateFilteredSound();
-
-            exportAs = getMenuGroupValue(obj.menu_ExportAs.Children');
-            exportTo = getMenuGroupValue(obj.menu_ExportTo.Children');
-
-            switch exportAs
-                case 'Segments'
-                    path = uigetdir(obj.tempSettings.lastDirectory, 'Directory for segments');
-                    if ~ischar(path)
-                        delete(txtexp)
-                        return
-                    end
-                    obj.dbase.PathName = path;
-                    obj.tempSettings.lastDirectory = path;
-                    obj.updateTempFile();
-
-                    filenum = electro_gui.getCurrentFileNum(obj.settings);
-
-                    if isfield(obj.settings, 'DefaultLabels')
-                        labels = obj.settings.DefaultLabels;
-                    else
-                        labels = [];
-                        for c = 1:length(obj.dbase.SegmentTitles{filenum})
-                            labels = [labels obj.dbase.SegmentTitles{filenum}{c}];
-                        end
-                        if ~isempty(labels)
-                            labels = unique(labels);
-                        end
-                        labels = ['''''' labels];
-                    end
-
-                    answer = inputdlg({'List of labels to export (leave empty for all segments, '''' = unlabeled)','File format'},'Export segments',1,{labels,obj.SegmentFileFormat});
-                    if isempty(answer)
-                        delete(txtexp)
-                        return
-                    end
-                    newLabel = answer{1};
-                    obj.SegmentFileFormat = answer{2};
-
-                    if ~strcmp(labels,newLabel)
-                        obj.DefaultLabels = newLabel;
-                    end
-                    if isempty(newLabel)
-                        obj.rmfield('DefaultLabels');
-                    end
-
-                    dtm = datetime(obj.text_DateAndTime.String);
-                    dtm.Format = 'yyyymmdd';
-                    sd = string(dtm);
-                    dtm.Format = 'HHMMSS';
-                    st = string(dtm);
-                    [~,name,~] = fileparts(obj.text_FileName.String);
-                    sf = name;
-                    for c = 1:length(obj.dbase.SegmentTitles{filenum})
-                        if ~isempty(strfind(newLabel,obj.dbase.SegmentTitles{filenum}{c})) || isempty(newLabel) || (isempty(obj.dbase.SegmentTitles{filenum}{c}) && contains(newLabel,''''''))
-                            str = obj.SegmentFileFormat;
-                            f = strfind(str,'\d');
-                            for j = f
-                                str = [str(1:j-1) sd str(j+2:end)];
-                            end
-                            f = strfind(str,'\t');
-                            for j = f
-                                str = [str(1:j-1) st str(j+2:end)];
-                            end
-                            f = strfind(str,'\f');
-                            for j = f
-                                str = [str(1:j-1) sf str(j+2:end)];
-                            end
-                            f = strfind(str,'\l');
-                            for j = f
-                                str = [str(1:j-1) obj.dbase.SegmentTitles{filenum}{c} str(j+2:end)];
-                            end
-                            f = strfind(str,'\i');
-                            for j = f
-                                num = num2str(str(j+2));
-                                if num>0
-                                    indx = num2str(c,['%0.' num2str(num) 'd']);
-                                else
-                                    indx = num2str(c);
-                                end
-                                str = [str(1:j-1) indx str(j+3:end)];
-                            end
-                            f = strfind(str,'\n');
-                            for j = f
-                                num = num2str(str(j+2));
-                                if num>0
-                                    indx = num2str(filenum,['%0.' num2str(num) 'd']);
-                                else
-                                    indx = num2str(filenum);
-                                end
-                                str = [str(1:j-1) indx str(j+3:end)];
-                            end
-
-                            wav = obj.filtered_sound(obj.dbase.SegmentTimes{filenum}(c,1):obj.dbase.SegmentTimes{filenum}(c,2));
-
-                            audiowrite(fullfile(path, [str, '.wav']), wav, obj.dbase.Fs, 'BitsPerSample', 16);
-                        end
-                    end
-                case 'Sonogram'
-                    if strcmp(exportTo, 'File')
-                        [~, name, ~] = fileparts(obj.text_FileName.String);
-                        [file, path] = uiputfile([obj.dbase.PathName '\' name '.jpg'],'Save image');
-                        if ~ischar(file)
-                            delete(txtexp)
-                            return
-                        end
-                        obj.dbase.PathName = path;
-                    end
-                    xl = obj.axes_Sonogram.XLim;
-                    yl = obj.axes_Sonogram.YLim;
-                    fig = figure();
-                    set(fig,'Visible','off','Units','pixels');
-                    pos = get(fig,'Position');
-                    pos(3) = obj.ExportSonogramResolution*obj.settings.ExportSonogramWidth*(xl(2)-xl(1));
-                    pos(4) = obj.ExportSonogramResolution*obj.settings.ExportSonogramHeight;
-                    fig.Position = pos;
-                    subplot('Position',[0 0 1 1]);
-                    hold on
-                    if obj.settings.ExportReplotSonogram == 0
-                        ch = findobj('Parent',obj.axes_Sonogram,'type',image);
-                        for c = 1:length(ch)
-                            if ch(c) ~= txtexp
-                                x = ch(c).XData;
-                                y = ch(c).YData;
-                                m = ch(c).CData;
-                                f = find(x>=xl(1) & x<=xl(2));
-                                g = find(y>=yl(1) & y<=yl(2));
-                                imagesc(x(f),y(g),m(g,f));
-                            end
-                        end
-                    else
-                        xlim(xl);
-                        ylim(yl);
-                        xlp = round(xl*obj.dbase.Fs);
-                        if xlp(1)<1; xlp(1) = 1; end
-
-                        numSamples = obj.eg_GetSamplingInfo();
-
-                        if xlp(2)>numSamples
-                            xlp(2) = numSamples;
-                        end
-                        for c = 1:length(obj.menu_Algorithm)
-                            if obj.menu_Algorithm(c).Checked
-                                alg = obj.menu_Algorithm(c).Label;
-                            end
-                        end
-                        electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, obj.axes_Sonogram, ...
-                            obj.filtered_sound(xlp(1):xlp(2)), obj.dbase.Fs, obj.settings.SonogramParams);
-                        obj.axes_Sonogram.YDir = 'normal';
-                        obj.settings.NewDerivativeSlope = obj.settings.DerivativeSlope;
-                        obj.settings.DerivativeSlope = 0;
-                        obj.updateSonogramColors();
-                    end
-                    cl = obj.axes_Sonogram.CLim;
-                    obj.axes_Sonogram.CLim = cl;
-                    col = obj.figure_Main.Colormap;
-                    obj.figure_Main.Colormap = col;
-                    axis tight;
-                    axis off;
-
-
-                case 'Current sound'
-                    wav = obj.GenerateSound('snd');
-                    fs = obj.dbase.Fs * obj.settings.SoundSpeed;
-
-                case 'Sound mix'
-                    wav = obj.GenerateSound('mix');
-                    fs = obj.dbase.Fs * obj.settings.SoundSpeed;
-
-                case 'Events'
-                    switch exportTo
-                        case 'MATLAB'
-                            fig = figure();
-                            ax = axes(fig);
-                            ch = obj.axes_Events.Children;
-                            xs = [];
-                            ys = [];
-                            for c = length(ch):-1:1
-                                x = ch(c).XData;
-                                y = ch(c).YData;
-                                col = ch(c).Color;
-                                ls = ch(c).LineStyle;
-                                lw = ch(c).LineWidth;
-                                ma = ch(c).Marker;
-                                ms = ch(c).MarkerSize;
-                                mf = ch(c).MarkerFaceColor;
-                                me = ch(c).MarkerEdgeColor;
-                                plot(ax, x,y,'Color',col,'LineStyle',ls,'LineWidth',lw,'Marker',ma,'MarkerSize',ms,'MarkerFaceColor',mf,'MarkerEdgeColor',me);
-                                hold(ax, 'on');
-                                if obj.menu_DisplayFeatures.Checked && sum(col==[1 0 0])~=3
-                                    xs = [xs x];
-                                    ys = [ys y];
-                                end
-                            end
-
-                            xl = obj.axes_Events.XLim;
-                            yl = obj.axes_Events.YLim;
-                            xlabel = obj.axes_Events.XLabel.String;
-                            ylabel = obj.axes_Events.YLabel.String;
-                            str = {};
-                            if obj.menu_DisplayFeatures.Checked
-                                xs = xs(xs>=xl(1) & xs<=xl(2));
-                                ys = ys(ys>=yl(1) & ys<=yl(2));
-                                str{1} = ['N = ' num2str(length(xs))];
-                                str{2} = ['Mean ' xlabel ' = ' num2str(mean(xs))];
-                                str{3} = ['Stdev ' xlabel ' = ' num2str(std(xs))];
-                                str{4} = ['Mean ' ylabel ' = ' num2str(mean(ys))];
-                                str{5} = ['Stdev ' ylabel ' = ' num2str(std(ys))];
-                                txt = text(xl(1),yl(2),str);
-                                txt.HorizontalAlignment = 'Left';
-                                txt.VerticalAlignment = 'top';
-                                txt.FontSize = 8;
-                            end
-                            xlabel(ax, xlabel);
-                            ylabel(ax, ylabel);
-                            xlim(ax, xl);
-                            ylim(ax, yl);
-                            box(ax, 'off');
-                        case 'Clipboard'
-                            if obj.menu_DisplayFeatures.Checked
-                                ch = obj.axes_Events.Children;
-                                xs = [];
-                                ys = [];
-                                for c = length(ch):-1:1
-                                    x = ch(c).XData;
-                                    y = ch(c).YData;
-                                    col = ch(c).Color;
-                                    if sum(col==[1 0 0])~=3
-                                        xs = [xs x];
-                                        ys = [ys y];
-                                    end
-                                end
-                                str = [num2str(length(xs)) char(9) num2str(mean(xs)) char(9) num2str(std(xs)) char(9) num2str(mean(ys)) char(9) num2str(std(ys))];
-                                clipboard('copy',str);
-                            else
-                                errordlg('Must be in the Display->Features mode!','Error');
-                            end
-                    end
-
-                    delete(txtexp)
-                    return
-            end
-
-
-            %%%
-            switch exportTo
-                case 'MATLAB'
-                    switch exportAs
-                        case 'Sonogram'
-                            fig.Units = 'inches';
-                            pos = fig.Position;
-                            pos(3) = obj.settings.ExportSonogramWidth*(xl(2)-xl(1));
-                            pos(4) = obj.settings.ExportSonogramHeight;
-                            fig.Position = pos;
-                            fig.Visible = 'on';
-                        case 'Worksheet'
-                            lst = obj.settings.WorksheetList;
-                            used = obj.settings.WorksheetUsed;
-                            widths = obj.settings.WorksheetWidths;
-
-                            perpage = fix(0.001+(obj.settings.WorksheetHeight - 2*obj.settings.WorksheetMargin - obj.settings.WorksheetIncludeTitle*obj.settings.WorksheetTitleHeight)/(obj.settings.ExportSonogramHeight + obj.settings.WorksheetVerticalInterval));
-                            pagenum = fix((0:length(lst)-1)/perpage)+1;
-
-                            for j = 1:max(pagenum)
-                                fig = figure('Units','inches');
-                                ud.Sounds = {};
-                                ud.Fs = [];
-                                bcg = axes('Position',[0 0 1 1],'Visible','off');
-                                ps = fig.Position;
-                                ps(3) = obj.settings.WorksheetWidth;
-                                ps(4) = obj.settings.WorksheetHeight;
-                                fig.Position = ps;
-                                if obj.settings.WorksheetIncludeTitle == 1
-                                    txt = text(bcg, obj.settings.WorksheetMargin/obj.settings.WorksheetWidth,(obj.settings.WorksheetHeight-obj.settings.WorksheetMargin)/obj.settings.WorksheetHeight,obj.settings.WorksheetTitle);
-                                    txt.HorizontalAlignment = 'left';
-                                    txt.VerticalAlignment = 'top';
-                                    txt.FontSize = 14;
-                                    txt = text(bcg, (obj.settings.WorksheetWidth-obj.settings.WorksheetMargin)/obj.settings.WorksheetWidth,(obj.settings.WorksheetHeight-obj.settings.WorksheetMargin)/obj.settings.WorksheetHeight,['Page ' num2str(j) '/' num2str(max(pagenum))]);
-                                    txt.HorizontalAlignment = 'right';
-                                    txt.VerticalAlignment = 'top';
-                                    txt.FontSize = 14;
-                                end
-                                f = find(pagenum==j);
-                                for c = 1:length(f)
-                                    indx = f(c);
-                                    for d = 1:length(lst{indx})
-                                        ud.Sounds{end+1} = obj.settings.WorksheetSounds{lst{indx}(d)};
-                                        ud.Fs(end+1) = obj.settings.WorksheetFs(lst{indx}(d));
-
-                                        x = (obj.settings.WorksheetWidth-used(indx))/2 + sum(widths(lst{indx}(1:d-1))) + obj.settings.WorksheetHorizontalInterval*(d-1);
-                                        wd = widths(lst{indx}(d));
-                                        y = obj.settings.WorksheetHeight - obj.settings.WorksheetMargin - obj.settings.WorksheetIncludeTitle*obj.settings.WorksheetTitleHeight - obj.settings.WorksheetVerticalInterval*c - obj.settings.ExportSonogramHeight*c;
-                                        ax = axes('Position',[x/obj.settings.WorksheetWidth y/obj.settings.WorksheetHeight wd/obj.settings.WorksheetWidth obj.settings.ExportSonogramHeight/obj.settings.WorksheetHeight]);
-                                        hold(ax, 'on');
-                                        for i = 1:length(obj.settings.WorksheetMs{lst{indx}(d)})
-                                            p = obj.settings.WorksheetMs{lst{indx}(d)}{i};
-                                            if size(p,3) == 1
-                                                cl = obj.settings.WorksheetClim{lst{indx}(d)};
-                                                p = (p-cl(1))/(cl(2)-cl(1));
-                                                p(p<0)=0;
-                                                p(p>1)=1;
-                                                p = round(p*(size(obj.settings.WorksheetColormap{lst{indx}(d)},1)-1))+1;
-                                                p1 = reshape(obj.settings.WorksheetColormap{lst{indx}(d)}(p,1),size(p));
-                                                p2 = reshape(obj.settings.WorksheetColormap{lst{indx}(d)}(p,2),size(p));
-                                                p3 = reshape(obj.settings.WorksheetColormap{lst{indx}(d)}(p,3),size(p));
-                                                p = cat(3,p1,p2,p3);
-                                            else
-                                                ax.CLim = obj.settings.WorksheetClim{lst{indx}(d)};
-                                                fig.Colormap = obj.settings.WorksheetColormap{lst{indx}(d)};
-                                            end
-                                            im = imagesc(ax, obj.settings.WorksheetXs{lst{indx}(d)}{i},obj.settings.WorksheetYs{lst{indx}(d)}{i},p);
-                                            if obj.settings.ExportSonogramIncludeClip > 0
-                                                im.ButtonDownFcn = ['ud=get(gcf,''UserData''); sound(ud.Sounds{' num2str(length(ud.Sounds)) '},ud.Fs(' num2str(length(ud.Fs)) '))'];
-                                            end
-                                        end
-                                        xlim(ax, obj.settings.WorksheetXLims{lst{indx}(d)});
-                                        ylim(ax, obj.settings.WorksheetYLims{lst{indx}(d)});
-                                        axis(ax, 'off');
-                                        if obj.settings.ExportSonogramIncludeLabel == 1
-                                            fig.CurrentAxes = bcg;
-                                            xText = (x+wd/2)/obj.settings.WorksheetWidth;
-                                            yText = (y+obj.settings.ExportSonogramHeight)/obj.settings.WorksheetHeight;
-                                            timestamp = char(datetime(obj.settings.WorksheetTimes(lst{indx}(d))));
-                                            txt = text(ax, xText, yText, timestamp);
-                                            txt.HorizontalAlignment = 'center';
-                                            txt.VerticalAlignment = 'bottom';
-                                        end
-                                    end
-                                end
-
-                                if obj.settings.ExportSonogramIncludeClip > 0
-                                    fig.UserData = ud;
-                                end
-                                fig.Units = 'pixels';
-                                screen_size = get(0,'screensize');
-                                fig_pos = fig.Position;
-                                fig.Position = [(screen_size(3)-fig_pos(3))/2,(screen_size(4)-fig_pos(4))/2,fig_pos(3),fig_pos(4)];
-
-                                fig.PaperOrientation = obj.settings.WorksheetOrientation;
-                                fig.PaperPositionMode = 'auto';
-                            end
-                    end
-                case 'Clipboard'
-                    fig.Units = 'inches';
-                    pos = fig.Position;
-                    pos(3) = obj.settings.ExportSonogramWidth*(xl(2)-xl(1));
-                    pos(4) = obj.settings.ExportSonogramHeight;
-                    fig.Position = pos;
-                    fig.PaperPositionMode = 'manual';
-                    fig.Renderer = 'painters'; %#ok<*FGREN>
-
-                    print('-dmeta',['-f' num2str(fig)],['-r' num2str(obj.ExportSonogramResolution)]);
-                    delete(fig)
-
-                case 'File'
-                    switch exportAs
-                        case 'Sonogram'
-                            fig.Units = 'inches';
-                            pos = fig.Position;
-                            pos(3) = obj.settings.ExportSonogramWidth*(xl(2)-xl(1));
-                            pos(4) = obj.settings.ExportSonogramHeight;
-                            fig.Position = pos;
-                            fig.PaperPositionMode = 'auto';
-
-                            print('-djpeg',['-f' num2str(fig)],[path file],['-r' num2str(obj.ExportSonogramResolution)]);
-
-                            delete(fig);
-
-                        case {'Current sound', 'Sound mix'}
-                            [~,name,~] = fileparts(obj.text_FileName.String);
-                            [file, path] = uiputfile([obj.dbase.PathName '\' name '.wav'],'Save sound');
-                            if ~ischar(file)
-                                delete(txtexp)
-                                return
-                            end
-                            obj.dbase.PathName = path;
-
-                            audiowrite(fullfile(path, file), wav, obj.dbase.Fs, 'BitsPerSample', 16);
-                    end
-
-                case 'PowerPoint'
-                    ppt = actxserver('PowerPoint.Application');
-                    op = ppt.ActivePresentation;
-                    slide_count = op.Slides.Count;
-                    if slide_count>0
-                        oldslide = ppt.ActiveWindow.View.Slide;
-                        slide_count = int32(double(slide_count)+1);
-                %         newslide = invoke(op.Slides,'Add',slide_count,'ppLayoutBlank');
-                        newslide = invoke(op.Slides,'Add',slide_count,11); %mod by VG
-                    else
-                        slide_count = int32(double(slide_count)+1);
-                %         newslide = invoke(op.Slides,'Add',slide_count,'ppLayoutBlank');
-                        newslide = invoke(op.Slides,'Add',slide_count,11); %mod by VG
-                        oldslide = ppt.ActiveWindow.View.Slide;
-                    end
-
-                    switch exportAs
-                        case 'Sonogram'
-                            set(fig,'PaperPositionMode','manual','Renderer','painters')
-                            print('-dmeta',['-f' num2str(fig)]);
-                            pic = invoke(newslide.Shapes,'PasteSpecial',2);
-                            ug = invoke(pic,'Ungroup');
-                            ug.Fill.Visible = 'msoFalse';
-                            set(ug,'Height',72*obj.settings.ExportSonogramHeight,'Width',72*obj.settings.ExportSonogramWidth*(xl(2)-xl(1)));
-
-                            if obj.settings.ExportSonogramIncludeClip > 0
-                                wav = obj.GenerateSound('snd');
-                                fs = obj.dbase.Fs * obj.settings.SoundSpeed;
-
-                                audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
-
-                                snd = invoke(newslide.Shapes,'AddMediaObject', fullfile(pwd, tempFilename));
-                                snd.Left = ug.Left;
-                                snd.Top = ug.Top;
-                                mt = dir(f.UserData.ax);
-                                delete(mt(1).name);
-                            end
-
-                            if obj.settings.ExportSonogramIncludeLabel == 1
-                                txt = obj.addWorksheetTextBox(newslide, obj.text_DateAndTime.String, 8, [], [], 'msoAnchorCenter', 'msoAnchorBottom');
-                                txt.Left = ug.Left+ug.Width/2-txt.Width/2;
-                                txt.Top = ug.Top-txt.Height;
-                            end
-
-                            if newslide.Shapes.Range.Count>1
-                                invoke(newslide.Shapes.Range,'Group');
-                            end
-                            invoke(newslide.Shapes.Range,'Cut');
-                            pic = invoke(oldslide.Shapes,'Paste');
-                            slideHeight = op.PageSetup.SlideHeight;
-                            slideWidth = op.PageSetup.SlideWidth;
-                            pic.Top = slideHeight/2-pic.Height/2;
-                            pic.Left = slideWidth/2-pic.Width/2;
-
-                            delete(fig);
-
-                            if newslide.SlideIndex~=oldslide.SlideIndex
-                                invoke(newslide,'Delete');
-                            end
-
-                        case {'Current sound', 'Sound mix'}
-                            audiowrite(tempFilename, wav, fs, 'BitsPerSample', 16);
-                            snd = invoke(newslide.Shapes,'AddMediaObject', fullfile(pwd, tempFilename));
-                            mt = dir(tempFilename);
-                            delete(mt(1).name);
-
-                            if obj.settings.ExportSonogramIncludeLabel == 1
-                                txt = obj.addWorksheetTextBox(newslide,  obj.text_DateAndTime.String, 8, snd.Left+snd.Width, [], [], 'msoAnchorMiddle');
-                                txt.Top = snd.Top+snd.Height/2-txt.Height/2;
-                            end
-
-                            if newslide.Shapes.Range.Count>1
-                                invoke(newslide.Shapes.Range,'Group');
-                            end
-                            invoke(newslide.Shapes.Range, 'Cut');
-                            invoke(oldslide.Shapes, 'Paste');
-
-                            if newslide.SlideIndex~=oldslide.SlideIndex
-                                invoke(newslide,'Delete');
-                            end
-
-
-                        case 'Worksheet'
-                            ppt = actxserver('PowerPoint.Application');
-                            op = ppt.ActivePresentation;
-
-                            offx = (op.PageSetup.SlideWidth-72*obj.settings.WorksheetWidth)/2;
-                            offy = (op.PageSetup.SlideHeight-72*obj.settings.WorksheetHeight)/2;
-
-                            lst = obj.settings.WorksheetList;
-                            used = obj.settings.WorksheetUsed;
-                            widths = obj.settings.WorksheetWidths;
-
-                            perpage = fix(0.001+(obj.settings.WorksheetHeight - 2*obj.settings.WorksheetMargin - obj.settings.WorksheetIncludeTitle*obj.settings.WorksheetTitleHeight)/(obj.settings.ExportSonogramHeight + obj.settings.WorksheetVerticalInterval));
-                            pagenum = fix((0:length(lst)-1)/perpage)+1;
-
-
-                            fig = figure('Visible','off','Units','pixels');
-                            set(fig,'PaperPositionMode','manual','Renderer','painters');
-                            ax = subplot('Position',[0 0 1 1]);
-                            axis(ax, 'off');
-                            for j = 1:max(pagenum)
-                                if j > 1
-                                    slide_count = op.Slides.Count;
-                                    newslide = invoke(op.Slides,'Add',slide_count+1,'ppLayoutBlank');
-                                end
-                                if obj.settings.WorksheetIncludeTitle == 1
-                                    obj.addWorksheetTextBox(newslide, obj.settings.WorksheetTitle, 14, 72*obj.settings.WorksheetMargin+offx, 72*obj.settings.WorksheetMargin+offy, [], 'msoAnchorTop');
-                                    txt = obj.addWorksheetTextBox(newslide, ['Page ' num2str(j) '/' num2str(max(pagenum))], 14, [], 72*obj.settings.WorksheetMargin+offy, [], 'msoAnchorTop');
-                                    txt.Left = 72*(obj.settings.WorksheetWidth-obj.settings.WorksheetMargin-txt.Width+offx);
-                                end
-
-                                f = find(pagenum==j);
-                                for c = 1:length(f)
-                                    indx = f(c);
-
-                                    for d = 1:length(lst{indx})
-                                        cla(ax);
-                                        hold(ax, 'on');
-                                        ps = fig.Position;
-                                        ps(3) = obj.ExportSonogramResolution*obj.settings.ExportSonogramWidth*(obj.settings.WorksheetXLims{lst{indx}(d)}(2)-obj.settings.WorksheetXLims{lst{indx}(d)}(1));
-                                        ps(4) = obj.ExportSonogramResolution*obj.settings.ExportSonogramHeight;
-                                        fig.Position = ps;
-
-                                        x = (obj.settings.WorksheetWidth-used(indx))/2 + sum(widths(lst{indx}(1:d-1))) + obj.settings.WorksheetHorizontalInterval*(d-1);
-                                        wd = widths(lst{indx}(d));
-                                        y = obj.settings.WorksheetMargin + obj.settings.WorksheetIncludeTitle*obj.settings.WorksheetTitleHeight + obj.settings.WorksheetVerticalInterval*(c-1) + obj.settings.ExportSonogramHeight*(c-1);
-
-                                        for i = 1:length(obj.settings.WorksheetMs{lst{indx}(d)})
-                                            p = obj.settings.WorksheetMs{lst{indx}(d)}{i};
-                                            imagesc(ax, obj.settings.WorksheetXs{lst{indx}(d)}{i},obj.settings.WorksheetYs{lst{indx}(d)}{i},p);
-                                            ax.CLim = obj.settings.WorksheetClim{lst{indx}(d)};
-                                            fig.Colormap = obj.settings.WorksheetColormap{lst{indx}(d)};
-                                        end
-                                        xlim(ax, obj.settings.WorksheetXLims{lst{indx}(d)});
-                                        ylim(ax, obj.settings.WorksheetYLims{lst{indx}(d)});
-
-                                        print('-dmeta',['-f' num2str(fig)]);
-                                        pic = invoke(newslide.Shapes,'PasteSpecial',2);
-                                        ug = invoke(pic,'Ungroup');
-                                        ug.Fill.Visible = 'msoFalse';
-                                        ug.Height = 72*obj.settings.ExportSonogramHeight;
-                                        ug.Width = 72*obj.settings.ExportSonogramWidth*(obj.settings.WorksheetXLims{lst{indx}(d)}(2)-obj.settings.WorksheetXLims{lst{indx}(d)}(1));
-                                        ug.Left = 72*x+offx;
-                                        ug.Top = 72*(y+obj.settings.WorksheetVerticalInterval)+offy;
-
-                                        if obj.settings.ExportSonogramIncludeLabel == 1
-                                            txt = obj.addWorksheetTextBox(newslide, string(datetime(obj.settings.WorksheetTimes(lst{indx}(d)))), 10, [], [], 'msoAnchorCenter', 'msoAnchorBottom');
-                                            txt.Left = 72*(x+wd/2-txt.Width/2+offx);
-                                            txt.Top = 72*(y+obj.settings.WorksheetVerticalInterval-txt.Height+offy);
-                                        end
-
-                                        if obj.settings.ExportSonogramIncludeClip > 0
-                                            wav = obj.settings.WorksheetSounds{lst{indx}(d)};
-                                            fs = obj.settings.WorksheetFs(lst{indx}(d));
-                                            audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
-                                            snd = invoke(newslide.Shapes,'AddMediaObject', fullfile(pwd, tempFilename));
-                                            snd.Left = ug.Left;
-                                            snd.Top = ug.Top;
-                                            mt = dir(f.UserData.ax);
-                                            delete(mt(1).name);
-                                        end
-                                    end
-                                end
-                            end
-                            delete(fig);
-
-                        case 'Figure'
-                            obj.settings.template = obj.export_options_EditFigureTemplate.UserData;
-
-                            ppt = actxserver('PowerPoint.Application');
-                            op = ppt.ActivePresentation;
-
-                            fig = figure('Visible','off','Units','pixels');
-                            fig.PaperPositionMode = 'manual';
-                            fig.Renderer = 'painters';
-                            ax = subplot('Position',[0 0 1 1]);
-
-                            xl = obj.axes_Sonogram.XLim;
-
-                            offx = (op.PageSetup.SlideWidth-72*obj.settings.ExportSonogramWidth*(xl(2)-xl(1)))/2;
-                            offy = (op.PageSetup.SlideHeight-72*(sum(obj.settings.template.Height)+sum(obj.settings.template.Interval(1:end-1))))/2;
-
-                            sound_inserted = 0;
-
-                            ch = obj.menu_export_options_Animation.Children;
-                            progbar = [];
-                            axs = [obj.axes_Channel2 obj.axes_Channel1 obj.axes_Amplitude obj.axes_Segments obj.axes_Sonogram obj.axes_Sound];
-                            for c = 1:length(ch)
-                                if ch(c).Checked && axs(c).Visible
-                                    progbar = [progbar c];
-                                end
-                            end
-                            ycoord = zeros(0,4);
-                            coords = {};
-
-                            for c = 1:length(obj.settings.template.Plot)
-                                ps = fig.Position;
-                                ps(3) = obj.ExportSonogramResolution*obj.settings.ExportSonogramWidth*(xl(2)-xl(1));
-                                ps(4) = obj.ExportSonogramResolution*obj.settings.template.Height(c);
-                                fig.Position = ps;
-
-                                cla(ax);
-
-                                include_progbar = 0;
-
-                                switch obj.settings.template.Plot{c}
-
-                                    case 'Sonogram'
-                                        if ~isempty(find(progbar==5, 1))
-                                            include_progbar = 1;
-                                        end
-
-                                        yl = obj.axes_Sonogram.YLim;
-
-                                        hold(ax, 'on');
-                                        if obj.settings.ExportReplotSonogram == 0
-                                            ch = findobj('Parent',obj.axes_Sonogram,'type','image');
-                                            for j = 1:length(ch)
-                                                if ch(j) ~= txtexp
-                                                    x = ch(j).XData;
-                                                    y = ch(j).YData;
-                                                    m = ch(j).CData;
-                                                    f = find(x>=xl(1) & x<=xl(2));
-                                                    g = find(y>=yl(1) & y<=yl(2));
-                                                    imagesc(ax, x(f),y(g),m(g,f));
-                                                end
-                                            end
-                                        else
-                                            xlim(ax, xl);
-                                            ylim(ax, yl);
-                                            xlp = round(xl*obj.dbase.Fs);
-                                            if xlp(1)<1; xlp(1) = 1; end
-                                            numSamples = obj.eg_GetSamplingInfo();
-
-                                            if xlp(2)>numSamples; xlp(2) = numSamples; end
-                                            for j = 1:length(obj.menu_Algorithm)
-                                                if obj.menu_Algorithm(j).Checked
-                                                    alg = obj.menu_Algorithm(j).Label;
-                                                end
-                                            end
-                                            electro_gui.eg_runPlugin(obj.plugins.spectrums, ...
-                                                alg, ax, obj.filtered_sound(xlp(1):xlp(2)), ...
-                                                obj.dbase.Fs, obj.settings.SonogramParams);
-                                            ax.YDir = 'normal';
-                                            obj.settings.NewDerivativeSlope = obj.settings.DerivativeSlope;
-                                            obj.settings.DerivativeSlope = 0;
-                                            obj.updateSonogramColors();
-                                        end
-                                        cl = obj.axes_Sonogram.CLim;
-                                        ax.CLim = cl;
-                                        col = obj.figure_Main.Colormap;
-                                        fig.Colormap = col;
-                                        axis(ax, 'tight');
-                                        axis(ax, 'off');
-
-                                    case 'Segments'
-                                        if ~isempty(find(progbar==4, 1))
-                                            include_progbar = 1;
-                                        end
-
-                                        st = obj.dbase.SegmentTimes{electro_gui.getCurrentFileNum(obj.settings)};
-                                        sel = obj.dbase.SegmentIsSelected{electro_gui.getCurrentFileNum(obj.settings)};
-                                        f = find(st(:,1)>xl(1)*obj.dbase.Fs & st(:,1)<xl(2)*obj.dbase.Fs);
-                                        g = find(st(:,2)>xl(1)*obj.dbase.Fs & st(:,2)<xl(2)*obj.dbase.Fs);
-                                        h = find(st(:,1)<xl(1)*obj.dbase.Fs & st(:,2)>xl(2)*obj.dbase.Fs);
-                                        f = unique([f; g; h]);
-
-                                        hold(ax, 'on');
-                                        numSamples = obj.eg_GetSamplingInfo();
-
-                                        xs = linspace(0, numSamples/obj.dbase.Fs, numSamples);
-                                        for j = f'
-                                            if sel(j)==1
-                                                patch(xs([st(j,1) st(j,2) st(j,2) st(j,1)]),[0 0 1 1],obj.settings.SegmentSelectColor);
-                                            end
-                                        end
-
-                                        ylim(ax, [0, 1]);
-                                        axis(ax, 'off');
-
-                                    case 'Segment labels'
-                                        st = obj.dbase.SegmentTimes{electro_gui.getCurrentFileNum(obj.settings)};
-                                        sel = obj.dbase.SegmentIsSelected{electro_gui.getCurrentFileNum(obj.settings)};
-                                        lab = obj.dbase.SegmentTitles{electro_gui.getCurrentFileNum(obj.settings)};
-                                        f = find(st(:,1)>xl(1)*obj.dbase.Fs & st(:,1)<xl(2)*obj.dbase.Fs);
-                                        g = find(st(:,2)>xl(1)*obj.dbase.Fs & st(:,2)<xl(2)*obj.dbase.Fs);
-                                        h = find(st(:,1)<xl(1)*obj.dbase.Fs & st(:,2)>xl(2)*obj.dbase.Fs);
-                                        f = unique([f; g; h]);
-
-                                        hold(ax, 'on');
-                                        numSamples = obj.eg_GetSamplingInfo();
-
-                                        xs = linspace(0, numSamples/obj.dbase.Fs, numSamples);
-                                        for j = f'
-                                            if sel(j)==1
-                                                if ~isempty(lab{j})
-                                                    txt = obj.addWorksheetTextBox(newslide, lab{j}, 8, [], [], 'msoAnchorCenter', 'msoAnchorBottom');
-                                                    txt.Left = offx+72*obj.settings.ExportSonogramWidth*mean(xs(st(j,:))-xl(1))-txt.Width/2;
-                                                    txt.Top = offy+72*(sum(obj.settings.template.Interval(1:c-1)+sum(obj.settings.template.Height(1:c-1))));
-                                                end
-                                            end
-                                        end
-
-                                        axis(ax, 'off');
-
-                                    case 'Amplitude'
-                                        if ~isempty(find(progbar==3, 1))
-                                            include_progbar = 1;
-                                        end
-
-                                        m = findobj('Parent',obj.axes_Amplitude,'LineStyle','-');
-                                        x = m.XData;
-                                        y = m.YData;
-                                        col = m.Color;
-                                        linewidth = m.LineWidth;
-                                        f = find(x>=xl(1) & x<=xl(2));
-                                        if sum(col==1)==3
-                                            col = col-eps;
-                                        end
-                                        plot(ax, x(f),y(f),'Color',col);
-
-                                        ylim(ax, obj.axes_Amplitude.YLim);
-                                        ax.YDir = 'normal';
-                                        axis(ax, 'off');
-
-                                    case {'Top plot','Bottom plot'}
-                                        if ~isempty(find(progbar==1, 1)) && strcmp(obj.settings.template.Plot{c},'Bottom plot')
-                                            include_progbar = 1;
-                                        end
-                                        if ~isempty(find(progbar==2, 1)) && strcmp(obj.settings.template.Plot{c},'Top plot')
-                                            include_progbar = 1;
-                                        end
-
-                                        if strcmp(obj.settings.template.Plot{c},'Top plot')
-                                            axnum = 1;
-                                        else
-                                            axnum = 2;
-                                        end
-
-                                        m = findobj('Parent',obj.axes_Channel(axnum),'LineStyle','-');
-                                        hold(ax, 'on')
-                                        for j = 1:length(m)
-                                            x = m(j).XData;
-                                            y = m(j).YData;
-                                            col = m(j).Color;
-                                            linewidth = m(j).LineWidth;
-                                            f = find(x>=xl(1) & x<=xl(2));
-                                            if sum(col==1)==3
-                                                col = col-eps;
-                                            end
-                                            plot(ax, x(f),y(f),'Color',col);
-                                        end
-
-                                        ylim(ax, obj.axes_Channel(axnum).YLim);
-                                        ax.YDir = 'normal';
-                                        axis(ax, 'off');
-
-                                    case 'Sound wave'
-                                        if ~isempty(find(progbar==6, 1))
-                                            include_progbar = 1;
-                                        end
-
-                                        m = findobj('Parent',obj.axes_Sound,'LineStyle','-');
-                                        hold(ax, 'on')
-                                        for j = 1:length(m)
-                                            x = m(j).XData;
-                                            y = m(j).YData;
-                                            f = find(x>=xl(1) & x<=xl(2));
-                                            plot(ax, x(f),y(f),'b');
-                                        end
-                                        linewidth = 1;
-
-                                        ylim(ax, obj.axes_Sound.YLim);
-                                        ax.YDir = 'normal';
-                                        axis(ax, 'off');
-                                end
-
-                                if obj.settings.template.AutoYLimits(c)==1
-                                    axis tight;
-                                end
-                                yl = ylim;
-                                xlim(xl);
-
-
-                                if ~strcmp(obj.settings.template.Plot{c},'Segment labels')
-                                    print('-dmeta',['-f' num2str(fig)]);
-                                    pic = invoke(newslide.Shapes,'PasteSpecial',2);
-                                    ug = invoke(pic,'Ungroup');
-                                    ug.Height = 72*obj.settings.template.Height(c);
-                                    ug.Width = 72*obj.settings.ExportSonogramWidth*(xl(2-xl(1)));
-                                    ug.Left = offx;
-                                    ug.Top = offy+72*(sum(obj.settings.template.Interval(1:c-1))+sum(obj.settings.template.Height(1:c-1)));
-
-                                    switch obj.settings.template.YScaleType(c)
-                                        case 0
-                                            % no scale bar
-                                        case 1 % scalebar
-                                            approx = obj.ScalebarHeight/obj.settings.template.Height(c)*(yl(2)-yl(1));
-                                            ord = floor(log10(approx));
-                                            val = approx/10^ord;
-                                            if ord == 0
-                                                pres = [1 2 3 4 5 10];
-                                            else
-                                                pres = [1 2 2.5 3 4 5 10];
-                                            end
-                                            [~, fnd] = min(abs(pres-val));
-                                            val = pres(fnd)*10^ord;
-                                            sb_height = 72*val/(yl(2)-yl(1))*obj.settings.template.Height(c);
-
-                                            unit = '';
-                                            switch obj.settings.template.Plot{c}
-                                                case 'Sonogram'
-                                                    unit = ' kHz';
-                                                    val = val/1000;
-                                                case 'Amplitude'
-                                                    txt = obj.axes_Amplitude.YLabel.String;
-                                                    fnd2 = strfind(txt,')');
-                                                    if ~isempty(fnd2)
-                                                        fnd1 = strfind(txt(1:fnd2(end)),'(');
-                                                        if ~isempty(fnd1)
-                                                            unit = [' ' txt(fnd1(end)+1:fnd2(end)-1)];
-                                                        end
-                                                    end
-                                                case 'Top plot'
-                                                    txt = obj.axes_Channel1.YLabel.String;
-                                                    fnd2 = strfind(txt,')');
-                                                    if ~isempty(fnd2)
-                                                        fnd1 = strfind(txt(1:fnd2(end)),'(');
-                                                        if ~isempty(fnd1)
-                                                            unit = [' ' txt(fnd1(end)+1:fnd2(end)-1)];
-                                                        end
-                                                    end
-                                                case 'Bottom plot'
-                                                    txt = obj.axes_Channel2.YLabel.String;
-                                                    fnd2 = strfind(txt,')');
-                                                    if ~isempty(fnd2)
-                                                        fnd1 = strfind(txt(1:fnd2(end)),'(');
-                                                        if ~isempty(fnd1)
-                                                            unit = [' ' txt(fnd1(end)+1:fnd2(end)-1)];
-                                                        end
-                                                    end
-                                                case 'Sound wave'
-                                                    unit = 'ADU';
-                                            end
-
-                                            sb_posy = ug.Top+0.5*ug.Height-0.5*sb_height;
-
-                                            if obj.VerticalScalebarPosition <= 0
-                                                sb_posx = offx + 72*obj.VerticalScalebarPosition;
-                                            else
-                                                sb_posx = offx + 72*(obj.settings.ExportSonogramWidth*(xl(2)-xl(1))+obj.VerticalScalebarPosition);
-                                            end
-                                            invoke(newslide.Shapes,'AddLine',sb_posx,sb_posy,sb_posx,sb_posy+sb_height);
-
-                                            txt = obj.addWorksheetTextBox(newslide, [num2str(val) unit], 8, [], [], [], 'msoAnchorMiddle');
-                                            if obj.VerticalScalebarPosition <= 0
-                                                txt.Left = sb_posx-txt.Width-72*0.05;
-                                                txt.TextFrame.TextRange.ParagraphFormat.Alignment = 'ppAlignRight';
-                                            else
-                                                txt.Left = sb_posx+72*0.05;
-                                                txt.TextFrame.TextRange.ParagraphFormat.Alignment = 'ppAlignLeft';
-                                            end
-                                            txt.Top = ug.Top+0.5*ug.Height-0.5*txt.Height;
-
-                                        case 2 % axis
-                                            invoke(newslide.Shapes,'AddLine',offx,ug.Top,offx,ug.Top+ug.Height);
-                                            fig_yscale = figure('Visible','off','Units','inches');
-                                            ps = fig_yscale.Position;
-                                            ps(4) = obj.settings.template.Height(c);
-                                            fig_yscale.Position = ps;
-                                            ax = subplot('Position',[0 0 1 1]);
-                                            ylim(ax, [yl(1) yl(2)]);
-                                            ytick = ax.YTick;
-                                            delete(fig_yscale);
-
-                                            switch obj.settings.template.Plot{c}
-                                                case 'Sonogram'
-                                                    str = obj.axes_Sonogram.YLabel.String;
-                                                case 'Amplitude'
-                                                    str = obj.axes_Amplitude.YLabel.String;
-                                                case 'Top plot'
-                                                    str = obj.axes_Channel1.YLabel.String;
-                                                case 'Bottom plot'
-                                                    str = obj.axes_Channel2.YLabel.String;
-                                                case 'Sound wave'
-                                                    str = 'Sound amplitude (ADU)';
-                                            end
-
-                                            mn = inf;
-                                            for j = 1:length(ytick')
-                                                tickpos = ug.Top+ug.Height-(ytick(j)-yl(1))/(yl(2)-yl(1))*ug.Height;
-                                                invoke(newslide.Shapes,'AddLine',offx,tickpos,offx+72*0.02,tickpos);
-
-                                                txt = obj.addWorksheetTextBox(newslide, num2str(ytick(j)), 8, [], [], [], 'msoAnchorMiddle', 'ppAlignRight');
-                                                txt.Left = offx-txt.Width-72*0.02;
-                                                txt.Top = tickpos-0.5*txt.Height;
-                                                mn = min([mn, txt.Left]);
-                                            end
-
-                %                             if strcmp(obj.settings.template.Plot{c},'Sonogram')
-                %                                 ytick = ytick/1000;
-                %                             end
-
-                                            obj.addWorksheetTextBox(newslide, str, 10, [], [], 'msoAnchorCenter', 'msoAnchorBottom', 'ppAlignCenter', 270);
-                                            txt.Left = mn-0.5*txt.Width-72*0.15;
-                                            txt.Top = ug.Top+0.5*ug.Height-0.5*txt.Height;
-                                    end
-
-                                    if include_progbar == 1
-                                        ycoord = [ycoord; ug.Left ug.Top ug.Width ug.Height];
-                                        switch obj.settings.template.Plot{c}
-                                            case {'Amplitude','Top plot','Bottom plot'}
-                                                xs = (x(f)-xl(1))/(xl(2)-xl(1));
-                                                ys = (y(f)-yl(1))/(yl(2)-yl(1));
-                                                crd = [xs' ys'];
-                                            case 'Sound wave'
-                                                xs = (x(f)-xl(1))/(xl(2)-xl(1));
-                                                ys = (y(f)-yl(1))/(yl(2)-yl(1));
-                                                crd = [xs' abs(ys')];
-                                            case 'Segments'
-                                                crd = [];
-                                                for j = f'
-                                                    if sel(j)==1
-                                                        crd = [crd; xs(st(j,1)) 0; xs(st(j,2)) 1];
-                                                    end
-                                                end
-                                                crd = [xl(1) 0; crd; xl(2) 0];
-                                                crd(:,1) = (crd(:,1)-xl(1))/(xl(2)-xl(1));
-                                                crd(:,2) = (crd(:,2)-yl(1))/(yl(2)-yl(1));
-                                            case 'Sonogram'
-                                                ch = findobj('Parent',obj.axes_Sonogram,'type','image');
-                                                crd = [];
-                                                for j = 1:length(ch)
-                                                    if ch(j) ~= txtexp
-                                                        x = ch(j).XData;
-                                                        y = ch(j).YData;
-                                                        m = ch(j).CData;
-                                                        f = find(x>=xl(1) & x<=xl(2));
-                                                        g = find(y>=yl(1) & y<=yl(2));
-                                                        if obj.SonogramFollowerPower == inf
-                                                            [~, wh] = max(m(g,f),[],1);
-                                                            crd = [crd; x(f)' y(g(wh))'];
-                                                        else
-                                                            crd = [crd; x(f)' ((y(g)*abs(m(g,f)).^obj.SonogramFollowerPower)./sum(abs(m(g,f)).^obj.SonogramFollowerPower,1))'];
-                                                        end
-                                                    end
-                                                end
-                                                crd(:,1) = (crd(:,1)-xl(1))/(xl(2)-xl(1));
-                                                crd(:,2) = (crd(:,2)-yl(1))/(yl(2)-yl(1));
-                                        end
-                                        crd(:,1) = crd(:,1)*ycoord(end,3)/op.PageSetup.SlideWidth;
-                                        crd(:,2) = -crd(:,2)*ycoord(end,4)/op.PageSetup.SlideHeight;
-                                        crd = sortrows(crd);
-
-                                        if obj.playback_Reverse.Checked
-                                            crd(:,1) = flipud(crd(:,1))-crd(end,1);
-                                            crd(:,2) = flipud(crd(:,2));
-                                        end
-
-                                        vals = [];
-                                        if ~strcmp(obj.settings.template.Plot{c},'Segments')
-                                            lst = linspace(crd(1,1),crd(end,1),round(ug.Width)*2);
-                                            for j=1:length(lst)
-                                                fnd = find(abs(crd(:,1)-lst(j))<abs(lst(end)-lst(1))/length(lst));
-                                                [~, ind] = max(abs(crd(fnd,2)-mean(crd(:,2))));
-                                                vals(j) = crd(fnd(ind),2);
-                                            end
-                                            crd = [crd(round(linspace(1,size(crd,1),length(lst))),1) vals'];
-                                        end
-                                        coords{end+1} = crd;
-                                    end
-
-                                    if strcmp(obj.settings.template.Plot{c},'Sonogram') && obj.settings.ExportSonogramIncludeClip > 0
-                                        if obj.settings.ExportSonogramIncludeClip == 1
-                                            wav = obj.GenerateSound('snd');
-                                        else
-                                            wav = obj.GenerateSound('mix');
-                                        end
-                                        fs = obj.dbase.Fs * obj.settings.SoundSpeed;
-
-                                        audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
-
-                                        snd = invoke(newslide.Shapes,'AddMediaObject', fullfile(pwd, tempFilename));
-                                        snd.Left = ug.Left;
-                                        snd.Top = ug.Top;
-                                        mt = dir(f.UserData.ax);
-                                        delete(mt(1).name);
-                                        sound_inserted = 1;
-                                    end
-
-                                    ug = invoke(ug,'Ungroup');
-                                    if ~strcmp(obj.settings.template.Plot{c},'Segments')
-                                        for j = 1:ug.Count
-                                            if strcmp(ug.Item(j).Type,'msoAutoShape')
-                                                invoke(ug.Item(j),'Delete');
-                                            else
-                                                if exist('LineWidth', 'var')
-                                                    ug.Item(j).Line.Weight = linewidth;
-                                                end
-                                            end
-                                        end
-                                    end
-                                end
-                            end
-
-                            if obj.settings.ExportSonogramIncludeLabel == 1
-                                dt = datevec(obj.text_DateAndTime.String);
-                                dt(6) = dt(6)+xl(1);
-                                obj.addWorksheetTextBox(newslide, string(datetime(dt)), 10, [], [], 'msoAnchorCenter', 'msoAnchorBottom', 'ppAlignCenter');
-                                txt.Left = op.PageSetup.SlideWidth-txt.Width/2;
-                                txt.Top = offy-txt.Height;
-                            end
-
-                            if sound_inserted == 0 && obj.settings.ExportSonogramIncludeClip > 0
-                                if obj.settings.ExportSonogramIncludeClip == 1
-                                    wav = obj.GenerateSound('snd');
-                                else
-                                    wav = obj.GenerateSound('mix');
-                                end
-                                fs = obj.dbase.Fs * obj.settings.SoundSpeed;
-
-                                audiowrite(f.UserData.ax, wav, fs, 'BitsPerSample', 16);
-
-                                snd = invoke(newslide.Shapes,'AddMediaObject',[pwd '\eg_temp.wav']);
-                                snd.Left = offx;
-                                snd.Top = offy;
-                                mt = dir(f.UserData.ax);
-                                delete(mt(1).name);
-                            end
-
-                            % Insert animation
-
-                            if exist('snd', 'var')
-                                anim = invoke(snd.ActionSettings,'Item',1);
-                                anim.Action = 'ppActionNone';
-
-                                seq = newslide.TimeLine;
-                                seq = seq.InteractiveSequences;
-                                seq = invoke(seq,'Item',1);
-                                itm(1) = invoke(seq,'Item',1);
-
-                                animopt = findobj('Parent',obj.menu_export_options_Animation,'Checked','on');
-                                animopt = animopt.Label;
-
-                                if ~strcmp(animopt,'None')
-                                    for c = 1:size(ycoord,1)
-                                        if obj.playback_Reverse.Checked
-                                            ycoord(c,1) = ycoord(c,1)+ycoord(c,3);
-                                            ycoord(c,3) = -ycoord(c,3);
-                                        end
-
-                                        col = obj.settings.ProgressBarColor;
-                                        col = 255*col(1) + 256*255*col(2) + 256^2*255*col(3);
-                                        switch animopt
-                                            case 'Progress bar'
-                                                animline = invoke(newslide.Shapes,'Addline',ycoord(c,1),ycoord(c,2),ycoord(c,1),ycoord(c,2)+ycoord(c,4));
-                                                animline.Line.Weight = 2;
-                                                animline.Line.ForeColor.RGB = col;
-                                            case 'Arrow above'
-                                                animline = invoke(newslide.Shapes,'Addline',ycoord(c,1),ycoord(c,2),ycoord(c,1),ycoord(c,2)-15);
-                                                animline.Line.BeginArrowheadStyle = 'msoArrowheadTriangle';
-                                                animline.Line.BeginArrowheadWidth = 'msoArrowheadWidthMedium';
-                                                animline.Line.BeginArrowheadLength = 'msoArrowheadLengthMedium';
-                                                animline.Line.Weight = 2;
-                                                animline.Line.ForeColor.RGB = col;
-                                            case 'Arrow below'
-                                                animline = invoke(newslide.Shapes,'Addline',ycoord(c,1),ycoord(c,2)+ycoord(c,4),ycoord(c,1),ycoord(c,2)+ycoord(c,4)+15);
-                                                animline.Line.BeginArrowheadStyle = 'msoArrowheadTriangle';
-                                                animline.Line.BeginArrowheadWidth = 'msoArrowheadWidthMedium';
-                                                animline.Line.BeginArrowheadLength = 'msoArrowheadLengthMedium';
-                                                animline.Line.Weight = 2;
-                                                animline.Line.ForeColor.RGB = col;
-                                            case 'Value follower'
-                                                animline = invoke(newslide.Shapes,'Addshape',9,ycoord(c,1)-2,ycoord(c,2)+ycoord(c,4)-2,4,4);
-                                                animline.Fill.Forecolor.RGB = col;
-                                                animline.Line.Forecolor.RGB = col;
-                                        end
-
-
-                                        itm(end+1) = invoke(newslide.TimeLine.MainSequence,'AddEffect',animline,'msoAnimEffectAppear');
-                                        itm(end).Timing.TriggerType = 'msoAnimTriggerWithPrevious';
-                                        invoke(itm(end),'MoveAfter',itm(end-1));
-
-                                        itm(end+1) = invoke(newslide.TimeLine.MainSequence,'AddEffect',animline,'msoAnimEffectPathRight');
-                                        itm(end).Timing.TriggerType = 'msoAnimTriggerWithPrevious';
-                                        set(itm(end).Timing,'SmoothStart','msoFalse','SmoothEnd','msoFalse');
-                                        itm(end).Timing.Duration = length(wav)/fs;
-
-                                        beh = itm(end).Behaviors;
-                                        beh = invoke(beh,'Item',1);
-                                        mef = beh.MotionEffect;
-
-                                        if strcmp(animopt,'Value follower')
-                                            crp = coords{c};
-                                            crp(:,1) = [0; crp(1:end-1,1)];
-                                            m = [repmat(' M ',size(coords{c},1),1) num2str(crp) repmat(' L ',size(coords{c},1),1) num2str(coords{c})];
-                                            m = reshape(m',1, ...
-                                                numel(m));
-                                            str = [m ' E'];
-                                            mef.Path = str;
-                                        else
-                                            set(mef,'Path',['M 0 0 L ' num2str(ycoord(c,3)/op.PageSetup.SlideWidth) ' 0 E']);
-                                        end
-
-                                        invoke(itm(end),'MoveAfter',itm(end-1));
-
-                                        itm(end+1) = invoke(newslide.TimeLine.MainSequence,'AddEffect',animline,'msoAnimEffectFade');
-                                        itm(end).Exit = 'msoTrue';
-                                        set(itm(end).Timing,'TriggerDelayTime',length(wav)/fs,'Duration',0.01)
-                                        itm(end).Timing.TriggerType = 'msoAnimTriggerWithPrevious';
-                                        invoke(itm(end),'MoveAfter',itm(end-1));
-                                    end
-                                end
-                            end
-
-
-
-                            delete(fig);
-
-                            bestlength = obj.ScalebarWidth/obj.settings.ExportSonogramWidth;
-                            errs = abs(obj.settings.ScalebarPresets-bestlength);
-                            [~, j] = min(errs);
-                            y = offy+72*(sum(obj.settings.template.Height)+sum(obj.settings.template.Interval));
-                            x2 = op.PageSetup.SlideWidth-offx;
-                            x1 = x2-72*obj.settings.ScalebarPresets(j)*obj.settings.ExportSonogramWidth;
-                            invoke(newslide.Shapes,'AddLine',x1,y,x2,y);
-                            txt = obj.addWorksheetTextBox(newslide, obj.settings.ScalebarLabels{j}, 8, [], y, 'msoAnchorCenter', 'msoAnchorTop', 'ppAlignCenter');
-                            txt.Left = (x1+x2/2-txt.Width/2);
-                    end
-            end
-
-            delete(txtexp);
-
+            % Click export
+            obj.export();
+        end
+        function export(obj) %#ok<MANU> 
+        end
+        function exportControlPanelClosereq_Callback(obj, hObject, event)
+            obj.ExportControlPanel.fig.Visible = false;
+        end
+        function menu_ShowExportControlPanel_Callback(obj, hObject, event)
+            obj.ensureExportControlPanelExists();
+            obj.ExportControlPanel.fig.Visible = true;
+        end
+        function menu_ShowExportWindow_Callback(obj, hObject, event)
+            obj.ensureExportWindowExists();
+            obj.ExportWindow.fig.Visible = true;
         end
 
         function handleMenuGroupCheck(group, itemToCheck)
@@ -12316,248 +10855,6 @@ end
             % No checked item found
             checkedItemNum = [];
             checkedItemName = '';
-
-        end
-        function menu_ExportAs_Callback(obj, hObject, eventdata)
-        end
-
-        function handleExportAsChange(obj, hObject, event)
-            exportAs = getMenuGroupValue(obj.menu_ExportAs.Children');
-
-            exportToOptions = [obj.export_toMATLAB, ...
-                               obj.export_toPowerPoint, ...
-                               obj.export_toFile, ...
-                               obj.export_toClipboard];
-
-            % Depending on what the "export as" setting is, enable/disable the
-            % options for "export to"
-            switch exportAs
-                case 'Sonogram'
-                    enablePattern = [1 1 1 1];
-                case 'Figure'
-                    enablePattern = [0 1 0 0];
-                case 'Worksheet'
-                    enablePattern = [1 1 0 0];
-                case {'Current sound','Sound mix'}
-                    enablePattern = [0 1 1 0];
-                case 'Segments'
-                    enablePattern = [0 0 1 0];
-                case 'Events'
-                    enablePattern = [1 0 0 1];
-            end
-
-            for k = 1:length(exportToOptions)
-                exportToOptions(k).Enable = enablePattern(k);
-                if ~enablePattern(k)
-                    exportToOptions(k).Checked = false;
-                end
-            end
-
-        end
-        function export_asSonogram_Callback(obj, hObject, eventdata)
-            handleMenuGroupCheck(obj.menu_ExportAs.Children', hObject);
-            obj.handleExportAsChange();
-
-
-        end
-        function export_asFigure_Callback(obj, hObject, eventdata)
-            handleMenuGroupCheck(obj.menu_ExportAs.Children', hObject);
-            obj.handleExportAsChange();
-
-
-
-        end
-        function export_asWorksheet_Callback(obj, hObject, eventdata)
-            handleMenuGroupCheck(obj.menu_ExportAs.Children', hObject);
-            obj.handleExportAsChange();
-
-
-
-        end
-        function export_asCurrentSound_Callback(obj, hObject, eventdata)
-            handleMenuGroupCheck(obj.menu_ExportAs.Children', hObject);
-            obj.handleExportAsChange();
-
-
-
-        end
-        function export_asSoundMix_Callback(obj, hObject, eventdata)
-            handleMenuGroupCheck(obj.menu_ExportAs.Children', hObject);
-            obj.handleExportAsChange();
-
-
-
-        end
-        function export_asEvents_Callback(obj, hObject, eventdata)
-            handleMenuGroupCheck(obj.menu_ExportAs.Children', hObject);
-            obj.handleExportAsChange();
-
-
-
-        end
-        function menu_ExportTo_Callback(obj, hObject, eventdata)
-
-        end
-        function export_Options_Callback(obj, hObject, eventdata)
-
-        end
-        function export_options_SonogramHeight_Callback(obj, hObject, eventdata)
-            answer = inputdlg({'Sonogram height (in)'},'Height',1,{num2str(obj.settings.ExportSonogramHeight)});
-            if isempty(answer)
-                return
-            end
-            obj.settings.ExportSonogramHeight = str2double(answer{1});
-
-            obj.updateWorksheet();
-
-
-        end
-        function export_options_ImageTimescape_Callback(obj, hObject, eventdata)
-
-            answer = inputdlg({'Image timescale (in/sec)'},'Timescale',1,{num2str(obj.settings.ExportSonogramWidth)});
-            if isempty(answer)
-                return
-            end
-            obj.settings.ExportSonogramWidth = str2double(answer{1});
-
-            obj.updateWorksheet();
-
-
-        end
-        function export_options_IncludeTimestamp_Callback(obj, hObject, eventdata)
-            if obj.export_options_IncludeTimestamp.Checked
-                obj.export_options_IncludeTimestamp.Checked = 'off';
-                obj.settings.ExportSonogramIncludeLabel = 0;
-            else
-                obj.export_options_IncludeTimestamp.Checked = 'on';
-                obj.settings.ExportSonogramIncludeLabel = 1;
-            end
-
-
-
-        end
-        function menu_export_options_IncludeSoundClip_Callback(obj, hObject, eventdata)
-
-        end
-        function menu_export_options_Animation_Callback(obj, hObject, eventdata)
-
-        end
-        function export_options_ImageResolution_Callback(obj, hObject, eventdata)
-            answer = inputdlg({'Resolution (dpi)'},'Resolution',1,{num2str(obj.ExportSonogramResolution)});
-            if isempty(answer)
-                return
-            end
-            obj.ExportSonogramResolution = str2double(answer{1});
-
-        end
-        function menu_export_options_SonogramImageMode_Callback(obj, hObject, eventdata)
-
-        end
-        function export_options_ScalebarDimensions_Callback(obj, hObject, eventdata)
-            answer = inputdlg({'Preferred horizontal scalebar width (in)','Preferred vertical scalebar height (in)','Vertical scalebar position (in), <0 for left, >0 for right'},'Scalebar',1,{num2str(obj.ScalebarWidth),num2str(obj.ScalebarHeight),num2str(obj.VerticalScalebarPosition)});
-            if isempty(answer)
-                return
-            end
-            obj.ScalebarWidth = str2double(answer{1});
-            obj.ScalebarHeight = str2double(answer{2});
-            obj.VerticalScalebarPosition = str2double(answer{3});
-
-
-        end
-        function export_options_EditFigureTemplate_Callback(obj, hObject, eventdata)
-            eg_Template_Editor(hObject);
-
-        end
-        function export_toMATLAB_Callback(obj, hObject, eventdata)
-            handleMenuGroupCheck(obj.menu_ExportTo.Children', hObject);
-
-
-        end
-        function export_toPowerPoint_Callback(obj, hObject, eventdata)
-            handleMenuGroupCheck(obj.menu_ExportTo.Children', hObject);
-
-
-        end
-        function export_toFile_Callback(obj, hObject, eventdata)
-            handleMenuGroupCheck(obj.menu_ExportTo.Children', hObject);
-
-
-        end
-        function export_toClipboard_Callback(obj, hObject, eventdata)
-            handleMenuGroupCheck(obj.menu_ExportTo.Children', hObject);
-
-
-        end
-        function export_options_SonogramImageMode_ScreenImage_Callback(obj, hObject, eventdata)
-            obj.export_options_SonogramImageMode_ScreenImage.Checked = 'on';
-            obj.export_options_SonogramImageMode_Recalculate.Checked = 'off';
-            obj.settings.ExportReplotSonogram = 0;
-
-
-        end
-        function export_options_SonogramImageMode_Recalculate_Callback(obj, hObject, eventdata)
-            obj.export_options_SonogramImageMode_ScreenImage.Checked = 'off';
-            obj.menu_CustomResolution.Checked = 'on';
-            obj.settings.ExportReplotSonogram = 1;
-
-
-        end
-        function export_options_Animation_None_Callback(obj, hObject, eventdata)
-            handleMenuGroupCheck(obj.menu_export_options_Animation.Children', hObject);
-
-        end
-        function export_options_Animation_ProgressBar_Callback(obj, hObject, eventdata)
-            handleMenuGroupCheck(obj.menu_export_options_Animation.Children', hObject);
-
-        end
-        function export_options_Animation_ArrowAbove_Callback(obj, hObject, eventdata)
-            handleMenuGroupCheck(obj.menu_export_options_Animation.Children', hObject);
-
-        end
-        function export_options_Animation_ArrowBelow_Callback(obj, hObject, eventdata)
-            handleMenuGroupCheck(obj.menu_export_options_Animation.Children', hObject);
-
-        end
-        function export_options_Animation_ValueFollower_Callback(obj, hObject, eventdata)
-            handleMenuGroupCheck(obj.menu_export_options_Animation.Children', hObject);
-
-        end
-        function export_options_Animation_SonogramFollower_Callback(obj, hObject, eventdata)
-            answer = inputdlg({'Power weighting exponent (inf for maximum-follower)'},'Exponent',1,{num2str(obj.SonogramFollowerPower)});
-            if isempty(answer)
-                return
-            end
-            obj.SonogramFollowerPower = str2double(answer{1});
-
-
-        end
-        function export_options_IncludeSoundClip_None_Callback(obj, hObject, eventdata)
-            obj.settings.ExportSonogramIncludeClip = 0;
-            for child = obj.menu_export_options_IncludeSoundClip.Children'
-                child.Checked = 'off';
-            end
-            hObject.Checked = 'on';
-
-
-        end
-        function export_options_IncludeSoundClip_SoundOnly_Callback(obj, hObject, eventdata)
-            obj.settings.ExportSonogramIncludeClip = 1;
-            for child = obj.menu_export_options_IncludeSoundClip.Children'
-                child.Checked = 'off';
-            end
-            hObject.Checked = 'on';
-
-
-        end
-        function export_options_IncludeSoundClip_SoundMix_Callback(obj, hObject, eventdata)
-            obj.settings.ExportSonogramIncludeClip = 2;
-            for child = obj.menu_export_options_IncludeSoundClip.Children'
-                child.Checked = 'off';
-            end
-            hObject.Checked = 'on';
-
-
-
 
         end
         function menu_OpenRecent_Callback(obj, hObject, eventdata)
@@ -12651,9 +10948,9 @@ end
 
             obj.SaveState();
 
-            % Only switch files if selected cell is actually on the filename
-            fileNameColumn = 2;
-            if any(obj.FileInfoBrowser.Selection(:, 2) ~= fileNameColumn)
+            % Only switch files if selected cell is actually on the
+            % filename or file number
+            if any(obj.FileInfoBrowser.Selection(:, 2) >= obj.FileInfoBrowserFirstPropertyColumn)
                 % Do nothing
                 return
             end
@@ -12990,176 +11287,7 @@ end
             obj.updateEventViewer();
         
         end
-        % --- Executes on button press in push_WorksheetAppend.
-        function push_WorksheetAppend_Callback(obj, hObject, event)
-            if ~electro_gui.isDataLoaded(obj.dbase)
-                % No data yet, do nothing
-                return;
-            end
-        
-            xl = obj.axes_Sonogram.XLim;
-            yl = obj.axes_Sonogram.YLim;
-            fig = figure;
-            fig.Visible = 'off';
-            fig.Units = 'pixels';
-            pos = fig.Position;
-            pos(3) = obj.ExportSonogramResolution*obj.settings.ExportSonogramWidth*(xl(2)-xl(1));
-            pos(4) = obj.ExportSonogramResolution*obj.settings.ExportSonogramHeight;
-            fig.Position = pos;
-            ax = subplot('Position',[0 0 1 1]);
-            hold(ax, 'on');
-            ts = {};
-            ys = {};
-            ds = {};
-            if obj.settings.ExportReplotSonogram == 0
-                sonogramImage = findobj('Parent',obj.axes_Sonogram, 'type', 'image');
-                for sonogramNum = 1:length(sonogramImage)
-                    t = sonogramImage(sonogramNum).XData;
-                    f = sonogramImage(sonogramNum).YData;
-                    data = sonogramImage(sonogramNum).CData;
-                    timeMask = t>=xl(1) & t<=xl(2);
-                    freqMask = f>=yl(1) & f<=yl(2);
-                    ts{end+1} = t(timeMask);
-                    ys{end+1} = f(freqMask);
-                    ds{end+1} = data(timeMask, freqMask);
-                end
-            else
-                xlim(ax, xl);
-                ylim(ax, yl);
-                xlp = round(xl*obj.dbase.Fs);
-                if xlp(1)<1
-                    xlp(1) = 1;
-                end
-                numSamples = obj.eg_GetSamplingInfo();
-                if xlp(2)>numSamples
-                    xlp(2) = numSamples; 
-                end
-                for c = 1:length(obj.menu_Algorithm)
-                    if obj.menu_Algorithm(c).Checked
-                        alg = obj.menu_Algorithm(c).Label;
-                    end
-                end
-        
-                obj.updateFilteredSound();
-        
-                electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, ax, ...
-                    obj.filtered_sound(xlp(1):xlp(2)), obj.dbase.Fs, obj.settings.SonogramParams);
-                ax.YDir = 'normal';
-                obj.settings.NewDerivativeSlope = obj.settings.DerivativeSlope;
-                obj.settings.DerivativeSlope = 0;
-                obj.updateSonogramColors();
-                ch = ax.Children;
-                for c = 1:length(ch)
-                    x = ch(c).XData;
-                    y = ch(c).YData;
-                    m = ch(c).CData;
-                    f = find(x>=xl(1) & x<=xl(2));
-                    g = find(y>=yl(1) & y<=yl(2));
-                    ts{end+1} = x(f);
-                    ys{end+1} = y(g);
-                    ds{end+1} = m(g,f);
-                end
-            end
-        
-            delete(fig);
-        
-            wav = obj.GenerateSound('snd');
-            ys = obj.dbase.Fs * obj.settings.SoundSpeed;
-        
-            obj.settings.WorksheetXLims{end+1} = xl;
-            obj.settings.WorksheetYLims{end+1} = yl;
-            obj.settings.WorksheetXs{end+1} = ts;
-            obj.settings.WorksheetYs{end+1} = ys;
-            obj.settings.WorksheetMs{end+1} = ds;
-            obj.settings.WorksheetClim{end+1} = obj.axes_Sonogram.CLim;
-            obj.settings.WorksheetColormap{end+1} = obj.figure_Main.Colormap;
-            obj.settings.WorksheetSounds{end+1} = wav;
-            obj.settings.WorksheetFs(end+1) = ys;
-            dt = datetime(obj.text_DateAndTime.String);
-            xd = obj.axes_Sonogram.XLim;
-            dt = dt + seconds(xd(1));
-            obj.settings.WorksheetTimes(end+1) = dt;
-        
-            obj.updateWorksheet();
-        
-            str = obj.panel_Worksheet.Title ;
-            f = strfind(str,'/');
-            tot = str2double(str(f+1:end));
-            obj.settings.WorksheetCurrentPage = tot;
-            obj.updateWorksheet();
-        
-            if length(obj.WorksheetHandles)>=length(obj.settings.WorksheetMs)
-                if ishandle(obj.WorksheetHandles(length(obj.settings.WorksheetMs)))
-                    obj.WorksheetHandles(length(obj.settings.WorksheetMs)).FaceColor = 'r';
-                end
-            end
-        
-        end
-        function click_Worksheet(obj, hObject, event)
-        
-            ch = obj.axes_Worksheet.Children;
-            for c = 1:length(ch)
-                if sum(ch(c).FaceColor==[1 1 1])<3
-                    ch(c).FaceColor = [.5 .5 .5];
-                end
-            end
-            hObject.FaceColor = 'r';
-        
-            if strcmp(obj.figure_Main.SelectionType,'open')
-                obj.ViewWorksheet();
-            end
-        
-        
-        end
-        % --- Executes on button press in push_WorksheetOptions.
-        function push_WorksheetOptions_Callback(obj, hObject, event)
-            import java.awt.*;
-            import java.awt.event.*;
-        
-            obj.push_WorksheetOptions.UIContextMenu = obj.context_WorksheetOptions;
-        
-            % Trigger a right-click event
-            try
-                rob = Robot;
-                rob.mousePress(InputEvent.BUTTON3_MASK);
-                pause(0.01);
-                rob.mouseRelease(InputEvent.BUTTON3_MASK);
-            catch
-                errordlg('Java is not working properly. You must right-click the button.','Java error');
-            end
-        
-        end
-        % --- Executes on button press in push_PageLeft.
-        function push_PageLeft_Callback(obj, hObject, event)
-            str = obj.panel_Worksheet.Title ;
-            f = strfind(str,'/');
-            tot = str2double(str(f+1:end));
-        
-            obj.settings.WorksheetCurrentPage = mod(obj.settings.WorksheetCurrentPage-1,tot);
-            if obj.settings.WorksheetCurrentPage == 0
-                obj.settings.WorksheetCurrentPage = tot;
-            end
-        
-            obj.updateWorksheet();
-        
-        
-        end
-        % --- Executes on button press in push_PageRight.
-        function push_PageRight_Callback(obj, hObject, event)
-            str = obj.panel_Worksheet.Title ;
-            f = strfind(str,'/');
-            tot = str2double(str(f+1:end));
-        
-            obj.settings.WorksheetCurrentPage = mod(obj.settings.WorksheetCurrentPage+1,tot);
-            if obj.settings.WorksheetCurrentPage == 0
-                obj.settings.WorksheetCurrentPage = tot;
-            end
-        
-            obj.updateWorksheet();
-        
-        
-        
-        end
+
         function menu_FrequencyZoom_Callback(obj, hObject, event)
             if obj.menu_FrequencyZoom.Checked
                 obj.menu_FrequencyZoom.Checked = 'off';
@@ -13169,122 +11297,6 @@ end
         
         
         end
-        function context_Worksheet_Callback(obj, hObject, event)
-        
-        end
-        function menu_WorksheetDelete_Callback(obj, hObject, event)
-            f = find(obj.WorksheetHandles==findobj('Parent',obj.axes_Worksheet,'FaceColor','r'));
-        
-            obj.settings.WorksheetXLims(f) = [];
-            obj.settings.WorksheetYLims(f) = [];
-            obj.settings.WorksheetXs(f) = [];
-            obj.settings.WorksheetYs(f) = [];
-            obj.settings.WorksheetMs(f) = [];
-            obj.settings.WorksheetClim(f) = [];
-            obj.settings.WorksheetColormap(f) = [];
-            obj.settings.WorksheetSounds(f) = [];
-            obj.settings.WorksheetFs(f) = [];
-            obj.settings.WorksheetTimes(f) = [];
-        
-            obj.updateWorksheet();
-        
-        
-        
-        end
-        function menu_SortChronologically_Callback(obj, hObject, event)
-            if obj.menu_SortChronologically.Checked
-                obj.menu_SortChronologically.Checked = 'off';
-                obj.settings.WorksheetChronological = 0;
-            else
-                obj.menu_SortChronologically.Checked = 'on';
-                obj.settings.WorksheetChronological = 1;
-            end
-        
-            obj.updateWorksheet();
-        
-        
-        
-        end
-        function context_WorksheetOptions_Callback(obj, hObject, event)
-        
-        end
-        function menu_OnePerLine_Callback(obj, hObject, event)
-            if obj.menu_OnePerLine.Checked
-                obj.menu_OnePerLine.Checked = 'off';
-                obj.settings.WorksheetOnePerLine = 0;
-            else
-                obj.menu_OnePerLine.Checked = 'on';
-                obj.settings.WorksheetOnePerLine = 1;
-            end
-        
-            obj.updateWorksheet();
-        
-        
-        
-        end
-        function menu_IncludeTitle_Callback(obj, hObject, event)
-            if obj.menu_IncludeTitle.Checked
-                obj.menu_IncludeTitle.Checked = 'off';
-                obj.settings.WorksheetIncludeTitle = 0;
-            else
-                obj.menu_IncludeTitle.Checked = 'on';
-                obj.settings.WorksheetIncludeTitle = 1;
-            end
-        
-            obj.updateWorksheet();
-        
-        
-        
-        end
-        function menu_EditTitle_Callback(obj, hObject, event)
-            answer = inputdlg({'Worksheet title'},'Title',1,{obj.settings.WorksheetTitle});
-            if isempty(answer)
-                return
-            end
-            obj.settings.WorksheetTitle = answer{1};
-        
-        
-        
-        end
-        function menu_WorksheetDimensions_Callback(obj, hObject, event)
-            answer = inputdlg({'Width (in)',                         'Height (in)',                         'Margin (in)',                         'Title height (in)',                        'Vertical interval (in)',                        'Horizontal interval (in)'},'Worksheet dimensions',1, ...
-                              {num2str(obj.settings.WorksheetWidth), num2str(obj.settings.WorksheetHeight), num2str(obj.settings.WorksheetMargin), num2str(obj.settings.WorksheetTitleHeight), num2str(obj.settings.WorksheetVerticalInterval), num2str(obj.settings.WorksheetHorizontalInterval)});
-            if isempty(answer)
-                return
-            end
-            obj.settings.WorksheetWidth = str2double(answer{1});
-            obj.settings.WorksheetHeight = str2double(answer{2});
-            obj.settings.WorksheetMargin = str2double(answer{3});
-            obj.settings.WorksheetTitleHeight = str2double(answer{4});
-            obj.settings.WorksheetVerticalInterval = str2double(answer{5});
-            obj.settings.WorksheetHorizontalInterval = str2double(answer{6});
-        
-            obj.updateWorksheet();
-        
-        
-        end
-        function menu_ClearWorksheet_Callback(obj, hObject, event)
-            button = questdlg('Delete all worksheet sounds?','Clear worksheet','Yes','No','No');
-            if strcmp(button,'No')
-                return
-            end
-        
-            obj.settings.WorksheetXLims = {};
-            obj.settings.WorksheetYLims = {};
-            obj.settings.WorksheetXs = {};
-            obj.settings.WorksheetYs = {};
-            obj.settings.WorksheetMs = {};
-            obj.settings.WorksheetClim = {};
-            obj.settings.WorksheetColormap = {};
-            obj.settings.WorksheetSounds = {};
-            obj.settings.WorksheetFs = [];
-            obj.settings.WorksheetTimes = datetime.empty();
-        
-            obj.updateWorksheet();
-        end
-        function menu_WorksheetView_Callback(obj, hObject, event)
-            obj.ViewWorksheet();
-        end
         function MacrosMenuclick(obj, hObject, event)
             obj.SaveState();
         
@@ -13292,37 +11304,6 @@ end
         
             mcr = obj.menu_Macros(f).Label;
             electro_gui.eg_runPlugin(obj.plugins.macros, mcr, obj);
-        
-        end
-        function menu_Portrait_Callback(obj, hObject, event)
-            if ~obj.menu_Portrait.Checked
-                obj.menu_Portrait.Checked = 'on';
-                obj.menu_Landscape.Checked = 'off';
-                obj.settings.WorksheetOrientation = 'portrait';
-                dummy = obj.settings.WorksheetWidth;
-                obj.settings.WorksheetWidth = obj.settings.WorksheetHeight;
-                obj.settings.WorksheetHeight = dummy;
-                obj.updateWorksheet();
-        
-            end
-        
-        
-        end
-        function menu_Orientation_Callback(obj, hObject, event)
-        
-        end
-        function menu_Landscape_Callback(obj, hObject, event)
-        
-            if ~obj.menu_Landscape.Checked
-                obj.menu_Portrait.Checked = 'off';
-                obj.menu_Landscape.Checked = 'on';
-                obj.settings.WorksheetOrientation = 'landscape';
-                dummy = obj.settings.WorksheetWidth;
-                obj.settings.WorksheetWidth = obj.settings.WorksheetHeight;
-                obj.settings.WorksheetHeight = dummy;
-                obj.updateWorksheet();
-        
-            end
         
         end
         function menu_LineWidth1_Callback(obj, hObject, event)
@@ -14546,6 +12527,12 @@ end
             shortFilenames = cellfun(reassembler, filenameChunks, chunkDelimiters, 'UniformOutput', false);
             shortFilenames = cellfun(@(x)x{1}, shortFilenames, 'UniformOutput', false);
         end
+        function timestamp = getFileDatetime(dbase, filenum)
+            timestamp = datetime(dbase.Times(filenum), 'ConvertFrom', 'datenum');
+        end
+        function timestamp = getFileTimestamp(dbase, filenum)
+            timestamp = string(electro_gui.getFileDatetime(dbase, filenum));
+        end
         function helpText = HelpText()
 
             helpText = sprintf('%s\n', ...
@@ -14769,6 +12756,12 @@ end
             end
             if isfield(settings, 'FileReadState')
                 settings = rmfield(settings, 'FileReadState');
+            end
+
+            if ~isfield(settings, 'Export')
+                % the settings.Export struct was added later. It can be
+                % populated by the function ensureExportSettingsExist
+                settings.Export = struct();
             end
         
             if ~isfield(settings, 'EventThresholdDefaults') || length(settings.EventThresholdDefaults) ~= numEventSources
@@ -15110,6 +13103,73 @@ end
             rBand = rectangle(ax, 'Position', [min(t), flim(1), range(t)+tRange, flim(2)-flim(1)], 'LineStyle', '--', 'LineWidth', 2); %#ok<NASGU> 
             xlim(ax, [min(t), min(t) + range(t) + tRange]);
             ylim(ax, [min(f), min(f) + range(f) + fRange]);            
+        end
+        function [annotationHandles, labelHandles] = CreateAnnotations(...
+                ax, times, titles, selects, selectColor, unselectColor, ...
+                activeColor, inactiveColor, yExtent, numSamples, fs, ...
+                activeIndex, click_handler)
+            % Create the annotations for a set of timed segments (used for plotting both
+            % "segments" and "markers")
+            arguments
+                ax
+                times
+                titles
+                selects
+                selectColor
+                unselectColor
+                activeColor
+                inactiveColor
+                yExtent
+                numSamples
+                fs
+                activeIndex = []
+                click_handler function_handle = @NOP
+            end
+        
+            % Create a time vector that corresponds to the loaded audio samples
+            ts = linspace(0, numSamples/fs, numSamples);
+        
+            y0 = yExtent(1);
+            y1 = yExtent(1) + (yExtent(2) - yExtent(1))*0.3;
+        
+            annotationHandles = gobjects().empty;
+            labelHandles = gobjects().empty;
+        
+            % Loop over stored segment start/end times pairs
+            for annotationNum = 1:size(times,1)
+                % Extract the start (x1) and end (x2) times of this segment
+                t1 = ts(times(annotationNum, 1));
+                t2 = ts(times(annotationNum, 2));
+                if selects(annotationNum)
+                    faceColor = selectColor;
+                else
+                    faceColor = unselectColor;
+                end
+                % Create a rectangle to represent the segment
+                newAnnotation = patch(ax, [t1 t2 t2 t1], [y0 y0 y1 y1], faceColor, 'ContextMenu', ax.ContextMenu);
+                % Create a text graphics object right above the middle of the segment
+                % rectangle
+                newLabel = text(ax, (t1+t2)/2,y1,titles(annotationNum), 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'center', 'ContextMenu', ax.ContextMenu);
+        
+                % Set annotation style to inactive
+                if activeIndex == annotationNum
+                    newAnnotation.EdgeColor = activeColor;
+                    newAnnotation.LineWidth = 2;
+                    newAnnotation.LineStyle = '-';
+                else
+                    newAnnotation.EdgeColor = inactiveColor;
+                    newAnnotation.LineWidth = 1;
+                    newAnnotation.LineStyle = '-';
+                end
+        
+                % Attach click handler "click_segment" to segment rectangle
+                newAnnotation.ButtonDownFcn = click_handler;
+                newLabel.ButtonDownFcn = @(hObject, event)click_handler(newAnnotation, event);
+        
+                % Put new handles in list
+                labelHandles(annotationNum) = newLabel;
+                annotationHandles(annotationNum) = newAnnotation;
+            end
         end
     end
 end
