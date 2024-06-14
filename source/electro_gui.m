@@ -3226,9 +3226,6 @@ function eg_NewDbase(obj)
     obj.popup_EventDetector2.Value = 1;
     obj.popup_EventListAlign.Value = 1;
 
-    obj.setFileNames({obj.dbase.SoundFiles.name});
-    obj.UpdateFileInfoBrowserReadState();
-
     sourceStrings = {'(None)','Sound'};
     for chanNum = 1:length(obj.dbase.ChannelFiles)
         if ~isempty(obj.dbase.ChannelFiles{chanNum})
@@ -3622,6 +3619,7 @@ function tab = getCurrentExportTab(obj)
 end
 function exportView(obj)
     obj.ensureExportSettingsExist();
+    obj.showExportWindow();
 
     switch obj.settings.Export.LayoutTabMode
         case 'LayoutTabCurrent'
@@ -4453,6 +4451,11 @@ function [propertyArray, propertyNames] = getProperties(obj)
     % Get the all properties info
     propertyArray = obj.dbase.Properties;
     propertyNames = obj.dbase.PropertyNames;
+    if isempty(propertyArray)
+        numFiles = electro_gui.getNumFiles(obj.dbase);
+        numProperties = obj.getNumProperties();
+        propertyArray = false(numFiles, numProperties);
+    end
 end
 
 function propertyExists = isProperty(obj, propertyName)
@@ -4597,14 +4600,6 @@ end
 
 function fileNames = getFileNames(obj)
     fileNames = {obj.dbase.SoundFiles.name};
-end
-
-function setFileNames(obj, fileList)
-    % Set the filenames in the the file browser
-    if electro_gui.areFilesSorted(obj.settings)
-        fileList = fileList(obj.settings.FileSortOrder);
-    end
-    obj.FileInfoBrowser.Data(:, 2) = electro_gui.getMinimalFilenames(fileList);
 end
 
 function setFileReadState(obj, filenums, readState)
@@ -4849,7 +4844,6 @@ function UpdateFiles(obj, old_sound_files)
     obj.dbase.MarkerIsSelected = cell(1,numFiles);
     obj.dbase.MarkerIsSelected(newnum) = originalValues;
 
-
     originalValues = obj.dbase.EventTimes;
     for eventSourceIdx = 1:length(originalValues)
         obj.dbase.EventTimes{eventSourceIdx} = cell(size(originalValues{eventSourceIdx},1),numFiles);
@@ -4870,8 +4864,7 @@ function UpdateFiles(obj, old_sound_files)
     obj.dbase.FileReadState = false(1, numFiles);
     obj.dbase.FileReadState(newnum) = originalFileReadState;
 
-    fileList = {obj.dbase.SoundFiles.name};
-    obj.setFileNames(fileList);
+    obj.UpdateFileInfoBrowser();
     if ~isempty(newSelectedFilenum)
         obj.edit_FileNumber.String = num2str(newSelectedFilenum);
         if electro_gui.areFilesSorted(obj.settings)
@@ -10825,10 +10818,16 @@ end
             obj.ExportControlPanel.fig.Visible = false;
         end
         function menu_ShowExportControlPanel_Callback(obj, hObject, event)
+            obj.showExportControlPanel();
+        end
+        function showExportControlPanel(obj)
             obj.ensureExportControlPanelExists();
             obj.ExportControlPanel.fig.Visible = true;
         end
         function menu_ShowExportWindow_Callback(obj, hObject, event)
+            obj.showExportWindow();
+        end
+        function showExportWindow(obj)
             obj.ensureExportWindowExists();
             obj.ExportWindow.fig.Visible = true;
         end
