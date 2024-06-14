@@ -229,6 +229,8 @@ classdef electro_gui < handle
         menu_SearchNot
         menu_Export
         action_Export
+        action_ClearExport
+        action_ClearExportTab
         menu_Help
         help_ControlsHelp
     end
@@ -3617,7 +3619,59 @@ end
 function tab = getCurrentExportTab(obj)
     tab = obj.ExportWindow.tabGroup.SelectedTab;
 end
-function exportView(obj)
+function deleteExportPanel(obj, panel)
+    % Properly delete an export window panel
+    arguments
+        obj electro_gui
+        panel matlab.ui.container.Panel
+    end
+    % Find parent tab
+    tab = panel.Parent;
+    tabIdx = obj.getExportTab(tab);
+    % Find panel in list
+    panelIdx = find(obj.ExportWindow.panels{tabIdx} == panel, 1);
+    if isempty(panelIdx)
+        error('Error, attempted to delete panel that could not be identified.');
+    end
+    % Remove panel from list
+    obj.ExportWindow.panels{tabIdx}(panelIdx) = [];
+    % Destroy panel
+    delete(panel);
+    % Rearrange remaining panels
+    obj.arrangeExportPanels();
+end
+function deleteExportTab(obj, nameIdxOrTab)
+    % Properly delete a tab based either on the tab index, the name, or the
+    %   tab object itself.
+    arguments
+        obj electro_gui
+        nameIdxOrTab = obj.getCurrentExportTab();
+    end
+    [tabIdx, ~, tab] = obj.getExportTab(nameIdxOrTab);
+    % Destroy tab object, which will also destroy panel children
+    delete(tab);
+    % Remove panels from list
+    obj.ExportWindow.panels{tabIdx} = [];
+    % Remove tabs from list
+    obj.ExportWindow.tabs(tabIdx) = [];
+end
+function clearExportTab(obj, nameIdxOrTab)
+    arguments
+        obj electro_gui
+        nameIdxOrTab = obj.getCurrentExportTab();
+    end
+    [tabIdx, ~, tab] = obj.getExportTab(nameIdxOrTab);
+    for child = tab.Children
+        delete(child);
+    end
+    obj.ExportWindow.panels{tabIdx} = gobjects().empty;
+end
+function clearExport(obj)
+    for tab = obj.ExportWindow.tabs
+        obj.clearExportTab(tab)
+    end
+end
+function export(obj)
     obj.ensureExportSettingsExist();
     obj.showExportWindow();
 
@@ -3631,28 +3685,84 @@ function exportView(obj)
     filename = electro_gui.getCurrentFileName(obj.dbase, obj.settings);
     fileTimestamp = electro_gui.getFileTimestamp(obj.dbase, filenum);
     fileDatetime = electro_gui.getFileDatetime(obj.dbase, filenum);
-    panel = obj.addExportPanel(tab, filenum, filename, fileTimestamp, fileDatetime, obj.settings.TLim);
 
-    % Determine how many axes we'll need
-    numAxes = ...
-        obj.settings.Export.IncludeSpectrogram + ...
-        obj.settings.Export.IncludeAmplitude + ...
-        obj.settings.Export.IncludeSyllables || obj.settings.Export.IncludeMarkers + ...
-        obj.settings.Export.IncludeTopChannelAxes && obj.axes_Channel(1).Visible + ...
-        obj.settings.Export.IncludeBotChannelAxes && obj.axes_Channel(2).Visible; %#ok<*BDLOG> 
-
-    axesNum = 0;
-    y = 0;
-    if obj.settings.Export.IncludeSpectrogram
-        axesNum = axesNum + 1;
-        axes_Sonogram_exported = copyobj(obj.axes_Sonogram, panel);
-        axes_Sonogram_exported.Units = 'pixels';
-        axes_Sonogram_exported.Position(1) = 0;
-        axes_Sonogram_exported.Position(2) = y;
+%     % Determine how many axes we'll need
+%     numAxes = ...
+%         obj.settings.Export.IncludeSpectrogram + ...
+%         obj.settings.Export.IncludeAmplitude + ...
+%         obj.settings.Export.IncludeSyllables || obj.settings.Export.IncludeMarkers + ...
+%         obj.settings.Export.IncludeTopChannelAxes && obj.axes_Channel(1).Visible + ...
+%         obj.settings.Export.IncludeBotChannelAxes && obj.axes_Channel(2).Visible; %#ok<*BDLOG> 
+% 
+    switch obj.settings.Export.TimeRangeMode
+        case 'TimeRangeVisible'
+            tlim = obj.settings.TLim;
+        case 'TimeRangeActiveAnnotation'
+            [annotationNum, annotationType] = obj.FindActiveAnnotation();
+            switch annotationType
+                case 'segment'
+                    tlim = obj.dbase.SegmentTimes{filenum}(annotationNum, :)./obj.dbase.Fs;
+                case 'marker'
+                    tlim = obj.dbase.MarkerTimes{filenum}(annotationNum, :)./obj.dbase.Fs;
+                case 'none'
+                    msgbox(['Export time range is set to active annotation, ' ...
+                        'but no segment or marker is active. Please make an ' ...
+                        'annotation active before exporting.']);
+                    return;
+            end
+        case 'TimeRangeAllAnnotations'
+            msgbox('Sorry, all annotation export mode not implemented yet');
+            return;
+        otherwise
+            error('Unknown time range mode: %s', obj.settings.Export.TimeRangeMode);
     end
-%     sonogram_export.CLim = obj.axes_Sonogram.CLim;
-%     colormap(sonogram_export, obj.Colormap);
-    shrinkToContent(panel, "Margin", [3, 3], 'MarginUnits', 'pixels');
+
+    % Create new empty panel with appropriate width, but arbitrary height
+    panel = obj.addExportPanel(tab, filenum, filename, fileTimestamp, fileDatetime, tlim);
+
+    % Arbitrary amount to shrink everything in y dimension
+    heightScale = obj.settings.Export.LayoutScaleHeight;
+
+    numAxes = 0;
+    exportAxes = gobjects().empty;
+    if obj.settings.Export.IncludeSpectrogram
+        numAxes = numAxes + 1;
+        exportAxes(numAxes) = copyobj(obj.axes_Sonogram, panel);
+    end
+    if obj.settings.Export.IncludeAmplitude
+        numAxes = numAxes + 1;
+        exportAxes(numAxes) = copyobj(obj.axes_Amplitude, panel);
+    end
+    if obj.settings.Export.IncludeSyllables || obj.settings.Export.IncludeMarkers
+        numAxes = numAxes + 1;
+        exportAxes(numAxes) = copyobj(obj.axes_Segments, panel);
+    end
+    if obj.settings.Export.IncludeTopChannelAxes && obj.axes_Channel(1).Visible
+        numAxes = numAxes + 1;
+        exportAxes(numAxes) = copyobj(obj.axes_Channel(1), panel);
+    end
+    if obj.settings.Export.IncludeBotChannelAxes && obj.axes_Channel(2).Visible
+        numAxes = numAxes + 1;
+        exportAxes(numAxes) = copyobj(obj.axes_Channel(2), panel);
+    end
+
+    currentY = 1;
+    for axesNum = 1:numAxes
+        ax = exportAxes(axesNum);
+        ax.Units = 'normalized';
+        newHeight = ax.Position(4) * heightScale;
+        currentY = currentY - newHeight;
+        ax.Position = [0, currentY, 1, newHeight];
+        ax.XLim = tlim;
+        ax.XLabel.Visible = false;
+        ax.YLabel.Visible = false;
+        set(ax.Children, 'ContextMenu', panel.ContextMenu);
+    end
+    shrinkToContent(panel, ...
+        "Margin", [3, 3], ...
+        'MarginUnits', 'pixels', ...
+        'ShrinkX', true, ...
+        'ShrinkY', true);
     obj.arrangeExportPanels();
 end
 
@@ -8411,8 +8521,22 @@ function setupGUI(obj)
         'Label','Export (Ctrl-e)',...
         'Tag','action_Export');
 
+    obj.action_ClearExport = uimenu(...
+        'Parent',obj.menu_Export,...
+        'Separator','on',...
+        'Callback',@obj.action_ClearExport_Callback,...
+        'Label','Clear export',...
+        'Tag','action_Export');
+    
+    obj.action_ClearExportTab = uimenu(...
+        'Parent',obj.menu_Export,...
+        'Callback',@obj.action_ClearExportTab_Callback,...
+        'Label','Clear current export tab',...
+        'Tag','action_Export');
+
     obj.menu_ShowExportControlPanel = uimenu(...
         'Parent',obj.menu_Export,...
+        'Separator','on',...
         'Callback',@obj.menu_ShowExportControlPanel_Callback,...
         'Label','Show export control panel',...
         'Tag','menu_ShowExportControlPanel');
@@ -8489,10 +8613,13 @@ function createExportControlPanel(obj)
     % Define list of time range options
     obj.ExportControlPanel.timeRangeOptions(1).Name = 'TimeRangeVisible';
     obj.ExportControlPanel.timeRangeOptions(1).Label = 'Current view';
+    obj.ExportControlPanel.timeRangeOptions(1).Default = true;
     obj.ExportControlPanel.timeRangeOptions(2).Name = 'TimeRangeActiveAnnotation';
     obj.ExportControlPanel.timeRangeOptions(2).Label = 'Active segment/marker';
+    obj.ExportControlPanel.timeRangeOptions(2).Default = false;
     obj.ExportControlPanel.timeRangeOptions(3).Name = 'TimeRangeAllAnnotations';
     obj.ExportControlPanel.timeRangeOptions(3).Label = 'All segments/markers';
+    obj.ExportControlPanel.timeRangeOptions(3).Default = false;
     numOptions = length(obj.ExportControlPanel.timeRangeOptions);
     height = numOptions + 1.5;
     currentY = currentY - height;
@@ -8507,7 +8634,7 @@ function createExportControlPanel(obj)
         obj.ExportControlPanel.(obj.ExportControlPanel.timeRangeOptions(k).Name) = uicontrol(...
             obj.ExportControlPanel.TimeRangeGroup, ...
             "Style", 'radiobutton', ...
-            "Value", false, ...
+            "Value", obj.ExportControlPanel.timeRangeOptions(k).Default, ...
             "String", obj.ExportControlPanel.timeRangeOptions(k).Label, ...
             'Units', 'characters', ...
             "Position", [0, numOptions-k, width, 1]);
@@ -8564,30 +8691,39 @@ function createExportControlPanel(obj)
     % Layout widgets
     obj.ExportControlPanel.layoutTabOptions(1).Name = 'LayoutTabCurrent';
     obj.ExportControlPanel.layoutTabOptions(1).Label = 'Use visible tab';
+    obj.ExportControlPanel.layoutTabOptions(1).Default = true;
     obj.ExportControlPanel.layoutTabOptions(2).Name = 'LayoutTabFile';
     obj.ExportControlPanel.layoutTabOptions(2).Label = 'Use/create tab based on current file';
+    obj.ExportControlPanel.layoutTabOptions(2).Default = false;
     numTabOptions = length(obj.ExportControlPanel.layoutTabOptions);
 
     obj.ExportControlPanel.layoutSortOptions(1).Name = 'LayoutSortChronological';
     obj.ExportControlPanel.layoutSortOptions(1).Label = 'Sort based on chronological order';
+    obj.ExportControlPanel.layoutSortOptions(1).Default = true;
     obj.ExportControlPanel.layoutSortOptions(2).Name = 'LayoutSortAddOrder';
     obj.ExportControlPanel.layoutSortOptions(2).Label = 'Sort based on export order';
+    obj.ExportControlPanel.layoutSortOptions(2).Default = false;
     numSortOptions = length(obj.ExportControlPanel.layoutSortOptions);
 
     obj.ExportControlPanel.layoutLineOptions(1).Name = 'LayoutLineOne';
     obj.ExportControlPanel.layoutLineOptions(1).Label = 'One export per line';
+    obj.ExportControlPanel.layoutLineOptions(1).Default = false;
     obj.ExportControlPanel.layoutLineOptions(2).Name = 'LayoutLineFree';
     obj.ExportControlPanel.layoutLineOptions(2).Label = 'As many per line as fit';
+    obj.ExportControlPanel.layoutLineOptions(2).Default = true;
     numLineOptions = length(obj.ExportControlPanel.layoutLineOptions);
 
     obj.ExportControlPanel.layoutScaleOptions(1).Name = 'LayoutScaleEqualTime';
     obj.ExportControlPanel.layoutScaleOptions(1).Label = 'Scale by time range';
+    obj.ExportControlPanel.layoutScaleOptions(1).Default = true;
     obj.ExportControlPanel.layoutScaleOptions(2).Name = 'LayoutScaleEqualWidth';
     obj.ExportControlPanel.layoutScaleOptions(2).Label = 'Scale to same display width';
+    obj.ExportControlPanel.layoutScaleOptions(2).Default = false;
     obj.ExportControlPanel.layoutScaleOptions(3).Name = 'LayoutScaleFullWidth';
     obj.ExportControlPanel.layoutScaleOptions(3).Label = 'Scale to fill page width';
+    obj.ExportControlPanel.layoutScaleOptions(3).Default = false;
     numScaleOptions = length(obj.ExportControlPanel.layoutScaleOptions);
-    numScaleInputs = 1;
+    numScaleInputs = 2;
 
     height = 1.5 + (1.5 + numTabOptions) + (1.5 + numSortOptions) + (1.5 + numLineOptions) + (1.5 + numScaleOptions) + numScaleInputs;
     currentY = currentY - height;
@@ -8610,7 +8746,7 @@ function createExportControlPanel(obj)
         obj.ExportControlPanel.(obj.ExportControlPanel.layoutTabOptions(k).Name) = uicontrol(...
             obj.ExportControlPanel.LayoutTabGroup, ...
             "Style", 'radiobutton', ...
-            "Value", false, ...
+            "Value", obj.ExportControlPanel.layoutTabOptions(k).Default, ...
             "String", obj.ExportControlPanel.layoutTabOptions(k).Label, ... 
             "Units", 'characters', ...
             "Position", [0, numTabOptions-k, width, 1], ...
@@ -8629,7 +8765,7 @@ function createExportControlPanel(obj)
         obj.ExportControlPanel.(obj.ExportControlPanel.layoutSortOptions(k).Name) = uicontrol(...
             obj.ExportControlPanel.LayoutSortGroup, ...
             "Style", 'radiobutton', ...
-            "Value", false, ...
+            "Value", obj.ExportControlPanel.layoutSortOptions(k).Default, ...
             "String", obj.ExportControlPanel.layoutSortOptions(k).Label, ... 
             "Units", 'characters', ...
             "Position", [0, numSortOptions-k, width, 1], ...
@@ -8647,7 +8783,7 @@ function createExportControlPanel(obj)
     for k = 1:numLineOptions
         obj.ExportControlPanel.(obj.ExportControlPanel.layoutLineOptions(k).Name) = uicontrol(obj.ExportControlPanel.LayoutLineGroup, ...
             "Style", 'radiobutton', ...
-            "Value", false, ...
+            "Value", obj.ExportControlPanel.layoutLineOptions(k).Default, ...
             "String", obj.ExportControlPanel.layoutLineOptions(k).Label, ... 
             "Units", 'characters', ...
             "Position", [0, numLineOptions-k, width, 1], ...
@@ -8665,7 +8801,7 @@ function createExportControlPanel(obj)
     for k = 1:numScaleOptions
         obj.ExportControlPanel.(obj.ExportControlPanel.layoutScaleOptions(k).Name) = uicontrol(obj.ExportControlPanel.LayoutScaleGroup, ...
             "Style", 'radiobutton', ...
-            "Value", false, ...
+            "Value", obj.ExportControlPanel.layoutScaleOptions(k).Default, ...
             "String", obj.ExportControlPanel.layoutScaleOptions(k).Label, ... 
             "Units", 'characters', ...
             "Position", [0, numScaleOptions + numScaleInputs - k, width, 1], ...
@@ -8677,21 +8813,41 @@ function createExportControlPanel(obj)
         'String', 'Width (inches or inches/sec)', ...
         'HorizontalAlignment', 'left', ...
         'Units', 'characters', ...
-        'Position', [0, 0, width*0.5, 1]);
+        'Position', [0, 1, width*0.5, 1]);
     obj.ExportControlPanel.LayoutScaleWidthInput = uicontrol(...
         obj.ExportControlPanel.LayoutPanel, ...
         "Style", 'Edit', ...
-        'String', '1.5', ...
+        'String', '3', ...
         'HorizontalAlignment', 'left', ...
         'Tooltip', 'How many inches wide, or inches per second, should the exported clips be?', ...
         'Units', 'characters', ...
+        'Position', [width*0.5, 1, width*0.5, 1], ...
+        'Callback', @obj.exportControlValuesChanged_Callback);
+
+    obj.ExportControlPanel.LayoutScaleHeightInputLabel = uicontrol(...
+        obj.ExportControlPanel.LayoutPanel, ...
+        "Style", 'Text', ...
+        'String', 'Height scale factor', ...
+        'HorizontalAlignment', 'left', ...
+        'Units', 'characters', ...
+        'Position', [0, 0, width*0.5, 1]);
+    obj.ExportControlPanel.LayoutScaleHeightInput = uicontrol(...
+        obj.ExportControlPanel.LayoutPanel, ...
+        "Style", 'Edit', ...
+        'String', '0.75', ...
+        'HorizontalAlignment', 'left', ...
+        'Tooltip', 'Height scale factor, relative to how it looks in electro_gui', ...
+        'Units', 'characters', ...
         'Position', [width*0.5, 0, width*0.5, 1], ...
         'Callback', @obj.exportControlValuesChanged_Callback);
+
     
+
     shrinkToContent(obj.ExportControlPanel.fig);
 
 end
-function updateExportPanelLayout(obj) %#ok<MANU> 
+function updateExportPanelLayout(obj) 
+    obj.arrangeExportPanels();
 end
 function updateExportControlGUIValues(obj)
     % obj.settings.Export ==> GUI
@@ -8752,6 +8908,7 @@ function updateExportControlGUIValues(obj)
 
         %   Update layout scale width
         obj.ExportControlPanel.LayoutScaleWidthInput.String = num2str(obj.settings.Export.LayoutScaleWidth);
+        obj.ExportControlPanel.LayoutScaleHeightInput.String = num2str(obj.settings.Export.LayoutScaleHeight);
     end
 end
 function ensureExportControlPanelExists(obj)
@@ -8775,6 +8932,7 @@ function ensureExportSettingsExist(obj)
 end
 function exportControlValuesChanged_Callback(obj, hObject, event)
     obj.recordExportControlValues();
+    obj.updateExportWindow();
 end
 function exportSettings = getExportControlValues(obj)
     % Get time range options from export control panel GUI
@@ -8843,8 +9001,9 @@ function exportSettings = getExportControlValues(obj)
         end
     end
 
-    %   Get layout scale width
+    %   Get layout scale width and height
     exportSettings.LayoutScaleWidth = str2double(obj.ExportControlPanel.LayoutScaleWidthInput.String);
+    exportSettings.LayoutScaleHeight = str2double(obj.ExportControlPanel.LayoutScaleHeightInput.String);
     exportSettings.DefaultTabName = 'Export_1';
 end
 function recordExportControlValues(obj)
@@ -8864,7 +9023,11 @@ function createExportWindow(obj)
     obj.ExportWindow = struct();
     obj.ExportWindow.fig = figure(...
         'Visible', false, ...
-        'Units', 'normalized');
+        'Units', 'normalized', ...
+        'MenuBar', 'none', ...
+        'Name', 'electro_gui export', ...
+        'NumberTitle', 'off', ...
+        'ToolBar', 'none');
     obj.ExportWindow.tabGroup = uitabgroup(obj.ExportWindow.fig, ...
         'Units', 'normalized', ...
         'Position', [0.01, 0.01, 0.98, 0.98]);
@@ -8896,7 +9059,7 @@ function newPanel = addExportPanel(obj, nameIdxOrTab, filenum, filename, fileTim
         viewTimeRange (1, 2) double
     end
 
-    [~, ~, tab] = obj.getExportTab(nameIdxOrTab);
+    [tabIdx, ~, tab] = obj.getExportTab(nameIdxOrTab);
     info.filenum = filenum;
     info.filename = filename;
     info.fileTimestamp = fileTimestamp;
@@ -8908,6 +9071,24 @@ function newPanel = addExportPanel(obj, nameIdxOrTab, filenum, filename, fileTim
         'UserData', info, ...
         'BorderType', 'none', ...
         'Title', '');
+    switch obj.settings.Export.LayoutScaleMode
+        case 'LayoutScaleEqualTime'
+            widthInches = diff(info.timeRange) * obj.settings.Export.LayoutScaleWidth;
+        case 'LayoutScaleEqualWidth'
+            widthInches = obj.settings.Export.LayoutScaleWidth;
+        case 'LayoutScaleFullWidth'
+            widthInches = getPositionWithUnits(tab, 'inches', 3);
+        otherwise
+            error('Unknown layout scale mode: %s', obj.settings.Export.LayoutScaleMode);
+    end
+    % Set width in inches
+    setPositionWithUnits(newPanel, widthInches, 'inches', 3);    
+    % Add context menu
+    newPanel.ContextMenu = uicontextmenu(obj.ExportWindow.fig);
+    uimenu(newPanel.ContextMenu, ...
+        'Label', 'Delete', ...
+        'Callback', @(hObject, event)obj.deleteExportPanel(newPanel));
+    obj.ExportWindow.panels{tabIdx}(end+1) = newPanel;
 end
 function arrangeExportPanels(obj)
 %     obj.settings.Export.LayoutSortMode
@@ -8920,7 +9101,8 @@ function arrangeExportPanels(obj)
                 if isempty(obj.ExportWindow.panels{tabNum})
                     sortOrder = [];
                 else
-                    [~, sortOrder] = sort([obj.ExportWindow.panels{tabNum}.UserData.time]);
+                    panelInfo = [obj.ExportWindow.panels{tabNum}.UserData];
+                    [~, sortOrder] = sort([panelInfo.time]);
                 end
             case 'LayoutSortAddOrder'
                 sortOrder = 1:length(obj.ExportWindow.panels{tabNum});
@@ -8928,73 +9110,75 @@ function arrangeExportPanels(obj)
         sortedPanels{tabNum} = obj.ExportWindow.panels{tabNum}(sortOrder);
     end
 
-    if obj.settings.Export.LayoutLineMode
-        % One panel per line
-        for tabNum = 1:length(obj.ExportWindow.tabs)
-            tabPos = getPositionWithUnits(obj.ExportWindow.tabs, 'pixels');
-            tabHeight = tabPos(4);
-            currentY = tabHeight;
-            for panelNum = 1:length(sortedPanels{tabNum})
-                % Get panel
-                panel = sortedPanels{tabNum}(panelNum);
-                % Get current position
-                panelHeight = getPositionWithUnits(panel, 'pixels', 4);
-                % Find lower y bound
-                currentY = currentY - panelHeight;
-                % Set new position
-                setPositionWithUnits(panel, [0, currentY], 'pixels', [1, 2]);
-            end
-        end
-    else
-        % Multiple panels per line
-        for tabNum = 1:length(obj.ExportWindow.tabs)
-            tabPos = getPositionWithUnits(obj.ExportWindow.tabs, 'pixels');
-            filledWidth = 0;
-            tabWidth = tabPos(3);
-            tabHeight = tabPos(4);
-            currentLineNum = 1;
-            lineAssignments = zeros(size(sortedPanels{tabNum}));
-            lineTopYs = tabHeight;
-            lineHeights = 0;
-
-            for panelNum = 1:length(sortedPanels{tabNum})
-                % Get panel
-                panel = sortedPanels{tabNum}(panelNum);
-                % Get current position
-                panelPos = getPositionWithUnits(panel, 'pixels');
-                panelWidth = panelPos(3);
-                panelHeight = panelPos(4);
-                if panelNum > 1 && filledWidth + panelWidth > tabWidth
-                    % Time for a new line
-                    currentLineNum = currentLineNum + 1;
-                    lineHeights(currentLineNum) = 0;
-                    filledWidth = 0;
-                end
-                lineHeights(currentLineNum) = max([lineHeights(currentLineNum), panelHeight]);
-                lineTopYs(currentLineNum) = tabHeight - sum(lineHeights(1:currentLineNum-1));
-                lineAssignments(panelNum) = currentLineNum;
-                filledWidth = filledWidth + panelWidth;
-            end
-        end
-        for lineIdx = 1:length(lineHeights)
-            filledWidth = 0;
-            currentTopY = lineTopYs(lineIdx);
-            for panelIdx= 1:length(sortedPanels{tabNum})
-                panel = sortedPanels{tabNum}(panelIdx);
-                panelPos = getPositionWithUnits(panel, 'pixels');
-                panelWidth = panelPos(3);
-                panelHeight = panelPos(4);
-                if lineAssignments(panelNum) == lineIdx
-                    x = filledWidth;
-                    y = currentTopY - panelHeight;
-                    w = panelWidth;
-                    h = panelHeight;
-                    setPositionWithUnits(panel, [x, y, w, h], 'pixels');
-                    filledWidth = filledWidth + w;
+    switch obj.settings.Export.LayoutLineMode
+        case 'LayoutLineOne'
+            % One panel per line
+            for tabNum = 1:length(obj.ExportWindow.tabs)
+                tabPos = getPositionWithUnits(obj.ExportWindow.tabs, 'pixels');
+                tabHeight = tabPos(4);
+                currentY = tabHeight;
+                for panelNum = 1:length(sortedPanels{tabNum})
+                    % Get panel
+                    panel = sortedPanels{tabNum}(panelNum);
+                    % Get current position
+                    panelHeight = getPositionWithUnits(panel, 'pixels', 4);
+                    % Find lower y bound
+                    currentY = currentY - panelHeight;
+                    % Set new position
+                    setPositionWithUnits(panel, [0, currentY], 'pixels', [1, 2]);
                 end
             end
-        end
-
+        case 'LayoutLineFree'
+            % Multiple panels per line
+            for tabNum = 1:length(obj.ExportWindow.tabs)
+                tabPos = getPositionWithUnits(obj.ExportWindow.tabs, 'pixels');
+                filledWidth = 0;
+                tabWidth = tabPos(3);
+                tabHeight = tabPos(4);
+                currentLineNum = 1;
+                lineAssignments = zeros(size(sortedPanels{tabNum}));
+                lineTopYs = tabHeight;
+                lineHeights = 0;
+    
+                for panelNum = 1:length(sortedPanels{tabNum})
+                    % Get panel
+                    panel = sortedPanels{tabNum}(panelNum);
+                    % Get current position
+                    panelPos = getPositionWithUnits(panel, 'pixels');
+                    panelWidth = panelPos(3);
+                    panelHeight = panelPos(4);
+                    if panelNum > 1 && filledWidth + panelWidth > tabWidth
+                        % Time for a new line
+                        currentLineNum = currentLineNum + 1;
+                        lineHeights(currentLineNum) = 0;
+                        filledWidth = 0;
+                    end
+                    lineHeights(currentLineNum) = max([lineHeights(currentLineNum), panelHeight]);
+                    lineTopYs(currentLineNum) = tabHeight - sum(lineHeights(1:currentLineNum-1));
+                    lineAssignments(panelNum) = currentLineNum;
+                    filledWidth = filledWidth + panelWidth;
+                end
+            end
+            for lineIdx = 1:length(lineHeights)
+                filledWidth = 0;
+                currentTopY = lineTopYs(lineIdx);
+                for panelIdx= 1:length(sortedPanels{tabNum})
+                    panel = sortedPanels{tabNum}(panelIdx);
+                    panelPos = getPositionWithUnits(panel, 'pixels');
+                    panelWidth = panelPos(3);
+                    panelHeight = panelPos(4);
+                    if lineAssignments(panelNum) == lineIdx
+                        x = filledWidth;
+                        y = currentTopY - panelHeight;
+                        w = panelWidth;
+                        h = panelHeight;
+                        setPositionWithUnits(panel, [x, y, w, h], 'pixels');
+                        filledWidth = filledWidth + w;
+                    end
+                end
+            end
+        otherwise
+            error('Unknown layout line mode: %s', obj.settings.Export.LayoutLineMode)
     end
 end
 function [idx, name, tab] = getExportTab(obj, nameIdxOrTab)
@@ -9019,22 +9203,6 @@ function [idx, name, tab] = getExportTab(obj, nameIdxOrTab)
             name = tab.Title;
     end
 end
-function deleteExportTab(obj, nameIdxOrTab)
-    % Properly delete a tab based either on the tab index, the name, or the
-    %   tab object itself.
-    [tabIdx, ~, tab] = obj.getExportTab(nameIdxOrTab);
-
-    % Destroy tab object
-    delete(tab);
-    % Remove tab from list
-    obj.ExportWindow.tabs(tabIdx) = [];
-    % Delete panels
-    for panelIdx = 1:length(obj.ExportWindow.panels{tabIdx})
-        delete(obj.ExportWindow.panels{tabIdx}(panelIdx));
-    end
-    % Remove panel list
-    obj.ExportWindow.panels{tabIdx} = [];
-end
 function ensureExportWindowExists(obj)
     % Make sure export control panel figure exists. If not, create it.
     if isempty(obj.ExportWindow.fig) || ...
@@ -9043,10 +9211,9 @@ function ensureExportWindowExists(obj)
         obj.createExportWindow();
     end
 end
-
-function updateExportWindow(obj) %#ok<MANU> 
+function updateExportWindow(obj)
+    obj.updateExportPanelLayout();
 end
-
 function eventSourceIdx = addNewEventSource(obj, channelNum, ...
         channelName, filterName, eventDetectorName, EventFunctionParameters, ...
         eventParameters, eventXLims, eventParts, defaultEventThreshold, ...
@@ -9765,7 +9932,7 @@ end
                         % User pressed "control-e"
                         % Press control-e to produce a export of the sonogram and any channel
                         % views.
-                        obj.exportView();
+                        obj.export();
                         return
                     case 'v'
                         % Paste series of characters onto segments/markers
@@ -10812,7 +10979,19 @@ end
             % Click export
             obj.export();
         end
-        function export(obj) %#ok<MANU> 
+        function action_ClearExportTab_Callback(obj, hObject, eventdata)
+            % Click clear export tab
+            ync = questdlg('Are you sure you want to clear the current export tab?', 'Clear current exports tab?');
+            if strcmp(ync, 'Yes')
+                obj.clearExportTab();
+            end
+        end
+        function action_ClearExport_Callback(obj, hObject, eventdata)
+            % Click clear export
+            ync = questdlg('Are you sure you want to clear all exports?', 'Clear all exports?');
+            if strcmp(ync, 'Yes')
+                obj.clearExport();
+            end
         end
         function exportControlPanelClosereq_Callback(obj, hObject, event)
             obj.ExportControlPanel.fig.Visible = false;
@@ -10823,6 +11002,7 @@ end
         function showExportControlPanel(obj)
             obj.ensureExportControlPanelExists();
             obj.ExportControlPanel.fig.Visible = true;
+            figure(obj.ExportControlPanel.fig);
         end
         function menu_ShowExportWindow_Callback(obj, hObject, event)
             obj.showExportWindow();
@@ -10830,6 +11010,7 @@ end
         function showExportWindow(obj)
             obj.ensureExportWindowExists();
             obj.ExportWindow.fig.Visible = true;
+            figure(obj.ExportWindow.fig);
         end
 
         function handleMenuGroupCheck(group, itemToCheck)
