@@ -1276,20 +1276,20 @@ classdef electro_gui < handle
         function initializeExportOptions(obj) %#ok<MANU> 
         end
         function clearAxes(obj)
-    % Delete old plots
-    cla(obj.axes_Sonogram);
-    set(obj.axes_Sonogram,'ButtonDownFcn','%','UIContextMenu','');
-    cla(obj.axes_Amplitude);
-    set(obj.axes_Amplitude,'ButtonDownFcn','%','UIContextMenu','');
-    cla(obj.axes_Segments);
-    set(obj.axes_Segments,'ButtonDownFcn','%','UIContextMenu','');
-    cla(obj.axes_Channel1);
-    set(obj.axes_Channel1,'ButtonDownFcn','%','UIContextMenu','');
-    cla(obj.axes_Channel2);
-    set(obj.axes_Channel2,'ButtonDownFcn','%','UIContextMenu','');
-    cla(obj.axes_Events);
-    set(obj.axes_Events,'ButtonDownFcn','%','UIContextMenu','');
-end
+            % Delete old plots
+            cla(obj.axes_Sonogram);
+            set(obj.axes_Sonogram,'ButtonDownFcn','%','UIContextMenu','');
+            cla(obj.axes_Amplitude);
+            set(obj.axes_Amplitude,'ButtonDownFcn','%','UIContextMenu','');
+            cla(obj.axes_Segments);
+            set(obj.axes_Segments,'ButtonDownFcn','%','UIContextMenu','');
+            cla(obj.axes_Channel1);
+            set(obj.axes_Channel1,'ButtonDownFcn','%','UIContextMenu','');
+            cla(obj.axes_Channel2);
+            set(obj.axes_Channel2,'ButtonDownFcn','%','UIContextMenu','');
+            cla(obj.axes_Events);
+            set(obj.axes_Events,'ButtonDownFcn','%','UIContextMenu','');
+        end
         function updateChannelAxes(obj, axnum)
             % Load a new channel of data
         
@@ -1387,7 +1387,8 @@ end
                 obj.ChannelPlots{axnum} = ...
                     plot(ax, t, obj.loadedChannelData{axnum}, ...
                         'Color',obj.settings.ChannelColor(axnum,:), ...
-                        'LineWidth',obj.settings.ChannelLineWidth(axnum));
+                        'LineWidth',obj.settings.ChannelLineWidth(axnum), ...
+                        'Tag', 'channelPlot');
             end
         
             hold(ax, 'off');
@@ -3671,6 +3672,101 @@ function clearExport(obj)
         obj.clearExportTab(tab)
     end
 end
+function tlim = getExportTLim(obj)
+    switch obj.settings.Export.TimeRangeMode
+        case 'TimeRangeVisible'
+            tlim = obj.settings.TLim;
+        case 'TimeRangeActiveAnnotation'
+            [annotationNum, annotationType] = obj.FindActiveAnnotation();
+            switch annotationType
+                case 'segment'
+                    tlim = obj.dbase.SegmentTimes{filenum}(annotationNum, :)./obj.dbase.Fs;
+                case 'marker'
+                    tlim = obj.dbase.MarkerTimes{filenum}(annotationNum, :)./obj.dbase.Fs;
+                case 'none'
+                    msg = ['Export time range is set to active annotation, ' ...
+                        'but no segment or marker is active. Please make an ' ...
+                        'annotation active before exporting.'];
+                    msgbox(msg);
+                    error(msg);
+            end
+        case 'TimeRangeAllAnnotations'
+            msg = 'Sorry, all annotation export mode not implemented yet';
+            msgbox(msg);
+            error(msg);
+        otherwise
+            msg = sprintf('Unknown time range mode: %s', obj.settings.Export.TimeRangeMode);
+            msgbox(msg);
+            error(msg); %#ok<SPERR> 
+    end
+end
+function headerText = generateExportHeaderText(obj, filenum, filename, fileDateTime, fileTimestamp)
+    % Generate header, if requested
+    if obj.settings.Export.IncludeDirectory
+        filepath = fullfile(obj.dbase.PathName, filename);
+    else
+        filepath = filename;
+    end
+    if obj.settings.Export.IncludeFilename
+        if obj.settings.Export.IncludeFilenum
+            if obj.settings.Export.IncludeTimestamp
+                headerText = sprintf('File %d: %s (%s)', filenum, filepath, str(fileDatetie));
+            else
+                headerText = sprintf('File %d: %s', filenum, filepath);
+            end
+        else
+            if obj.settings.Export.IncludeTimestamp
+                headerText = sprintf('%s (%s)', filepath, str(fileDatetime));
+            else
+                headerText = sprintf('%s', filepath);
+            end
+        end
+    else
+        if obj.settings.Export.IncludeFilenum
+            if obj.settings.Export.IncludeTimestamp
+                headerText = sprintf('File %d (%s)', filenum, str(fileDatetie));
+            else
+                headerText = sprintf('File %d', filenum);
+            end
+        else
+            if obj.settings.Export.IncludeTimestamp
+                headerText = sprintf('%s', str(fileDatetime));
+            else
+                headerText = '';
+            end
+        end
+    end
+end
+function exportAxes = getExportAxesCopies(obj, panel)
+    % Get copies of all requested export axes
+    numAxes = 0;
+    exportAxes = gobjects().empty;
+    if obj.settings.Export.IncludeSpectrogram
+        numAxes = numAxes + 1;
+        exportAxes(numAxes) = copyobj(obj.axes_Sonogram, panel);
+        exportAxes(numAxes).UserData = 'axes_Sonogram';
+    end
+    if obj.settings.Export.IncludeAmplitude
+        numAxes = numAxes + 1;
+        exportAxes(numAxes) = copyobj(obj.axes_Amplitude, panel);
+        exportAxes(numAxes).UserData = 'axes_Amplitude';
+    end
+    if obj.settings.Export.IncludeSyllables || obj.settings.Export.IncludeMarkers
+        numAxes = numAxes + 1;
+        exportAxes(numAxes) = copyobj(obj.axes_Segments, panel);
+        exportAxes(numAxes).UserData = 'axes_Segments';
+    end
+    if obj.settings.Export.IncludeTopChannelAxes && obj.axes_Channel(1).Visible
+        numAxes = numAxes + 1;
+        exportAxes(numAxes) = copyobj(obj.axes_Channel(1), panel);
+        exportAxes(numAxes).UserData = 'axes_Channel1';
+    end
+    if obj.settings.Export.IncludeBotChannelAxes && obj.axes_Channel(2).Visible
+        numAxes = numAxes + 1;
+        exportAxes(numAxes) = copyobj(obj.axes_Channel(2), panel);
+        exportAxes(numAxes).UserData = 'axes_Channel2';
+    end
+end
 function export(obj)
     obj.ensureExportSettingsExist();
     obj.showExportWindow();
@@ -3686,66 +3782,22 @@ function export(obj)
     fileTimestamp = electro_gui.getFileTimestamp(obj.dbase, filenum);
     fileDatetime = electro_gui.getFileDatetime(obj.dbase, filenum);
 
-%     % Determine how many axes we'll need
-%     numAxes = ...
-%         obj.settings.Export.IncludeSpectrogram + ...
-%         obj.settings.Export.IncludeAmplitude + ...
-%         obj.settings.Export.IncludeSyllables || obj.settings.Export.IncludeMarkers + ...
-%         obj.settings.Export.IncludeTopChannelAxes && obj.axes_Channel(1).Visible + ...
-%         obj.settings.Export.IncludeBotChannelAxes && obj.axes_Channel(2).Visible; %#ok<*BDLOG> 
-% 
-    switch obj.settings.Export.TimeRangeMode
-        case 'TimeRangeVisible'
-            tlim = obj.settings.TLim;
-        case 'TimeRangeActiveAnnotation'
-            [annotationNum, annotationType] = obj.FindActiveAnnotation();
-            switch annotationType
-                case 'segment'
-                    tlim = obj.dbase.SegmentTimes{filenum}(annotationNum, :)./obj.dbase.Fs;
-                case 'marker'
-                    tlim = obj.dbase.MarkerTimes{filenum}(annotationNum, :)./obj.dbase.Fs;
-                case 'none'
-                    msgbox(['Export time range is set to active annotation, ' ...
-                        'but no segment or marker is active. Please make an ' ...
-                        'annotation active before exporting.']);
-                    return;
-            end
-        case 'TimeRangeAllAnnotations'
-            msgbox('Sorry, all annotation export mode not implemented yet');
-            return;
-        otherwise
-            error('Unknown time range mode: %s', obj.settings.Export.TimeRangeMode);
-    end
+    tlim = obj.getExportTLim();
 
     % Create new empty panel with appropriate width, but arbitrary height
     panel = obj.addExportPanel(tab, filenum, filename, fileTimestamp, fileDatetime, tlim);
 
+    % Generate header, if requested
+    headerText = obj.generateExportHeaderText(filenum, filename, fileDatetime, fileTimestamp);
+
     % Arbitrary amount to shrink everything in y dimension
     heightScale = obj.settings.Export.LayoutScaleHeight;
 
-    numAxes = 0;
-    exportAxes = gobjects().empty;
-    if obj.settings.Export.IncludeSpectrogram
-        numAxes = numAxes + 1;
-        exportAxes(numAxes) = copyobj(obj.axes_Sonogram, panel);
-    end
-    if obj.settings.Export.IncludeAmplitude
-        numAxes = numAxes + 1;
-        exportAxes(numAxes) = copyobj(obj.axes_Amplitude, panel);
-    end
-    if obj.settings.Export.IncludeSyllables || obj.settings.Export.IncludeMarkers
-        numAxes = numAxes + 1;
-        exportAxes(numAxes) = copyobj(obj.axes_Segments, panel);
-    end
-    if obj.settings.Export.IncludeTopChannelAxes && obj.axes_Channel(1).Visible
-        numAxes = numAxes + 1;
-        exportAxes(numAxes) = copyobj(obj.axes_Channel(1), panel);
-    end
-    if obj.settings.Export.IncludeBotChannelAxes && obj.axes_Channel(2).Visible
-        numAxes = numAxes + 1;
-        exportAxes(numAxes) = copyobj(obj.axes_Channel(2), panel);
-    end
+    % Get copies of all requested export axes
+    exportAxes = obj.getExportAxesCopies(panel);
+    numAxes = length(exportAxes);
 
+    % Style and position copied export axes and other widgets
     currentY = 1;
     for axesNum = 1:numAxes
         ax = exportAxes(axesNum);
@@ -3757,7 +3809,15 @@ function export(obj)
         ax.XLabel.Visible = false;
         ax.YLabel.Visible = false;
         set(ax.Children, 'ContextMenu', panel.ContextMenu);
+        if ~obj.settings.Export.IncludeEvents
+            % Find which export axes are the copies of the axes_Channels
+            exportAxes_Channels = exportAxes(contains({exportAxes.UserData}, 'axes_Channel'));
+            % Find all descendants of the axes_Channel copies that do not
+            %   have the tag 'channelPlot' and delete them.
+            delete(findobj(exportAxes_Channels, '-not', 'Tag', 'channelPlot'));
+        end
     end
+
     shrinkToContent(panel, ...
         "Margin", [3, 3], ...
         'MarginUnits', 'pixels', ...
@@ -8660,14 +8720,23 @@ function createExportControlPanel(obj)
     obj.ExportControlPanel.includeOptions(6).Label = 'Bottom channel axes'; 
     obj.ExportControlPanel.includeOptions(6).Default = false;
     obj.ExportControlPanel.includeOptions(7).Name = 'IncludeEvents';
-    obj.ExportControlPanel.includeOptions(7).Label = 'Events'; 
+    obj.ExportControlPanel.includeOptions(7).Label = 'Events';
     obj.ExportControlPanel.includeOptions(7).Default = false;
-    obj.ExportControlPanel.includeOptions(8).Name = 'IncludeFilename';
-    obj.ExportControlPanel.includeOptions(8).Label = 'Filename'; 
+    obj.ExportControlPanel.includeOptions(8).Name = 'IncludeFilenum';
+    obj.ExportControlPanel.includeOptions(8).Label = 'File number'; 
     obj.ExportControlPanel.includeOptions(8).Default = false;
-    obj.ExportControlPanel.includeOptions(9).Name = 'IncludeTimestamp';
-    obj.ExportControlPanel.includeOptions(9).Label = 'Timestamp';
+    obj.ExportControlPanel.includeOptions(9).Name = 'IncludeFilename';
+    obj.ExportControlPanel.includeOptions(9).Label = 'File name'; 
     obj.ExportControlPanel.includeOptions(9).Default = false;
+    obj.ExportControlPanel.includeOptions(10).Name = 'IncludeTimestamp';
+    obj.ExportControlPanel.includeOptions(10).Label = 'Timestamp';
+    obj.ExportControlPanel.includeOptions(10).Default = false;
+    obj.ExportControlPanel.includeOptions(11).Name = 'IncludeDirectory';
+    obj.ExportControlPanel.includeOptions(11).Label = 'File directory';
+    obj.ExportControlPanel.includeOptions(11).Default = false;
+    obj.ExportControlPanel.includeOptions(12).Name = 'IncludeNotes';
+    obj.ExportControlPanel.includeOptions(12).Label = 'Notes'; 
+    obj.ExportControlPanel.includeOptions(12).Default = false;
     numOptions = length(obj.ExportControlPanel.includeOptions);
     height = numOptions + 1.5;
     currentY = currentY - height;
@@ -9049,6 +9118,8 @@ function newTab = addExportTab(obj, name)
     obj.ExportWindow.panels{tabIdx} = matlab.ui.container.Panel.empty();
 end
 function newPanel = addExportPanel(obj, nameIdxOrTab, filenum, filename, fileTimestamp, fileDatetime, viewTimeRange)
+    % Create a blank export panel tagged with information about the export,
+    % but without the actual exported graphics
     arguments
         obj electro_gui
         nameIdxOrTab
@@ -9091,13 +9162,16 @@ function newPanel = addExportPanel(obj, nameIdxOrTab, filenum, filename, fileTim
     obj.ExportWindow.panels{tabIdx}(end+1) = newPanel;
 end
 function arrangeExportPanels(obj)
-%     obj.settings.Export.LayoutSortMode
-%     obj.settings.Export.LayoutLineMode
-    
+    % Arrange all panels in the export window according to
+    % parameters in obj.settings.Export
+
+    % Make a copy of the list of lists of panels, but sorted according
+    % to user parameters
     sortedPanels = {};
     for tabNum = 1:length(obj.ExportWindow.tabs)
         switch obj.settings.Export.LayoutSortMode
             case 'LayoutSortChronological'
+                % Sort by actual time of clip
                 if isempty(obj.ExportWindow.panels{tabNum})
                     sortOrder = [];
                 else
@@ -9105,6 +9179,7 @@ function arrangeExportPanels(obj)
                     [~, sortOrder] = sort([panelInfo.time]);
                 end
             case 'LayoutSortAddOrder'
+                % Sort by order user exported
                 sortOrder = 1:length(obj.ExportWindow.panels{tabNum});
         end
         sortedPanels{tabNum} = obj.ExportWindow.panels{tabNum}(sortOrder);
@@ -9130,6 +9205,8 @@ function arrangeExportPanels(obj)
             end
         case 'LayoutLineFree'
             % Multiple panels per line
+
+            % First figure out which panels fit on which lines
             for tabNum = 1:length(obj.ExportWindow.tabs)
                 tabPos = getPositionWithUnits(obj.ExportWindow.tabs, 'pixels');
                 filledWidth = 0;
@@ -9159,6 +9236,8 @@ function arrangeExportPanels(obj)
                     filledWidth = filledWidth + panelWidth;
                 end
             end
+
+            % Actually arrange panels according to layout determined above
             for lineIdx = 1:length(lineHeights)
                 filledWidth = 0;
                 currentTopY = lineTopYs(lineIdx);
