@@ -3622,12 +3622,13 @@ function tab = getCurrentExportTab(obj)
 end
 function copyExportTabToFigure(obj, tab)
     position = getWidgetScreenPosition(tab.Parent, 'pixels');
-    position(1:2) = position(1:2) + [50, -50] ;
+    position(1:2) = position(1:2) + [50, -50];
     f = figure('Units', 'pixels', 'Position', position);
     for k = 1:length(tab.Children)
         copyobj(tab.Children(k), f);
     end
     removeUIPanels(f);
+    shrinkToContent(f);
 end
 function deleteExportPanel(obj, panel)
     % Properly delete an export window panel
@@ -3713,6 +3714,9 @@ function tlim = getExportTLim(obj, filenum)
             error(msg); %#ok<SPERR> 
     end
 end
+function footerText = generateExportFooterText(obj, notes)
+    footerText = notes;
+end
 function headerText = generateExportHeaderText(obj, filenum, filename, fileDateTime, fileTimestamp)
     % Generate header, if requested
     if obj.settings.Export.IncludeDirectory
@@ -3768,6 +3772,9 @@ function exportAxes = getExportAxesCopies(obj, panel)
         numAxes = numAxes + 1;
         exportAxes(numAxes) = copyobj(obj.axes_Segments, panel);
         exportAxes(numAxes).UserData = 'axes_Segments';
+        % Remove borders around syllables
+        annotationHandles = findobj(exportAxes(numAxes), 'Type', 'patch');
+        set(annotationHandles, 'EdgeColor', 'none');
     end
     if obj.settings.Export.IncludeTopChannelAxes && obj.axes_Channel(1).Visible
         numAxes = numAxes + 1;
@@ -3779,6 +3786,7 @@ function exportAxes = getExportAxesCopies(obj, panel)
         exportAxes(numAxes) = copyobj(obj.axes_Channel(2), panel);
         exportAxes(numAxes).UserData = 'axes_Channel2';
     end
+    set(exportAxes, 'Units', 'normalized');
 end
 function export(obj)
     obj.ensureExportSettingsExist();
@@ -3846,6 +3854,16 @@ function export(obj)
         %   have the tag 'channelPlot' and delete them.
         delete(findobj([exportAxes_Channels.Children], '-not', 'Tag', 'channelPlot'));
     end
+
+    % Generate footer, if requested
+    notes = obj.getNote(filenum);
+    footerString = obj.generateExportFooterText(notes);
+    if ~isempty(footerString )
+        footerText = uicontrol(panel, 'Style', 'text', 'String', footerString , 'Units', 'normalized');
+        setPositionWithUnits(footerText, [0, panel.Position(3)], panel.Units, [1, 3]);
+        exportWidgets(end+1) = footerText;
+    end
+    
 
     stackChildren(panel, exportWidgets, 'Orientation', 'downwards', 'SortOrder', 'given');
     shrinkToContent(panel, ...
@@ -8677,8 +8695,9 @@ function setupGUI(obj)
     obj.FileInfoBrowser.CellEditCallback = @obj.GUIPropertyChangeHandler;
     obj.FileInfoBrowser.ContextMenu = obj.context_FileInfoBrowser;
 
-    obj.createExportControlPanel();
+    obj.ensureExportControlPanelExists();
     obj.ensureExportSettingsExist();
+    obj.updateExportControlGUIValues();
     obj.createExportWindow();
 end
 function createExportControlPanel(obj)
@@ -8752,14 +8771,14 @@ function createExportControlPanel(obj)
     obj.ExportControlPanel.includeOptions(end+1).Name = 'IncludeEvents';
     obj.ExportControlPanel.includeOptions(end).Label = 'Events';
     obj.ExportControlPanel.includeOptions(end).Default = false;
+    obj.ExportControlPanel.includeOptions(end+1).Name = 'IncludeTimestamp';
+    obj.ExportControlPanel.includeOptions(end).Label = 'Timestamp';
+    obj.ExportControlPanel.includeOptions(end).Default = false;
     obj.ExportControlPanel.includeOptions(end+1).Name = 'IncludeFilenum';
     obj.ExportControlPanel.includeOptions(end).Label = 'File number'; 
     obj.ExportControlPanel.includeOptions(end).Default = false;
     obj.ExportControlPanel.includeOptions(end+1).Name = 'IncludeFilename';
     obj.ExportControlPanel.includeOptions(end).Label = 'File name'; 
-    obj.ExportControlPanel.includeOptions(end).Default = false;
-    obj.ExportControlPanel.includeOptions(end+1).Name = 'IncludeTimestamp';
-    obj.ExportControlPanel.includeOptions(end).Label = 'Timestamp';
     obj.ExportControlPanel.includeOptions(end).Default = false;
     obj.ExportControlPanel.includeOptions(end+1).Name = 'IncludeDirectory';
     obj.ExportControlPanel.includeOptions(end).Label = 'File directory';
@@ -8962,7 +8981,6 @@ function createExportControlPanel(obj)
     gridChildren(gridLayout, 'ColumnWidths', [width/2, width/2], 'ColumnUnits', 'characters');
 
     shrinkToContent(obj.ExportControlPanel.fig);
-
 end
 function updateExportPanelLayout(obj) 
     obj.arrangeExportPanels();
@@ -8977,7 +8995,7 @@ function updateExportControlGUIValues(obj)
     end
 
     obj.ensureExportControlPanelExists();
-    if isfield(obj.settings, 'ExportControlValues')
+    if isfield(obj.settings, 'Export')
         % Update time range mode in GUI
         if isfield(obj.ExportControlPanel, obj.settings.Export.TimeRangeMode)
             radioButton = obj.ExportControlPanel.(obj.settings.Export.TimeRangeMode);
@@ -8991,7 +9009,7 @@ function updateExportControlGUIValues(obj)
         for k = 1:length(options)
             % Loop over settings and update each checkbox
             checkbox = obj.ExportControlPanel.(options(k).Name);
-            checkbox.value = obj.settings.Export.(options(k).Name);
+            checkbox.Value = obj.settings.Export.(options(k).Name);
         end
 
         % Update layout values in GUI
@@ -9027,11 +9045,14 @@ function updateExportControlGUIValues(obj)
         %   Update layout scale width
         obj.ExportControlPanel.LayoutScaleWidthInput.String = num2str(obj.settings.Export.LayoutScaleWidth);
         obj.ExportControlPanel.LayoutScaleHeightInput.String = num2str(obj.settings.Export.LayoutScaleHeight);
+        obj.ExportControlPanel.LayoutXSpacingInput.String = num2str(obj.settings.Export.LayoutXSpacing);
+        obj.ExportControlPanel.LayoutYSpacingInput.String = num2str(obj.settings.Export.LayoutYSpacing);
     end
 end
 function ensureExportControlPanelExists(obj)
     % Make sure export control panel figure exists. If not, create it.
-    if isempty(obj.ExportControlPanel.fig) || ...
+    if ~isfield(obj.ExportControlPanel, 'fig') || ...
+            isempty(obj.ExportControlPanel.fig) || ...
             ~isgraphics(obj.ExportControlPanel.fig) || ...
             ~isvalid(obj.ExportControlPanel.fig)
         obj.createExportControlPanel();
@@ -9131,7 +9152,7 @@ function recordExportControlValues(obj)
     % Store export control GUI values in obj.settings.Export
     obj.ensureExportControlPanelExists();
 
-    obj.settings.Export = obj.getExportControlValues();
+    obj.settings.Export = mergeStructures(obj.settings.Export, obj.getExportControlValues());
 
     obj.updateExportWindow();
 end
@@ -9156,6 +9177,10 @@ function createExportWindow(obj)
     obj.addExportTab(obj.settings.Export.DefaultTabName);
 end
 function newTab = addExportTab(obj, name)
+    arguments
+        obj electro_gui
+        name = obj.settings.Export.DefaultTabName
+    end
     % Make sure tab name is unique
     tabNames = {obj.ExportWindow.tabs.Title};
     name = getUniqueName(name, tabNames);
@@ -9175,6 +9200,12 @@ function newTab = addExportTab(obj, name)
     uimenu(newTab.ContextMenu, ...
         'Label', 'Copy to figure', ...
         'Callback', @(hObject, event)obj.copyExportTabToFigure(newTab));
+    uimenu(newTab.ContextMenu, ...
+        'Label', 'Copy to figure', ...
+        'Callback', @(hObject, event)obj.copyExportTabToFigure(newTab));
+    uimenu(newTab.ContextMenu, ...
+        'Label', 'New tab', ...
+        'Callback', @(hObject, event)obj.addExportTab());
     tabIdx = length(obj.ExportWindow.tabs) + 1;
     obj.ExportWindow.tabs(tabIdx) = newTab;
     obj.ExportWindow.panels{tabIdx} = matlab.ui.container.Panel.empty();
