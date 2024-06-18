@@ -2545,7 +2545,7 @@ function UpdateActiveAnnotationDisplay(obj, oldAnnotationNum, oldAnnotationType,
             obj.SegmentHandles(newAnnotationNum).LineStyle = '-';
             activeAnnotationTimes = obj.dbase.SegmentTimes{filenum}(newAnnotationNum, :) / obj.dbase.Fs;
         case 'marker'
-            obj.MarkerHandles(newAnnotationNum).EdgeColor = obj.settings.SegmentInactiveColor;
+            obj.MarkerHandles(newAnnotationNum).EdgeColor = obj.settings.MarkerActiveColor;
             obj.MarkerHandles(newAnnotationNum).LineWidth = 2;
             obj.MarkerHandles(newAnnotationNum).LineStyle = '-';
             activeAnnotationTimes = obj.dbase.MarkerTimes{filenum}(newAnnotationNum, :) / obj.dbase.Fs;
