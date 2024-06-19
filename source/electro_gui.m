@@ -3620,15 +3620,27 @@ end
 function tab = getCurrentExportTab(obj)
     tab = obj.ExportWindow.tabGroup.SelectedTab;
 end
-function copyExportTabToFigure(obj, tab)
-    position = getWidgetScreenPosition(tab.Parent, 'pixels');
-    position(1:2) = position(1:2) + [50, -50];
-    f = figure('Units', 'pixels', 'Position', position);
-    for k = 1:length(tab.Children)
-        copyobj(tab.Children(k), f);
+function copyExportTabToFigure(obj, tabOrGroup)
+    switch class(tabOrGroup)
+        case 'matlab.ui.container.Tab'
+            % Copy the tab to a separate figures
+            tab = tabOrGroup;
+            position = getWidgetScreenPosition(tab.Parent, 'pixels');
+            position(1:2) = position(1:2) + [50, -50];
+            f = figure('Units', 'pixels', 'Position', position);
+            for k = 1:length(tab.Children)
+                copyobj(tab.Children(k), f);
+            end
+            removeUIPanels(f);
+            shrinkToContent(f);
+        case 'matlab.ui.container.TabGroup'
+            % Copy all tabs within the gab group to separate figures
+            tabs = findobj(tabOrGroup, 'Type', 'uitab');
+            for k = 1:length(tabs)
+                tab = tabs(k);
+                obj.copyExportTabToFigure(tab);
+            end
     end
-    removeUIPanels(f);
-    shrinkToContent(f);
 end
 function deleteExportPanel(obj, panel)
     % Properly delete an export window panel
@@ -3786,7 +3798,6 @@ function exportAxes = getExportAxesCopies(obj, panel)
         exportAxes(numAxes) = copyobj(obj.axes_Channel(2), panel);
         exportAxes(numAxes).UserData = 'axes_Channel2';
     end
-    set(exportAxes, 'Units', 'normalized');
 end
 function export(obj)
     obj.ensureExportSettingsExist();
@@ -3805,8 +3816,15 @@ function export(obj)
 
     tlim = obj.getExportTLim(filenum);
 
+    % Get sound data to store in panel for playback
+    [soundData, fs] = obj.getSound([], filenum);
+    slim = round(tlim * fs);
+    slim(1) = max(slim(1), 1);
+    slim(2) = min(slim(2), length(soundData));
+    soundData = soundData(slim(1):slim(2));
+
     % Create new empty panel with appropriate width, but arbitrary height
-    panel = obj.addExportPanel(tab, filenum, filename, fileTimestamp, fileDatetime, tlim);
+    panel = obj.addExportPanel(tab, filenum, filename, fileTimestamp, fileDatetime, tlim, soundData, fs);
 
     exportWidgets = gobjects().empty;
 
@@ -3823,6 +3841,7 @@ function export(obj)
 
     % Get copies of all requested export axes
     exportAxes = obj.getExportAxesCopies(panel);
+    set(exportAxes, 'Units', 'normalized');
     numAxes = length(exportAxes);
 
     % Style and position copied export axes and other widgets
@@ -3831,6 +3850,8 @@ function export(obj)
         ax = exportAxes(axesNum);
         % Set width to fill panel horizontally
         setPositionWithUnits(ax, panel.Position(3), panel.Units, 3);
+        % Set x position
+        ax.Position(1) = 0;
         % Set height
         newHeight = ax.Position(4) * heightScale;
         currentY = currentY - newHeight;
@@ -3846,6 +3867,8 @@ function export(obj)
         % Add context menu
         set(ax.Children, 'ContextMenu', panel.ContextMenu);
         exportWidgets(end+1) = ax;
+        % Set up invisible cursor for playing
+        panel.UserData.soundCursors(axesNum) = line([tlim(1), tlim(1)], ylim(ax), 'Parent', ax, 'Color', 'green', 'Visible', false);
     end
     if ~obj.settings.Export.IncludeEvents
         % Find which export axes are the copies of the axes_Channels
@@ -9176,13 +9199,39 @@ function createExportWindow(obj)
     obj.ExportWindow.panels = {};  % Cell array of panels, one cell per tab
     obj.addExportTab(obj.settings.Export.DefaultTabName);
 end
+function renameExportTab(obj, tab)
+    tabNames = {obj.ExportWindow.tabs.Title};
+    defaultName = getUniqueName(obj.settings.Export.DefaultTabName, tabNames);
+    name = inputdlg('New name for tab:', 'Rename export tab', 1, {defaultName});
+    if isempty(name)
+        % User cancelled, do nothing
+        return;
+    else
+        tab.Title = name{1};
+    end
+end
 function newTab = addExportTab(obj, name)
     arguments
         obj electro_gui
         name = obj.settings.Export.DefaultTabName
     end
-    % Make sure tab name is unique
+
     tabNames = {obj.ExportWindow.tabs.Title};
+
+    if isempty(name)
+        % Prompt user for name
+        defaultName = getUniqueName(obj.settings.Export.DefaultTabName, tabNames);
+        name = inputdlg('New name for tab:', 'Rename export tab', 1, {defaultName});
+        if isempty(name)
+            % User cancelled, do nothing
+            return;
+        else
+            % User entered a name
+            name = name{1};
+        end
+    end
+
+    % Make sure tab name is unique
     name = getUniqueName(name, tabNames);
     
     % Create a new tab
@@ -9201,16 +9250,22 @@ function newTab = addExportTab(obj, name)
         'Label', 'Copy to figure', ...
         'Callback', @(hObject, event)obj.copyExportTabToFigure(newTab));
     uimenu(newTab.ContextMenu, ...
-        'Label', 'Copy to figure', ...
-        'Callback', @(hObject, event)obj.copyExportTabToFigure(newTab));
+        'Label', 'Copy all to figure', ...
+        'Callback', @(hObject, event)obj.copyExportTabToFigure(obj.ExportWindow.tabGroup));
     uimenu(newTab.ContextMenu, ...
         'Label', 'New tab', ...
         'Callback', @(hObject, event)obj.addExportTab());
+    uimenu(newTab.ContextMenu, ...
+        'Label', 'New tab named...', ...
+        'Callback', @(hObject, event)obj.addExportTab([]));
+    uimenu(newTab.ContextMenu, ...
+        'Label', 'Rename tab', ...
+        'Callback', @(hObject, event)obj.renameExportTab(newTab));
     tabIdx = length(obj.ExportWindow.tabs) + 1;
     obj.ExportWindow.tabs(tabIdx) = newTab;
     obj.ExportWindow.panels{tabIdx} = matlab.ui.container.Panel.empty();
 end
-function newPanel = addExportPanel(obj, nameIdxOrTab, filenum, filename, fileTimestamp, fileDatetime, viewTimeRange)
+function newPanel = addExportPanel(obj, nameIdxOrTab, filenum, filename, fileTimestamp, fileDatetime, viewTimeRange, soundData, fs)
     % Create a blank export panel tagged with information about the export,
     % but without the actual exported graphics
     arguments
@@ -9221,6 +9276,8 @@ function newPanel = addExportPanel(obj, nameIdxOrTab, filenum, filename, fileTim
         fileTimestamp {mustBeText}
         fileDatetime datetime
         viewTimeRange (1, 2) double
+        soundData double
+        fs double
     end
 
     [tabIdx, ~, tab] = obj.getExportTab(nameIdxOrTab);
@@ -9229,18 +9286,40 @@ function newPanel = addExportPanel(obj, nameIdxOrTab, filenum, filename, fileTim
     info.fileTimestamp = fileTimestamp;
     info.fileDatetime = fileDatetime;
     info.timeRange = viewTimeRange;
+    info.soundData = soundData;
+    info.soundCursors = gobjects().empty;
+    info.fs = fs;
     startTimeInSeconds = viewTimeRange(1) / (60*60*24);
     info.time = fileDatetime + startTimeInSeconds;
+    info.stopFlag = false;
+    info.nextPanel = gobjects().empty;
     newPanel = uipanel(tab, ...
         'UserData', info, ...
         'BorderType', 'none', ...
         'Units', 'inches', ...
         'Title', '');
+    % Add playback
+
     % Add context menu
     newPanel.ContextMenu = uicontextmenu(obj.ExportWindow.fig);
     uimenu(newPanel.ContextMenu, ...
         'Label', 'Delete clip', ...
         'Callback', @(hObject, event)obj.deleteExportPanel(newPanel));
+    uimenu(newPanel.ContextMenu, ...
+        'Label', 'Play once', ...
+        'Callback', @(hObject, event)electro_gui.exportPlayback(newPanel, false, false));
+    uimenu(newPanel.ContextMenu, ...
+        'Label', 'Play repeat', ...
+        'Callback', @(hObject, event)electro_gui.exportPlayback(newPanel, true, false));
+    uimenu(newPanel.ContextMenu, ...
+        'Label', 'Play all', ...
+        'Callback', @(hObject, event)electro_gui.exportPlayback(newPanel, false, true));
+    uimenu(newPanel.ContextMenu, ...
+        'Label', 'Stop', ...
+        'Callback', @(hObject, event)electro_gui.exportStopPlayback(newPanel));
+    uimenu(newPanel.ContextMenu, ...
+        'Label', 'Show in explorer', ...
+        'Callback', @(hObject, event)electro_gui.showFileInExplorer(fullfile(obj.dbase.PathName, filename)));
     obj.ExportWindow.panels{tabIdx}(end+1) = newPanel;
 end
 function arrangeExportPanels(obj)
@@ -9267,26 +9346,38 @@ function arrangeExportPanels(obj)
                 sortOrder = 1:length(obj.ExportWindow.panels{tabNum});
         end
         sortedPanels{tabNum} = obj.ExportWindow.panels{tabNum}(sortOrder);
+
+        % Set next panel attribute
+        numPanels = length(sortedPanels{tabNum});
+        for panelNum = 1:numPanels
+            panel = sortedPanels{tabNum}(panelNum);
+            panel.UserData.nextPanel = sortedPanels{tabNum}(mod1(panelNum+1, numPanels));
+        end
     end
 
     % Set panel widths
     for tabNum = 1:length(obj.ExportWindow.tabs)
-        tab = obj.ExportWindow.tabs(tabNum);
         for panelNum = 1:length(sortedPanels{tabNum})
             panel = sortedPanels{tabNum}(panelNum);
             info = panel.UserData;
             switch obj.settings.Export.LayoutScaleMode
                 case 'LayoutScaleByTime'
+                    panel.Units = 'inches';
                     widthInches = diff(info.timeRange) * obj.settings.Export.LayoutScaleWidth;
+                    % Set width in inches
+                    setPositionWithUnits(panel, widthInches, 'inches', 3);    
                 case 'LayoutScaleEqualWidth'
+                    panel.Units = 'inches';
                     widthInches = obj.settings.Export.LayoutScaleWidth;
+                    % Set width in inches
+                    setPositionWithUnits(panel, widthInches, 'inches', 3);    
                 case 'LayoutScaleFullWidth'
-                    widthInches = getPositionWithUnits(tab, 'inches', 3);
+                    % Set width normalized
+                    panel.Units = 'normalized';
+                    panel.Position(3) = 1;
                 otherwise
                     error('Unknown layout scale mode: %s', obj.settings.Export.LayoutScaleMode);
             end
-            % Set width in inches
-            setPositionWithUnits(panel, widthInches, 'inches', 3);    
         end
     end
 
@@ -9297,7 +9388,8 @@ function arrangeExportPanels(obj)
                 tabPos = getPositionWithUnits(obj.ExportWindow.tabs, commonUnits);
                 tabHeight = tabPos(4);
                 currentY = tabHeight;
-                for panelNum = 1:length(sortedPanels{tabNum})
+                numPanels = length(sortedPanels{tabNum});
+                for panelNum = 1:numPanels
                     % Get panel
                     panel = sortedPanels{tabNum}(panelNum);
                     % Get current position
@@ -12704,6 +12796,48 @@ end
             else
                 settingValue = dbase.(settingKey);
             end
+        end
+        %% Export related utility functions
+        function exportPlayback(panel, repeat, continueToNext)
+            try
+                ap = audioplayer(panel.UserData.soundData, panel.UserData.fs);
+                play(ap);
+                fs = panel.UserData.fs;
+                t0 = panel.UserData.timeRange(1);
+                set(panel.UserData.soundCursors, 'Visible', true);
+                while isplaying(ap) && ~panel.UserData.stopFlag
+                    currentSample = ap.CurrentSample;
+                    set(panel.UserData.soundCursors, 'XData', t0 + [currentSample, currentSample]/fs);
+                    drawnow;
+                end
+                set(panel.UserData.soundCursors, 'Visible', false);
+                if panel.UserData.stopFlag
+                    % Reset stop flag
+                    panel.UserData.stopFlag = false;
+                else
+                    % See if we should repeat or continue to next
+                    if continueToNext && ~isempty(panel.UserData.nextPanel)
+                        t = timer("TimerFcn", @(varargin)electro_gui.exportPlayback(panel.UserData.nextPanel, repeat, continueToNext));
+                        start(t);
+                    elseif repeat
+                        t = timer("TimerFcn", @(varargin)electro_gui.exportPlayback(panel, repeat, continueToNext));
+                        start(t);
+                    end
+                end
+            catch ME
+                % Something went wrong, try to gracefully stop playback
+                stop(ap);
+                set(panel.UserData.soundCursors, 'Visible', false);
+                panel.UserData.stopFlag = true;
+                rethrow(ME);
+            end
+        end
+        function exportStopPlayback(panel)
+            panel.UserData.stopFlag = true;
+        end
+        function showFileInExplorer(filepath)
+            command = sprintf('explorer.exe /select,"%s"', filepath);
+            system(command);
         end
         %% Plugin related utility functions
         function [pluginNames, pluginTypes] = getPluginNamesFromFilenames(pluginFilenames)
