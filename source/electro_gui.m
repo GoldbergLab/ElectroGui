@@ -1861,68 +1861,36 @@ end
 function progress_play(obj, wav)
     % Get time limits for visible sonogram
     timeLimits = obj.axes_Sonogram.XLim;
-    % Get audio sample limits for the visible sonogram
-    sampleLimits = round(timeLimits*obj.dbase.Fs);
-    % Ensure sample number is in range
-    sampleLimits(1) = sampleLimits(1)+1;
-    sampleLimits(2) = sampleLimits(2)-1;
-    if sampleLimits(1)<1
-        sampleLimits(1) = 1;
-    end
+    % Get the # of samples in the audio data
     numSamples = obj.eg_GetSamplingInfo();
-    if sampleLimits(2) > numSamples
-        sampleLimits(2) = numSamples;
+    % Get audio sample limits for the visible sonogram
+    slim = round(timeLimits*obj.dbase.Fs);
+    % Ensure sample number is in range
+    slim(2) = slim(2)-1;
+    if slim(1)<1
+        slim(1) = 1;
     end
-    if sampleLimits(2)<=sampleLimits(1)
+    if slim(2)>numSamples
+        slim(2) = numSamples;
+    end
+    if slim(2)<=slim(1)
         return
     end
 
-    axs = [obj.axes_Channel2 obj.axes_Channel1 obj.axes_Amplitude obj.axes_Segments obj.axes_Sonogram obj.axes_Sound];
-    ch = obj.menu_export_options_Animation.Children;
-    indx = [];
-    for c = 1:length(ch)
-        if ch(c).Checked && axs(c).Visible
-            indx = [indx, c];
-        end
-    end
-    axs = axs(indx);
-
     fs = obj.dbase.Fs * obj.settings.SoundSpeed;
-    if isempty(axs)
-        playbackFcn = @sound;
-        playbackFcn(wav,fs);
-    else
-        for c = length(axs):-1:1
-            if ~axs(c).Visible
-                axs(c) = [];
-            end
-        end
-        for c = 1:length(axs)
-            hold(axs(c), 'on')
-            if ~obj.playback_Reverse.Checked
-                h(c) = plot(axs(c), [sampleLimits(1) sampleLimits(1)]/obj.dbase.Fs,ylim,'Color',obj.settings.ProgressBarColor,'LineWidth',2);
-            else
-                h(c) = plot(axs(c), [sampleLimits(2) sampleLimits(2)]/obj.dbase.Fs,ylim,'Color',obj.settings.ProgressBarColor,'LineWidth',2);
-            end
-        end
-        ap = audioplayer(wav,fs);
-        play(ap);
-        while isplaying(ap)
-            pos = ap.CurrentSample;
-            for c = 1:length(h)
-                if ~obj.playback_Reverse.Checked
-                    h(c).XData = ([pos pos]+sampleLimits(1)-1)/obj.dbase.Fs;
-                else
-                    h(c).XData = (sampleLimits(2)-[pos pos]+1)/obj.dbase.Fs;
-                end
-            end
-            drawnow;
-        end
-        stop(ap);
-        delete(ap);
-        delete(h);
-        hold(obj.axes_Sonogram, 'off');
+
+    playbackFcn = @sound;
+    playbackFcn(wav,fs);
+
+    ap = audioplayer(wav,fs);
+    play(ap);
+    while isplaying(ap)
+        t = (slim(1) + ap.CurrentSample - 1) / obj.dbase.Fs;
+        obj.setCursorPosition(t);
+        drawnow;
     end
+    stop(ap);
+    delete(ap);
 end
 
 function centerTimescale(obj, centerTime, radiusTime)
@@ -10157,36 +10125,7 @@ end
                         end
                     end
 
-                    % Loop over cursor axes updating cursor
-                    for k = 1:length(cursor_axes)
-                        if k > length(obj.Cursors)
-                            % We're adding a new cursor
-                            obj.Cursors(k) = gobjects();
-                        end
-
-                        ax = cursor_axes(k);
-                        if ~isgraphics(obj.Cursors(k)) || ~isvalid(obj.Cursors(k))
-                            % Cursor is not valid, create a new one
-                            delete(obj.Cursors(k));
-                            if ax.Visible
-                                yl = ylim(ax);
-                                obj.Cursors(k) = line([t, t], yl, 'Parent', ax, 'Color', 'green', 'PickableParts', 'none', 'HitTest', 'off');
-                            end
-                        else
-                            % Cursor is valid, update its values
-                            if ax ~= obj.Cursors(k).Parent
-                                % This cursor belongs to some other axes, fix it
-                                obj.Cursors(k).Parent = ax;
-                            end
-                            if ax.Visible
-                                yl = ylim(ax);
-                                obj.Cursors(k).XData = [t, t];
-                                obj.Cursors(k).YData = yl;
-                            end
-                        end
-                    end
-
-                    return;
+                    obj.setCursorPosition(t, cursor_axes);
                 end
             else
                 if ~isempty(obj.Cursors)
@@ -10196,7 +10135,46 @@ end
             end
 
         end
+        function setCursorPosition(obj, t, cursorAxes)
+            arguments
+                obj electro_gui
+                t double
+                cursorAxes = [obj.axes_Amplitude, ...
+                              obj.axes_Sonogram, ...
+                              obj.axes_Segments, ...
+                              obj.axes_Channel, ...
+                              obj.axes_Sound]
+            end
+            % Loop over cursor axes updating cursor
+            for k = 1:length(cursorAxes)
+                if k > length(obj.Cursors)
+                    % We're adding a new cursor
+                    obj.Cursors(k) = gobjects();
+                end
 
+                ax = cursorAxes(k);
+                if ~ax.Visible
+                    continue;
+                end
+                if ~isgraphics(obj.Cursors(k)) || ~isvalid(obj.Cursors(k))
+                    % Cursor is not valid, create a new one
+                    delete(obj.Cursors(k));
+                    if ax.Visible
+                        yl = ylim(ax);
+                        obj.Cursors(k) = line([t, t], yl, 'Parent', ax, 'Color', 'green', 'PickableParts', 'none', 'HitTest', 'off');
+                    end
+                else
+                    % Cursor is valid, update its values
+                    if ax ~= obj.Cursors(k).Parent
+                        % This cursor belongs to some other axes, fix it
+                        obj.Cursors(k).Parent = ax;
+                    end
+                    yl = ylim(ax);
+                    obj.Cursors(k).XData = [t, t];
+                    obj.Cursors(k).YData = yl;
+                end
+            end
+        end
         function keyReleaseHandler(obj, hObject, event)
             % Callback to handle a key release
 
