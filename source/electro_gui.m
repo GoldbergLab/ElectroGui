@@ -12393,14 +12393,14 @@ end
                 return
             end
         
-            obj.SaveState();
-        
             fileNames = obj.getFileNames();
         
             [fileNumsToDelete,ok] = listdlg('ListString',fileNames,'Name','Delete files','PromptString','Select files to DELETE','InitialValue',[],'ListSize',[300 450]);
             if ok == 0
                 return
             end
+        
+            obj.SaveState();
         
             old_sound_files = obj.dbase.SoundFiles;
         
@@ -12551,22 +12551,26 @@ end
             dbase.ChannelLoader =       gvod(baseDbase, 'ChannelLoader', {});
             dbase.PathName =            gvod(baseDbase, 'PathName', '');
 
-            dbase.Times =               zeros(1,numFiles);
-            dbase.FileLength =          zeros(1,numFiles);
-            dbase.FileReadState =       false(1, numFiles);
-            dbase.Notes =               repmat({''}, 1, numFiles);
-            dbase.SegmentThresholds =   inf(1,numFiles);
-            dbase.SegmentTimes =        cell(1,numFiles);
-            dbase.SegmentTitles =       cell(1,numFiles);
-            dbase.SegmentIsSelected =   cell(1,numFiles);
-            dbase.MarkerTimes =         cell(1,numFiles);
-            dbase.MarkerTitles =        cell(1,numFiles);
-            dbase.MarkerIsSelected =    cell(1,numFiles);
-            dbase.EventThresholds =     zeros(0,numFiles);
+            dbase.Times =               gvod(baseDbase, 'Times', zeros(1,numFiles));
+            dbase.FileLength =          gvod(baseDbase, 'FileLength', zeros(1,numFiles));
+            dbase.FileReadState =       gvod(baseDbase, 'FileReadState', false(1, numFiles));
+            dbase.Notes =               gvod(baseDbase, 'Notes', repmat({''}, 1, numFiles));
+            dbase.SegmentThresholds =   gvod(baseDbase, 'SegmentThresholds', inf(1,numFiles));
+            dbase.SegmentTimes =        gvod(baseDbase, 'SegmentTimes', cell(1,numFiles));
+            dbase.SegmentTitles =       gvod(baseDbase, 'SegmentTitles', cell(1,numFiles));
+            dbase.SegmentIsSelected =   gvod(baseDbase, 'SegmentIsSelected', cell(1,numFiles));
+            dbase.MarkerTimes =         gvod(baseDbase, 'MarkerTimes', cell(1,numFiles));
+            dbase.MarkerTitles =        gvod(baseDbase, 'MarkerTitles', cell(1,numFiles));
+            dbase.MarkerIsSelected =    gvod(baseDbase, 'MarkerIsSelected', cell(1,numFiles));
+            dbase.EventThresholds =     gvod(baseDbase, 'EventThresholds', zeros(0,numFiles));
 
             % Create properties info
             dbase.PropertyNames =       gvod(baseDbase, 'PropertyNames', settings.DefaultProperties.Names);
-            dbase.Properties =          gvod(baseDbase, 'Properties', repmat(settings.DefaultProperties.Values, numFiles, 1));
+            defaultProperties = settings.DefaultProperties.Values;
+            if all(size(defaultProperties) == 0)
+                defaultProperties = false(numFiles, 0);
+            end
+            dbase.Properties =          gvod(baseDbase, 'Properties', defaultProperties);
 
             % Initialize event-related variables
             dbase.EventSources =            gvod(baseDbase, 'EventSources', {});      % Array of event source channel names
@@ -12578,9 +12582,10 @@ end
             dbase.EventParameters =         gvod(baseDbase, 'EventParameters', {});   % Array of event source detector parameters
             dbase.EventParts =              gvod(baseDbase, 'EventParts', {});        % Array of event parts
             dbase.EventTimes =              gvod(baseDbase, 'EventTimes', {});
+            dbase.EventIsSelected =         gvod(baseDbase, 'EventIsSelected', {});
             for eventSourceIdx = 1:length(dbase.EventSources)
-                dbase.EventTimes{eventSourceIdx} = cell(0, numFiles);
-                dbase.EventIsSelected{eventSourceIdx} = cell(0, numFiles);
+                gvod(dbase, 'EventTimes', cell(0, numFiles), 'Index', eventSourceIdx, 'IndexType', 'cell');
+                gvod(dbase, 'EventIsSelected', cell(0, numFiles), 'Index', eventSourceIdx, 'IndexType', 'cell');
             end
 
             % PseudoChannels are computed channels that show up like regular
@@ -12815,11 +12820,35 @@ end
                 fprintf('***************************************************************************************************************\n\n')
             end
         end
-        function settingValue = getValueOrDefault(dbase, settingKey, default)
-            if ~isfield(dbase, settingKey) || isempty(dbase.(settingKey))
+        function settingValue = getValueOrDefault(dbase, settingKey, default, options)
+            arguments
+                dbase struct
+                settingKey {mustBeTextScalar}
+                default
+                options.Index = 0
+                options.IndexType {mustBeMember(options.IndexType, {'normal', 'cell'})} = 'normal'
+            end
+            if ~isfield(dbase, settingKey) || all(size(dbase.(settingKey)) == 0)
+                % Field does not exists - use default
                 settingValue = default;
             else
+                % Field exists
                 settingValue = dbase.(settingKey);
+                if options.Index > 0
+                    % We're getting a specific index
+                    if options.Index > length(settingValue)
+                        % Index doesn't exist - use default
+                        settingValue = default;
+                    else
+                        % Index exists - use existing value
+                        switch options.IndexType
+                            case 'normal'
+                                settingValue = settingValue(options.Index);
+                            case 'cell'
+                                settingValue = settingValue{options.Index};
+                        end
+                    end
+                end
             end
         end
         %% Export related utility functions
