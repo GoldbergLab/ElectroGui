@@ -1,21 +1,25 @@
-function handles = egm_Batch_event_detect(handles)
+function egm_Batch_event_detect(obj)
 % ElectroGui macro
 % Batch event detection for faster analysis
 % Uses current event detection algorithms
 % Only works for segmentation based on sound amplitude
+arguments
+    obj electro_gui
+end
 
-answer = inputdlg({'File range'},'File range',1,{['1:' num2str(handles.TotalFileNumber)]});
+
+numFiles = obj.getNumFiles(obj.dbase);
+
+answer = inputdlg({'File range'},'File range',1,{['1:' num2str(numFiles)]});
 if isempty(answer)
     return
 end
 
 filenums = eval(answer{1});
-x = mean(xlim(handles.axes_Sonogram));
-y = mean(ylim(handles.axes_Sonogram));
-txt = text(handles.axes_Sonogram, x, y, ...
-    'Detecting events... Click to quit.', 'HorizontalAlignment', 'center', ...
-    'FontSize', 14, 'Color', 'r', 'BackgroundColor', 'w');
-txt.ButtonDownFcn = @(varargin)set(txt, 'Color', 'g');
+x = mean(xlim(obj.axes_Sonogram));
+y = mean(ylim(obj.axes_Sonogram));
+
+progressBar = waitbar(0, obj.figure_Main, 'Detecting events...');
 
 for fileIdx = 1:length(filenums)
     filenum = filenums(fileIdx);
@@ -23,19 +27,22 @@ for fileIdx = 1:length(filenums)
         break
     end
 
-    handles.FileLength(filenum) = 0;
+    obj.dbase.FileLength(filenum) = 0;
     for axnum = 1:2
-        eventSourceIdx = electro_gui('GetChannelAxesEventSourceIdx', handles, axnum);
+        eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
         if ~isempty(eventSourceIdx)
-            handles = electro_gui('DetectEvents', handles, eventSourceIdx, filenum);
+            obj.DetectEvents(eventSourceIdx, filenum);
         end
     end
-    
-    txt.String = sprintf('Detected events in file %d (%d/%d). Click to quit.', filenum, fileIdx, length(filenums));
+
+    if ~isvalid(progressBar)
+        msgbar('Batch event detect stopped');
+        return
+    end
+
+    waitbar(filenum/length(filenums), progressBar);
+
     drawnow;
 end
 
-delete(txt);
-
 msgbox(sprintf('Detected events in %d files. Detection complete', fileIdx));
-
