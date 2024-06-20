@@ -1830,7 +1830,13 @@ function [chosenDefaults, cancel] = chooseDefaultsFile(obj)
         end
     end
 end
-
+function setFilenum(obj, filenum)
+    if str2double(obj.edit_FileNumber.String) ~= filenum
+        obj.edit_FileNumber.String = num2str(filenum);
+    end
+    obj.settings.CurrentFile = filenum;
+    obj.LoadFile();
+end
 function changeFile(obj, delta)
     % Switch file number by delta
     filenum = electro_gui.getCurrentFileNum(obj.settings);
@@ -1850,10 +1856,7 @@ function changeFile(obj, delta)
         end
         filenum = obj.settings.FileSortOrder(shufflenum);
     end
-    obj.edit_FileNumber.String = num2str(filenum);
-    obj.settings.CurrentFile = filenum;
-
-    obj.LoadFile();
+    obj.setFilenum(filenum);
 end
 function progress_play(obj, wav)
     % Get time limits for visible sonogram
@@ -3470,11 +3473,10 @@ function OpenDbase(obj, filePathOrDbase, options)
 
     waitbar(0.57, progressBar)
 
-    obj.edit_FileNumber.String = num2str(settings.CurrentFile);
 
     % Update file browser
-    obj.edit_FileNumber.String = '1';
-    obj.FileInfoBrowser.SelectedRow = 1;
+    obj.edit_FileNumber.String = num2str(settings.CurrentFile);
+    obj.FileInfoBrowser.SelectedRow = settings.CurrentFile;
     obj.UpdateFileInfoBrowser();
     
     obj.FileInfoBrowser.SelectedRow = settings.CurrentFile;
@@ -3604,11 +3606,14 @@ function zoomInTime(obj, tCenter, zoomLevels)
     obj.settings.TLim = [tCenter - tFraction * newTWidth, tCenter + (1-tFraction) * newTWidth];
     obj.updateTimescaleView();
 end
-function tab = getExportFileTab(obj)
+function tab = getExportFileTab(obj, filenum)
     % Get existing or new tab based on current file for exporting to
+    arguments
+        obj electro_gui
+        filenum = obj.getCurrentFileNum(obj.settings)
+    end
     obj.ensureExportWindowExists();
     titles = {obj.ExportWindow.tabs.Title};
-    filenum = obj.getCurrentFileNum();
     currentFileTitle = sprintf('File %d', filenum);
     idx = find(strcmp(titles, currentFileTitle), 1);
     if isempty(idx)
@@ -3799,22 +3804,33 @@ function exportAxes = getExportAxesCopies(obj, panel)
         exportAxes(numAxes).UserData = 'axes_Channel2';
     end
 end
-function export(obj)
-    obj.ensureExportSettingsExist();
-    obj.showExportWindow();
-
-    switch obj.settings.Export.LayoutTabMode
+function tab = getTargetExportTab(obj, mode)
+    arguments
+        obj electro_gui
+        mode = obj.settings.Export.LayoutTabMode
+    end
+    switch mode
         case 'LayoutTabCurrent'
             tab = obj.getCurrentExportTab();
         case 'LayoutTabFile'
             tab = obj.getExportFileTab();
+        otherwise
+            error('Unknown layout tab mode: %s', mode);
     end
-    filenum = electro_gui.getCurrentFileNum(obj.settings);
+end
+function export(obj, filenum, tlim, tab)
+    arguments
+        obj electro_gui
+        filenum = electro_gui.getCurrentFileNum(obj.settings)
+        tlim = obj.getExportTLim(filenum);
+        tab = obj.getTargetExportTab()
+    end
+    obj.ensureExportSettingsExist();
+    obj.showExportWindow();
+    obj.ExportWindow.tabGroup.SelectedTab = tab;
     filename = electro_gui.getCurrentFileName(obj.dbase, obj.settings);
     fileTimestamp = electro_gui.getFileTimestamp(obj.dbase, filenum);
     fileDatetime = electro_gui.getFileDatetime(obj.dbase, filenum);
-
-    tlim = obj.getExportTLim(filenum);
 
     % Get sound data to store in panel for playback
     [soundData, fs] = obj.getSound([], filenum);
@@ -9261,6 +9277,13 @@ function newTab = addExportTab(obj, name)
     uimenu(newTab.ContextMenu, ...
         'Label', 'Rename tab', ...
         'Callback', @(hObject, event)obj.renameExportTab(newTab));
+    uimenu(newTab.ContextMenu, ...
+        'Label', 'Rename tab', ...
+        'Callback', @(hObject, event)obj.renameExportTab(newTab));
+    uimenu(newTab.ContextMenu, ...
+        'Label', 'Show control panel', ...
+        'Callback', @(hObject, event)obj.showExportControlPanel(), ...
+        'Separator', 'on');
     tabIdx = length(obj.ExportWindow.tabs) + 1;
     obj.ExportWindow.tabs(tabIdx) = newTab;
     obj.ExportWindow.panels{tabIdx} = matlab.ui.container.Panel.empty();
@@ -9398,7 +9421,8 @@ function arrangeExportPanels(obj)
                     % Find lower y bound
                     currentY = currentY - panelHeight - obj.settings.Export.LayoutYSpacing;
                     % Set new position
-                    setPositionWithUnits(panel, [0, currentY, panelWidth], commonUnits, [1, 2, 3]);
+                    setPositionWithUnits(panel, ...
+                        [0, currentY, panelWidth], commonUnits, [1, 2, 3]);
                 end
             end
         case 'LayoutLineFree'
@@ -9562,11 +9586,7 @@ end
                 filenum = 1;
             end
 
-            obj.settings.CurrentFile = filenum;
-
-            obj.SaveState();
-
-            obj.LoadFile();
+            obj.setFilenum(filenum);
         end
         function click_sound(obj, hObject, event)
             % Callback for a mouse click on any of the sound axes
@@ -10271,10 +10291,7 @@ end
                         if filenum == 0
                             filenum = electro_gui.getNumFiles(obj.dbase);
                         end
-                        obj.edit_FileNumber.String = num2str(filenum);
-
-                        obj.LoadFile();
-
+                        obj.setFilenum(filenum);
                         return
                     case 'period'
                         % Keypress is a "period" - load next file
@@ -10283,10 +10300,7 @@ end
                         if filenum > electro_gui.getNumFiles(obj.dbase)
                             filenum = 1;
                         end
-                        obj.edit_FileNumber.String = num2str(filenum);
-
-                        obj.LoadFile();
-
+                        obj.setFilenum(filenum);
                         return
                     case obj.settings.ValidSegmentCharacters
                         % Key was a valid character for naming a segment/marker
@@ -11281,6 +11295,15 @@ end
         function showExportControlPanel(obj)
             obj.ensureExportControlPanelExists();
             obj.ExportControlPanel.fig.Visible = true;
+            if obj.ExportWindow.fig.Visible
+                position = getPositionWithUnits(obj.ExportWindow.fig, 'normalized');
+                xCenter = position(1) + position(3)/2;
+                if xCenter > 0.5
+                    anchorWidget(obj.ExportControlPanel.fig, 'NE', obj.ExportWindow.fig, 'NW');
+                else
+                    anchorWidget(obj.ExportControlPanel.fig, 'NW', obj.ExportWindow.fig, 'NE');
+                end
+            end
             figure(obj.ExportControlPanel.fig);
         end
         function menu_ShowExportWindow_Callback(obj, hObject, event)
@@ -11413,12 +11436,8 @@ end
                 % Do nothing
                 return
             end
-            newFileNum = obj.FileInfoBrowser.SelectedRow;
-            obj.edit_FileNumber.String = num2str(newFileNum);
-            obj.settings.CurrentFile = newFileNum;
-            obj.LoadFile();
-
-
+            newFilenum = obj.FileInfoBrowser.SelectedRow;
+            obj.setFilenum(newFilenum);
         end
         function setClickSoundCallback(obj, ax)
             % Set click_sound as button down callback for axes and children
@@ -12653,11 +12672,17 @@ end
             numChannels = length(dbase.ChannelFiles);
         end
         function currentFileNum = getCurrentFileNum(settings)
+            % Get the currently viewed file number
             currentFileNum = settings.CurrentFile;
         end
         function currentFileName = getCurrentFileName(dbase, settings)
+            % Get the currently viewed filename
             currentFileNum = electro_gui.getCurrentFileNum(settings);
             currentFileName = dbase.SoundFiles(currentFileNum).name;
+        end
+        function fileName = getFileName(dbase, filenum)
+            % Get the filename based on the file number
+            fileName = dbase.SoundFiles(filenum).name;
         end
         function isSound = isChannelSound(channelNum)
             isSound = (channelNum == 0);

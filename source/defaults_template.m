@@ -124,26 +124,6 @@ settings.ChannelAxesEventParams = {blankParams, blankParams};
 settings.FilterParams = blankParams;
 settings.SegmenterParams = blankParams;
 settings.SonogramParams = blankParams;
-% 
-% % EXPORTING OPTIONS
-% settings.template.Plot = {'Sonogram'}; % List of plots to include in a figure
-% settings.template.Height = [1]; % Heights assigned to each of the figure plots (inches)
-% settings.template.Interval = [0.1]; % Vertical intervals following each of the figure plots (inches)
-% settings.template.YScaleType = [0]; % Type of a y-scale to use on each of the figure plots. 0 - none; 1 - scalebar; 2 - axis
-% settings.template.AutoYLimits = [1]; % Choose automatic y-limits for each of the figure plots, or use limits currently in the gui?
-% settings.AnimationType = 'Progress bar'; % Type of an animation to use when exporting a figure
-% settings.ScalebarWidth = 0.5; % Preferred length of time-axis scalebars (inches). A value as close to this as possible will be chosen.
-% settings.ScalebarHeight = 0.2; % Preferred length of vertical-axis scalebars (inches). A value as close to this as possible will be chosen.
-% settings.VerticalScalebarPosition = -0.1; % Location of vertical-axis scalebars. Negative value are to the left of the figure; positive to the right.
-% settings.ExportSonogramWidth = 2.5; % Figure width for exporting (inches/sec)
-% settings.ExportSonogramHeight = 0.95; % Sonogram height for exporting (inches)
-% settings.ExportSonogramResolution = 600; % Resolution (dpi) for exported sonogram images
-% settings.ExportReplotSonogram = 1; % Replot sonogram at the specified resolution when exporting, or use the current screen resolution (lower quality)?
-% settings.ExportSonogramIncludeLabel = 1; % Include timestamp label with exported objects?
-% settings.ExportSonogramIncludeClip = 1; % Sound clip to include with exported objects. 0 - none; 1 - sound only; 2 - sound mix
-% settings.SegmentFileFormat = 'Syll\l_Num\i2_File\n4_\dT\t'; % File name format for exporting syllable segments
-% settings.ScalebarPresets = [0.001,  0.002,  0.005,  0.01,    0.02,    0.025,   0.05,    0.1,      0.2,      0.25,     0.5,      1,     2,     5,     10,     20,     30,     60];
-% settings.ScalebarLabels =  {'1 ms', '2 ms', '5 ms', '10 ms', '20 ms', '25 ms', '50 ms', '100 ms', '200 ms', '250 ms', '500 ms', '1 s', '2 s', '5 s', '10 s', '20 s', '30 s', '1 min'};
 
 % ANIMATION SETTINGS
 settings.AnimationPlots = [0 0 0 0 0 0]; % Plot animation over sound wave, sonogram, segments, amplitude, top plot, and bottom plot, respectively
