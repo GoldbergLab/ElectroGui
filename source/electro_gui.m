@@ -1806,7 +1806,6 @@ function isNewUser = ensureDefaultsFileExists(obj, user)
         fclose(fid2);
     end
 end
-
 function [chosenDefaults, cancel] = chooseDefaultsFile(obj)
     % Prompt user to choose a defaults file, then load it.
 
@@ -3536,13 +3535,16 @@ function setTimeViewEdge(obj, edgeTime, edgeSide)
     % Shift view so that the specified edge of the viewing window is at the
     % given time, without changing the width of the viewing window
     % edgeSide should be "left" or "right"
+    arguments
+        obj electro_gui
+        edgeTime double
+        edgeSide {mustBeMember(edgeSide, {'left', 'right'})}
+    end
     switch edgeSide
         case 'left'
             currentEdgeTime = obj.settings.TLim(1);
         case 'right'
             currentEdgeTime = obj.settings.TLim(2);
-        otherwise
-            error('edgeSide should be either ''left'' or ''right''');
     end
     shiftAmount = edgeTime - currentEdgeTime;
     obj.settings.TLim = obj.settings.TLim + shiftAmount;
@@ -3688,6 +3690,8 @@ function tlim = getExportTLim(obj, filenum)
                         'annotation active before exporting.'];
                     msgbox(msg);
                     error(msg);
+                otherwise
+                    error('Unknown annotation type: %s', annotationType);
             end
         case 'TimeRangeAllAnnotations'
             msg = 'Sorry, all annotation export mode not implemented yet';
@@ -3793,6 +3797,14 @@ function export(obj, filenum, tlim, tab)
         tlim = obj.getExportTLim(filenum);
         tab = obj.getTargetExportTab()
     end
+
+    if tlim(1) < obj.settings.TLim(1)
+        obj.setTimeViewEdge(tlim(1), 'left');
+    end
+    if tlim(2) > obj.settings.TLim(2)
+        obj.setTimeViewEdge(tlim(2), 'right');
+    end
+
     obj.ensureExportSettingsExist();
     obj.showExportWindow();
     obj.ExportWindow.tabGroup.SelectedTab = tab;
@@ -9999,9 +10011,6 @@ end
             obj.settings.AmplitudeLims(2) = str2double(answer{2});
             obj.axes_Amplitude.YLim = obj.settings.AmplitudeLims;
 
-
-
-
         end
         function menu_SmoothingWindow_Callback(obj, hObject, event)
             answer = inputdlg({'Smoothing window (ms)'},'Smoothing window',1,{num2str(obj.settings.SmoothWindow*1000)});
@@ -10013,7 +10022,6 @@ end
             obj.updateAmplitude();
 
         end
-
 
         function click_Amplitude(obj, hObject, event)
 
@@ -10032,7 +10040,6 @@ end
                 else
                     obj.settings.TLim = [rect(1), rect(1)+rect(3)];
                 end
-                obj.settings.TLim
                 obj.updateTimescaleView();
             elseif strcmp(obj.figure_Main.SelectionType,'extend')
                 pos = obj.axes_Amplitude.CurrentPoint;
