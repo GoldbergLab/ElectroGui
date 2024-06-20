@@ -51,35 +51,90 @@ function handles = egm_cj_export_current_view(handles)
 %             title(channel_export, selectedChannelName, 'Interpreter', 'none');
         end
     end
+
+    %get filenum and mark/seg info
+    fileNum  = getCurrentFileNum(handles);
+    fs = handles.fs;
+    markerTimes = handles.MarkerTimes{fileNum}/fs;
+    markerTitles = handles.MarkerTitles{fileNum};
+
+    segmentTimes = handles.SegmentTimes{fileNum}/fs;
+    segmentTitles = handles.SegmentTitles{fileNum};
+
+    % modify the plot
+    % get current axes
+    cur = get(gcf);
+    numplots = length(cur.Children);
+    if numplots ==2
+        h1 = cur.Children(2);
+        h2 = cur.Children(1);
+        loc1 = get(h1,'Position');
+        loc2 = get(h2,'Position');
+        hs = axes('Position',[loc1(1) loc1(2)-0.125 loc1(3) loc1(4)*0.5]);
+    else
+        if numplots ==3
+            h1 = cur.Children(3);
+            h2 = cur.Children(2);
+            h3 = cur.Children(1);
+            loc1 = get(h1,'Position');
+            loc2 = get(h2,'Position');
+            loc3 = get(h3,'Position');
+            hs = axes('Position',[loc1(1) loc1(2)-0.08 loc1(3) loc1(4)*0.5]);
+        end
+    end
+
+    set(h1,'Ylim',[250 7000]);
+    xlims = get(h1,'Xlim');
+    set(h2,'Xlim',xlims);
+    % add axes for behav segs
+
+    set(hs,'XLim',get(h1,'XLim'));
+    set(hs,'YLim',[-1 1]);
+    axis off
+    % plot markers
+    for q = 1:size(markerTimes,1)
+        line([markerTimes(q,1) markerTimes(q,2)],[-0.5 -0.5],'color','b','LineWidth',5)
+        text((markerTimes(q,1)+markerTimes(q,2))/2,-0.15,markerTitles(q),'Color','blue','FontSize',14)
+    end
+    % plot segs
+    for q = 1:size(segmentTimes,1)
+        line([segmentTimes(q,1) segmentTimes(q,2)],[0 0],'color','r','LineWidth',5)
+    end
     
-    
-    %MODIFY THIS MOFO
-    h1 = subplot(211);
-% <<<<<<< Updated upstream
-%     %set(h1,'Visible','off');
-%     set(h1,'Ylim',[250 7000]);
-%     xlims = get(h1,'Xlim');
-%     h2 = subplot(212);
-%     set(h2,'Xlim',xlims);
-%     
-% =======
-    set(gcf,'Position',[306 353 981 486]);
     set(h1,'Ylim',[250 7000]);
     xlabel('');
     set(h1,'Ytick',[2000 4000 6000]);
-    set(h1,'YTickLabel',['2k'; '4k'; '6k'])
+    set(h1,'Xtick',[]);
+    set(h1,'YTickLabel',['2'; '4'; '6'])
     set(h1,'FontSize',16)
     ylabel('Freq (Hz)');
     xlims = get(h1,'Xlim');
-    h2 = subplot(212);
-    loc2 = get(h2,'Position');
     set(h2,'Xlim',xlims);
     set(h2,'Visible','off');
-    set(h2,'Position',[loc2(1) loc2(2)+0.1 loc2(3) loc2(4)])
-% >>>>>>> Stashed changes
-    
+    ylabel('Voltage')
+    set(h2,'Position',[loc2(1) loc1(2)-0.315 loc2(3) loc1(4)*1.4])
+
+    %change color and thickness
+    xd = get(h2,'Children');
+    set(xd,'LineWidth',2)
+    set(xd,'Color','k')
+    xl = get(h2,'Xlim');
+    line([xl(1),xl(1)],[-100, 0],'LineWidth',8)
+
+
+
+    %modify third plot if it is there
+    if numplots ==3
+        loc3 = get(h3,'Position');
+        set(h3,'Position',[loc3(1) loc1(2)-0.5 loc3(3) loc1(4)*1.3])
+        set(h3,'Visible','off')
+        set(h3,'Xlim',xlims);
+    end
+    set(gcf,'Position',[306 353 981 486]);
+
+
     return
-    
+
 end
 %define functions to retrieve filenum and name
 function currentFileNum = getCurrentFileNum(handles)
