@@ -9207,6 +9207,7 @@ function createExportWindow(obj)
         'MenuBar', 'none', ...
         'Name', 'electro_gui export', ...
         'NumberTitle', 'off', ...
+        'SizeChangedFcn', @(varargin)obj.arrangeExportPanels, ...
         'ToolBar', 'none');
     obj.ExportWindow.tabGroup = uitabgroup(obj.ExportWindow.fig, ...
         'Units', 'normalized', ...
@@ -11458,11 +11459,15 @@ end
         
         
         end
+        function setSonogramClim(obj, clim)
+            obj.settings.SonogramClim = clim;
+        end
+        function h = getCurrentSonogramHandle(obj)
+            h = obj.SonogramHandle;
+        end
         function menu_ColorScale_Callback(obj, hObject, event)
             if obj.settings.CurrentSonogramIsPower == 1
-                climGUI = CLimGUI(obj.axes_Sonogram);
-                uiwait(climGUI.ParentFigure);
-                obj.settings.SonogramClim = climGUI.CLim;
+                CLimGUI(@obj.getCurrentSonogramHandle, 'ClimChangedCallback', @obj.setSonogramClim);
             else
                 answer = inputdlg({'Offset','Brightness'},'Color scale',1,{num2str(obj.settings.DerivativeOffset),num2str(obj.settings.DerivativeSlope)});
                 if isempty(answer)
@@ -11470,10 +11475,8 @@ end
                 end
                 obj.settings.DerivativeOffset = str2double(answer{1});
                 obj.settings.NewDerivativeSlope = str2double(answer{2});
+                obj.updateSonogramColors();
             end
-        
-            obj.updateSonogramColors();
-        
         end
         function menu_FreqLimits_Callback(obj, hObject, event)
             answer = inputdlg({'Minimum (Hz)','Maximum (Hz)'},'Frequency limits',1,{num2str(obj.settings.FreqLim(1)),num2str(obj.settings.FreqLim(2))});
