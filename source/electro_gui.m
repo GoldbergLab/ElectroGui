@@ -4857,7 +4857,7 @@ function setFileReadState(obj, filenums, readState)
         obj.dbase.FileReadState(end+1:end+numToAdd) = false;
     elseif maxFilenum < length(obj.dbase.FileReadState)
         % Shorten file read state list
-        obj.dbase.FileReadState(maxFileNum+1:end) = [];
+        obj.dbase.FileReadState(maxFilenum+1:end) = [];
     end
 
     obj.dbase.FileReadState(filenums) = readState;
