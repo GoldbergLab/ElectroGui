@@ -62,6 +62,7 @@ end
 % but oh well. Seemed better than messing with or duplicating the sonogram plugins.
 f = figure('Visible','off');
 ax = copyobj(obj.axes_Sonogram, f);
+sonogramHandle = gobjects();
 
 % Determine current spectrogram algorithm
 for c = 1:length(obj.menu_Algorithm)
@@ -86,20 +87,23 @@ for filenum = filenums
     waitbar(filenum/length(filenums), progressBar, sprintf('Labelling %d of %d...', filenum, length(filenums)));
     numSegments = length(obj.dbase.SegmentTitles{filenum});
     for segmentIdx = 1:numSegments
-        tlim = obj.dbase.SegmentTimes{filenum}(segmentIdx, :);
+        slim = obj.dbase.SegmentTimes{filenum}(segmentIdx, :);
         [~, fs] = obj.eg_GetSamplingInfo(filenum);
-        duration = (diff(tlim) / fs);
+        tlim = slim / fs;
+        duration = diff(tlim);
 
-        if minLength < duration && duration < maxLength
+        if minLength <= duration && duration <= maxLength
             % Syllable meets duration requirements - check 
 
             if isempty(sound)
                 % Only load sound if we're going to use it
                 [sound, fs] = obj.getSound([], filenum);
-                [~, ~, sonogramHandle] = ...
-                    electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, ...
-                        ax, sound, fs, obj.settings.SonogramParams);
             end
+            delete(sonogramHandle);
+            xlim(ax, tlim);
+            [~, ~, sonogramHandle] = ...
+                electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, ...
+                    ax, sound(slim(1):slim(2)), fs, obj.settings.SonogramParams);
 
             % Find spectrogram power in that syllable both within the
             % specified frequency band and for the whole spectrum
