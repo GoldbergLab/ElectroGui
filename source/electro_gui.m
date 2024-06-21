@@ -12562,9 +12562,10 @@ end
 
             % Create properties info
             dbase.PropertyNames =       gvod(baseDbase, 'PropertyNames', settings.DefaultProperties.Names);
-            defaultProperties = settings.DefaultProperties.Values;
-            if all(size(defaultProperties) == 0)
+            if all(size(settings.DefaultProperties.Values) == 0)
                 defaultProperties = false(numFiles, 0);
+            else
+                defaultProperties = repmat(settings.DefaultProperties.Values, numFiles, 1);
             end
             dbase.Properties =          gvod(baseDbase, 'Properties', defaultProperties);
 
@@ -12806,6 +12807,14 @@ end
             if iscell(defaults.DefaultProperties.Values)
                 msgs{end+1} = 'DefaultProperties.Values should be a logical array, not a cell array (for example [false, false, true])';
                 defaults.DefaultProperties.Values = cell2mat(defaults.DefaultProperties.Values);
+            end
+            if ~any(size(defaults.DefaultProperties.Values, 1) == [0, 1])
+                msgs{end+1} = 'DefaultProperties.Values should be a 1xN logical array (for example [false, false, true]), or an empty array ([])';
+                defaults.DefaultProperties.Values = defaults.DefaultProperties.Values(1, :);
+            end
+            if size(defaults.DefaultProperties.Values, 2) ~= length(defaults.DefaultProperties.Names)
+                msgs{end+1} = 'DefaultProperties.Values should either be empty or have the same length as DefaultProperties.Names';
+                defaults.DefaultProperties.Values = logical.empty();
             end
             if ~isempty(msgs)
                 fprintf('\n*************************************************************************************************************\n')
