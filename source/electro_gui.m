@@ -3832,9 +3832,6 @@ function export(obj, filenum, tlim, tab)
         exportWidgets(end+1) = headerText;
     end
 
-    % Arbitrary amount to shrink everything in y dimension
-    heightScale = obj.settings.Export.LayoutScaleHeight;
-
     % Get copies of all requested export axes
     exportAxes = obj.getExportAxesCopies(panel);
     set(exportAxes, 'Units', 'normalized');
@@ -3849,9 +3846,9 @@ function export(obj, filenum, tlim, tab)
         % Set x position
         ax.Position(1) = 0;
         % Set height
-        newHeight = ax.Position(4) * heightScale;
-        currentY = currentY - newHeight;
-        ax.Position(4) = newHeight;
+        height = ax.Position(4);
+        currentY = currentY - height;
+        ax.Position(4) = height;
         % Adjust time limits
         ax.XLim = tlim;
         % Turn off axis markings
@@ -3888,6 +3885,9 @@ function export(obj, filenum, tlim, tab)
     shrinkToContent(panel, ...
         'ShrinkX', true, ...
         'ShrinkY', true);
+
+    panel.UserData.OriginalHeight = panel.Position(4);
+
     obj.arrangeExportPanels();
 end
 
@@ -9332,6 +9332,9 @@ function arrangeExportPanels(obj)
 
     commonUnits = 'inches';  % User layout parameters are in inches
 
+    % Arbitrary amount to shrink everything in y dimension
+    heightScale = obj.settings.Export.LayoutScaleHeight;
+
     % Make a copy of the list of lists of panels, but sorted according
     % to user parameters
     sortedPanels = {};
@@ -9359,7 +9362,7 @@ function arrangeExportPanels(obj)
         end
     end
 
-    % Set panel widths
+    % Set panel widths & heights
     for tabNum = 1:length(obj.ExportWindow.tabs)
         for panelNum = 1:length(sortedPanels{tabNum})
             panel = sortedPanels{tabNum}(panelNum);
@@ -9382,6 +9385,8 @@ function arrangeExportPanels(obj)
                 otherwise
                     error('Unknown layout scale mode: %s', obj.settings.Export.LayoutScaleMode);
             end
+
+            setPositionWithUnits(panel, panel.UserData.OriginalHeight * heightScale, 'inches', 4);
         end
     end
 
