@@ -19,7 +19,7 @@ classdef electro_gui < handle
         filtered_sound
         amplitude
         loadedChannelData = {}
-        loadedChannelFs = {}
+        loadedChannelFs = {NaN, NaN}
         loadedChannelLabels = {}
         ChanYLimits
     end
@@ -10119,6 +10119,11 @@ end
 
                         % Determine which channel axes
                         axnum = find(ax1 == obj.axes_Channel);
+
+                        if ~obj.axes_Channel(axnum).Visible
+                            return;
+                        end
+
                         % Check if axes is displaying events
                         eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
                         fs = obj.loadedChannelFs{axnum};
