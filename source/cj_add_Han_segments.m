@@ -130,6 +130,13 @@ function dbase = cj_add_Han_segments(dbase,bWashBools)
                 vidnums = cell2mat(vidnums);
             end
             filenum = find(d_num==vidnums(k));
+            if ~isfield(vsegs,'call_onsets')
+                vsegs.call_onsets = vsegs.onsets;
+                vsegs.call_offsets = vsegs.offsets;
+            end
+            if ~isfield(vsegs,'call_identity')
+                vsegs.call_identity = vsegs.identity;
+            end
             if length(vsegs.call_onsets{k}) ~= length(vsegs.call_offsets{k})
                 disp('MISMATCH')
                 mismatch = 1;
@@ -156,7 +163,11 @@ function dbase = cj_add_Han_segments(dbase,bWashBools)
 
         end
         % add warb bool
-        warbfils = find(vsegs.warble_boolean);
+        if isfield(vsegs,'warble_boolean')
+            warbfils = find(vsegs.warble_boolean);
+        else
+            warbfils = [];
+        end
         for r = warbfils'
             dbase.Properties.Values{1,r}{1,length(gestures)-3} = 1;%MINUS three hard coded index
         end
