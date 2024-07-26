@@ -1,8 +1,5 @@
 function ispower = egs_CJquick_sonogram(ax,wv,fs,params)
 % ElectroGui spectrum algorithm
-% Caleb's code that doesn't account for screen resolution because that
-% makes no sense when it comes to science and the important parameters can be easiliy
-% adjusted below
 
 freqwinSize = 512; % NFFT - controls frequency resolution
 timewindowSize = 256; % window size of time in samples

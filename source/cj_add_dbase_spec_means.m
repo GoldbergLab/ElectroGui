@@ -1,4 +1,5 @@
-% script to save mean spectrogram info about acc and sound to dbases
+% script to save a gmm that has been fit to spectral features of the
+% accelerometer for the purposes of identifying vocalization bouts
 
 clear
 close all
@@ -7,8 +8,32 @@ dbase_dir = 'X:\Budgie\0010_0572\dbases\caleb_dbases\Sorted_newsegs'; %hard code
 files = dir([dbase_dir '\*dbase*.mat']);
 names = {files.name};
 
-specylim = [0 8000];
-aspecylim = [0 2500];
+
+afs = 5000;
+afwindowlength=0.025*afs;
+foverlap=floor(0.020*afs);
+aFE = audioFeatureExtractor("SampleRate",afs,...
+    "Window",hamming(afwindowlength,"periodic"),...
+    "SpectralDescriptorInput","linearSpectrum",...
+    "OverlapLength",foverlap,...
+    "mfcc",true, ...
+    "mfccDelta",false, ...
+    "mfccDeltaDelta",true, ...
+    "pitch",false, ...
+    "spectralSpread",false,...
+    "spectralFlatness",true,...
+    "shortTimeEnergy",false,...
+    "spectralCrest",false, ...
+    "spectralEntropy",true, ...
+    "spectralFlux",true, ...
+    "spectralKurtosis",true, ...
+    "spectralRolloffPoint",false, ...
+    "spectralCrest",true, ...
+    "spectralSkewness",true, ...
+    "spectralSlope",true, ...
+    "harmonicRatio",true, ...
+    "spectralCentroid",true);
+
 for i = 49:length(names)
     dbase = load([dbase_dir '\' names{i}]);
     dbase = dbase.dbase;
@@ -39,38 +64,30 @@ for i = 49:length(names)
     xfiles = natsort(xfiles);
     yfiles = {yfiles.name};
     yfiles = natsort(yfiles);
-
-    allpmeans = [];
-    allsmeans = [];
-
+    
+    allmovfeats = [];
     %downsample to 1000 files
-    soundfiles = datasample(soundfiles,100,'replace',false);
+    soundfiles = datasample(soundfiles,500,'replace',false);
     for k = 1:length(soundfiles)
         disp(['File ' num2str(k) ' of ' num2str(length(soundfiles))])
-        S = egl_HC_ad([path '\' soundfiles{k}],1);
+        %S = egl_HC_ad([path '\' soundfiles{k}],1);
         movex = egl_HC_ad([path '\' xfiles{k}],1);
         movey = egl_HC_ad([path '\' yfiles{k}],1);
         movez = egl_HC_ad([path '\' zfiles{k}],1);
         movecom = sqrt(movex.^2+movey.^2+movez.^2);
-        movecom = highpass(movecom,250,5000);
+        movecom = wdenoise(movecom,12,'ThresholdRule','Soft');
+        movecom = highpass(movecom,1000,afs,'ImpulseResponse','fir','Steepness',0.5);
+        feats = extract(aFE,movecom);
+        allmovfeats = [allmovfeats; feats];
         
-        %move spec
-        [SS,F,t] = specgram(movecom, 512/2, 5000, 256/2,floor(0.75*256/2));
-        ndx = find((F>=specylim(1)) & (F<=specylim(2)));
-        %p= 2*log(abs(SS(ndx,:))+eps)+20;
-        p = abs(SS);
-        thispmean = mean(p,2);
-        allpmeans = [allpmeans thispmean];
-
-        %sound spec
-        [SS,F,t] = specgram(S, 512, fs, 256,floor(0.75*256));
-        ndx = find((F>=specylim(1)) & (F<=specylim(2)));
-        p= 2*log(abs(SS(ndx,:))+eps)+20;
-        thissmean = mean(p,2);
-        allsmeans = [allsmeans thissmean];
     end
-    dbase.means.sound_spec = mean(allsmeans,2);
-    dbase.means.move_spec = mean(allpmeans,2);
+    %Fit GMM
+    %normalize features
+    %allmovfeats = normalize(allmovfeats);
+    alambda = 1e-3;
+    nn = 2;
+    agmm = fitgmdist(allmovfeats,nn,'CovarianceType','diagonal','RegularizationValue',alambda);
+    dbase.agmm = agmm;
     save([dbase_dir '\' names{i}],'dbase')
     clear dbase
 end
