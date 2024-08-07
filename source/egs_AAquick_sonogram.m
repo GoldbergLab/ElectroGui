@@ -1,25 +1,31 @@
-function ispower = egs_AAquick_sonogram(ax,wv,fs,params)
+function [ispower, timeResolution, spectrogram_handle] = egs_AAquick_sonogram(ax,wv,fs,params)
 % ElectroGui spectrum algorithm
 % Aaron Andalman's algorithm that accounts for screen resolution
 
-if isstr(ax) & strcmp(ax,'params')
-    ispower.Names = {};
-    ispower.Values = {};
+defaultParams.Names = {'NFFT', 'windowSize (must be >= NFFT)'};
+defaultParams.Values = {'512', '512'};
+
+if ischar(ax) && strcmp(ax, 'params')
+    ispower = defaultParams;
     return
 end
 
-bck = get(ax,'units');
+if ~exist('params', 'var') || isempty(params)
+    params = defaultParams;
+end
 
-NFFT = 512;
+originalAxesUnits = ax.Units;
+
+NFFT = str2double(params.Values{1});
 nCourse = 1;
-windowSize = 512;
+windowSize = str2double(params.Values{2});
 freqRange = get(ax,'ylim');
 
 %determine size of axis relative to size of the signal,
 %use this to adapt the window overlap and downsampling of the signal.
 %no need to worry about size of fftwindow, this doesn't effect speed.
-set(ax,'Units','pixels');
-pixSize = get(ax,'Position');
+ax.Units = 'pixels';
+pixSize = ax.Position;
 numPixels = pixSize(3) / nCourse;
 numWindows = length(wv) / windowSize;
 if(numWindows < numPixels)
@@ -41,6 +47,10 @@ else
     fs = fs / ratio;
 end
 
+
+% Temporal resolution of the spectrogram, in seconds
+timeResolution = (windowSize - windowOverlap) / fs;
+
 %Compute the spectrogram
 %[S,F,T,P] = spectrogram(sss,windowSize,windowOverlap,NFFT,Fs);
 [S,F,t] = specgram(wv, NFFT, fs, windowSize, windowOverlap);
@@ -51,9 +61,9 @@ ndx = find((F>=freqRange(1)) & (F<=freqRange(2)));
 p = 2*log(abs(S(ndx,:))+eps)+20;
 f = linspace(freqRange(1),freqRange(2),size(p,1));
 
-set(ax,'units',bck);
+set(ax,'units',originalAxesUnits);
 
-xl = xlim;
-imagesc(linspace(xl(1),xl(2),size(p,2)),f,p);
+xl = xlim(ax);
+spectrogram_handle = imagesc(ax, linspace(xl(1),xl(2),size(p,2)),f,p);
 
 ispower = 1;
