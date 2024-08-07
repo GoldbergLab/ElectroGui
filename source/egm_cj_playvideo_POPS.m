@@ -1,4 +1,4 @@
-function handles = egm_cj_playvideo(handles)
+function handles = egm_cj_playvideo_POPS(handles)
     %% electro_gui macro to play a video based on the current view of the sonogram
     dbase = handles.dbase;
     fileNum = getCurrentFileNum(handles);
@@ -51,20 +51,20 @@ function handles = egm_cj_playvideo(handles)
     display(tempAudPath)
     chanNum = handles.EventCurrentIndex(axnum);
     spikeAudio = zeros(1,length(snd));
-%     if chanNum ~= 0
-%         [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{chanNum}, fullfile(handles.DefaultRootPath, handles.chan_files{chanNum}(fileNum).name), true);
-%         eventTimes = handles.EventTimes{chanNum}{2,fileNum};
-%         spikeAudio(eventTimes) = 1;
-%     else 
-%         eventTimes = zeros(1,length(snd));
-%     end
+    if chanNum ~= 0
+        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{chanNum}, fullfile(handles.DefaultRootPath, handles.chan_files{chanNum}(fileNum).name), true);
+        eventTimes = handles.EventTimes{chanNum}{2,fileNum};
+        spikeAudio(eventTimes) = 1;
+    else 
+        eventTimes = zeros(1,length(snd));
+    end
     
     padsize = 5; % Higher number means lower frequency sound for spikes 
     padKernel = ones(1,2*padsize+1);
     paddedAudio = conv(spikeAudio,padKernel,'same');
     
     audiowrite(tempAudPath,paddedAudio,fs);
-    cmd = sprintf('ffmpeg -i "%s" -i "%s" -filter_complex "[0:a][1:a] amerge=inputs=2 [audio_out]" -map 0:v -map "[audio_out]" -y "%s"', fullPath, tempAudPath, tempVidPath);
+    cmd = sprintf('ffmpeg -i "%s" -i "%s" -c:v copy -map 0:v:0 -map 1:a:0 -y "%s"', fullPath, tempAudPath, tempVidPath);
     [~,~] = system(cmd);
     
     % get behavior segments for this file

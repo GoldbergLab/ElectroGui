@@ -14,6 +14,10 @@ if ~exist('params', 'var')
     params.IsSplit = false;
 end
 
+if ~isfield(params, 'IsSplit')
+    params.IsSplit = false;
+end
+
 min_dur = str2double(params.Values{1})/1000;
 min_stop = str2double(params.Values{2})/1000;
 
