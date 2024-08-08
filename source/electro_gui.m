@@ -8995,7 +8995,6 @@ function createExportControlPanel(obj)
         'Callback', @obj.exportControlValuesChanged_Callback);
     gridLayout(end, 2) = obj.ExportControlPanel.LayoutYSpacingInput;
 
-    gridLayout = flipud(gridLayout);
     gridChildren(gridLayout, 'ColumnWidths', [width/2, width/2], 'ColumnUnits', 'characters');
 
     shrinkToContent(obj.ExportControlPanel.fig);
