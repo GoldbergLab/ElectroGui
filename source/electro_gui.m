@@ -3333,7 +3333,7 @@ function OpenDbase(obj, filePathOrDbase, options)
         end
 
         % Load dbase into 'dbase' variable
-        S = load(fullfile(path, file), 'dbase');
+        S = load(fullfile(path, file), 'dbase', 'settings');
         dbase = S.dbase;
         if isfield(S, 'settings')
             settings = S.settings;
@@ -3444,6 +3444,7 @@ function OpenDbase(obj, filePathOrDbase, options)
     % Update file browser
     obj.edit_FileNumber.String = num2str(settings.CurrentFile);
     obj.FileInfoBrowser.SelectedRow = settings.CurrentFile;
+    
     obj.UpdateFileInfoBrowser();
     
     obj.FileInfoBrowser.SelectedRow = settings.CurrentFile;
@@ -3526,7 +3527,7 @@ function SaveDbase(obj)
     dbase = obj.GetDBase(obj.settings.IncludeDocumentation);
     settings = obj.settings;
 
-    save(savePath,'dbase', 'settings');
+    save(savePath, 'dbase', 'settings');
     obj.settings.DefaultDbaseFilename = savePath;
     obj.addRecentFile(savePath);
 end
