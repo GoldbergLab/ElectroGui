@@ -1829,12 +1829,19 @@ function [chosenDefaults, cancel] = chooseDefaultsFile(obj)
         end
     end
 end
-function setFilenum(obj, filenum)
+function setFilenum(obj, filenum, loadFile)
+    arguments
+        obj electro_gui
+        filenum double
+        loadFile logical = true
+    end
     if str2double(obj.edit_FileNumber.String) ~= filenum
         obj.edit_FileNumber.String = num2str(filenum);
     end
     obj.settings.CurrentFile = filenum;
-    obj.LoadFile();
+    if loadFile
+        obj.LoadFile();
+    end
 end
 function changeFile(obj, delta)
     % Switch file number by delta
@@ -5014,14 +5021,12 @@ function UpdateFiles(obj, old_sound_files)
 
     obj.dbase = electro_gui.InitializeDbase(obj.settings, 'BaseDbase', obj.dbase);
 
-    obj.text_TotalFileNumber.String = sprintf('of %s', numFiles);
+    obj.text_TotalFileNumber.String = sprintf('of %d', numFiles);
     if electro_gui.areFilesSorted(obj.settings)
         oldSelectedFilenum = obj.settings.FileSortOrder(obj.FileInfoBrowser.SelectedRow);
     else
         oldSelectedFilenum = obj.FileInfoBrowser.SelectedRow;
     end
-    obj.edit_FileNumber.String = '1';
-    obj.FileInfoBrowser.SelectedRow = 1;
 
 %     originalValues = obj.getFileNames();
 
@@ -5100,7 +5105,21 @@ function UpdateFiles(obj, old_sound_files)
     obj.dbase.FileReadState = false(1, numFiles);
     obj.dbase.FileReadState(newnum) = originalFileReadState;
 
+    originalValues = obj.dbase.FileLength(oldnum);
+    obj.dbase.FileLength = zeros(1,numFiles);
+    obj.dbase.FileLength(newnum) = originalValues;
+
+    % Check if current filenum is still in range
+    currentFileNum = electro_gui.getCurrentFileNum(obj.settings);
+    if currentFileNum > numFiles
+        % No it is not - set it to the last file
+        currentFileNum = numFiles;
+        obj.setFilenum(currentFileNum, false);
+        newSelectedFilenum = currentFileNum;
+    end
+
     obj.UpdateFileInfoBrowser();
+
     if ~isempty(newSelectedFilenum)
         obj.edit_FileNumber.String = num2str(newSelectedFilenum);
         if electro_gui.areFilesSorted(obj.settings)
@@ -5111,9 +5130,6 @@ function UpdateFiles(obj, old_sound_files)
         end
     end
 
-    originalValues = obj.dbase.FileLength(oldnum);
-    obj.dbase.FileLength = zeros(1,numFiles);
-    obj.dbase.FileLength(newnum) = originalValues;
 end
 
 function [dbase, settings] = GetDBase(obj, includeDocumentation)
