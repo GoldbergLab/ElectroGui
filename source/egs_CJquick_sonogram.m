@@ -1,5 +1,8 @@
-function ispower = egs_CJquick_sonogram(ax,wv,fs,params)
+function [ispower, timeResolution, spectrogram_handle] = egs_CJquick_sonogram(ax,wv,fs,params)
 % ElectroGui spectrum algorithm
+
+timeResolution = 0;
+spectrogram_handle = [];
 
 freqwinSize = 512; % NFFT - controls frequency resolution
 timewindowSize = 256; % window size of time in samples
@@ -25,6 +28,6 @@ f = linspace(freqRange(1),freqRange(2),size(p,1));
 set(ax,'units',bck);
 
 xl = xlim;
-imagesc(linspace(xl(1),xl(2),size(p,2)),f,p);
+spectrogram_handle = imagesc(ax, linspace(xl(1),xl(2),size(p,2)),f,p);
 
 ispower = 1;
