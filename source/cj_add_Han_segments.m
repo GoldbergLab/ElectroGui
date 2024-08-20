@@ -35,7 +35,6 @@ function dbase = cj_add_Han_segments(dbase,bWashBools)
     gestures = {'allogrooming', 'general_movement', 'headbob','kissing',...
         'selfgrooming','tapping','wingflap','containsWarb','containsCall','loud','bBehav'};
     
-    %CLEAR OUT ThoSE OLD MF STUPID ASS BOOLS cuz WE BOOLIN!!
     if bWashBools == 1
         [dbase.Properties.Names{:}] = deal(gestures);
         dealboi = cell(1,length(gestures));
@@ -56,6 +55,10 @@ function dbase = cj_add_Han_segments(dbase,bWashBools)
         fullpath = [datepath '\' gestures{i}];
         if isdir(fullpath) && exist([fullpath '\' 'segmentations_cleaned.mat'],'file')
             segs = load([fullpath '\' 'segmentations_cleaned.mat']);
+            name = fieldnames(segs);
+            segs = segs.(name{1});
+        elseif exist([fullpath '\' 'segmentations.mat'],'file')
+            segs = load([fullpath '\' 'segmentations.mat']);
             name = fieldnames(segs);
             segs = segs.(name{1});
         else

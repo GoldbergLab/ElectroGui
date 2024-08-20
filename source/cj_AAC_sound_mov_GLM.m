@@ -9,7 +9,7 @@ afs = 5000;
 
 binsz = 10;
 edges = 0:binsz/1000:20;
-for i = 34:length(names)
+for i = 1:length(names)
     dbase = load([dbase_dir '\' names{i}]);
     dbase = dbase.dbase;
     path = dbase.PathName;
@@ -39,7 +39,10 @@ for i = 34:length(names)
     % Design the filter using fir1
     N = 80; % Order of the filter
     ab = fir1(N, Wcutoff,'high');
-
+    
+    xmean = dbase.accmeans.xmov;
+    ymean = dbase.accmeans.ymov;
+    zmean = dbase.accmeans.zmov;
 %     %define filter for amp data
 %     Fcutoff = 100;
 %     % Normalize the cutoff frequency
@@ -50,7 +53,8 @@ for i = 34:length(names)
 
     smoothwin = 10e-3; % ms
     smoothwin = round(smoothwin*fs);
-    
+    smoothwin_move = 60;% ms
+    smoothwin_move = round(smoothwin_move/1000*afs);
     kt = 0:0.01:20-0.01;
     sigma = 0.01;
     %kernel for ifr
@@ -112,12 +116,15 @@ for i = 34:length(names)
     for k = 1:length(sortf)
         disp(['File ' num2str(k) ' of ' num2str(length(sortf))])
         % get movement
-        movex = egl_HC_ad([path '\' xfiles{sortf(k)}],1);
-        movey = egl_HC_ad([path '\' yfiles{sortf(k)}],1);
-        movez = egl_HC_ad([path '\' zfiles{sortf(k)}],1);
-        movecom = sqrt(movex.^2+movey.^2+movez.^2);
-        movecom = filtfilt(ab,1,movecom);
-        movecom = smooth(movecom,smoothwin);
+        movex = cj_txtread_datonly([path '\' xfiles{sortf(k)}]);
+        movey = cj_txtread_datonly([path '\' yfiles{sortf(k)}]);
+        movez = cj_txtread_datonly([path '\' zfiles{sortf(k)}]);
+        movecom = [movex-xmean,movey-ymean,movez-zmean];
+        yeetus = [1:1000:(length(movecom)-1000) length(movecom)];
+        movecom = detrend(movecom,'linear',yeetus);
+        movecom = sqrt(sum(movecom.^2,2));
+        movecom = smooth(movecom.^2,smoothwin_move);
+        movecom = sqrt(movecom);
         if length(movecom)>20*afs
             movecom = movecom(1:20*afs);
         end
@@ -129,8 +136,6 @@ for i = 34:length(names)
         agaussian_kernel = agaussian_kernel/sum(agaussian_kernel);
         movecom = conv(movecom,agaussian_kernel,'same');
         movecom = interp1(tmov, movecom, linspace(0,20,2000), 'linear');
-        movecom(1:3) = mean(movecom);
-        movecom(end-3:end) = mean(movecom);
 
         % get ephys
         filespks = sortedspks{find(sortf==sortf(k))};
@@ -140,10 +145,13 @@ for i = 34:length(names)
         end
         ephys = filtfilt(eb,1,ephys);
         filespks = filespks/fs;
-        % inverse ISI ifr calc
-%         ISI = diff(filespks);
-%         ifr = 1./ISI;
-%         tmids = (filespks(1:end-1)+filespks(2:end))/2;
+%         % calculate ISI as egf_ISI does
+%         ifr = zeros(size(ephys));
+%         f = floor(filespks*fs);
+%         for c=1:length(f)-1
+%             ifr(f(c):f(c+1))= fs/(f(c+1)-f(c));
+%         end
+        
         % kernel density estimation
         ifr = zeros(size(kt));
         for q = 1:length(filespks)
@@ -171,12 +179,12 @@ for i = 34:length(names)
         amp = normalize(amp,'zscore');
         ifr = normalize(ifr,'zscore');
 
-        %measure mutual info & cov
-        knn = 25;
-        mi_amp_spks = mi_cont_cont(amp,ifr,knn);
-        mi_mov_spks = mi_cont_cont(movecom,ifr,knn);
-        all_mi_sou_spks(k) = mi_amp_spks;
-        all_mi_mov_spks(k) = mi_mov_spks;
+%         %measure mutual info & cov
+%         knn = 25;
+%         mi_amp_spks = mi_cont_cont(amp,ifr,knn);
+%         mi_mov_spks = mi_cont_cont(movecom,ifr,knn);
+%         all_mi_sou_spks(k) = mi_amp_spks;
+%         all_mi_mov_spks(k) = mi_mov_spks;
 % 
 %         cov_amp_spks = cov(amp,ifr);
 %         cov_mov_spks = cov(movecom,ifr);
@@ -248,6 +256,8 @@ for i = 34:length(names)
         H4 = subplot(numsubs,1,4);
         %plot(kt,ifr,'k');
         stairs(kt,ifr,'LineWidth',2,'Color','g')
+        % if using egui IFR
+        %stairs(linspace(0,length(ifr)/fs,length(ifr)),ifr,'LineWidth',2,'Color','g')
         xlim([0 20])
         box off
         H4.Position = [loc1(1) loc1(2)-loc1(4)-0.02 loc1(3) loc1(4)];
@@ -265,29 +275,30 @@ for i = 34:length(names)
         ylabel('Combined Movement (V)')
         H5.Color = 'none';
        
-        set(H, 'WindowScrollWheelFcn', @scrollonlyx);
+        set(H, 'WindowScrollWheelFcn', @cj_scrollonlyx);
 
 
-        % plot mutual information
-        H6 = subplot(numsubs,1,6);
-        scatter([1 2],[mi_amp_spks mi_mov_spks],'filled','MarkerFaceColor','k','SizeData',100);
-        xlim([0 3])
-        H6.Position = [loc1(1) loc1(2)-loc1(4)*6-0.1 loc1(3)/8 loc1(4)*4];
-        ylim([0 0.2])
-        ylabel('Mutual Information with IFR')
-        xticks([1 2]);
-        H6.XTickLabel = {'sound' 'move'};
-        H6.Color = 'none';
-
+%         % plot mutual information
+%         H6 = subplot(numsubs,1,6);
+%         scatter([1 2],[mi_amp_spks mi_mov_spks],'filled','MarkerFaceColor','k','SizeData',100);
+%         xlim([0 3])
+%         H6.Position = [loc1(1) loc1(2)-loc1(4)*6-0.1 loc1(3)/8 loc1(4)*4];
+%         ylim([0 0.2])
+%         ylabel('Mutual Information with IFR')
+%         xticks([1 2]);
+%         H6.XTickLabel = {'sound' 'move'};
+%         H6.Color = 'none';
+        linkaxes(H.Children,'x')
 
 %         % plot corr
 %         H6 = subplot(numsubs,1,6);
-%         plot(movcorr)
+%         plot(movlags,movcorr)
 %         hold on
-%         plot(soucorr)
+%         plot(soulags,soucorr)
 %         legend movcorr soucorr
 %         H6.Color = 'none';
 %         box off
+
 %         H6 = subplot(numsubs,1,6);
 %         stairs(souti,souMIvec,'LineWidth',2,'Color','m')
 %         hold on
@@ -327,11 +338,11 @@ for i = 34:length(names)
 %     refline(1,0);
 %     mse= mean((y_test-y_pred).^2);
 %%
-    mutual info stuff
-    alldbasemi{i,1} = all_mi_sou_spks;
-    alldbasemi{i,2} = all_mi_mov_spks;
-    alldbasecov{i,1} = allcovsou;
-    alldbasecov{i,2} = allcovmov;
+    %mutual info stuff
+%     alldbasemi{i,1} = all_mi_sou_spks;
+%     alldbasemi{i,2} = all_mi_mov_spks;
+%     alldbasecov{i,1} = allcovsou;
+%     alldbasecov{i,2} = allcovmov;
     %save('X:\Budgie\0010_0572\dbases\caleb_dbases\Sorted_newsegs\dbase_mutual_info\alldbase_mutual_info.mat','alldbasemi')
     %save('X:\Budgie\0010_0572\dbases\caleb_dbases\Sorted_newsegs\dbase_mutual_info\alldbase_cov.mat','alldbasecov')
 

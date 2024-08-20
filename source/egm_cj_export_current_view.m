@@ -70,7 +70,7 @@ function handles = egm_cj_export_current_view(handles)
         h2 = cur.Children(1);
         loc1 = get(h1,'Position');
         loc2 = get(h2,'Position');
-        hs = axes('Position',[loc1(1) loc1(2)-0.125 loc1(3) loc1(4)*0.5]);
+        hs = axes('Position',[loc1(1) loc1(2)-loc1(4)/3 loc1(3) loc1(4)*0.5]);
     else
         if numplots ==3
             h1 = cur.Children(3);
@@ -79,7 +79,7 @@ function handles = egm_cj_export_current_view(handles)
             loc1 = get(h1,'Position');
             loc2 = get(h2,'Position');
             loc3 = get(h3,'Position');
-            hs = axes('Position',[loc1(1) loc1(2)-0.08 loc1(3) loc1(4)*0.5]);
+            hs = axes('Position',[loc1(1) loc1(2)-loc1(4)*2 loc1(3) loc1(4)*0.5]);
         end
     end
 
@@ -112,7 +112,7 @@ function handles = egm_cj_export_current_view(handles)
     set(h2,'Xlim',xlims);
     set(h2,'Visible','off');
     ylabel('Voltage')
-    set(h2,'Position',[loc2(1) loc1(2)-0.315 loc2(3) loc1(4)*1.4])
+    set(h2,'Position',[loc2(1) loc1(2)-loc1(4)*1.5 loc2(3) loc1(4)*1.4])
 
     %change color and thickness
     xd = get(h2,'Children');
