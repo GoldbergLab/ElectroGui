@@ -9770,7 +9770,7 @@ end
         function AlgorithmMenuClick(obj, hObject, event)
 
             for c = 1:length(obj.menu_Algorithm)
-                obj.menu_Algorithm.Checked = 'off';
+                obj.menu_Algorithm(c).Checked = false;
             end
             hObject.Checked = 'on';
 
