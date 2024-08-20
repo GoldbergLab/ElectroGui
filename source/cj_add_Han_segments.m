@@ -200,7 +200,7 @@ function dbase = cj_add_Han_segments(dbase,bWashBools)
             dbase.Properties.Values{1,i}{1,length(gestures)} = 1;
         end
     end
-    % save new dbase with added shit to caleb's folder
+    % save new dbase with added info to caleb's folder
     savedir = 'X:\Budgie\0010_0572\dbases\caleb_dbases';
     savename = ['dbase' birdID '_' date '_segs.mat'];
     save([savedir '\' savename],'dbase')
