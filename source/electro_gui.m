@@ -1829,6 +1829,25 @@ function [chosenDefaults, cancel] = chooseDefaultsFile(obj)
         end
     end
 end
+function filenum = getSelectedFilenum(obj)
+    % Get the filenum currently displayed as selected in the
+    % FileInfoBrowser
+    if electro_gui.areFilesSorted(obj.settings)
+        obj.RefreshSortOrder();
+        filenum = obj.settings.FileSortOrder(obj.FileInfoBrowser.SelectedRow);
+    else
+        filenum = obj.FileInfoBrowser.SelectedRow;
+    end
+end
+function setSelectedFilenum(obj, filenum)
+    % Set the row that should display as selected in the FileInfoBrowser
+    if electro_gui.areFilesSorted(obj.settings)
+        obj.RefreshSortOrder();
+        obj.FileInfoBrowser.SelectedRow = obj.settings.InverseFileSortOrder(filenum);
+    else
+        obj.FileInfoBrowser.SelectedRow = filenum;
+    end
+end
 function setFilenum(obj, filenum, loadFile)
     arguments
         obj electro_gui
@@ -2038,7 +2057,7 @@ function LoadFile(obj, showWaitBar)
     end
 
     filenum = electro_gui.getCurrentFileNum(obj.settings);
-    obj.FileInfoBrowser.SelectedRow = filenum;
+    obj.setSelectedFilenum(filenum);
 
     % Remove unread file marker from filename
     obj.setFileReadState(filenum, true);
@@ -3450,11 +3469,11 @@ function OpenDbase(obj, filePathOrDbase, options)
 
     % Update file browser
     obj.edit_FileNumber.String = num2str(settings.CurrentFile);
-    obj.FileInfoBrowser.SelectedRow = settings.CurrentFile;
+    obj.setSelectedFilenum(settings.CurrentFile);
     
     obj.UpdateFileInfoBrowser();
     
-    obj.FileInfoBrowser.SelectedRow = settings.CurrentFile;
+    obj.setSelectedFilenum(settings.CurrentFile);
     
     % get segmenter parameters
     for c = 1:length(obj.menu_SegmenterList.Children)
@@ -5122,12 +5141,7 @@ function UpdateFiles(obj, old_sound_files)
 
     if ~isempty(newSelectedFilenum)
         obj.edit_FileNumber.String = num2str(newSelectedFilenum);
-        if electro_gui.areFilesSorted(obj.settings)
-            obj.RefreshSortOrder();
-            obj.FileInfoBrowser.SelectedRow = obj.settings.InverseFileSortOrder(newSelectedFilenum);
-        else
-            obj.FileInfoBrowser.SelectedRow = newSelectedFilenum;
-        end
+        obj.setSelectedFilenum(newSelectedFilenum);
     end
 
 end
@@ -11451,7 +11465,7 @@ end
                 % Do nothing
                 return
             end
-            newFilenum = obj.FileInfoBrowser.SelectedRow;
+            newFilenum = obj.getSelectedFilenum();
             obj.setFilenum(newFilenum);
         end
         function setClickSoundCallback(obj, ax)
