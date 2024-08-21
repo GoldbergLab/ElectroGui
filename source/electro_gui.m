@@ -1976,12 +1976,28 @@ function refreshFileCache(obj)
     loadersInCache = {};
 
     filenum = electro_gui.getCurrentFileNum(obj.settings);
-    minCacheNum = max(1, filenum - obj.settings.BackwardFileCacheSize);
-    maxCacheNum = min(electro_gui.getNumFiles(obj.dbase), filenum + obj.settings.ForwardFileCacheSize);
 
-    filenums = minCacheNum:maxCacheNum;
+    if electro_gui.areFilesSorted(obj.settings)
+        % If files are sorted, cache the files before/after the current
+        % file in sort order
+        obj.RefreshSortOrder();
+        filerow = obj.settings.InverseFileSortOrder(filenum);
+        minCacheNum = max(1, filerow - obj.settings.BackwardFileCacheSize);
+        maxCacheNum = min(electro_gui.getNumFiles(obj.dbase), filerow + obj.settings.ForwardFileCacheSize);
+        filerows = minCacheNum:maxCacheNum;
+        filenums = obj.settings.FileSortOrder(filerows);
+    else
+        % Files are not sorted, just cache files before/after the current
+        % file in original index order.
+        minCacheNum = max(1, filenum - obj.settings.BackwardFileCacheSize);
+        maxCacheNum = min(electro_gui.getNumFiles(obj.dbase), filenum + obj.settings.ForwardFileCacheSize);
+        filenums = minCacheNum:maxCacheNum;
+    end
     [selectedChannelNum1, ~, isSound1] = obj.getSelectedChannel(1);
     [selectedChannelNum2, ~, isSound2] = obj.getSelectedChannel(2);
+
+    disp('Filenums to cache:')
+    disp(filenums)
 
     % Add sound files to list of necessary cache files:
     for filenum = filenums
