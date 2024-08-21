@@ -1996,9 +1996,6 @@ function refreshFileCache(obj)
     [selectedChannelNum1, ~, isSound1] = obj.getSelectedChannel(1);
     [selectedChannelNum2, ~, isSound2] = obj.getSelectedChannel(2);
 
-    disp('Filenums to cache:')
-    disp(filenums)
-
     % Add sound files to list of necessary cache files:
     for filenum = filenums
         % Add sound file to list
