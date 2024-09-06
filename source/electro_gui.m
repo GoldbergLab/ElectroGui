@@ -4870,7 +4870,7 @@ function GUIPropertyChangeHandler(obj, hObject, event)
         end
     end
     obj.dbase.Properties = cell2mat(obj.FileInfoBrowser.Data(:, firstPropertyColumn:end));
-    obj.UpdateFileInfoBrowser();
+    %obj.UpdateFileInfoBrowser();
 end
 
 function fileNames = getFileNames(obj)
