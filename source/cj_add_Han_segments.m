@@ -117,7 +117,7 @@ function dbase = cj_add_Han_segments(dbase,bWashBools)
     dbase.SegmentTimes = cell(1,length(dbase.SegmentTimes));
     dbase.SegmentTitles = cell(1,length(dbase.SegmentTitles));
     dbase.SegmentIsSelected = cell(1,length(dbase.SegmentIsSelected));
-    vocsegspath = [datepath '\vocalization\segmentations_cleaned.mat'];
+    vocsegspath = [datepath '\vocalization\segmentations.mat'];
     if  exist(vocsegspath,'file')
         vsegs = load(vocsegspath);
         name = fieldnames(vsegs);
@@ -171,6 +171,9 @@ function dbase = cj_add_Han_segments(dbase,bWashBools)
         for r = warbfils'
             dbase.Properties.Values{1,r}{1,length(gestures)-3} = 1;%MINUS three hard coded index
         end
+    else
+        display('no vocal segemnts!')
+        %error('Aint no segments available, son')
     end
     % here we will loop through all sound files and measure rms % I don't
     % actually like this that much - cj
@@ -197,7 +200,7 @@ function dbase = cj_add_Han_segments(dbase,bWashBools)
             dbase.Properties.Values{1,i}{1,length(gestures)} = 1;
         end
     end
-    % save new dbase with added shit to caleb's folder
+    % save new dbase with added stuff to caleb's folder
     savedir = 'X:\Budgie\0010_0572\dbases\caleb_dbases';
     savename = ['dbase' birdID '_' date '_segs.mat'];
     save([savedir '\' savename],'dbase')

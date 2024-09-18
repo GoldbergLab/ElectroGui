@@ -193,12 +193,12 @@ function cj_makeaacNeuronexampleppt(dbase,ephyschan)
             layout = 0:totplots:length(plots);
             for i = layout
                 if i ~= layout(end)
-                    fig = tileFigures(plots(i+1:i+totplots),[6 2],0,[0,0]);
+                    fig = tileFigures(plots(i+1:i+totplots),[6 2]);
                     fig.Position=[107 108 1640 933];
                     rc_exportfigpptx(Presentation,fig,[1,1]);
                 else 
                     if ~isempty(plots(i+1:end))
-                        fig = tileFigures(plots(i+1:end),[6 2],0,[0,0]);
+                        fig = tileFigures(plots(i+1:end),[6 2]);
                         fig.Position=[107 108 1640 933];
                         rc_exportfigpptx(Presentation,fig,[1,1]);
                     end
@@ -353,12 +353,12 @@ function cj_makeaacNeuronexampleppt(dbase,ephyschan)
         layout = 0:totplots:length(warbplots);
         for i = layout
             if i ~= layout(end)
-                fig = tileFigures(warbplots(i+1:i+totplots),[1 3],0,[0,0]);
+                fig = tileFigures(warbplots(i+1:i+totplots),[1 3]);
                 fig.Position=[107 108 1640 933];
                 rc_exportfigpptx(Presentation,fig,[1,1]);
             else 
                 if ~isempty(warbplots(i+1:end))
-                    fig = tileFigures(warbplots(i+1:end),[1 3],0,[0,0]);
+                    fig = tileFigures(warbplots(i+1:end),[1 3]);
                     fig.Position=[107 108 1640 933];
                     rc_exportfigpptx(Presentation,fig,[1,1]);
                 end
@@ -522,12 +522,12 @@ function cj_makeaacNeuronexampleppt(dbase,ephyschan)
         layout = 0:totplots:length(plots);
         for i = layout
             if i ~= layout(end)
-                fig = tileFigures(plots(i+1:i+totplots),[3 3],0,[0,0]);
+                fig = tileFigures(plots(i+1:i+totplots),[3 3]);
                 fig.Position=[107 108 1640 933];
                 rc_exportfigpptx(Presentation,fig,[1,1]);
             else 
                 if ~isempty(plots(i+1:end))
-                    fig = tileFigures(plots(i+1:end),[3 3],0,[0,0]);
+                    fig = tileFigures(plots(i+1:end),[3 3]);
                     fig.Position=[107 108 1640 933];
                     rc_exportfigpptx(Presentation,fig,[1,1]);
                 end
@@ -742,12 +742,12 @@ function cj_makeaacNeuronexampleppt(dbase,ephyschan)
         layout = 0:totplots:length(plots);
         for i = layout
             if i ~= layout(end)
-                fig = tileFigures(plots(i+1:i+totplots),[3 3],0,[0,0]);
+                fig = tileFigures(plots(i+1:i+totplots),[3 3]);
                 fig.Position = [107 108 1640 933];
                 rc_exportfigpptx(Presentation,fig,[1,1]);
             else
                 if ~isempty(plots(i+1:end))
-                    fig = tileFigures(plots(i+1:end),[3 3],0,[0,0]);
+                    fig = tileFigures(plots(i+1:end),[3 3]);
                     fig.Position = [107 108 1640 933];
                     rc_exportfigpptx(Presentation,fig,[1,1]);
                 end
@@ -908,12 +908,12 @@ function cj_makeaacNeuronexampleppt(dbase,ephyschan)
         layout = 0:totplots:length(plots);
         for i = layout
             if i ~= layout(end)
-                fig = tileFigures(plots(i+1:i+totplots),[3 3],0,[0,0]);
+                fig = tileFigures(plots(i+1:i+totplots),[3 3]);
                 fig.Position = [107 108 1640 933];
                 rc_exportfigpptx(Presentation,fig,[1,1]);
             else
                 if ~isempty(plots(i+1:end))
-                    fig = tileFigures(plots(i+1:end),[3 3],0,[0,0]);
+                    fig = tileFigures(plots(i+1:end),[3 3]);
                     fig.Position = [107 108 1640 933];
                     rc_exportfigpptx(Presentation,fig,[1,1]);
                 end

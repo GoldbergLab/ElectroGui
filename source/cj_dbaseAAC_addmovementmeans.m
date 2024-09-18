@@ -13,7 +13,7 @@ n = 10; %every nth file
 smoothwin_move = 60;
 smoothwin_move = round(smoothwin_move/1000*afs);
 
-for i = 1:length(names)
+for i = 50:length(names)
     dbase = load([dbase_dir '\' names{i}]);
     dbase = dbase.dbase;
     path = dbase.PathName;
@@ -39,9 +39,9 @@ for i = 1:length(names)
     if ~isfield(dbase,'accmeans')
         for k = 1:n:length(xfiles)
             disp(['File ' num2str(k) ' of ' num2str(length(xfiles))])
-            movex = egl_HC_ad([path '\' xfiles{k}],1);
-            movey = egl_HC_ad([path '\' yfiles{k}],1);
-            movez = egl_HC_ad([path '\' zfiles{k}],1);
+            movex = cj_txtread_datonly([path '\' xfiles{k}]);
+            movey = cj_txtread_datonly([path '\' yfiles{k}]);
+            movez = cj_txtread_datonly([path '\' zfiles{k}]);
             xmeans = [xmeans; mean(movex)];
             ymeans = [ymeans; mean(movey)];
             zmeans = [zmeans; mean(movez)];
@@ -59,9 +59,12 @@ for i = 1:length(names)
     end
     for k = 1:n:length(xfiles)
         disp(['File ' num2str(k) ' of ' num2str(length(xfiles))])
-        movex = egl_HC_ad([path '\' xfiles{k}],1);
-        movey = egl_HC_ad([path '\' yfiles{k}],1);
-        movez = egl_HC_ad([path '\' zfiles{k}],1);
+        movex = cj_txtread_datonly([path '\' xfiles{k}]);
+        movey = cj_txtread_datonly([path '\' yfiles{k}]);
+        movez = cj_txtread_datonly([path '\' zfiles{k}]);
+        if length(movex)~=length(movey) || length(movez) ~= length(movex)
+            continue
+        end
         movecom = [movex-xmean,movey-ymean,movez-zmean];
         % detrend and rectify 
         yeetus = [1:1000:(length(movecom)-1000) length(movecom)];

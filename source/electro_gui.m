@@ -1732,6 +1732,9 @@ labelHandles = [];
 % Loop over stored segment start/end times pairs
 for c = 1:size(times,1)
     % Extract the start (x1) and end (x2) times of this segment
+    if times(c,1)== 0
+        times(c,1) =1;
+    end
     x1 = xs(times(c,1));
     x2 = xs(times(c,2));
     if selects(c)
@@ -3971,7 +3974,7 @@ elseif strcmp(get(gcf,'selectiontype'),'normal')
     set(handles.xlimbox,'xdata',xd);
     handles = eg_EditTimescale(handles);
 
-elseif strcmp(get(gcf,'selectiontype'),'alt')
+elseif strcmp(get(gcf,'selectiontype'),'extend')
     handles.SelectedEvent = [];
     delete(findobj('linestyle','-.'));
 
