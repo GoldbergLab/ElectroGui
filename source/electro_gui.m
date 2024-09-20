@@ -4561,6 +4561,7 @@ function updateAmplitude(obj, options)
     % Recalculate amplitude data
     if obj.menu_DontPlot.Checked
         obj.amplitude = zeros(size(obj.filtered_sound));
+        fs = 1;
         labels = '';
     else
         obj.updateFilteredSound();
