@@ -9,6 +9,7 @@ classdef electro_gui < handle
         SourceName char
         UserFile
         OriginalDbase struct
+        CurrentDbasePath char = ''   % Keep track of currently loaded dbase name
     end
     properties % Temporary/cached properties
         History StateStack
@@ -3214,6 +3215,9 @@ function eg_NewDbase(obj)
 
     dbase = electro_gui.InitializeDbase(obj.settings, 'NumFiles', numFiles, 'BaseDbase', dbase, 'IncludeHelp', false);
 
+    % Dbase hasn't been saved yet, so clear current dbase path
+    obj.CurrentDbasePath = '';
+
     obj.SaveState();
 
     obj.dbase = dbase;
@@ -3377,11 +3381,17 @@ function OpenDbase(obj, filePathOrDbase, options)
         if isfield(S, 'settings')
             settings = S.settings;
         end
+
+        obj.CurrentDbasePath = path;
+
     elseif isstruct(filePathOrDbase)
         % We're loading a dbase from memory, not from file
         progressMsg = 'Loading state...';
         progressBar = waitbar(0, progressMsg, 'WindowStyle', 'modal');
         dbase = filePathOrDbase;
+
+        % Dunno what the path is, so empty it
+        obj.CurrentDbasePath = '';
     else
         error('Unrecognized file path or dbase struct');
     end
@@ -3556,8 +3566,24 @@ function OpenDbase(obj, filePathOrDbase, options)
     close(progressBar)
 end
 
-function SaveDbase(obj)
-    [file, path] = uiputfile(obj.settings.DefaultDbaseFilename,'Save analysis');
+function SaveDbase(obj, dbasePath)
+    arguments
+        obj electro_gui
+        dbasePath char = obj.CurrentDbasePath
+    end
+
+    if isempty(dbasePath)
+        % No default path provided, try to use a sensible one
+        if ~isempty(obj.tempSettings.recentFiles)
+            % Try most recent file 
+            dbasePath = obj.tempSettings.recentFiles{1};
+        else
+            dbasePath = obj.settings.DefaultDbaseFilename;
+        end
+    end
+
+
+    [file, path] = uiputfile(dbasePath,'Save analysis');
     if ~ischar(file)
         return
     end
@@ -10300,7 +10326,11 @@ end
                         obj.eg_NewDbase();
                     case 's'
                         % User pressed control-s - activate save dbase dialog
-                        obj.SaveDbase();
+                        if ~isempty(obj.tempSettings.recentFiles)
+                            obj.SaveDbase(obj.tempSettings.recentFiles{1});
+                        else
+                            obj.SaveDbase();
+                        end
                     case 'space'
                         % User pressed control-space - start playback
                         snd = obj.GenerateSound('snd');
