@@ -1438,7 +1438,7 @@ classdef electro_gui < handle
         
             filenum = electro_gui.getCurrentFileNum(obj.settings);
         
-            [~, fs] = obj.eg_GetSamplingInfo();
+            [numSamples, fs] = obj.eg_GetSamplingInfo();
 
             [obj.SegmentHandles, obj.SegmentLabelHandles] = electro_gui.CreateAnnotations(...
                 obj.axes_Segments, ...
@@ -1447,7 +1447,7 @@ classdef electro_gui < handle
                 obj.dbase.SegmentIsSelected{filenum}, ...
                 obj.settings.SegmentSelectColor, obj.settings.SegmentUnSelectColor, ...
                 obj.settings.SegmentActiveColor, obj.settings.SegmentInactiveColor, ...
-                [-1, 1], fs, [], @obj.click_segment);
+                [-1, 1], numSamples, fs, [], @obj.click_segment);
         
             [obj.MarkerHandles, obj.MarkerLabelHandles] = electro_gui.CreateAnnotations(...
                 obj.axes_Segments, ...
@@ -1456,7 +1456,7 @@ classdef electro_gui < handle
                 obj.dbase.MarkerIsSelected{filenum}, ...
                 obj.settings.MarkerSelectColor, obj.settings.MarkerUnSelectColor, ...
                 obj.settings.SegmentInactiveColor, obj.settings.MarkerInactiveColor, ...
-                [1, 3], fs, [], @obj.click_segment);
+                [1, 3], numSamples, fs, [], @obj.click_segment);
         
             % Ensure active annotation setting is valid
             obj.SanityCheckActiveAnnotation(filenum);
@@ -2109,6 +2109,9 @@ function LoadFile(obj, showWaitBar)
 
     obj.clearAxes();
 
+    tmax = numSamples/fs;
+    obj.settings.TLim = [0, tmax];
+
     obj.updateAnnotations();
 
     if showWaitBar
@@ -2129,9 +2132,6 @@ function LoadFile(obj, showWaitBar)
 
     obj.updateAmplitude('ForceRedraw', true);
 
-
-    tmax = numSamples/fs;
-    obj.settings.TLim = [0, tmax];
     obj.updateTimescaleView();
 
     if showWaitBar
@@ -3578,10 +3578,10 @@ function SaveDbase(obj, dbasePath)
             % Try most recent file 
             dbasePath = obj.tempSettings.recentFiles{1};
         else
-            % Just use default dbase name in current dir
             dbasePath = obj.settings.DefaultDbaseFilename;
         end
     end
+
 
     [file, path] = uiputfile(dbasePath,'Save analysis');
     if ~ischar(file)
@@ -13745,7 +13745,7 @@ end
         end
         function [annotationHandles, labelHandles] = CreateAnnotations(...
                 ax, times, titles, selects, selectColor, unselectColor, ...
-                activeColor, inactiveColor, yExtent, fs, ...
+                activeColor, inactiveColor, yExtent, numSamples, fs, ...
                 activeIndex, click_handler)
             % Create the annotations for a set of timed segments (used for plotting both
             % "segments" and "markers")
@@ -13759,14 +13759,15 @@ end
                 activeColor
                 inactiveColor
                 yExtent
+                numSamples
                 fs
                 activeIndex = []
                 click_handler function_handle = @NOP
             end
         
-            % Convert annotation times from samples to seconds
-            times = times / fs;
-
+            % Create a time vector that corresponds to the loaded audio samples
+            ts = linspace(0, numSamples/fs, numSamples);
+        
             y0 = yExtent(1);
             y1 = yExtent(1) + (yExtent(2) - yExtent(1))*0.3;
         
@@ -13776,8 +13777,8 @@ end
             % Loop over stored segment start/end times pairs
             for annotationNum = 1:size(times,1)
                 % Extract the start (x1) and end (x2) times of this segment
-                t1 = times(annotationNum, 1);
-                t2 = times(annotationNum, 2);
+                t1 = ts(times(annotationNum, 1));
+                t2 = ts(times(annotationNum, 2));
                 if selects(annotationNum)
                     faceColor = selectColor;
                 else
