@@ -9,6 +9,11 @@ settings.DefaultChannelNumber = 20;      % Default number of channels
 settings.QuoteFile = 'quotes.txt';       % File to get startup quotes from
 settings.IncludeDocumentation = true;    % Include field documentation in dbase? This adds a little size to the dbase file.
 settings.CurrentFile = 1;                % File number to start at
+settings.DefaultChannelFs = NaN;         % Default sampling rate for channels. Must be either a single sampling 
+                                         %  rate which will apply to all channels, or a 1xC list of sampling 
+                                         %  rates, one per channel. This will override the sampling rate
+                                         %  loaded from files, unless a value is NaN, in which the loaded 
+                                         %  sampling rate will be used.
 
 % UNDO/REDO SETTINGS
 settings.UndoEnabled = true;             % Enable control-z for undo and control-y or control-shift-z for redo - this adds some overhead to operations.

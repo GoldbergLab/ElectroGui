@@ -228,6 +228,8 @@ classdef electro_gui < handle
         menu_SearchAnd
         menu_SearchOr
         menu_SearchNot
+        menu_Channels
+        action_SetChannelFs
         menu_Export
         action_Export
         action_ClearExport
@@ -2177,7 +2179,8 @@ function [channelData, channelSamplingRate, channelLabels, timestamp] = loadChan
                 eventSourceIdx = pChannelInfo.eventSourceIdx;
                 eventPartIdx = pChannelInfo.eventPartIdx;
                 [channelNum, ~, ~, ~, ~, ~, ~, ~, isSourcePseudoChannel] = obj.GetEventSourceInfo(eventSourceIdx);
-                [numSamples, channelSamplingRate] = obj.eg_GetSamplingInfo(fileNum, channelNum, isSourcePseudoChannel);
+                [numSamples, loadedChannelSamplingRate] = obj.eg_GetSamplingInfo(fileNum, channelNum, isSourcePseudoChannel);
+
                 rawChannelData = zeros(numSamples, 1);
                 eventTimes = obj.dbase.EventTimes{eventSourceIdx}{eventPartIdx, fileNum};
                 rawChannelData(eventTimes) = 1;
@@ -2202,10 +2205,23 @@ function [channelData, channelSamplingRate, channelLabels, timestamp] = loadChan
         if obj.settings.EnableFileCaching
             % File is already cached - retrieve data
             data = obj.retrieveFileFromCache(filePath, loader);
-            [rawChannelData, channelSamplingRate, timestamp, channelLabels, ~] = data{:};
+            [rawChannelData, loadedChannelSamplingRate, timestamp, channelLabels, ~] = data{:};
         else
             % File is not cached - load data
-            [rawChannelData, channelSamplingRate, timestamp, channelLabels, ~] = electro_gui.eg_runPlugin(obj.plugins.loaders, loader, filePath, true);
+            [rawChannelData, loadedChannelSamplingRate, timestamp, channelLabels, ~] = electro_gui.eg_runPlugin(obj.plugins.loaders, loader, filePath, true);
+        end
+    end
+
+    % loadedChannelSamplingRate is not always reliable, so
+    %   override it if we already have a channel frequency 
+    %   stored for this channel
+    if isnan(obj.dbase.ChannelFs(channelNum))
+        channelSamplingRate = loadedChannelSamplingRate;
+        obj.dbase.ChannelFs(channelNum) = channelSamplingRate;
+    else
+        channelSamplingRate = obj.dbase.ChannelFs(channelNum);
+        if channelSamplingRate ~= loadedChannelSamplingRate
+            fprintf('Loaded sampling rate for channel %d is %f, but stored sampling rate is %f.', channelNum, loadedChannelSamplingRate, channelSamplingRate);
         end
     end
 
@@ -2282,6 +2298,14 @@ function [sound, fs, timestamp] = getSound(obj, soundChannel, filenum, isPseudoC
     else
         % Use some other not-already-loaded channel data as sound
         [sound, fs, ~, timestamp] = obj.loadChannelData(soundChannel, 'FileNum', filenum, 'IsPseudoChannel', isPseudoChannel);
+    end
+
+    if ~isnan(obj.dbase.Fs)
+        % Sound sampling rate was already known, use it
+        fs = obj.dbase.Fs;
+    else
+        % Sound sampling rate was not known, update it
+        obj.dbase.Fs = fs;
     end
 
     if size(sound,2) > size(sound,1)
@@ -3345,7 +3369,7 @@ function OpenDbase(obj, filePathOrDbase, options)
         obj electro_gui
         filePathOrDbase = ''
         options.SkipDbaseFormatUpdate = false
-        options.Settings = defaults_template()
+        options.Settings = obj.settings
     end
 
     settings = options.Settings;
@@ -3353,7 +3377,7 @@ function OpenDbase(obj, filePathOrDbase, options)
     if ischar(filePathOrDbase)
         % User supplied a path name - load the dbase from that path
         progressMsg = 'Opening dbase...';
-        progressBar = waitbar(0, progressMsg, 'WindowStyle', 'modal');
+        progressBar = waitbar(0.05, progressMsg, 'WindowStyle', 'modal');
         if isempty(filePathOrDbase)
             % Prompt user to select dbase .mat file
             if isfield(settings, 'tempSettings')
@@ -3488,7 +3512,6 @@ function OpenDbase(obj, filePathOrDbase, options)
     obj.popup_EventDetector2.Value = 1;
 
     waitbar(0.57, progressBar)
-
 
     % Update file browser
     obj.edit_FileNumber.String = num2str(settings.CurrentFile);
@@ -8704,6 +8727,19 @@ function setupGUI(obj)
         'Label','NOT current',...
         'Tag','menu_SearchNot');
 
+    %% Channels menu
+    obj.menu_Channels = uimenu(...
+        'Parent', obj.figure_Main, ...
+        'Callback', @obj.menu_Channels_Callback, ...
+        'Label', 'Channels', ...
+        'Tag', 'menu_Channels');
+
+    obj.action_SetChannelFs = uimenu(...
+        'Parent', obj.menu_Channels,...
+        'Callback', @(varargin)obj.setChannelFs(),...
+        'Label','Set channel sampling rates',...
+        'Tag','action_SetChannelFs');
+
     %% Export menu
     obj.menu_Export = uimenu(...
         'Parent',obj.figure_Main,...
@@ -8771,7 +8807,7 @@ function setupGUI(obj)
     
     obj.popup_EventListAlign.UIContextMenu = obj.context_EventListAlign;
 
-    % File browser-related stuff
+    %% File browser-related stuff
     obj.FileInfoBrowser = uitable2(...
         obj.panel_Files, ...
         'Units', 'normalized', ...
@@ -8785,6 +8821,7 @@ function setupGUI(obj)
     obj.FileInfoBrowser.CellEditCallback = @obj.GUIPropertyChangeHandler;
     obj.FileInfoBrowser.ContextMenu = obj.context_FileInfoBrowser;
 
+    %% Export window setup
     obj.ensureExportControlPanelExists();
     obj.ensureExportSettingsExist();
     obj.updateExportControlGUIValues();
@@ -9616,6 +9653,40 @@ end
 
     end
     methods            % GUI Callbacks
+        function setChannelFs(obj, channelNums, channelFs)
+            arguments
+                obj electro_gui
+                channelNums double = []
+                channelFs double = []
+            end
+            if length(channelNums) ~= length(channelFs)
+                error('channelNums and channelFs must have the same length.');
+            end
+
+            numChannels = electro_gui.getNumChannels(obj.dbase);
+
+            % Check if all channel numbers are valid
+            if ~all(ismember(channelNums, 1:numChannels))
+                badChannelNums = join(channelNums(~ismember(channelNums, 1:numChannels)), ', ');
+                error('Invalid channel numbers: %s', badChannelNums{1});
+            end
+
+            if isempty(channelNums) && numChannels > 0
+                channelNums = 1:numChannels;
+                channelNames = arrayfun(@(x)sprintf('Channel %d', x), channelNums, 'UniformOutput', false);
+                channelFs = getInputs('Channel sampling rates (Hz)', channelNames, num2cell(obj.dbase.ChannelFs));
+                if isempty(channelFs)
+                    % User cancelled
+                    return
+                end
+                channelFs = cell2mat(channelFs);
+            end
+
+            obj.dbase.ChannelFs(channelNums) = channelFs;
+
+            obj.updateChannelAxes(1);
+            obj.updateChannelAxes(2);
+        end
         function click_recentFile(obj, hObject, event)
             % Click an item in the recent files menu
             obj.SaveState();
@@ -11335,6 +11406,9 @@ end
         function playback_animation_BottomPlot_Callback(obj, hObject, eventdata)
             obj.ChangeProgress(hObject);
         end
+        function menu_Channels_Callback(obj, hObject, eventdata)
+            % Open channels menu
+        end
         function menu_Export_Callback(obj, hObject, eventdata)
             % Open export menu
         end
@@ -12620,6 +12694,9 @@ end
                 dbase.help.PropertyNames = '';
             end
 
+            dbase.Fs = NaN;
+            dbase.ChannelFs = NaN(1, numChannels);
+
             dbase.SoundFiles =          gvod(baseDbase, 'SoundFiles', cell(1, numFiles));
             dbase.ChannelFiles =        gvod(baseDbase, 'ChannelFiles', repmat(cell(1, numFiles), 1, numChannels));
             dbase.SoundLoader =         gvod(baseDbase, 'SoundLoader', '');
@@ -13122,11 +13199,18 @@ end
                 end
             end
             if foundIt
-                varargout = cell(1, nargout);
-                % Run plugin and gather output arguments.
-                [varargout{:}] = plugin(varargin{:});
+                try
+                    varargout = cell(1, nargout);
+                    % Run plugin and gather output arguments.
+                    [varargout{:}] = plugin(varargin{:});
+                catch ME
+                    errordlg(ME.message, sprintf('Plugin error: %s', name));
+                    rethrow(ME);
+                end
             else
-                error('Attempted to run plugin ''%s'', but it could not be found.', name);
+                msg = sprintf('Attempted to run plugin ''%s'', but it could not be found.', name);
+                errordlg(msg, 'Plugin error');
+                error(msg); %#ok<SPERR> 
             end
         end
         function GenericCreateFcn(hObject, eventdata)
@@ -13293,6 +13377,29 @@ end
             if isfield(dbase, 'AnalysisState')
                 settings = mergeStructures(settings, dbase.AnalysisState, "Overwrite", true);
                 dbase = rmfield(dbase, 'AnalysisState');
+            end
+
+            % Add ChannelFs field if it doesn't exist
+            if ~isfield(dbase, 'ChannelFs')
+                if isfield(settings, 'DefaultChannelFs')
+                    if isscalar(settings.DefaultChannelFs)
+                        % A single default channel sampling rate was
+                        % provided - use it for all channels
+                        dbase.ChannelFs = settings.DefaultChannelFs * ones(1, length(dbase.ChannelFiles));
+                    else
+                        if length(settings.DefaultChannelFs) ~= length(dbase.ChannelFiles)
+                            warning('Defaults file error: settings.DefaultChannelFs must be either a scalar or have length equal to the number of channels (%d).', length(dbase.ChannelFiles));
+                        else
+                            % A vector fo default channel sampling rates
+                            % was provided
+                            dbase.ChannelFs = settings.DefaultChannelFs;
+                        end
+                    end
+                else
+                    % No default channel sampling rates provided, leave all
+                    % undecided - will be determined by loader plugin.
+                    dbase.ChannelFs = NaN(1, length(dbase.ChannelFiles));
+                end
             end
         
             sourceDir = options.SourceDir;
