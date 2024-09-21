@@ -2221,7 +2221,7 @@ function [channelData, channelSamplingRate, channelLabels, timestamp] = loadChan
     else
         channelSamplingRate = obj.dbase.ChannelFs(channelNum);
         if channelSamplingRate ~= loadedChannelSamplingRate
-            fprintf('Loaded sampling rate for channel %d is %f, but stored sampling rate is %f.', channelNum, loadedChannelSamplingRate, channelSamplingRate);
+            fprintf('Loaded sampling rate for channel %d is %f, but stored sampling rate is %f. Using stored sampling rate.\n', channelNum, loadedChannelSamplingRate, channelSamplingRate);
         end
     end
 
