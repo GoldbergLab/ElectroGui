@@ -10,6 +10,7 @@ classdef electro_gui < handle
         UserFile
         OriginalDbase struct
         CurrentDbasePath char = ''   % Keep track of currently loaded dbase name
+        CurrentDefaults char = ''
     end
     properties % Temporary/cached properties
         History StateStack
@@ -294,11 +295,11 @@ classdef electro_gui < handle
                 return;
             end
 
-            % Load default defaults - the user's values can overwrite this
-            obj.settings = defaults_template(struct());
+            % Load base default settings, then load user defaults on top
+            obj.settings = electro_gui.createMergedSettings(chosenDefaults);
 
-            % Load defaults
-            obj.settings = feval(chosenDefaults, obj.settings);
+            % Store chosen defaults for later
+            obj.CurrentDefaults = chosenDefaults;
 
             % Warn user of old defaults
             obj.settings = electro_gui.warnAndFixLegacyDefaults(obj.settings);
@@ -357,7 +358,7 @@ classdef electro_gui < handle
                 try
                     % Start up parallel pool for caching purposes
                     p = gcp();
-                    p.IdleTimeout = 90;
+                    p.IdleTimeout = obj.settings.ParallelPoolTimeout;
                 catch
                     warning('Failed to start parallel pool - maybe the parallel computing toolbox is not installed? Disabling file caching.');
                     obj.settings.EnableFileCaching = false;
@@ -1207,7 +1208,7 @@ classdef electro_gui < handle
             obj.updateEventSourceList();
         
             % File sort order stuff
-            obj.popup_FileSortOrder.String = {'File number', 'Random', 'Property', 'Read status'};
+            obj.popup_FileSortOrder.String = {'File number', 'Random', 'Property', 'Read status', 'Custom'};
             obj.popup_FileSortOrder.Value = 1;
         
         
@@ -1782,7 +1783,6 @@ function addRecentFile(obj, filePath)
     obj.updateRecentFileList();
     obj.updateTempFile();
 end
-
 function isNewUser = ensureDefaultsFileExists(obj, user)
     % Check if a defaults file exists for the given user. If not, create
     % one for the user using the settings in defaults_template file.
@@ -1960,6 +1960,10 @@ function addToFileCache(obj, filepath, loader)
     %   there.
     numLoaderOutputs = 5;
     if ~obj.isFileInCache(filepath, loader)
+        % Start up parallel pool if it isn't open.
+        p = gcp();
+        p.IdleTimeout = obj.settings.ParallelPoolTimeout;
+
         next_idx = length(obj.file_cache)+1;
         obj.file_cache(next_idx).filepaths = filepath;
         obj.file_cache(next_idx).loaders = loader;
@@ -1993,7 +1997,7 @@ function refreshFileCache(obj)
     if electro_gui.areFilesSorted(obj.settings)
         % If files are sorted, cache the files before/after the current
         % file in sort order
-        obj.RefreshSortOrder();
+        % obj.RefreshSortOrder();   Don't think we generally need to do this, and it can be expensive
         filerow = obj.settings.InverseFileSortOrder(filenum);
         minCacheNum = max(1, filerow - obj.settings.BackwardFileCacheSize);
         maxCacheNum = min(electro_gui.getNumFiles(obj.dbase), filerow + obj.settings.ForwardFileCacheSize);
@@ -3382,16 +3386,14 @@ function OpenDbase(obj, filePathOrDbase, options)
         options.Settings = obj.settings
     end
 
-    settings = options.Settings;
-
     if ischar(filePathOrDbase)
         % User supplied a path name - load the dbase from that path
         progressMsg = 'Opening dbase...';
         progressBar = waitbar(0.05, progressMsg, 'WindowStyle', 'modal');
         if isempty(filePathOrDbase)
             % Prompt user to select dbase .mat file
-            if isfield(settings, 'tempSettings')
-                path = settings.tempSettings.lastDirectory;
+            if isfield(obj.settings, 'tempSettings')
+                path = obj.settings.tempSettings.lastDirectory;
             else
                 path = '.';
             end
@@ -3413,7 +3415,9 @@ function OpenDbase(obj, filePathOrDbase, options)
         S = load(fullfile(path, file), 'dbase', 'settings');
         dbase = S.dbase;
         if isfield(S, 'settings')
-            settings = S.settings;
+            dbaseSettings = S.settings;
+        else
+            dbaseSettings = struct();
         end
 
         obj.CurrentDbasePath = path;
@@ -3472,11 +3476,16 @@ function OpenDbase(obj, filePathOrDbase, options)
         obj.tempSettings.lastDirectory = path;
         obj.updateTempFile();
 
-        obj.settings.DefaultDbaseFilename = fullfile(path, file);
+        dbaseSettings.settings.DefaultDbaseFilename = fullfile(path, file);
     end
 
+    if ~isfield(dbaseSettings, 'CurrentDefaults')
+        dbaseSettings.CurrentDefaults = struct();
+    end
+    settings = electro_gui.createMergedSettings(dbaseSettings.CurrentDefaults, dbaseSettings);
+
     if ~options.SkipDbaseFormatUpdate
-        % Do not ensure the dbase is in the most up-to-date format
+        % Do ensure the dbase is in the most up-to-date format
         [dbase, settings] = electro_gui.updateDbaseFormat(dbase, settings);
     end
 
@@ -4843,8 +4852,10 @@ end
 
 function propertyValue = getPropertyValue(obj, propertyName, filenum)
     % Get the property value for the given property name and file(s)
-    if ~exist('filenum', 'var') || isempty(filenum)
-        filenum = electro_gui.getCurrentFileNum(obj.settings);
+    arguments
+        obj electro_gui
+        propertyName
+        filenum = electro_gui.getCurrentFileNum(obj.settings)
     end
 
     propertyIdx = find(strcmp(propertyName, obj.dbase.PropertyNames), 1);
@@ -5114,6 +5125,18 @@ function RefreshSortOrder(obj)
             [~, obj.settings.FileSortOrder] = sort(~propertyValues);
         case 'Read status'
             [~, obj.settings.FileSortOrder] = sort(obj.dbase.FileReadState);
+        case 'Custom'
+            try
+                [~, obj.settings.FileSortOrder] = ...
+                    sort(~obj.EvaluateFileSortCustomExpression(obj.settings.FileSortCustomExpression));
+            catch ME
+                errordlg(...
+                    sprintf(...
+                        'Error encountered when evaluating custom expression ''%s'': %s', ...
+                        obj.settings.FileSortCustomExpression, ME.message), ...
+                    'Custom sort error')
+                disp(getReport(ME));
+            end
         otherwise
             error('Unknown sort method: ''%s''', sortMethod)
     end
@@ -5127,7 +5150,27 @@ function RefreshSortOrder(obj)
         obj.settings.InverseFileSortOrder(obj.settings.FileSortOrder) = 1:numFiles;
     end
 end
-
+function result = EvaluateFileSortCustomExpression(obj, expression)
+    arguments
+        obj electro_gui
+        expression char
+    end
+    % Determine which properties are needed for this custom expression
+    includedPropertyNames = obj.dbase.PropertyNames(cellfun(@(pat)contains(expression, pat), obj.dbase.PropertyNames));
+    % Loop over included properties and assign them as individual variables
+    % in this workspace
+    for k = 1:length(includedPropertyNames)
+        propertyName = includedPropertyNames{k};
+        val = obj.getPropertyValue(propertyName, 1:electro_gui.getNumFiles(obj.dbase))'; %#ok<NASGU> 
+        eval([propertyName, ' = val;']);
+    end
+    % Get rid of extra variables
+    clear('k', 'propertyName', 'val', 'includedPropertyNames');
+    % Assign additional variables
+    Read = obj.dbase.FileReadState; %#ok<NASGU> 
+    % Evaluate expression and get result
+    result = eval(expression);
+end
 function UpdateFiles(obj, old_sound_files)
 
     numFiles = electro_gui.getNumFiles(obj.dbase);
@@ -11532,38 +11575,66 @@ end
             sortMethod = obj.popup_FileSortOrder.String{sortMethodIdx};
             obj.settings.FileSortMethod = sortMethod;
 
-            if strcmp(sortMethod, 'Property')
-                % If we're switching to Property sorting, have to ask user which
-                % property to sort by
-                if isempty(obj.dbase.PropertyNames)
-                    msgbox('No properties to sort by yet - please add one first')
-                    return;
-                end
+            switch sortMethod
+                case 'Property'
+                    % If we're switching to Property sorting, have to ask user which
+                    % property to sort by
+                    if isempty(obj.dbase.PropertyNames)
+                        msgbox('No properties to sort by yet - please add one first')
+                        return;
+                    end
+    
+                    obj.SaveState();
+    
+                    % Determine what default property name to offer the user
+                    defaultProperty = obj.settings.FileSortPropertyName;  % Try the previously used sort property first
+                    if isempty(defaultProperty) || ~any(strcmp(defaultProperty, obj.dbase.PropertyNames))
+                        % That one's empty, go with the first one
+                        defaultProperty = obj.dbase.PropertyNames{1};
+                    end
+                    % Query the user
+                    defaultProperty = categorical({defaultProperty}, obj.dbase.PropertyNames);
+                    inputs = getInputs('Sort by which property?', {'Property name'}, {defaultProperty}, {''});
+    
+                    % Use user's choice
+                    if ~isempty(inputs)
+                        obj.settings.FileSortPropertyName = char(inputs{1});
+                    else
+                        % User cancelled - go back to File number sort order
+                        obj.setFileSortMethod('File number', false);
+                    end
+                case 'Custom'
+                    obj.SaveState()
 
-                obj.SaveState();
+                    if isempty(obj.dbase.PropertyNames)
+                        propertyNameList = '<None>';
+                    else
+                        propertyNameList = join(obj.dbase.PropertyNames, ', ');
+                        propertyNameList = propertyNameList{1};
+                    end
 
-                % Determine what default property name to offer the user
-                defaultProperty = obj.settings.FileSortPropertyName;  % Try the previously used sort property first
-                if isempty(defaultProperty) || ~any(strcmp(defaultProperty, obj.dbase.PropertyNames))
-                    % That one's empty, go with the first one
-                    defaultProperty = obj.dbase.PropertyNames{1};
-                end
-                % Query the user
-                defaultProperty = categorical({defaultProperty}, obj.dbase.PropertyNames);
-                inputs = getInputs('Sort by which property?', {'Property name'}, {defaultProperty}, {''});
+                    inputs = getInputs('Enter a custom sort expression:', ...
+                        {'Custom sort expression'}, ...
+                        {obj.settings.FileSortCustomExpression}, ...
+                        {['Enter a custom MATLAB expression to sort files' ...
+                        'by. Expression must be in valid MATLAB syntax, ' ...
+                        'and must evaluate to true or false. Available ' ...
+                        'variables are "Read", "HasLabels", or any of your ' ...
+                        sprintf('property names: %s', propertyNameList)]});
 
-                % Use user's choice
-                if ~isempty(inputs)
-                    obj.settings.FileSortPropertyName = char(inputs{1});
-                else
-                    % User cancelled - go back to File number sort order
-                    obj.setFileSortMethod('File number');
-                end
+                    if ~isempty(inputs)
+                        obj.settings.FileSortCustomExpression = char(inputs{1});
+                        obj.setFileSortMethod('Custom', false);
+                    else
+                        % User cancelled - go back to File number sort order
+                        obj.setFileSortMethod('File number', false);
+                    end
+                otherwise
+                    % Other sort methods do not require user input
             end
 
             obj.RefreshSortOrder();
             obj.UpdateFileInfoBrowser();
-
         end
 
         % --- Executes on button press in check_ReverseSort.
@@ -12660,11 +12731,32 @@ end
 
     end
     methods (Static)   % dbase manipulation methods
+        function settings = createMergedSettings(userSettings, dbaseSettings)
+            % Merge the defaults_template, userSettings, and dbaseSettings
+            arguments
+                userSettings
+                dbaseSettings = struct()
+            end
+        
+            % Get defaults
+            settings = defaults_template();
+            % Apply user settings on top
+            if ischar(userSettings)
+                % User settings given as a defaults_*.m file name
+                settings = feval(userSettings, settings);
+            elseif isstruct(userSettings)
+                settings = mergeStructures(settings, userSettings);
+            else
+                error('Invalid user settings');
+            end
+            % Apply dbase settings on top
+            settings = mergeStructures(settings, dbaseSettings);
+        end       
         function dbase = InitializeDbase(settings, options)
             % Build empty structure for dbase data to go into, or if a baseDbase is
             % supplied, clear the analyzed data without clearing the settings
             arguments
-                settings = defaults_template()   % electro_gui settings, such as that output by defaults_template
+                settings = defaults_template()   % electro_gui settings, such as that output by defaults_template, or the name of a user defaults setting file
                 options.NumFiles (1, 1) double = NaN
                 options.NumChannels (1, 1) double = NaN
                 options.BaseDbase struct = struct()  %InitializeDbase(0, struct())
@@ -12677,7 +12769,7 @@ end
                     % User passed only defaults name, not full filename
                     settings = sprintf('defaults_%s', settings);
                 end
-                settings = feval(settings);
+                settings = createMergedSettings(settings);
             end
 
             gvod = @electro_gui.getValueOrDefault;
@@ -13147,7 +13239,7 @@ end
             % electro_gui plugin functions with the given prefix (for example 'egl_')
             allowedCharacters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_';
             pattern = sprintf('%s_.*\\.m', prefix);
-            pluginPaths = findFiles(root, "RegexPattern", pattern, "SearchSubdirectories", false);
+            pluginPaths = findFiles(root, pattern, "SearchSubdirectories", false);
             badPluginIdx = [];
             for k = 1:length(pluginPaths)
                 [~, fileName, ~] = fileparts(pluginPaths{k});
@@ -13406,7 +13498,7 @@ end
         
         end
         function [dbase, settings] = updateDbaseFormat(dbase, settings, options)
-            % Update legacy dbase format to current format
+            % Update legacy dbase (and settings) format to current format
             arguments
                 dbase struct
                 settings struct = defaults_template()
@@ -13615,6 +13707,9 @@ end
             end
             if isfield(dbase, 'FileSortPropertyName')
                 dbase = rmfield(dbase, 'FileSortPropertyName');
+            end
+            if ~isfield(settings, 'FileSortCustomExpression')
+                settings.FileSortCustomExpression = '';
             end
         
             if ~isfield(settings, 'FileSortReversed')

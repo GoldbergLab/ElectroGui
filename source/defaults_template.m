@@ -9,11 +9,8 @@ settings.DefaultChannelNumber = 20;      % Default number of channels
 settings.QuoteFile = 'quotes.txt';       % File to get startup quotes from
 settings.IncludeDocumentation = true;    % Include field documentation in dbase? This adds a little size to the dbase file.
 settings.CurrentFile = 1;                % File number to start at
-settings.DefaultChannelFs = NaN;         % Default sampling rate for channels. Must be either a single sampling 
-                                         %  rate which will apply to all channels, or a 1xC list of sampling 
-                                         %  rates, one per channel. This will override the sampling rate
-                                         %  loaded from files, unless a value is NaN, in which the loaded 
-                                         %  sampling rate will be used.
+settings.DefaultChannelFs = NaN;         % Default sampling rate for channels. Must be either a single sampling rate which will apply to all channels, or a 1xC list of sampling rates, one per channel. 
+                                         % This will override the sampling rate loaded from files, unless a value is NaN, in which the loaded  sampling rate will be used.
 
 % UNDO/REDO SETTINGS
 settings.UndoEnabled = true;             % Enable control-z for undo and control-y or control-shift-z for redo - this adds some overhead to operations.
@@ -30,12 +27,14 @@ settings.FileSortPropertyName = '';         % Default property to sort by if Fil
 settings.FileSortReversed = false;
 settings.FileReadColor = [1, 1, 1];
 settings.FileUnreadColor = [1, 0.8, 0.8];
-settings.ShowFileNameColumn = false;
+settings.ShowFileNameColumn = false;        % Display the file name in the file info browser by default? File browser scrolls slightly faster if this is false.
+settings.FileSortCustomExpression = '';     % Custom file sorting expression
 
 % FILE CACHING
 settings.EnableFileCaching = true;      % Enable file caching - electrogui will load several files in the background around current file to improve loading time. Note that the first time MATLAB will need time to start parallel pool.
 settings.BackwardFileCacheSize = 2;     % Number of files to load before the current file in case user goes backwards
 settings.ForwardFileCacheSize = 4;      % Number of files to load after the current file in case user goes forwards
+settings.ParallelPoolTimeout = 90;      % Number of minutes before parallel pool shuts itself off
 
 % DBASE SETTINGS
 settings.IncludeDocumentation = true;                 % Include documentation in saved dbase?
