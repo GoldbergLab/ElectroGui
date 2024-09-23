@@ -1123,8 +1123,18 @@ classdef electro_gui < handle
             end
         end
         function updateActiveEventDisplay(obj, oldActiveEventNum, oldActiveEventPart, oldEventSourceIdx)
-            obj.SetEventDisplayActiveState(oldActiveEventNum, oldActiveEventPart, oldEventSourceIdx, false);
-            obj.SetEventDisplayActiveState(obj.settings.ActiveEventNum, obj.settings.ActiveEventPartNum, oldEventSourceIdx, true);
+            arguments       
+                obj electro_gui
+                oldActiveEventNum = obj.settings.ActiveEventNum
+                oldActiveEventPart = obj.settings.ActiveEventPartNum
+                oldEventSourceIdx = obj.GetEventViewerEventSourceIdx()
+            end
+            if ~isempty(oldActiveEventPart)
+                obj.SetEventDisplayActiveState(oldActiveEventNum, oldActiveEventPart, oldEventSourceIdx, false);
+            end
+            if ~isempty(obj.settings.ActiveEventNum)
+                obj.SetEventDisplayActiveState(obj.settings.ActiveEventNum, obj.settings.ActiveEventPartNum, oldEventSourceIdx, true);
+            end
         end
         function updateSonogramOverlay(obj)
             % Show, delete, or update channel data overlaid directly on top of the
@@ -4437,14 +4447,13 @@ function numEvents = GetNumEvents(obj, eventSourceIdx, eventPartNum)
 end
 
 function SetActiveEventDisplay(obj, newActiveEventNum, newActiveEventPart, newEventSourceIdx)
-    if ~exist('newActiveEventPart', 'var') || isempty(newActiveEventPart)
-        % If not provided, assume we're not switching to a new event part
-        newActiveEventPart = obj.settings.ActiveEventPartNum;
+    arguments
+        obj electro_gui
+        newActiveEventNum
+        newActiveEventPart = obj.settings.ActiveEventPartNum
+        newEventSourceIdx = obj.settings.ActiveEventSourceIdx
     end
-    if ~exist('newEventSourceIdx', 'var') || isempty(newEventSourceIdx)
-         newEventSourceIdx = obj.settings.ActiveEventSourceIdx;
-    end
-
+    % Set the active event in the event viewer
     oldActiveEventNum = obj.settings.ActiveEventNum;
     oldActiveEventPart = obj.settings.ActiveEventPartNum;
     oldActiveEventSourceIdx = obj.settings.ActiveEventSourceIdx;
@@ -4453,7 +4462,10 @@ function SetActiveEventDisplay(obj, newActiveEventNum, newActiveEventPart, newEv
     obj.settings.ActiveEventSourceIdx = newEventSourceIdx;
     obj.updateActiveEventDisplay(oldActiveEventNum, oldActiveEventPart, oldActiveEventSourceIdx);
 end
-
+function DeactivateActiveEvent(obj)
+    % Deactivate the active event (so there will be no active event)
+    obj.SetActiveEventDisplay([], [], []);
+end
 function SetEventDisplayActiveState(obj, eventNum, eventPartNum, eventSourceIdx, activeState)
     % Take the given event number, event part, and event source index, and
     % set it to the given active state (either true => active or false =>
@@ -11100,36 +11112,19 @@ end
 
         end
         function click_eventwave(obj, eventWaveHandle, event)
-            newActiveEventNum = find(obj.EventWaveHandles==eventWaveHandle);
-            newActiveEventPart = obj.GetEventViewerEventPartIdx();
-            newEventSourceIdx = obj.GetEventViewerEventSourceIdx();
+            clickedEventNum = find(obj.EventWaveHandles==eventWaveHandle);
+            eventPart = obj.GetEventViewerEventPartIdx();
+            eventSourceIdx = obj.GetEventViewerEventSourceIdx();
 
             if strcmp(obj.figure_Main.SelectionType,'normal')
-                obj.SetActiveEventDisplay(newActiveEventNum, newActiveEventPart, newEventSourceIdx);
+                % Make clicked event wave the active event
+                obj.SetActiveEventDisplay(clickedEventNum, eventPart, eventSourceIdx);
             elseif strcmp(obj.figure_Main.SelectionType,'extend')
-                eventWaveHandle.XData = [];
-                eventWaveHandle.YData = [];
-                hold(obj.axes_Events, 'on');
-                % ???
-                obj.EventWaveHandles(obj.settings.ActiveEventNum) = plot(obj.axes_Events, mean(xlim(obj.axes_Events)),mean(ylim(obj.axes_Events)),'w.');
-                hold(obj.axes_Events, 'off');
-                obj.UnselectEvents(obj.settings.ActiveEventNum);
-                delete(eventWaveHandle);
+                % De-select shift-clicked event wave
+                obj.UnselectEvents(clickedEventNum, eventSourceIdx);
             end
 
         end
-        function unselect_event(obj, hObject, event)
-
-            obj.SetEventDisplayActiveState(obj.settings.ActiveEventNum, obj.settings.ActiveEventPartNum, eventSourceIdx, activeState);
-
-            obj.settings.ActiveEventNum = [];
-            obj.settings.ActiveEventPartNum = [];
-
-
-            delete(obj.ActiveEventCursors);
-            delete(findobj('Parent',obj.axes_Events,'LineWidth',2));
-        end
-
         function click_eventaxes(obj, hObject, event)
             % Handle clicks on event viewer axes
 
@@ -11143,6 +11138,9 @@ end
 
                     xlim(obj.axes_Events, [rect(1) rect(1)+rect(3)]);
                     ylim(obj.axes_Events, [rect(2) rect(2)+rect(4)]);
+                else
+                    % Left click - deactivate currently active event
+                    obj.DeactivateActiveEvent();
                 end
 
             elseif strcmp(obj.figure_Main.SelectionType,'open')
