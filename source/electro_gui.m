@@ -4570,31 +4570,53 @@ function UnselectEvents(obj, eventNums, eventSourceIdx, filenum)
 end
 
 function menu_FunctionParams(obj,axnum)
+    params = obj.settings.ChannelAxesFunctionParams{axnum};
 
-    pr = obj.settings.ChannelAxesFunctionParams{axnum};
-
-    if ~isfield(pr,'Names') || isempty(pr.Names)
+    if ~isfield(params,'Names') || isempty(params.Names)
         errordlg('Current function does not require parameters.','Function error');
         return
     end
 
-    answer = inputdlg(pr.Names,'Function parameters',1,pr.Values);
+    answer = inputdlg(params.Names, 'Function parameters', 1, params.Values);
     if isempty(answer)
         return
     end
-    pr.Values = answer;
+    params.Values = answer';
 
-    obj.settings.ChannelAxesFunctionParams{axnum} = pr;
+    % Set default channel function params
+    obj.settings.ChannelAxesFunctionParams{axnum} = params;
 
-    v = obj.popup_Functions(axnum).Value;
-    ud = obj.popup_Functions(axnum).UserData;
-    ud{v} = obj.settings.ChannelAxesFunctionParams{axnum};
-    obj.popup_Functions(axnum).UserData = ud;
+    eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
+    if isempty(eventSourceIdx)
+        % No event source - nothing more to do
+        return;
+    end
 
-%     if isempty(findobj('Parent',obj.axes_Sonogram,'type','text'))
-        obj.updateChannelAxes(axnum);
-        obj.DetectEventsInAxes(axnum);
-%     end
+    obj.dbase.EventFunctionParameters{eventSourceIdx} = params;
+
+    % Update events for the event source configuration of this
+    % channel axes.
+    eventSourceIdx = obj.DetectEventsInAxes(axnum);
+    
+    for axn = 1:2
+        if obj.GetChannelAxesEventSourceIdx(axn)==eventSourceIdx
+            % Axes is visible and is currently showing the same
+            % event source, update the display
+            obj.updateChannelAxes(axn);
+        end
+    end
+
+    obj.updateEventViewer();
+
+%     v = obj.popup_Functions(axnum).Value;
+%     ud = obj.popup_Functions(axnum).UserData;
+%     ud{v} = obj.settings.ChannelAxesFunctionParams{axnum};
+%     obj.popup_Functions(axnum).UserData = ud;
+% 
+% %     if isempty(findobj('Parent',obj.axes_Sonogram,'type','text'))
+%         obj.updateChannelAxes(axnum);
+%         obj.DetectEventsInAxes(axnum);
+% %     end
 
 
 end
@@ -12063,31 +12085,52 @@ end
         
         end
         
-        function menu_EventParams(obj,axnum)
+        function menu_EventParams(obj, axnum)
+            params = obj.settings.ChannelAxesEventParams{axnum};
         
-            pr = obj.settings.ChannelAxesEventParams{axnum};
-        
-            if ~isfield(pr,'Names') || isempty(pr.Names)
-                errordlg('Current event detector does not require parameters.','Event detector error');
+            if ~isfield(params, 'Names') || isempty(params.Names)
+                errordlg('Current event detector does not require parameters.', 'Event detector error');
                 return
             end
         
-            answer = inputdlg(pr.Names,'Event detector parameters',1,pr.Values);
+            answer = inputdlg(params.Names,'Event detector parameters',1,params.Values);
             if isempty(answer)
                 return
             end
-            pr.Values = answer;
+            params.Values = answer';
+
+            % Set default channel axes parameters
+            obj.settings.ChannelAxesEventParams{axnum} = params;
+
+            eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
+            if isempty(eventSourceIdx)
+                % No event source - this shouldn't be possible
+                errordlg('Errory no event source.')
+                return;
+            end
+
+            obj.dbase.EventParameters{eventSourceIdx} = params;
+
+            % Update events for the event source configuration of this
+            % channel axes.
+            eventSourceIdx = obj.DetectEventsInAxes(axnum);
         
-            obj.settings.ChannelAxesEventParams{axnum} = pr;
+            for axn = 1:2
+                if obj.GetChannelAxesEventSourceIdx(axn)==eventSourceIdx
+                    % Axes is visible and is currently showing the same
+                    % event source
+                    obj.updateChannelEventDisplay(axn);
+                end
+            end
         
-            v = obj.popup_EventDetectors(axnum).Value;
-            ud = obj.popup_EventDetectors(axnum).UserData;
-            ud{v} = obj.settings.ChannelAxesEventParams{axnum};
-            obj.popup_EventDetectors(axnum).UserData = ud;
-        
-            obj.DetectEventsInAxes(axnum);
-        
-        
+            obj.updateEventViewer();
+
+%             eventDetectorIdx = obj.popup_EventDetectors(axnum).Value;
+%             ud = obj.popup_EventDetectors(axnum).UserData;
+%             ud{eventDetectorIdx} = obj.settings.ChannelAxesEventParams{axnum};
+%             obj.popup_EventDetectors(axnum).UserData = ud;
+%         
+%             obj.DetectEventsInAxes(axnum);
         end
         function menu_FunctionParams1_Callback(obj, hObject, event)
             obj.menu_FunctionParams(1);
