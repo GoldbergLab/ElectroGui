@@ -53,7 +53,7 @@ requestInfo = struct('audio_file_base64_string', audio_base64_string, ...
 % Serialize the request structure into a json string
 jsonData = jsonencode(requestInfo);
 % Prepare options for our request
-options = weboptions('RequestMethod', 'POST', 'MediaType', 'application/json');
+options = weboptions('RequestMethod', 'POST', 'MediaType', 'application/json', 'Timeout', 20);
 try
     % Attempt to send data to the web service and await a reply
     response = webwrite(service_url, jsonData, options);
