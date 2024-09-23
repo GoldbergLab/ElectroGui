@@ -36,8 +36,12 @@ try
 catch ME
     % Frequency cutoffs out of range
     if strcmp(ME.identifier, 'signal:fir1:FreqsOutOfRange')
-        error('Invalid frequency cutoffs for FIRBandPass for sampling rate %f: [%f, %f]. Frequencies must be between 0 and %f', fs, freq1, freq2, fs/2);
+        freq1_modified = max(freq1, 1);
+        freq2_modified = min(freq2, fs/2 - 1);
+        warning('Invalid frequency cutoffs for FIRBandPass for sampling rate %d Hz: [%d, %d] Hz. Frequencies must be between 0 and %d Hz. Adjusting frequency cutoffs to [%d, %d] Hz.', fs, freq1, freq2, fs/2, freq1_modified, freq2_modified);
+        b = fir1(ord,[freq1_modified freq2_modified]/(fs/2));
     else
+        rethrow(ME);
     end
 end
 
