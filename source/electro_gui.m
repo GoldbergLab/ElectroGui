@@ -13629,7 +13629,14 @@ end
                 if isfield(settings, 'FileReadState')
                     dbase.FileReadState = settings.FileReadState;
                 else
-                    dbase.FileReadState = false(1, numFiles);
+                    % Very old electro_gui versions used the
+                    % dbase.FileLength field to store whether or not the
+                    % file has been read; >0 means read, =0 means unread.
+                    if isfield(dbase, 'FileLength')
+                        dbase.FileReadState = dbase.FileLength > 0;
+                    else
+                        dbase.FileReadState = false(1, numFiles);
+                    end
                 end
             end
             if isfield(settings, 'FileReadState')
