@@ -3427,7 +3427,7 @@ function OpenDbase(obj, filePathOrDbase, options)
         progressMsg = 'Loading state...';
         progressBar = waitbar(0, progressMsg, 'WindowStyle', 'modal');
         dbase = filePathOrDbase;
-
+        dbaseSettings = options.Settings;
         obj.CurrentDbasePath = options.DbasePath;
     else
         error('Unrecognized file path or dbase struct');
