@@ -374,7 +374,6 @@ classdef electro_gui < handle
 
             waitbar(1, progressBar);
             close(progressBar);
-
         end
     end
     methods %% GUI updating - functions that update or initialize the GUI based on stored values        
@@ -10523,7 +10522,7 @@ end
                     case obj.settings.ValidSegmentCharacters
                         % Key was a valid character for naming a segment/marker
                         obj.SaveState();
-                        obj.SetAnnotationTitle(event.Key, filenum);
+                        obj.SetAnnotationTitle(event.Character, filenum);
                         obj.UpdateAnnotationTitleDisplay();
                         oldAnnotationNum = obj.IncrementActiveAnnotation(+1);
                         obj.UpdateActiveAnnotationDisplay(oldAnnotationNum);
