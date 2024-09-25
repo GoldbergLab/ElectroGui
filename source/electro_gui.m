@@ -1706,7 +1706,7 @@ function Undo(obj)
     state = obj.History.UndoState(obj.GetDBase(false)); %#ok<*PROP>
     dbase = state{1};
     settings = state{2};
-    obj.OpenDbase(dbase, 'Settings', settings);
+    obj.OpenDbase(dbase, 'Settings', settings, 'DbasePath', obj.CurrentDbasePath);
 end
 
 function Redo(obj)
@@ -1716,7 +1716,7 @@ function Redo(obj)
     state = obj.History.RedoState(obj.GetDBase(false));
     dbase = state{1};
     settings = state{2};
-    obj.OpenDbase(dbase, 'Settings', settings);
+    obj.OpenDbase(dbase, 'Settings', settings, 'DbasePath', obj.CurrentDbasePath);
 end
 
 function disableAxesPopupToolbars(obj)
@@ -1732,8 +1732,8 @@ end
 
 function loadTempFile(obj)
     % Get temp file
-    tempSettingsFields =        {'lastDirectory',   'lastDBase', 'recentFiles'};
-    tempSettingsDefaultValues = {obj.SourceDir,     '',          {}};
+    tempSettingsFields =        {'lastDirectory',   'recentFiles'};
+    tempSettingsDefaultValues = {obj.SourceDir,     {}};
     try
         obj.tempSettings = load(obj.tempFile, tempSettingsFields{:});
     catch ME
@@ -3235,7 +3235,7 @@ function newMarkerNum = ConvertSegmentToMarker(obj, filenum, segmentNum)
     end
 end
 
-function eg_NewDbase(obj)
+function CreateNewDbase(obj)
 
     [dbase, cancel] = eg_GatherFiles('', obj.settings.FileString, ...
         obj.settings.DefaultFileLoader, obj.settings.DefaultChannelNumber, ...
@@ -3384,6 +3384,7 @@ function OpenDbase(obj, filePathOrDbase, options)
         filePathOrDbase = ''
         options.SkipDbaseFormatUpdate = false
         options.Settings = obj.settings
+        options.DbasePath = ''  % Optional for when you pass in a pre-loaded dbase rather than a dbase path
     end
 
     if ischar(filePathOrDbase)
@@ -3392,8 +3393,8 @@ function OpenDbase(obj, filePathOrDbase, options)
         progressBar = waitbar(0.05, progressMsg, 'WindowStyle', 'modal');
         if isempty(filePathOrDbase)
             % Prompt user to select dbase .mat file
-            if isfield(obj.settings, 'tempSettings')
-                path = obj.settings.tempSettings.lastDirectory;
+            if isfield(obj.tempSettings, 'lastDirectory')
+                path = obj.tempSettings.lastDirectory;
             else
                 path = '.';
             end
@@ -3428,8 +3429,7 @@ function OpenDbase(obj, filePathOrDbase, options)
         progressBar = waitbar(0, progressMsg, 'WindowStyle', 'modal');
         dbase = filePathOrDbase;
 
-        % Dunno what the path is, so empty it
-        obj.CurrentDbasePath = '';
+        obj.CurrentDbasePath = options.DbasePath;
     else
         error('Unrecognized file path or dbase struct');
     end
@@ -10471,7 +10471,7 @@ end
                         end
                     case 'n'
                         % User pressed control-n - activate new dbase dialog
-                        obj.eg_NewDbase();
+                        obj.CreateNewDbase();
                     case 's'
                         % User pressed control-s - activate save dbase dialog
                         if ~isempty(obj.tempSettings.recentFiles)
@@ -11335,7 +11335,7 @@ end
 
         end
         function file_New_Callback(obj, hObject, eventdata)
-            obj.eg_NewDbase();
+            obj.CreateNewDbase();
 
 
         end
