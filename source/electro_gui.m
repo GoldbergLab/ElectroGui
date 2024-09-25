@@ -4994,6 +4994,10 @@ function setFileReadState(obj, filenums, readState)
         obj.dbase.FileReadState(maxFilenum+1:end) = [];
     end
 
+    if electro_gui.areFilesSorted(obj.settings)
+        filenums = obj.settings.InverseFileSortOrder(filenums);
+    end
+
     obj.dbase.FileReadState(filenums) = readState;
     backgroundColors = repmat(color, length(filenums), 1);
 %     if electro_gui.areFilesSorted(obj.settings)
