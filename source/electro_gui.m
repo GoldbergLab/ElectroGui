@@ -3617,7 +3617,7 @@ function OpenDbase(obj, filePathOrDbase, options)
     close(progressBar)
 end
 
-function SaveDbase(obj, dbasePath)
+function SaveCurrentDbase(obj, dbasePath)
     arguments
         obj electro_gui
         dbasePath char = obj.CurrentDbasePath
@@ -3633,7 +3633,6 @@ function SaveDbase(obj, dbasePath)
         end
     end
 
-
     [file, path] = uiputfile(dbasePath,'Save analysis');
     if ~ischar(file)
         return
@@ -3643,7 +3642,8 @@ function SaveDbase(obj, dbasePath)
     dbase = obj.GetDBase(obj.settings.IncludeDocumentation);
     settings = obj.settings;
 
-    save(savePath, 'dbase', 'settings');
+    electro_gui.SaveDbase(savePath, dbase, settings);
+
     obj.settings.DefaultDbaseFilename = savePath;
     obj.addRecentFile(savePath);
 end
@@ -10654,9 +10654,9 @@ end
                     case 's'
                         % User pressed control-s - activate save dbase dialog
                         if ~isempty(obj.tempSettings.recentFiles)
-                            obj.SaveDbase(obj.tempSettings.recentFiles{1});
+                            obj.SaveCurrentDbase(obj.tempSettings.recentFiles{1});
                         else
-                            obj.SaveDbase();
+                            obj.SaveCurrentDbase();
                         end
                     case 'space'
                         % User pressed control-space - start playback
@@ -11550,7 +11550,7 @@ end
 
         end
         function file_Save_Callback(obj, hObject, eventdata)
-            obj.SaveDbase();
+            obj.SaveCurrentDbase();
 
 
         end
@@ -13697,6 +13697,71 @@ end
                 threshold = -threshold;
             end
         
+        end
+        function SaveDbase(path, dbase, settings)
+            save(path, 'dbase', 'settings');
+        end
+        function updateSavedDbase(oldDbasePaths, newDbasePaths, options)
+            % Update one or more dbases to the latest format. This will
+            % have the same effect as loading the dbase into electro_gui
+            % then saving it.
+            arguments
+                oldDbasePaths {mustBeText}
+                newDbasePaths {mustBeText} = oldDbasePaths
+                options.Overwrite logical = false
+                options.AddSuffix char = ''
+                options.NewDirectory char = ''
+            end
+
+            % Wrap single paths in cell arrays
+            if ~iscell(oldDbasePaths)
+                oldDbasePaths = {oldDbasePaths};
+            end
+            if ~iscell(newDbasePaths)
+                newDbasePaths = {newDbasePaths};
+            end
+
+            if isempty(oldDbasePaths)
+                % No paths provided
+                return
+            end
+
+            if length(oldDbasePaths) ~= length(newDbasePaths)
+                error('You must provide the same number of old and new paths.')
+            end
+
+            for k = 1:length(oldDbasePaths)
+                oldPath = oldDbasePaths{k};
+                if isempty(newDbasePaths)
+                    [oldDir, oldName, ext] = fileparts(oldPath);
+                    if ~isempty(options.NewDirectory)
+                        newDir = options.NewDirectory;
+                    else
+                        newDir = oldDir;
+                    end
+                    newPath = fullfile(newDir, [oldName, options.AddSuffix, ext]);
+                else
+                    newPath = newDbasePaths{k};
+                end
+                if ~options.Overwrite && exist(newPath, 'file')
+                    % User did not request overwrite, and the new path
+                    % already exists, skip this one.
+                    warning('New path (%s) already exists, and Overwrite is false - skipping %s', newPath, oldPath);
+                    continue
+                end
+                % Load dbase from file
+                S = load(oldPath, 'dbase', 'settings');
+                if ~isfield(S, 'settings')
+                    % For really old dbases, no settings variable
+                    S.settings = defaults_template();
+                end
+
+                % Update the dbase/settings format
+                [S.dbase, S.settings] = updateDbaseFormat(S.dbase, S.settings);
+
+                % Save updated dbase and settings to file
+                electro_gui.SaveDbase(savePath, S.dbase, S.settings);
+            end
         end
         function [dbase, settings] = updateDbaseFormat(dbase, settings, options)
             % Update legacy dbase (and settings) format to current format
