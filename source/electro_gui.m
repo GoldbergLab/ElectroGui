@@ -10922,7 +10922,7 @@ end
                 % Left click
 
                 rect = rbbox();
-                rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Amplitude);
+                rect = getFigureCoordsInAxesDataUnits(rect, ax);
                 
                 if rect(3) == 0
                     shift = rect(1) - obj.settings.TLim(1);
