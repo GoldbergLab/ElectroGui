@@ -4951,19 +4951,26 @@ function GUIPropertyChangeHandler(obj, hObject, event)
     % Update stored property values from GUI
 
     firstPropertyColumn = obj.FileInfoBrowserFirstPropertyColumn;
-    if obj.isShiftDown() && ~isempty(obj.FileInfoBrowser.PreviousSelection)
-        % User was holding shift down - set all values in that range
-
-        changeIndices = event.Indices - [0, firstPropertyColumn - 1];
-
-        selection = obj.FileInfoBrowser.Selection - [0, firstPropertyColumn - 1];
-        if any(all(changeIndices == selection, 2))
-            % Change was inside selection
-
-            obj.dbase.Properties(unique(selection(:, 1)), changeIndices(2)) = event.NewData;
-        end
+%     if obj.isShiftDown() && ~isempty(obj.FileInfoBrowser.PreviousSelection)
+%         % User was holding shift down - set all values in that range
+% 
+%         changeIndices = event.Indices - [0, firstPropertyColumn - 1];
+% 
+%         selection = obj.FileInfoBrowser.Selection - [0, firstPropertyColumn - 1];
+%         if any(all(changeIndices == selection, 2))
+%             % Change was inside selection
+% 
+%             obj.dbase.Properties(unique(selection(:, 1)), changeIndices(2)) = event.NewData;
+%         end
+%     end
+    
+    if electro_gui.areFilesSorted(obj.settings)
+        propertiesArray = obj.FileInfoBrowser.Data(obj.settings.InverseFileSortOrder, firstPropertyColumn:end);
+    else
+        propertiesArray = obj.FileInfoBrowser.Data(:, firstPropertyColumn:end);
     end
-    obj.dbase.Properties = cell2mat(obj.FileInfoBrowser.Data(:, firstPropertyColumn:end));
+
+    obj.dbase.Properties(:, obj.settings.PropertyColumnVisible) = cell2mat(propertiesArray);
     %obj.UpdateFileInfoBrowser();
 end
 
