@@ -31,6 +31,9 @@ classdef electro_gui < handle
         FileInfoBrowser uitable2
         context_FileInfoBrowser matlab.ui.container.ContextMenu
         menu_ShowFileNameColumn matlab.ui.container.Menu
+        menus_ShowPropertyColumn matlab.graphics.Graphics  % Dynamic array of menus to show/hide property columns
+        menu_ShowAllPropertyColumns matlab.ui.container.Menu
+        menu_HideAllPropertyColumns matlab.ui.container.Menu
         popup_FileSortOrder matlab.ui.control.UIControl
         axes_Sound matlab.graphics.axis.Axes
         axes_Sonogram matlab.graphics.axis.Axes
@@ -3268,6 +3271,7 @@ function CreateNewDbase(obj)
     obj.updateFileNotes();
 
     obj.RefreshSortOrder();
+    obj.updateShowPropertyColumnMenu();
     obj.UpdateFileInfoBrowser();
 
     obj.FileInfoBrowser.SelectedRow = 1;
@@ -3534,7 +3538,7 @@ function OpenDbase(obj, filePathOrDbase, options)
     % Update file browser
     obj.edit_FileNumber.String = num2str(settings.CurrentFile);
     obj.setSelectedFilenum(settings.CurrentFile);
-    
+    obj.updateShowPropertyColumnMenu();
     obj.UpdateFileInfoBrowser();
     
     obj.setSelectedFilenum(settings.CurrentFile);
@@ -4813,14 +4817,32 @@ end
 function numProperties = getNumProperties(obj)
     numProperties = length(obj.dbase.PropertyNames);
 end
+function numVisibleProperties = getNumVisibleProperties(obj)
+    numVisibleProperties = sum(obj.settings.PropertyColumnVisible);
+end
 
-function [propertyArray, propertyNames] = getProperties(obj)
-    % Get the all properties info
-    propertyArray = obj.dbase.Properties;
-    propertyNames = obj.dbase.PropertyNames;
+function [propertyArray, propertyNames] = getProperties(obj, options)
+    % Get properties info
+    arguments
+        obj electro_gui
+        options.VisibleOnly logical = false
+    end
+    if options.VisibleOnly
+        % Only return properties that are visible in FileInfoBrowser
+        propertyNames = obj.dbase.PropertyNames(obj.settings.PropertyColumnVisible);
+        propertyArray = obj.dbase.Properties(:, obj.settings.PropertyColumnVisible);
+    else
+        % Return all properties
+        propertyNames = obj.dbase.PropertyNames;
+        propertyArray = obj.dbase.Properties;
+    end
     if isempty(propertyArray)
         numFiles = electro_gui.getNumFiles(obj.dbase);
-        numProperties = obj.getNumProperties();
+        if options.VisibleOnly
+            numProperties = obj.getNumVisibleProperties();
+        else
+            numProperties = obj.getNumProperties();
+        end
         propertyArray = false(numFiles, numProperties);
     end
 end
@@ -4845,7 +4867,7 @@ function modifyProperties(obj, filenums, propertyNames, propertyValues, updateGU
     propertyIdx = cellfun(@(name)find(strcmp(name, obj.dbase.PropertyNames), 1), propertyNames);
     obj.dbase.Properties(filenums, propertyIdx) = propertyValues;
     if updateGUI
-        obj.FileInfoBrowser.Data(filenums, 2 + propertyIdx) = propertyValues;
+        obj.FileInfoBrowser.Data(filenums, obj.FileInfoBrowserFirstPropertyColumn + propertyIdx - 1) = propertyValues;
     end
 end
 
@@ -4879,6 +4901,7 @@ function setPropertyValue(obj, propertyName, propertyValue, filenum, updateGUI)
     end
     obj.dbase.Properties(filenum, propertyIdx) = propertyValue;
     if updateGUI
+        obj.updateShowPropertyColumnMenu();
         obj.UpdateFileInfoBrowser();
     end
 end
@@ -4895,34 +4918,65 @@ function addProperty(obj, propertyName, initialPropertyValue, updateGUI)
     propertyNames{end+1} = propertyName;
     obj.dbase.Properties = propertyArray;
     obj.dbase.PropertyNames = propertyNames;
+    obj.settings.PropertyColumnVisible(end+1) = true;
     if updateGUI
+        obj.updateShowPropertyColumnMenu();
         obj.UpdateFileInfoBrowser();
     end
 end
 
 function removeProperty(obj, propertyName, updateGUI)
-    % Remove a property
-    if ~exist('updateGUI', 'var') || isempty(updateGUI)
-        updateGUI = true;
+    arguments
+        obj electro_gui
+        propertyName {mustBeText}
+        updateGUI logical = true;
     end
-
+    % Remove a property
     propertyIdx = find(strcmp(char(propertyName), obj.dbase.PropertyNames), 1);
     if isempty(propertyIdx)
         error('Unknown property name: %s', propertyName);
     end
     obj.dbase.Properties(:, propertyIdx) = [];
     obj.dbase.PropertyNames(propertyIdx) = [];
+    obj.settings.PropertyColumnVisible(propertyIdx) = [];
     if updateGUI
+        obj.updateShowPropertyColumnMenu();
         obj.UpdateFileInfoBrowser();
     end
 end
 
-function eg_RestartProperties(obj)
-    obj.dbase.Properties = false(electro_gui.getNumFiles(obj.dbase), 0);
-    obj.dbase.PropertyNames = {};
+function renameProperty(obj, oldPropertyName, newPropertyName, updateGUI)
+    propertyIdx = find(strcmp(oldPropertyName, obj.dbase.PropertyNames), 1);
+    obj.dbase.PropertyNames{propertyIdx} = newPropertyName;
     obj.UpdateFileInfoBrowser();
-
 end
+
+function updateShowPropertyColumnMenu(obj)
+    % Update context menu with the current properties 
+    arguments
+        obj electro_gui
+    end
+        
+    numProperties = obj.getNumProperties();
+
+    % Delete old menu items
+    delete(obj.menus_ShowPropertyColumn);
+    obj.menus_ShowPropertyColumn = gobjects(1, numProperties);
+
+    % Create fresh menu items
+    for k = 1:numProperties
+        propertyName = obj.dbase.PropertyNames{k};
+        obj.menus_ShowPropertyColumn(k) = uimenu(...
+            'Parent', obj.context_FileInfoBrowser, ...
+            'Callback', @obj.menus_ShowPropertyColumn_Callback,...
+            'Checked', obj.settings.PropertyColumnVisible(k), ...
+            'Label', sprintf('Show %s column', propertyName), ...
+            'Tag', sprintf('menus_ShowPropertyColumn_%s', propertyName), ...
+            'UserData', propertyName, ...
+            'Separator', k==1);
+    end
+end
+
 function eg_AddProperty(obj,type)
     defaultName = getUniqueName('newProperty', obj.dbase.PropertyNames, 'PadLength', 0);
     input = getInputs('Add new property', {'Property name', 'Default value'}, {defaultName, false}, {'Name of property to add', 'Default value to fill each file''s property with'});
@@ -5053,24 +5107,30 @@ function UpdateFileInfoBrowser(obj)
         firstColumnsWidth = 28;
     end
     
-    data = cell(electro_gui.getNumFiles(obj.dbase), obj.getNumProperties() + obj.FileInfoBrowserFirstPropertyColumn-1);
+    % Initialize table data array
+    data = cell(electro_gui.getNumFiles(obj.dbase), obj.getNumVisibleProperties() + obj.FileInfoBrowserFirstPropertyColumn-1);
+    % Assign file numbers
     data(:, 1) = num2cell(1:electro_gui.getNumFiles(obj.dbase));
     if obj.settings.ShowFileNameColumn
+        % Assign file names
         data(:, 2) = electro_gui.getMinimalFilenames({obj.dbase.SoundFiles.name});
     end
-    [propertyArray, propertyNames] = obj.getProperties();
-    data(:, obj.FileInfoBrowserFirstPropertyColumn:end) = num2cell(propertyArray);
+    % Get properties selected to be visible
+    [visiblePropertyArray, visblePropertyNames] = obj.getProperties('VisibleOnly', true);
+    % Assign properties to table data array
+    data(:, obj.FileInfoBrowserFirstPropertyColumn:end) = num2cell(visiblePropertyArray);
     if electro_gui.areFilesSorted(obj.settings)
-        % Shuffle data
+        % Put data in sorted order
         data = data(obj.settings.FileSortOrder, :);
     end
 
+    % Put data in table widget, assign appropriate column properties
     obj.FileInfoBrowser.Data = data;
-    obj.FileInfoBrowser.ColumnName = [firstColumnsNames, propertyNames];
-    obj.FileInfoBrowser.ColumnEditable = [firstColumnsEditable, true(1, length(propertyNames))];
-    obj.FileInfoBrowser.ColumnWidth = num2cell([firstColumnsWidth, repmat(30, 1, length(propertyNames))]);
-    obj.FileInfoBrowser.ColumnSelectable = [firstColumnsSelectable, false(1, length(propertyNames))];
-    obj.FileInfoBrowser.ColumnFormat = [firstColumnsFormat, repmat({'logical'}, 1, length(propertyNames))];
+    obj.FileInfoBrowser.ColumnName = [firstColumnsNames, visblePropertyNames];
+    obj.FileInfoBrowser.ColumnEditable = [firstColumnsEditable, true(1, length(visblePropertyNames))];
+    obj.FileInfoBrowser.ColumnWidth = num2cell([firstColumnsWidth, repmat(30, 1, length(visblePropertyNames))]);
+    obj.FileInfoBrowser.ColumnSelectable = [firstColumnsSelectable, false(1, length(visblePropertyNames))];
+    obj.FileInfoBrowser.ColumnFormat = [firstColumnsFormat, repmat({'logical'}, 1, length(visblePropertyNames))];
 
     obj.UpdateFileInfoBrowserReadState();
 
@@ -7420,8 +7480,25 @@ function setupGUI(obj)
         'Callback', @obj.menu_ShowFileNameColumn_Callback,...
         'Checked', false, ...
         'Label', 'Show filename column', ...
-        'Tag', 'menu_ShowFileNameColumn');
+        'Tag', 'menu_ShowFileNameColumn', ...
+        'Separator', false);
 
+    obj.menu_ShowAllPropertyColumns = uimenu(...
+        'Parent', obj.context_FileInfoBrowser, ...
+        'Callback', @obj.menu_ShowAllPropertyColumns_Callback,...
+        'Checked', false, ...
+        'Label', 'Show all property columns', ...
+        'Tag', 'menu_ShowAllPropertyColumns', ...
+        'Separator', true);
+
+    obj.menu_HideAllPropertyColumns = uimenu(...
+        'Parent', obj.context_FileInfoBrowser, ...
+        'Callback', @obj.menu_HideAllPropertyColumns_Callback,...
+        'Checked', false, ...
+        'Label', 'Hide all property columns', ...
+        'Tag', 'menu_HideAllPropertyColumns', ...
+        'Separator', false);
+    
     obj.menu_AutoCalculate = uimenu(...
         'Parent',obj.context_Sonogram,...
         'Callback',@obj.menu_AutoCalculate_Callback,...
@@ -9936,6 +10013,30 @@ end
 
         end
 
+        function menus_ShowPropertyColumn_Callback(obj, sourceMenu, ~)
+            arguments
+                obj electro_gui
+                sourceMenu matlab.ui.container.Menu
+                ~
+            end
+            % Toggle checkmark
+            sourceMenu.Checked = ~sourceMenu.Checked;
+
+            % Callback when a show property column menu item is checked or
+            % unchecked
+            obj.settings.PropertyColumnVisible = logical([obj.menus_ShowPropertyColumn.Checked]);
+            obj.UpdateFileInfoBrowser();
+        end
+        function menu_ShowAllPropertyColumns_Callback(obj, ~, ~)
+            obj.settings.PropertyColumnVisible = true(1, obj.getNumProperties());
+            [obj.menus_ShowPropertyColumn.Checked] = deal(true);
+            obj.UpdateFileInfoBrowser();
+        end
+        function menu_HideAllPropertyColumns_Callback(obj, ~, ~)
+            obj.settings.PropertyColumnVisible = false(1, obj.getNumProperties());
+            [obj.menus_ShowPropertyColumn.Checked] = deal(false);
+            obj.UpdateFileInfoBrowser();
+        end
         function menu_ShowFileNameColumn_Callback(obj, hObject, event)
             obj.menu_ShowFileNameColumn.Checked = ~obj.menu_ShowFileNameColumn.Checked;
             obj.settings.ShowFileNameColumn = logical(obj.menu_ShowFileNameColumn.Checked);
@@ -12595,11 +12696,7 @@ end
             propertyToRename = char(inputs{1});
             newPropertyName = char(inputs{2});
         
-            propertyIdx = find(strcmp(propertyToRename, obj.dbase.PropertyNames), 1);
-            obj.dbase.PropertyNames{propertyIdx} = newPropertyName;
-            obj.UpdateFileInfoBrowser();
-        
-        
+            obj.renameProperty(propertyToRename, newPropertyName, true);
         end
         function menu_FillProperty_Callback(obj, hObject, event)
             if obj.getNumProperties() == 0
@@ -13731,6 +13828,10 @@ end
         
             if ~isfield(settings, 'FileSortReversed')
                 settings.FileSortReversed = false;
+            end
+
+            if ~isfield(settings, 'PropertyColumnVisible')
+                settings.PropertyColumnVisible = true(1, length(dbase.PropertyNames));
             end
         
             if ~isfield(dbase, 'Notes')
