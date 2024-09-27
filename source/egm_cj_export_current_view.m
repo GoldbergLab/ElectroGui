@@ -1,48 +1,48 @@
-function handles = egm_cj_export_current_view(handles)
+function obj = egm_cj_export_current_view(obj)
     % Press control-e to produce a export of the sonogram and any channel
     % views.
     f_export = figure();
 
     % Determine how many channels are visible
     numChannels = 0;
-    for c = 1:length(handles.axes_Channel)
-        if strcmp(get(handles.axes_Channel(c), 'Visible'), 'on')
+    for c = 1:length(obj.axes_Channel)
+        if strcmp(get(obj.axes_Channel(c), 'Visible'), 'on')
             numChannels = numChannels + 1;
         end
     end
 
     % Copy sonogram
     sonogram_export = subplot(numChannels+1, 1, 1, 'Parent', f_export);
-    sonogram_children = get(handles.axes_Sonogram, 'Children');
+    sonogram_children = get(obj.axes_Sonogram, 'Children');
     for k = 1:length(sonogram_children)
         copyobj(sonogram_children(k), sonogram_export);
     end
     % Match axes limits
-    xlim(sonogram_export, xlim(handles.axes_Sonogram));
-    ylim(sonogram_export, ylim(handles.axes_Sonogram));
-    set(sonogram_export, 'CLim', get(handles.axes_Sonogram, 'CLim'));
-    colormap(sonogram_export, handles.Colormap);
+    xlim(sonogram_export, xlim(obj.axes_Sonogram));
+    ylim(sonogram_export, ylim(obj.axes_Sonogram));
+    set(sonogram_export, 'CLim', get(obj.axes_Sonogram, 'CLim'));
+    colormap(sonogram_export, obj.Colormap);
 
     % Set figure size to match contents
-    set(sonogram_export, 'Units', get(handles.axes_Sonogram, 'Units'));
+    set(sonogram_export, 'Units', get(obj.axes_Sonogram, 'Units'));
     curr_pos = get(sonogram_export, 'Position');
-    son_pos = get(handles.axes_Sonogram, 'Position');
+    son_pos = get(obj.axes_Sonogram, 'Position');
     aspect_ratio = 1.2*(1+numChannels)*son_pos(4) / son_pos(3);
     f_pos = get(f_export, 'Position');
     f_pos(4) = f_pos(3) * aspect_ratio;
     set(f_export, 'Position', f_pos);
 
     % Add title to sonogram (file name)
-    currentFileName = getCurrentFileName(handles);
+    currentFileName = electro_gui.getCurrentFileName(obj.dbase, obj.settings);
     title(sonogram_export, currentFileName, 'Interpreter', 'none');
 
     % Loop over any channels that are currently visible, and copy them
     chan = 0;
-    for c = 1:length(handles.axes_Channel)
-        if strcmp(get(handles.axes_Channel(c), 'Visible'), 'on')
+    for c = 1:length(obj.axes_Channel)
+        if strcmp(get(obj.axes_Channel(c), 'Visible'), 'on')
             chan = chan + 1;
             channel_export = subplot(numChannels+1, 1, 1+chan, 'Parent', f_export);
-            channel_children = get(handles.axes_Channel(c), 'Children');
+            channel_children = get(obj.axes_Channel(c), 'Children');
             for k = 1:length(channel_children)
                 copyobj(channel_children(k), channel_export);
             end
@@ -53,13 +53,13 @@ function handles = egm_cj_export_current_view(handles)
     end
 
     %get filenum and mark/seg info
-    fileNum  = getCurrentFileNum(handles);
-    fs = handles.fs;
-    markerTimes = handles.MarkerTimes{fileNum}/fs;
-    markerTitles = handles.MarkerTitles{fileNum};
+    fileNum  = electro_gui.getCurrentFileNum(obj.settings);
+    fs = obj.dbase.Fs;
+    markerTimes = obj.dbase.MarkerTimes{fileNum}/fs;
+    markerTitles = obj.dbase.MarkerTitles{fileNum};
 
-    segmentTimes = handles.SegmentTimes{fileNum}/fs;
-    segmentTitles = handles.SegmentTitles{fileNum};
+    segmentTimes = obj.dbase.SegmentTimes{fileNum}/fs;
+    segmentTitles = obj.dbase.SegmentTitles{fileNum};
 
     % modify the plot
     % get current axes
