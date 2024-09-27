@@ -13701,21 +13701,58 @@ end
         function SaveDbase(path, dbase, settings)
             save(path, 'dbase', 'settings');
         end
-        function updateSavedDbase(oldDbasePaths, newDbasePaths, options)
+        function updateSavedDbase(oldDbasePathsOrRoot, newDbasePaths, options)
             % Update one or more dbases to the latest format. This will
             % have the same effect as loading the dbase into electro_gui
             % then saving it.
+            %
+            % Arguments:
+            %   oldDbasePathsOrRoot: path to a dbase, or a cell array of 
+            %       paths, or a path to a root directory. If it is the
+            %       latter, this will assume any .mat file within the root 
+            %       directory and attempt to update it.
+            %   newDbasePaths: path to save dbase to, or a cell array of
+            %       paths, one per old dbase path. If omitted or empty, the
+            %       AddSuffix and/or NewDirectory options will be used
+            %   Name/Value pairs can include:
+            %       Overwrite: true means that if a new dbase path already
+            %           exists, the existing file will be automatically
+            %           overwritten, false means new dbase paths that point
+            %           to existing files will be skipped. Default is false.
+            %       AddSuffix: A string to append to the end of an old
+            %           dbase path to make the new dbase path. This is
+            %           ignored unless newDbasePaths is empty. Default is
+            %           ''.
+            %       NewDirectory: A directory in which to place updated
+            %           dbases, in place of the old dbase directory. This
+            %           is ignored unless newDbasePaths is empty.
+            %
+            % Example usage:
+            %   electro_gui.updateSavedDbase('path/to/dbase/folder',
+            %       'AddSuffix', '_updated');
+            %
+            %   electro_gui.updateSavedDbase('path/to/dbase.mat',
+            %   'path/to/dbase_updated.mat');
+            %
             arguments
-                oldDbasePaths {mustBeText}
-                newDbasePaths {mustBeText} = oldDbasePaths
+                oldDbasePathsOrRoot {mustBeText}
+                newDbasePaths {mustBeText} = {}
                 options.Overwrite logical = false
                 options.AddSuffix char = ''
                 options.NewDirectory char = ''
             end
 
-            % Wrap single paths in cell arrays
-            if ~iscell(oldDbasePaths)
-                oldDbasePaths = {oldDbasePaths};
+            if ~iscell(oldDbasePathsOrRoot)
+                % Check if it's a root directory
+                if exist(oldDbasePathsOrRoot, 'dir')
+                    % It is a directory - assume that any mat file inside
+                    % is a dbase.
+                    oldDbasePaths = findFiles(oldDbasePathsOrRoot, '.*\.mat', 'CaseSensitive', false);
+                else
+                    % Not a directory, must be a single path; wrap it in a
+                    %   cell arrays for consistency
+                    oldDbasePaths = {oldDbasePathsOrRoot};
+                end
             end
             if ~iscell(newDbasePaths)
                 newDbasePaths = {newDbasePaths};
@@ -13726,19 +13763,27 @@ end
                 return
             end
 
-            if length(oldDbasePaths) ~= length(newDbasePaths)
+            if length(oldDbasePaths) ~= length(newDbasePaths) && ~isempty(newDbasePaths)
                 error('You must provide the same number of old and new paths.')
             end
 
+            
+            successes = 0;
+
+            fprintf('Beginning update of %d dbases...', length(oldDbasePaths));
             for k = 1:length(oldDbasePaths)
                 oldPath = oldDbasePaths{k};
-                if isempty(newDbasePaths)
-                    [oldDir, oldName, ext] = fileparts(oldPath);
-                    if ~isempty(options.NewDirectory)
-                        newDir = options.NewDirectory;
-                    else
-                        newDir = oldDir;
+                [oldDir, oldName, ext] = fileparts(oldPath);
+                if ~isempty(options.NewDirectory)
+                    newDir = options.NewDirectory;
+                    if ~exist(options.NewDirectory, 'dir')
+                        % Make the new directory
+                        mkdir(options.NewDirectory);
                     end
+                else
+                    newDir = oldDir;
+                end
+                if isempty(newDbasePaths)
                     newPath = fullfile(newDir, [oldName, options.AddSuffix, ext]);
                 else
                     newPath = newDbasePaths{k};
@@ -13750,18 +13795,26 @@ end
                     continue
                 end
                 % Load dbase from file
-                S = load(oldPath, 'dbase', 'settings');
+                S = load(oldPath);
                 if ~isfield(S, 'settings')
                     % For really old dbases, no settings variable
                     S.settings = defaults_template();
                 end
 
-                % Update the dbase/settings format
-                [S.dbase, S.settings] = updateDbaseFormat(S.dbase, S.settings);
+                try
+                    % Update the dbase/settings format
+                    [S.dbase, S.settings] = electro_gui.updateDbaseFormat(S.dbase, S.settings);
+    
+                    % Save updated dbase and settings to file
+                    electro_gui.SaveDbase(newPath, S.dbase, S.settings);
 
-                % Save updated dbase and settings to file
-                electro_gui.SaveDbase(savePath, S.dbase, S.settings);
+                    successes = successes + 1;
+                catch ME
+                    warning('Failed to convert dbase: %s', oldPath);
+                    disp(getReport(ME));
+                end
             end
+            fprintf('Done updating dbases - successfully updated %d of %d\n\n', successes, length(oldDbasePaths));
         end
         function [dbase, settings] = updateDbaseFormat(dbase, settings, options)
             % Update legacy dbase (and settings) format to current format
