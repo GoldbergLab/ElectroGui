@@ -1,11 +1,10 @@
-function handles = egm_cj_playvideo(handles)
+function obj = egm_cj_playvideo(obj)
     %% electro_gui macro to play a video based on the current view of the sonogram
-    dbase = handles.dbase;
-    fileNum = getCurrentFileNum(handles);
-    n = getCurrentFileName(handles);
+    fileNum = electro_gui.getCurrentFileNum(obj.settings);
+    n = electro_gui.getCurrentFileName(obj.dbase, obj.settings);
     
     % get start and stop time for video
-    xl = get(handles.axes_Sonogram,'xlim');
+    xl = obj.axes_Sonogram.XLim;
     
     % get birdID & date from file name
     birdID = n(1:4);
@@ -17,9 +16,9 @@ function handles = egm_cj_playvideo(handles)
     % build path to video
     basepath = 'Y:\ht452\AAc_analysis';
     birdpath = [basepath '\' birdID '\videos\' month day year];
-    if birdID == '0010'
+    if strcmp(birdID, '0010')
          birdpath = [basepath '\' birdID '\videos\' month day year '\Alligned_videos_new'];
-         if ~isdir(birdpath)
+         if ~isfolder(birdpath)
             birdpath = [basepath '\' birdID '\videos\' month day year '\Alligned_videos'];
          end 
     end
@@ -38,8 +37,8 @@ function handles = egm_cj_playvideo(handles)
     
     %video stuff
     % Load audio
-    axnum = 1;
-    [snd, fs, dt, label, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.DefaultRootPath, handles.sound_files(fileNum).name), true);
+%     axnum = 1;
+    [snd, fs] = obj.getSound([], fileNum);
     if size(snd,2)>size(snd,1)
         snd = snd';
     end
@@ -47,9 +46,9 @@ function handles = egm_cj_playvideo(handles)
     tempAudPath = tempname();
     tempAudPath = [tempAudPath '.wav'];
     tempVidPath = [tempVidPath '.mp4'];
-    display(tempVidPath)
-    display(tempAudPath)
-    chanNum = handles.EventCurrentIndex(axnum);
+    disp(tempVidPath)
+    disp(tempAudPath)
+%     chanNum = obj.EventCurrentIndex(axnum);
     spikeAudio = zeros(1,length(snd));
 %     if chanNum ~= 0
 %         [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{chanNum}, fullfile(handles.DefaultRootPath, handles.chan_files{chanNum}(fileNum).name), true);
@@ -63,14 +62,13 @@ function handles = egm_cj_playvideo(handles)
     padKernel = ones(1,2*padsize+1);
     paddedAudio = conv(spikeAudio,padKernel,'same');
     
-    audiowrite(tempAudPath,paddedAudio,fs);
+    audiowrite(tempAudPath, paddedAudio, fs);
     cmd = sprintf('ffmpeg -i "%s" -i "%s" -filter_complex "[0:a][1:a] amerge=inputs=2 [audio_out]" -map 0:v -map "[audio_out]" -y "%s"', fullPath, tempAudPath, tempVidPath);
     [~,~] = system(cmd);
     
     % get behavior segments for this file
-    fs = handles.fs;
-    markerTimes = handles.MarkerTimes{fileNum}/fs;
-    markerTitles = handles.MarkerTitles{fileNum};
+    markerTimes = obj.dbase.MarkerTimes{fileNum}/obj.dbase.Fs;
+    markerTitles = obj.dbase.MarkerTitles{fileNum};
     smarkTimes = cell(size(markerTimes));
     for i = 1:numel(markerTimes)
         seconds = mod(markerTimes(i),60);
@@ -82,7 +80,7 @@ function handles = egm_cj_playvideo(handles)
         for i = 1:size(markerTimes,1)
             switch markerTitles{i}
                 case 'h'
-                    subtitles{i} = struct('startTime',smarkTimes{i,1},'endTime',smarkTimes{i,2},'text','Headbob');
+                    subtitles{i} = struct('startTime',smarkTimes{i,1},'endTime',smarkTimes{i,2},'text','Headbob'); %#ok<*AGROW> 
                 case 'a'
                     subtitles{i} = struct('startTime',smarkTimes{i,1},'endTime',smarkTimes{i,2},'text','Allogroom');
                 case 'g'
@@ -124,8 +122,8 @@ function handles = egm_cj_playvideo(handles)
     % process = runtime.exec(vlcCommand);
     system(vlcCommand);
     
-    savedir = 'X:\Budgie\Caleb_saved_videos';
-    savename = [birdID '_' date '_' num2str(chanNum) '_' num2str(fileNum) '.mp4'];
+%     savedir = 'X:\Budgie\Caleb_saved_videos';
+%     savename = [birdID '_' date '_' num2str(chanNum) '_' num2str(fileNum) '.mp4'];
 %     Closeoption = questdlg('Save video?','Save video','Save','Exit without saving','Exit without saving');
 %     if strcmp(Closeoption,'Save')
 %         movefile(tempVidPath,fullfile(savedir,savename);
@@ -137,14 +135,4 @@ function handles = egm_cj_playvideo(handles)
     
     
     
-end
-
-
-%define functions to retrieve filenum and name
-function currentFileNum = getCurrentFileNum(handles)
-currentFileNum = str2double(get(handles.edit_FileNumber, 'string'));
-end
-function currentFileName = getCurrentFileName(handles)
-currentFileNum = getCurrentFileNum(handles);
-currentFileName = handles.sound_files(currentFileNum).name;
 end
