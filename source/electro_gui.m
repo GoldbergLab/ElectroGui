@@ -13906,8 +13906,12 @@ end
         
             % Ensure EventSelected field is all logical not double
             for eventSourceIdx = 1:numEventSources
-                for filenum = 1:numFiles   %length(dbase.EventIsSelected{eventSourceIdx})
-                    dbase.EventIsSelected{eventSourceIdx}{filenum} = logical(dbase.EventIsSelected{eventSourceIdx}{filenum});
+                for eventPartNum = 1:size(dbase.EventIsSelected{eventSourceIdx}, 1)
+                    for filenum = 1:numFiles   %length(dbase.EventIsSelected{eventSourceIdx})
+                        if ~isa(dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum}, 'logical')
+                            dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum} = logical(dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum});
+                        end
+                    end
                 end
             end
         
