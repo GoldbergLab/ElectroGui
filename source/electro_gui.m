@@ -731,14 +731,16 @@ classdef electro_gui < handle
                 end
             end
         
-            cla(obj.axes_Sonogram);
+            %cla(obj.axes_Sonogram);
+            delete(obj.axes_Sonogram.Children);
+
             xlim(obj.axes_Sonogram, obj.settings.TLim);
             if obj.menu_FrequencyZoom.Checked
                 ylim(obj.axes_Sonogram, obj.settings.CustomFreqLim);
             else
                 ylim(obj.axes_Sonogram, obj.settings.FreqLim);
             end
-            [obj.settings.CurrentSonogramIsPower, timeResolution, obj.SonogramHandle] = ...
+            [obj.settings.CurrentSonogramIsPower, ~, obj.SonogramHandle] = ...
                     electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, ...
                         obj.axes_Sonogram, obj.sound(sampleLims(1):sampleLims(2)), fs, ...
                         obj.settings.SonogramParams);
@@ -750,7 +752,7 @@ classdef electro_gui < handle
                 hold(obj.axes_Sonogram, 'on');
                 for k = 1:length(auxiliarySoundSources)
                     [auxiliarySound, fs] = obj.getSound(auxiliarySoundSources{k});
-                    [obj.settings.CurrentSonogramIsPower, timeResolution, obj.AuxiliarySonogramHandles(k)] = electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, ...
+                    [obj.settings.CurrentSonogramIsPower, ~, obj.AuxiliarySonogramHandles(k)] = electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, ...
                         obj.axes_Sonogram, auxiliarySound(sampleLims(1):sampleLims(2)), fs, ...
                         obj.settings.SonogramParams);
                 end
@@ -771,7 +773,7 @@ classdef electro_gui < handle
             obj.axes_Sonogram.YDir = 'normal';
             obj.axes_Sonogram.UIContextMenu = obj.context_Sonogram;
         
-            obj.updateTimeResolutionBar(timeResolution);
+%             obj.updateTimeResolutionBar(timeResolution);
         
             obj.settings.NewDerivativeSlope = obj.settings.DerivativeSlope;
             obj.settings.DerivativeSlope = 0;
@@ -1338,7 +1340,7 @@ classdef electro_gui < handle
             % Load channel data
             [selectedChannelNum, ~, ~, isPseudoChannel] = obj.getSelectedChannel(axnum);
             selectedFilter = getSelectedFilter(obj, axnum);
-            selectedFilterParams = obj.settings.ChannelAxesFunctionParams{axnum};
+            selectedFilterParams = obj.getSelectedFunctionParameters(axnum);
             [obj.loadedChannelData{axnum}, obj.loadedChannelFs{axnum}, obj.loadedChannelLabels{axnum}] = ...
                 obj.loadChannelData(selectedChannelNum, ...
                 'FilterName', selectedFilter, ...
@@ -1357,13 +1359,9 @@ classdef electro_gui < handle
         
             % Update event display
             obj.updateChannelEventDisplay(axnum);
-        
-            % Adjust axes limits
-            if obj.menu_AutoLimits(axnum).Checked
-                yl = [min(obj.loadedChannelData{axnum}), max(obj.loadedChannelData{axnum})];
-                if yl(1)==yl(2)
-                    yl = [yl(1)-1 yl(2)+1];
 
+            % Update y limits
+            obj.updateChannelAxesYLimits(axnum);
         
             % If overlay is requested, overlay channel data on another axes
             obj.updateSonogramOverlay();
@@ -1374,6 +1372,28 @@ classdef electro_gui < handle
             % Update event viewer in case it was showing data from this axes
             obj.updateEventViewer();
         end
+        function updateChannelAxesYLimits(obj, axnum)
+            % Adjust channel axes y limits
+            if obj.menu_AutoLimits(axnum).Checked
+                eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
+                filenum = electro_gui.getCurrentFileNum(obj.settings);
+                %% Debug this first before enabling:
+                if false && ~isempty(eventSourceIdx) && ...
+                        ~isempty(obj.dbase.EventTimes{eventSourceIdx}) && ...
+                        ~isempty(obj.dbase.EventTimes{eventSourceIdx}{1, filenum})
+                    % There are events here - fit ylim to the highest and
+                    % lowest selected event
+                    allEventTimes = [(obj.dbase.EventTimes{eventSourceIdx}{:, filenum})];
+                    selectedEventTimes = allEventTimes([obj.dbase.EventIsSelected{eventSourceIdx}{:, filenum}]);
+                    minData = min(obj.loadedChannelData{axnum}(selectedEventTimes), [], 'all');
+                    maxData = max(obj.loadedChannelData{axnum}(selectedEventTimes), [], 'all');
+                else
+                    % No events, just fit ylim to channel data
+                    minData = min(obj.loadedChannelData{axnum});
+                    maxData = max(obj.loadedChannelData{axnum});
+                end
+                yl = [minData, maxData];
+                if yl(1)==yl(2)
                     yl = [yl(1)-1, yl(2)+1];
                 end
                 yl = [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1];
