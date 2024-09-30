@@ -1363,12 +1363,7 @@ classdef electro_gui < handle
                 yl = [min(obj.loadedChannelData{axnum}), max(obj.loadedChannelData{axnum})];
                 if yl(1)==yl(2)
                     yl = [yl(1)-1 yl(2)+1];
-                end
-                ylim(obj.axes_Channel(axnum), [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
-                obj.ChanYLimits(axnum, :) = ylim(obj.axes_Channel(axnum));
-            else
-                ylim(obj.axes_Channel(axnum), obj.ChanYLimits(axnum, :));
-            end
+
         
             % If overlay is requested, overlay channel data on another axes
             obj.updateSonogramOverlay();
@@ -1378,6 +1373,15 @@ classdef electro_gui < handle
         
             % Update event viewer in case it was showing data from this axes
             obj.updateEventViewer();
+        end
+                    yl = [yl(1)-1, yl(2)+1];
+                end
+                yl = [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1];
+                ylim(obj.axes_Channel(axnum), yl);
+                obj.ChanYLimits(axnum, :) = yl;
+            else
+                ylim(obj.axes_Channel(axnum), obj.ChanYLimits(axnum, :));
+            end
         end
         function updateChannelAxesPlot(obj, axnum)
             ax = obj.axes_Channel(axnum);
@@ -1528,7 +1532,7 @@ classdef electro_gui < handle
                 % Current axis configuration does not correspond to a know event source
                 % Use temporary axes params instead
                 selectedFunctionParameters = obj.settings.ChannelAxesFunctionParams{axnum};
-                if isempty(selectedFunctionParameters)
+                if isempty(selectedFunctionParameters) || ~isfield(selectedFunctionParameters, 'Names') || isempty(selectedFunctionParameters.Names)
                     % Get default params from event detector
                     functionName = obj.getSelectedFilter(axnum);
                     if ~isempty(functionName)
@@ -1550,7 +1554,7 @@ classdef electro_gui < handle
                 % Current axis configuration does not correspond to a know event source
                 % Use temporary axes params instead
                 selectedEventParameters = obj.settings.ChannelAxesEventParams{axnum};
-                if isempty(selectedEventParameters)
+                if isempty(selectedEventParameters) || ~isfield(selectedEventParameters, 'Names') || isempty(selectedEventParameters.Names)
                     % Get default params from event detector
                     eventDetector = obj.getSelectedEventDetector(axnum);
                     if ~isempty(eventDetector)
@@ -3313,10 +3317,10 @@ function CreateNewDbase(obj)
     obj.axes_Events.Visible = 'off';
 
     % get segmenter parameters
-    for c = 1:length(obj.menu_SegmenterList.Children)
-        if obj.menu_SegmenterList.Children(c).Checked
-            h = obj.menu_SegmenterList.Children(c);
-            alg = obj.menu_SegmenterList.Children(c).Label;
+    for segmenterIdx = 1:length(obj.menu_SegmenterList.Children)
+        if obj.menu_SegmenterList.Children(segmenterIdx).Checked
+            h = obj.menu_SegmenterList.Children(segmenterIdx);
+            alg = obj.menu_SegmenterList.Children(segmenterIdx).Label;
         end
     end
     if isempty(h.UserData)
@@ -3327,10 +3331,10 @@ function CreateNewDbase(obj)
     end
 
     % get sonogram parameters
-    for c = 1:length(obj.menu_Algorithm)
-        if obj.menu_Algorithm(c).Checked
-            h = obj.menu_Algorithm(c);
-            alg = obj.menu_Algorithm(c).Label;
+    for segmenterIdx = 1:length(obj.menu_Algorithm)
+        if obj.menu_Algorithm(segmenterIdx).Checked
+            h = obj.menu_Algorithm(segmenterIdx);
+            alg = obj.menu_Algorithm(segmenterIdx).Label;
         end
     end
     if isempty(h.UserData)
@@ -3340,11 +3344,11 @@ function CreateNewDbase(obj)
         obj.settings.SonogramParams = h.UserData;
     end
 
-    % get filter parameters
-    for c = 1:length(obj.menu_Filter)
-        if obj.menu_Filter(c).Checked
-            h = obj.menu_Filter(c);
-            alg = obj.menu_Filter(c).Label;
+    % get sound filter parameters
+    for segmenterIdx = 1:length(obj.menu_Filter)
+        if obj.menu_Filter(segmenterIdx).Checked
+            h = obj.menu_Filter(segmenterIdx);
+            alg = obj.menu_Filter(segmenterIdx).Label;
         end
     end
     if isempty(h.UserData)
@@ -3356,32 +3360,12 @@ function CreateNewDbase(obj)
 
     % get event parameters
     for axnum = 1:2
-        v = obj.popup_EventDetectors(axnum).Value;
-        ud = obj.popup_EventDetectors(axnum).UserData;
-        if isempty(ud{v}) && v>1
-            str = obj.popup_EventDetectors(axnum).String;
-            dtr = str{v};
-            [obj.settings.ChannelAxesEventParams{axnum}, ~] = electro_gui.eg_runPlugin(obj.plugins.eventDetectors, dtr, 'params');
-            ud{v} = obj.settings.ChannelAxesEventParams{axnum};
-            obj.popup_EventDetectors(axnum).UserData = ud;
-        else
-            obj.settings.ChannelAxesEventParams{axnum} = ud{v};
-        end
+        obj.getSelectedEventParameters(axnum);
     end
 
     % get function parameters
     for axnum = 1:2
-        v = obj.popup_Functions(axnum).Value;
-        ud = obj.popup_Functions(axnum).UserData;
-        if isempty(ud{v}) && v>1
-            str = obj.popup_Functions(axnum).String;
-            dtr = str{v};
-            [obj.settings.ChannelAxesFunctionParams{axnum}, ~] = electro_gui.eg_runPlugin(obj.plugins.filters, dtr, 'params');
-            ud{v} = obj.settings.ChannelAxesFunctionParams{axnum};
-            obj.popup_Functions(axnum).UserData = ud;
-        else
-            obj.settings.ChannelAxesFunctionParams{axnum} = ud{v};
-        end
+        obj.getSelectedFunctionParameters(axnum);
     end
 
     obj.LoadFile();
@@ -3579,32 +3563,12 @@ function OpenDbase(obj, filePathOrDbase, options)
 
     % get event parameters
     for axnum = 1:2
-        v = obj.popup_EventDetectors(axnum).Value;
-        ud = obj.popup_EventDetectors(axnum).UserData;
-        if isempty(ud{v}) && v>1
-            str = obj.popup_EventDetectors(axnum).String;
-            dtr = str{v};
-            [obj.settings.ChannelAxesEventParams{axnum}, ~] = electro_gui.eg_runPlugin(obj.plugins.eventDetectors, dtr, 'params');
-            ud{v} = obj.settings.ChannelAxesEventParams{axnum};
-            obj.popup_EventDetectors(axnum).UserData = ud;
-        else
-            obj.settings.ChannelAxesEventParams{axnum} = ud{v};
-        end
+        obj.getSelectedEventParameters(axnum);
     end
 
     % get function parameters
     for axnum = 1:2
-        v = obj.popup_Functions(axnum).Value;
-        ud = obj.popup_Functions(axnum).UserData;
-        if isempty(ud{v}) && v>1
-            str = obj.popup_Functions(axnum).String;
-            dtr = str{v};
-            [obj.settings.ChannelAxesFunctionParams{axnum}, ~] = electro_gui.eg_runPlugin(obj.plugins.filters, dtr, 'params');
-            ud{v} = obj.settings.ChannelAxesFunctionParams{axnum};
-            obj.popup_Functions(axnum).UserData = ud;
-        else
-            obj.settings.ChannelAxesFunctionParams{axnum} = ud{v};
-        end
+        obj.getSelectedFunctionParameters(axnum);
     end
 
     obj.eg_PopulateSoundSources();
@@ -4634,11 +4598,12 @@ function UnselectEvents(obj, eventNums, eventSourceIdx, filenum)
     axnums = obj.WhichChannelAxesMatchEventSource(eventSourceIdx);
     for axnum = axnums
         obj.updateChannelEventDisplay(axnum);
+        obj.updateChannelAxesYLimits(axnum);
     end
 end
 
 function menu_FunctionParams(obj,axnum)
-    params = obj.settings.ChannelAxesFunctionParams{axnum};
+    params = obj.getSelectedFunctionParameters(axnum);
 
     if ~isfield(params,'Names') || isempty(params.Names)
         errordlg('Current function does not require parameters.','Function error');
@@ -4675,17 +4640,6 @@ function menu_FunctionParams(obj,axnum)
     end
 
     obj.updateEventViewer();
-
-%     v = obj.popup_Functions(axnum).Value;
-%     ud = obj.popup_Functions(axnum).UserData;
-%     ud{v} = obj.settings.ChannelAxesFunctionParams{axnum};
-%     obj.popup_Functions(axnum).UserData = ud;
-% 
-% %     if isempty(findobj('Parent',obj.axes_Sonogram,'type','text'))
-%         obj.updateChannelAxes(axnum);
-%         obj.DetectEventsInAxes(axnum);
-% %     end
-
 
 end
 function updateAmplitude(obj, options)
@@ -11113,33 +11067,20 @@ end
 
         end
 
-
         function menu_AutoLimits_Callback(obj, axnum)
-            if obj.menu_AutoLimits(axnum).Checked
-                obj.menu_AutoLimits(axnum).Checked = 'off';
-                obj.ChanYLimits(axnum, :) = ylim(obj.axes_Channel(axnum));
-            else
-                obj.menu_AutoLimits(axnum).Checked = 'on';
-                yl = [min(obj.loadedChannelData{axnum}), ...
-                      max(obj.loadedChannelData{axnum})];
-                if yl(1)==yl(2)
-                    yl = [yl(1)-1 yl(2)+1];
-                end
-                ylim(obj.axes_Channel(axnum), [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
-                obj.updateSonogramOverlay();
-            end
+            obj.menu_AutoLimits(axnum).Checked = ~obj.menu_AutoLimits(axnum).Checked;
 
+            obj.updateChannelAxesYLimits(axnum);
+
+            obj.updateSonogramOverlay();
         end
         function menu_AutoLimits1_Callback(obj, hObject, event)
             axnum = 1;
             obj.menu_AutoLimits_Callback(axnum);
-
-
         end
         function menu_AutoLimits2_Callback(obj, hObject, event)
             axnum = 2;
             obj.menu_AutoLimits_Callback(axnum);
-
         end
         function eg_SetLimits(obj,axnum)
             defaultLimits = obj.axes_Channel(axnum).YLim;
@@ -12360,13 +12301,20 @@ end
         end
         
         function menu_EventParams(obj, axnum)
-            params = obj.settings.ChannelAxesEventParams{axnum};
-        
+            eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
+            if isempty(eventSourceIdx)
+                % No event source - this shouldn't be possible
+                errordlg('Error, no event source yet. Please select an event detector first.')
+                return;
+            end
+            
+            params = obj.getSelectedEventParameters(axnum);
+
             if ~isfield(params, 'Names') || isempty(params.Names)
                 errordlg('Current event detector does not require parameters.', 'Event detector error');
                 return
             end
-        
+
             answer = inputdlg(params.Names,'Event detector parameters',1,params.Values);
             if isempty(answer)
                 return
@@ -12376,13 +12324,7 @@ end
             % Set default channel axes parameters
             obj.settings.ChannelAxesEventParams{axnum} = params;
 
-            eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
-            if isempty(eventSourceIdx)
-                % No event source - this shouldn't be possible
-                errordlg('Errory no event source.')
-                return;
-            end
-
+            % Set event params for event source
             obj.dbase.EventParameters{eventSourceIdx} = params;
 
             % Update events for the event source configuration of this
@@ -12399,12 +12341,6 @@ end
         
             obj.updateEventViewer();
 
-%             eventDetectorIdx = obj.popup_EventDetectors(axnum).Value;
-%             ud = obj.popup_EventDetectors(axnum).UserData;
-%             ud{eventDetectorIdx} = obj.settings.ChannelAxesEventParams{axnum};
-%             obj.popup_EventDetectors(axnum).UserData = ud;
-%         
-%             obj.DetectEventsInAxes(axnum);
         end
         function menu_FunctionParams1_Callback(obj, hObject, event)
             obj.menu_FunctionParams(1);
