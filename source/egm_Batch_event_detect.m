@@ -19,18 +19,22 @@ filenums = eval(answer{1});
 x = mean(xlim(obj.axes_Sonogram));
 y = mean(ylim(obj.axes_Sonogram));
 
-progressBar = waitbar(0, obj.figure_Main, 'Detecting events...');
+progressBar = waitbar(0, 'Detecting events...');
+
+eventSourceIndices = {[], []};
+for axnum = 1:2
+    eventSourceIndices{axnum} = obj.GetChannelAxesEventSourceIdx(axnum);
+end
 
 for fileIdx = 1:length(filenums)
     filenum = filenums(fileIdx);
-    if all(txt.Color==[0 1 0])
-        break
-    end
 
     obj.dbase.FileLength(filenum) = 0;
     for axnum = 1:2
-        eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
+        eventSourceIdx = eventSourceIndices{axnum};
         if ~isempty(eventSourceIdx)
+            % Update the threshold for this 
+            obj.updateEventThreshold(eventSourceIdx, filenum);
             obj.DetectEvents(eventSourceIdx, filenum);
         end
     end
@@ -40,9 +44,10 @@ for fileIdx = 1:length(filenums)
         return
     end
 
-    waitbar(filenum/length(filenums), progressBar);
+    waitbar(fileIdx/length(filenums), progressBar, sprintf('Processing file %d', filenum));
 
     drawnow;
 end
 
+delete(progressBar);
 msgbox(sprintf('Detected events in %d files. Detection complete', fileIdx));

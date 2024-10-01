@@ -4148,16 +4148,15 @@ end
 function DetectEvents(obj, eventSourceIdx, filenum, chanData, fs)
     % Detect events given an event source index
     % Optionally provide pre-filtered channel data for speed
+    arguments
+        obj electro_gui
+        eventSourceIdx
+        filenum = []
+        chanData = []
+        fs = obj.dbase.Fs
+    end
 
-    if ~exist('chanData', 'var')
-        % No pre-filtered channel data provided
-        chanData = [];
-    end
-    if ~exist('fs', 'var')
-        % No channel sampling rate provided
-        fs = obj.dbase.Fs;
-    end
-    if ~exist('filenum', 'var') || isempty(filenum)
+    if isempty(filenum)
         % Use current filenum
         filenum = electro_gui.getCurrentFileNum(obj.settings);
     end
@@ -4203,8 +4202,8 @@ function threshold = updateEventThreshold(obj, eventSourceIdx, filenum)
     if threshold == inf
         % If threshold is infinite, use the default threshold
         threshold = obj.settings.EventThresholdDefaults(eventSourceIdx);
+        obj.dbase.EventThresholds(eventSourceIdx, filenum) = threshold;
     end
-    obj.dbase.EventThresholds(eventSourceIdx, filenum) = threshold;
 end
 
 function threshold = updateEventThresholdInAxes(obj, axnum)
