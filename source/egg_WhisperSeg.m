@@ -1,4 +1,4 @@
-function segments = egg_WhisperSeg(data, ~, ~, ~, params)
+function [segments, segmentNames] = egg_WhisperSeg(data, ~, ~, ~, params)
 % ElectroGui segmenter
 % This segmenter uses WhisperSeg
 % (https://github.com/nianlonggu/WhisperSeg/tree/master) to segment the
@@ -6,8 +6,10 @@ function segments = egg_WhisperSeg(data, ~, ~, ~, params)
 % running either locally or remotely.
 
 % Define default segmenter parameters
-defaultParams.Names =  {'WhisperSeg hostname/IP',       'WhisperSeg service port',  'Mininum frequency (Hz)',   'Spectrogram time step (s)',    'Minimum segment length (s)',   'eps',  'Number of trials'};
-defaultParams.Values = {'goldbergbk.nbb.cornell.edu',   '8050',                     '0',                        '0.0025',                       '0.01',                         '0.02', '3'};
+defaultParams.Names =  {'WhisperSeg hostname/IP',   'WhisperSeg service port',  'Mininum frequency (Hz)',   'Spectrogram time step (s)',    'Minimum segment length (s)',   'eps',  'Number of trials', 'Network name', 'Use labels'};
+defaultParams.Values = {'127.0.0.1',                '8050',                     '0',                        '0.0025',                       '0.01',                         '0.02', '3',                '',             'false'};
+
+segmentNames = {};
 
 % Check if the user passed in the string "params" instead of audio data
 if ischar(data) && strcmp(data,'params')
@@ -22,7 +24,7 @@ if ~exist('params', 'var')
 end
 
 % Extract the parameters chosen
-[host, port, min_frequency, spec_time_step, min_segment_length, eps, num_trials] = params.Values{:};
+[host, port, min_frequency, spec_time_step, min_segment_length, eps, num_trials, network_name, use_labels] = params.Values{:};
 
 % Convert numerical parameters from strings to numbers
 min_frequency = str2double(min_frequency);
@@ -32,7 +34,7 @@ eps = str2double(eps);
 num_trials = str2double(num_trials);
 
 % Construct a full URL from the given host name and port
-service_url = sprintf('http://%s:%s/segment', host, port);
+service_url = sprintf('http://%s:%s/segment/%s', host, port, network_name);
 
 % Convert the audio data to a byte array
 dataBytes = typecast(data, 'uint8');
@@ -60,6 +62,15 @@ try
     % Reply received! Reformat the results into electro_gui's Nx2 segment
     % time array format
     segments = round([response.onset, response.offset]*whisperSegFs) + 1;  % + 1 to convert from python's zero-indexing to MATLAB's one-indexing
+    if use_labels
+        % Use WhisperSeg segment labels
+        segmentNames = response.cluster;
+    end
+    if isfield(response, 'message') && ~isempty(response.message)
+        % If WhisperSeg sent a message, display it in alert and command window
+
+        fprintf('\nMessage from WhisperSeg server... \n\n%s\n\n ...message end\n\n.', response.message)
+    end
 catch ME
     % Request failed
     if strcmp(ME.identifier, 'MATLAB:webservices:UnknownHost')

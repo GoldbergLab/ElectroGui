@@ -2530,10 +2530,17 @@ function SegmentSounds(obj, updateGUI)
 
     filenum = electro_gui.getCurrentFileNum(obj.settings);
     obj.settings.SegmenterParams.IsSplit = 0;
-    obj.dbase.SegmentTimes{filenum} = electro_gui.eg_runPlugin(obj.plugins.segmenters, ...
+    [obj.dbase.SegmentTimes{filenum}, segmentTitles] = electro_gui.eg_runPlugin(obj.plugins.segmenters, ...
         segmentationAlgorithmName, sound, obj.amplitude, fs, obj.settings.CurrentThreshold, ...
         obj.settings.SegmenterParams);
-    obj.dbase.SegmentTitles{filenum} = cell(1,size(obj.dbase.SegmentTimes{filenum},1));
+    if isempty(segmentTitles)
+        obj.dbase.SegmentTitles{filenum} = cell(1,size(obj.dbase.SegmentTimes{filenum},1));
+    else
+        if ~iscell(segmentTitles) || ~isvector(segmentTitles) || length(segmentTitles) ~= size(obj.dbase.SegmentTimes{filenum}, 1)
+            error('Invalid segment titles produced from segmenter algorithm: %s', segmentationAlgorithmName);
+        end
+        obj.dbase.SegmentTitles{filenum} = segmentTitles;
+    end
     obj.dbase.SegmentIsSelected{filenum} = ones(1,size(obj.dbase.SegmentTimes{filenum},1));
 
     if updateGUI
@@ -14316,7 +14323,7 @@ end
                 newAnnotation = patch(ax, [t1 t2 t2 t1], [y0 y0 y1 y1], faceColor, 'ContextMenu', ax.ContextMenu);
                 % Create a text graphics object right above the middle of the segment
                 % rectangle
-                newLabel = text(ax, (t1+t2)/2,y1,titles(annotationNum), 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'center', 'ContextMenu', ax.ContextMenu);
+                newLabel = text(ax, (t1+t2)/2,y1,titles(annotationNum), 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'center', 'ContextMenu', ax.ContextMenu, 'Interpreter', 'none');
         
                 % Set annotation style to inactive
                 if activeIndex == annotationNum

@@ -1,8 +1,11 @@
-function segs = egg_DA_segmenter_old(sound, a,fs,th,params)
+function [segs, segNames] = egg_DA_segmenter_old(sound, a,fs,th,params)
 % ElectroGui segmenter
 
 defaultParams.Names = {'Minimum duration (ms)','Minimum interval (ms)','Buffer (ms)'};
 defaultParams.Values = {'7', '7','0'};
+
+% This algorithm does not generate segment names
+segNames = {};
 
 if ischar(sound) && strcmp(sound,'params')
     segs = defaultParams;
