@@ -531,9 +531,7 @@ classdef electro_gui < handle
                 str{end+1} = pluginNames{pluginIdx};
             end
             obj.popup_Function1.String = str;
-            obj.popup_Function1.UserData = cell(1,length(str));
             obj.popup_Function2.String = str;
-            obj.popup_Function2.UserData = cell(1,length(str));
         
             % Find all event detector algorithms
             pluginNames = {obj.plugins.eventDetectors.name};
@@ -542,9 +540,7 @@ classdef electro_gui < handle
                 str{end+1} = pluginNames{pluginIdx};
             end
             obj.popup_EventDetector1.String = str;
-            obj.popup_EventDetector1.UserData = cell(1,length(str));
             obj.popup_EventDetector2.String = str;
-            obj.popup_EventDetector2.UserData = cell(1,length(str));
         end
         function updateChannelPopups(obj)
             % Update the channel selection popups based on stored channel info
