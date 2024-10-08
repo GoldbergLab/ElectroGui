@@ -26,8 +26,9 @@ end
 % Extract the parameters chosen
 [host, port, min_frequency, spec_time_step, min_segment_length, eps, num_trials, network_name, use_labels] = params.Values{:};
 
-if nargin == 0
-    % If no arguments are passed, just query available models and exit
+if ischar(data) && strcmp(data, 'list')
+    % If only one argument - 'list' - is passed, query the service for what
+    % the available models are.
     clear segmentTimes segmentTitles
     % DEBUG:
     host = 'localhost';
@@ -43,6 +44,32 @@ if nargin == 0
             fprintf('\t%s (%s)\n', modelNames{k}, modelTimes{k});
         end
         fprintf('\nSet your WhisperSeg parameters in electro_gui accordingly.\n')
+    catch ME
+        % Request failed
+        if strcmp(ME.identifier, 'MATLAB:webservices:UnknownHost')
+            errordlg('Whisper seg web service not available at: %s', service_url);
+            error('Whisper seg web service not available at: %s\n', service_url);
+        else
+            % Something else went wrong
+            rethrow(ME);
+        end
+    end
+    return
+end
+
+if ischar(data) && strcmp(data, 'update')
+    % If only one argument - 'list' - is passed, request that the service
+    % look for new models and update
+    clear segmentTimes segmentTitles
+    % DEBUG:
+    host = 'localhost';
+    service_url = sprintf('http://%s:%s/update', host, port);
+    fprintf('Requesting that the WhisperSeg service look for new models in its model folder and load them. Host is at %s at port %s...\n\n', host, port)
+    try
+        options = weboptions('RequestMethod', 'POST', 'MediaType', 'application/json', 'Timeout', 5);
+        response = webwrite(service_url, '', options);
+        fprintf('Response from service:\n');
+        fprintf('\n\n%s\n\n', response);
     catch ME
         % Request failed
         if strcmp(ME.identifier, 'MATLAB:webservices:UnknownHost')
