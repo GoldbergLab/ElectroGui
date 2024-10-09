@@ -3298,7 +3298,7 @@ function CreateNewDbase(obj)
 
     obj.SaveState();
 
-    obj.dbase = dbase;
+    [obj.dbase, obj.settings] = electro_gui.updateDbaseFormat(dbase, obj.settings);
 
     % Placeholder for custom fields
     obj.OriginalDbase = struct();
