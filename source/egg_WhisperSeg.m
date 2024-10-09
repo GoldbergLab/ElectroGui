@@ -59,8 +59,6 @@ if ischar(data) && strcmp(data, 'update')
     % If only one argument - 'list' - is passed, request that the service
     % look for new models and update
     clear segmentTimes segmentTitles
-    % DEBUG:
-    host = 'localhost';
     service_url = sprintf('http://%s:%s/update', host, port);
     fprintf('Requesting that the WhisperSeg service look for new models in its model folder and load them. Host is at %s at port %s...\n\n', host, port)
     try
