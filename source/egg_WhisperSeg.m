@@ -30,8 +30,6 @@ if ischar(data) && strcmp(data, 'list')
     % If only one argument - 'list' - is passed, query the service for what
     % the available models are.
     clear segmentTimes segmentTitles
-    % DEBUG:
-    host = 'localhost';
     service_url = sprintf('http://%s:%s/models', host, port);
     fprintf('Attempting to get a list of available trained WhisperSeg models host %s at port %s...\n\n', host, port)
     try
