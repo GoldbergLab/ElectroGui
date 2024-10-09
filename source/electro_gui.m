@@ -3271,11 +3271,16 @@ function newMarkerNum = ConvertSegmentToMarker(obj, filenum, segmentNum)
 end
 
 function CreateNewDbase(obj)
+    if isfield(obj.tempSettings, 'lastDirectory')
+        path = obj.tempSettings.lastDirectory;
+    else
+        path = '.';
+    end
 
     [dbase, cancel] = eg_GatherFiles('', obj.settings.FileString, ...
         obj.settings.DefaultFileLoader, obj.settings.DefaultChannelNumber, ...
         "TitleString", 'Identify files for new dbase', 'GUI', true, ...
-        'DefaultPathName', obj.tempSettings.lastDirectory);
+        'DefaultPathName', path);
 
     if cancel
         return
