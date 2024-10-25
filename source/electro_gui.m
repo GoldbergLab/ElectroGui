@@ -13276,6 +13276,9 @@ end
             user = lic(1).user;
             f = regexpi(user,'[A-Z1-9]');
             user = user(f);
+            if isempty(user)
+                user = 'anonymous';
+            end
         end
         function defaults = warnAndFixLegacyDefaults(defaults)
             msgs = {};
