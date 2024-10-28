@@ -13289,6 +13289,17 @@ end
             f = regexpi(user,'[A-Z1-9]');
             user = user(f);
         end
+        function params = applyDefaultPluginParams(params, defaultParams)
+            % Replace any default values with user selected values
+            for k = 1:length(defaultParams.Names)
+                name = defaultParams.Names{k};
+                idx = find(strcmp(name, params.Names), 1);
+                if ~isempty(idx)
+                    defaultParams.Values{k} = params.Values{idx};
+                end
+            end
+            params = defaultParams;
+        end
         function defaults = warnAndFixLegacyDefaults(defaults)
             msgs = {};
             if isfield(defaults, 'EventLims')
