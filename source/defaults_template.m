@@ -18,8 +18,9 @@ settings.MaxHistoryLength = 10;          % Maximum number of states to save (for
 settings.HistoryInterval = 3;            % Minimum time in seconds between saving states - set to zero to save the state on every change regardless of how fast.
 
 % PROPERTIES SETTINGS
-settings.DefaultProperties.Names = {};      % {'bSorted', 'bDirected', 'bContainsStim', 'bUnusable'};   % Cell array of default property names to add to a new dbase
-settings.DefaultProperties.Values = [];     % [false, false, false, false];  % Corresponding default values for /\
+settings.DefaultProperties.Names = {};            % {'bSorted', 'bDirected', 'bContainsStim', 'bUnusable'};   % Cell array of default property names to add to a new dbase
+settings.DefaultProperties.Values = [];           % [false, false, false, false];  % Corresponding default values for /\
+settings.PropertyColumnVisible = logical.empty(); % [true, true, false, true]; % Corresponding to whether columns for each of /\ should be shown in file info browser
 
 % FILE INFO BROWSER SETTINGS
 settings.FileSortMethod = 'File number';    % Default file sorting method - one of {'File number', 'Random', 'Property', 'Read status'}

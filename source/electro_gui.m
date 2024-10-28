@@ -3266,21 +3266,12 @@ end
 
 function CreateNewDbase(obj)
 
-    [dbase, cancel] = eg_GatherFiles('', obj.settings.FileString, ...
-        obj.settings.DefaultFileLoader, obj.settings.DefaultChannelNumber, ...
-        "TitleString", 'Identify files for new dbase', 'GUI', true, ...
-        'DefaultPathName', obj.tempSettings.lastDirectory);
+    [dbase, cancel] = electro_gui.CreateDbase(obj.settings, ...
+        obj.tempSettings.lastDirectory, 'SavePath', '', 'GUI', true);
 
-    if cancel
+    if cancel || electro_gui.getNumFiles(dbase) == 0
         return
     end
-
-    numFiles = electro_gui.getNumFiles(dbase);
-    if numFiles == 0
-        return
-    end
-
-    dbase = electro_gui.InitializeDbase(obj.settings, 'NumFiles', numFiles, 'BaseDbase', dbase, 'IncludeHelp', false);
 
     % Dbase hasn't been saved yet, so clear current dbase path
     obj.CurrentDbasePath = '';
@@ -4976,6 +4967,13 @@ function updateShowPropertyColumnMenu(obj)
     % Delete old menu items
     delete(obj.menus_ShowPropertyColumn);
     obj.menus_ShowPropertyColumn = gobjects(1, numProperties);
+
+    % Make sure obj.settings.PropertyColumnVisible has the right number of entries
+    if length(obj.settings.PropertyColumnVisible) < numProperties
+        obj.settings.PropertyColumnVisible = [obj.settings.PropertyColumnVisible, true(1, numProperties - length(obj.settings.PropertyColumnVisible))];
+    elseif length(obj.settings.PropertyColumnVisible) > numProperties
+        obj.settings.PropertyColumnVisible(numProperties+1:end) = [];
+    end
 
     % Create fresh menu items
     for k = 1:numProperties
@@ -12857,6 +12855,9 @@ end
 
     end
     methods (Static)   % dbase manipulation methods
+        function defaultParams = getDefaultPluginParams(settings)
+
+        end
         function settings = createMergedSettings(userSettings, dbaseSettings)
             % Merge the defaults_template, userSettings, and dbaseSettings
             arguments
@@ -12895,7 +12896,7 @@ end
                     % User passed only defaults name, not full filename
                     settings = sprintf('defaults_%s', settings);
                 end
-                settings = createMergedSettings(settings);
+                settings = electro_gui.createMergedSettings(settings);
             end
 
             gvod = @electro_gui.getValueOrDefault;
@@ -13006,24 +13007,32 @@ end
 
             dbase = electro_gui.UpdateChannelInfo(dbase);
         end
-        function dbase = CreateDbase(settings, rootDir, savePath)
+        function [dbase, cancel] = CreateDbase(settings, rootDir, options)
             % Take a set of electro_gui settings, a root directory in which
             % to look for files, and a save path, and create a fresh dbase.
             arguments
                 settings struct = defaults_template()
                 rootDir = '.'
-                savePath = '.\analysis.mat'
+                options.savePath = '.\analysis.mat'
+                options.GUI = false
             end
 
-            dbase = eg_GatherFiles(rootDir, settings.FileString, ...
+            settings = electro_gui.warnAndFixLegacyDefaults(settings);
+
+            [dbase, cancel] = eg_GatherFiles(rootDir, settings.FileString, ...
                 settings.DefaultFileLoader, settings.DefaultChannelNumber, ...
-                'GUI', false);
-            
+                'TitleString', 'Identify files for new dbase', ...
+                'GUI', options.GUI);
+
+            if cancel
+                return
+            end
+
             numFiles = electro_gui.getNumFiles(dbase);
             dbase = electro_gui.InitializeDbase(settings, 'NumFiles', numFiles, 'BaseDbase', dbase, 'IncludeHelp', false);
 
-            if ~isempty(savePath)
-                save(savePath, 'dbase');
+            if ~isempty(options.savePath)
+                save(options.savePath, 'dbase');
             end
 
         end
@@ -13244,6 +13253,11 @@ end
                 msgs{end+1} = 'DefaultProperties.Values should either be empty or have the same length as DefaultProperties.Names';
                 defaults.DefaultProperties.Values = logical.empty();
             end
+            if ~isfield(defaults, 'PropertyColumnVisible')
+                msgs{end+1} = 'PropertyColumnVisible should be a logical array of the same length as DefaultProperties.Names';
+                defaults.PropertyColumnVisible = logical.empty();
+            end
+%             if length(defaults.PropertyColumnVisible > defaults.)
             if ~isempty(msgs)
                 fprintf('\n*************************************************************************************************************\n')
                 warning('Your defaults file is out of date - please address the following issues:');
