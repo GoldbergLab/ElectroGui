@@ -3269,7 +3269,8 @@ function CreateNewDbase(obj)
     [dbase, cancel] = electro_gui.CreateDbase(obj.settings, ...
         obj.tempSettings.lastDirectory, 'SavePath', '', 'GUI', true);
 
-    if cancel || electro_gui.getNumFiles(dbase) == 0
+    numFiles = electro_gui.getNumFiles(dbase);
+    if cancel || numFiles == 0
         return
     end
 
@@ -12855,9 +12856,6 @@ end
 
     end
     methods (Static)   % dbase manipulation methods
-        function defaultParams = getDefaultPluginParams(settings)
-
-        end
         function settings = createMergedSettings(userSettings, dbaseSettings)
             % Merge the defaults_template, userSettings, and dbaseSettings
             arguments
