@@ -6,16 +6,21 @@ function [segmentTimes, segmentTitles] = egg_WhisperSeg(data, ~, ~, ~, params)
 % running either locally or remotely.
 
 % Define default segmenter parameters
-defaultParams.Names =  {'WhisperSeg hostname/IP',       'WhisperSeg service port',  'Mininum frequency (Hz)',   'Spectrogram time step (s)',    'Minimum segment length (s)',   'eps',  'Number of trials', 'Network name', 'Use labels'};
-defaultParams.Values = {'goldbergbk.nbb.cornell.edu',   '8050',                     '0',                        '0.0025',                       '0.01',                         '0.02', '3',                'zhilei_ct2',   'false'};
+defaultParams.Names =  {'WhisperSeg hostname/IP',       'WhisperSeg service port',  'Mininum frequency (Hz)',   'Spectrogram time step (s)',    'Minimum segment length (s)',   'Tolerance',   'eps',  'time_per_frame_for_scoring', 'Number of trials', 'Network name', 'Use labels'};
+defaultParams.Values = {'goldbergbk.nbb.cornell.edu',   '8050',                     '0',                        '0.0025',                       '0.01',                         '0.01',        '0.02', '0.001',                      '3',                'zhilei_ct2',   'false'};
 
 segmentTitles = {};
 
 % Check if the user passed in the string "params" instead of audio data
-if exist('data', 'var') && ischar(data) && strcmp(data,'params')
-    % Return the default parameters
-    segmentTimes = defaultParams;
-    return
+if exist('data', 'var') && ischar(data)
+    if strcmp(data,'params')
+        % Return the default parameters
+        segmentTimes = defaultParams;
+        return
+    elseif exist(data, 'file')
+        % User has passed in a path - load the data
+        data = audioread(data);
+    end
 end
 
 % Use default parameters if none are provided
@@ -23,8 +28,10 @@ if ~exist('params', 'var')
     params = defaultParams;
 end
 
+params = electro_gui.applyDefaultPluginParams(params, defaultParams);
+
 % Extract the parameters chosen
-[host, port, min_frequency, spec_time_step, min_segment_length, eps, num_trials, network_name, use_labels] = params.Values{:};
+[host, port, min_frequency, spec_time_step, min_segment_length, tolerance, eps, time_per_frame_for_scoring, num_trials, network_name, use_labels] = params.Values{:};
 
 if ischar(data) && strcmp(data, 'list')
     % If only one argument - 'list' - is passed, query the service for what
@@ -83,7 +90,9 @@ end
 min_frequency = str2double(min_frequency);
 spec_time_step = str2double(spec_time_step);
 min_segment_length = str2double(min_segment_length);
+tolerance = str2double(tolerance);
 eps = str2double(eps);
+time_per_frame_for_scoring = str2double(time_per_frame_for_scoring);
 num_trials = str2double(num_trials);
 switch use_labels
     case 'true'
@@ -110,7 +119,9 @@ requestInfo = struct('audio_file_base64_string', audio_base64_string, ...
               "min_frequency", min_frequency, ...
               "spec_time_step", spec_time_step, ...
               "min_segment_length", min_segment_length, ...
+              "tolerance", tolerance, ...
               "eps", eps, ...
+              "time_per_frame_for_scoring", time_per_frame_for_scoring, ...
               "num_trials", num_trials, ... 
               "adobe_audition_compatible", false);
 % Serialize the request structure into a json string
