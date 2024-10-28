@@ -40,7 +40,7 @@ end
 if ~exist('recursive', 'var') || isempty(recursive)
     recursive = true;
 end
-if ~exist('skipPreexisting', 'var') || iseempty(skipPreexisting)
+if ~exist('skipPreexisting', 'var') || isempty(skipPreexisting)
     skipPreexisting = true;
 end
 
@@ -63,7 +63,7 @@ end
 
 skipCount = 0;
 
-fprintf('Found %d txt files to convert. Converting...\n', length(pathInput));
+fprintf('Found %d txt files to convert. Converting...\n', length(pathsToFiles));
 for k = 1:length(pathsToFiles)
     displayProgress('\tCompleted %d of %d\n', k, length(pathsToFiles), 20);
     pathToTxt = pathsToFiles{k};

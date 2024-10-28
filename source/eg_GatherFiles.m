@@ -5,15 +5,14 @@ function [dbase, cancel] = eg_GatherFiles(PathName, FileString, FileLoader, NumC
         FileLoader
         NumChannels double = []
         options.TitleString char = 'Locate data files'
-        options.DefaultPathName char = '.'
         options.GUI (1, 1) logical = true
     end
 
     % Initialize the dbase
     dbase = struct();
 
-    if options.GUI && isempty(PathName)
-        PathName = uigetdir(options.DefaultPathName, 'Experiment Directory');
+    if options.GUI
+        PathName = uigetdir(PathName, 'Experiment Directory');
         if ~ischar(PathName)
             cancel = true;
             return
