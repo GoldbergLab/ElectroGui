@@ -497,6 +497,9 @@ classdef electro_gui < handle
             obj.playback_SoundInMix.Checked = obj.settings.DefaultMix(1);
             obj.playback_TopInMix.Checked = obj.settings.DefaultMix(2);
             obj.playback_BottomInMix.Checked = obj.settings.DefaultMix(3);
+
+            obj.menu_ShowFileNameColumn.Checked = obj.settings.ShowFileNameColumn;
+
         end
         function updatePluginMenus(obj)
             % Populate various GUI menus with available plugins found in the
@@ -3278,6 +3281,9 @@ function CreateNewDbase(obj)
         path = '.';
     end
 
+    % Load base default settings, then load user defaults on top
+    obj.settings = electro_gui.createMergedSettings(obj.CurrentDefaults);
+
     [dbase, cancel] = electro_gui.CreateDbase(obj.settings, ...
         path, 'SavePath', '', 'GUI', true);
 
@@ -3299,11 +3305,11 @@ function CreateNewDbase(obj)
     obj.text_TotalFileNumber.String = ['of ' num2str(numFiles)];
     obj.edit_FileNumber.String = '1';
 
-    obj.updateFileNotes();
-
     obj.RefreshSortOrder();
     obj.updateShowPropertyColumnMenu();
     obj.UpdateFileInfoBrowser();
+
+    obj.updateFileNotes();
 
     obj.FileInfoBrowser.SelectedRow = 1;
     obj.popup_Channel1.Value = 1;
