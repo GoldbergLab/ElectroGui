@@ -10907,14 +10907,11 @@ end
 
                 eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
 
-                ax.Units = 'pixels';
                 rect = rbbox();
-                boxWidthPixels = rect(3);
-                ax.Units = 'normalized';
-
                 rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Channel(axnum));
+                boxWidthPct = 100*rect(3) / diff(obj.axes_Channel(axnum).XLim);
 
-                if boxWidthPixels < 3
+                if boxWidthPct < 1
                     % Simple control-click on axes
                     obj.SetEventThreshold(axnum, rect(2));
                 else
