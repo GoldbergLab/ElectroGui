@@ -10917,7 +10917,7 @@ end
                 rect = rbbox();
                 rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Channel(axnum));
                 axesWidthPixels = getPositionWithUnits(obj.axes_Channel(axnum), 'pixels', 3);
-                boxWidthPct = axesWidthPixels * rect(3) / diff(obj.axes_Channel(axnum).XLim)
+                boxWidthPct = axesWidthPixels * rect(3) / diff(obj.axes_Channel(axnum).XLim);
                 
 
                 if boxWidthPct < 2
