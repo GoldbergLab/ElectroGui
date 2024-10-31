@@ -24,6 +24,7 @@ classdef electro_gui < handle
         loadedChannelFs = {NaN, NaN}
         loadedChannelLabels = {}
         ChanYLimits
+        ActiveAxnum = 1   % Which of the two channel axes was last interacted with?
     end
     properties  % GUI widgets
         figure_Main
@@ -10915,9 +10916,11 @@ end
 
                 rect = rbbox();
                 rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Channel(axnum));
-                boxWidthPct = 100*rect(3) / diff(obj.axes_Channel(axnum).XLim);
+                axesWidthPixels = getPositionWithUnits(obj.axes_Channel(axnum), 'pixels', 3);
+                boxWidthPct = axesWidthPixels * rect(3) / diff(obj.axes_Channel(axnum).XLim)
+                
 
-                if boxWidthPct < 1
+                if boxWidthPct < 2
                     % Simple control-click on axes
                     obj.SetEventThreshold(axnum, rect(2));
                 else
