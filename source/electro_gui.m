@@ -5033,6 +5033,10 @@ function controlDown = isControlDown(obj)
     controlDown = any(strcmp(obj.figure_Main.CurrentModifier, 'control'));
 end
 
+function altDown = isAltDown(obj)
+    altDown = any(strcmp(obj.figure_Main.CurrentModifier, 'alt'));
+end
+
 function GUIPropertyChangeHandler(obj, hObject, event)
     % Update stored property values from GUI
 
@@ -10880,52 +10884,25 @@ end
                 obj.updateTimescaleView();
 
             elseif strcmp(obj.figure_Main.SelectionType,'normal')
-                % Left click
+                % Left click or maybe alt-click
 
                 rect = rbbox();
                 rect = getFigureCoordsInAxesDataUnits(rect, ax);
-                
-                if rect(3) == 0
-                    shift = rect(1) - obj.settings.TLim(1);
-                    obj.settings.TLim = obj.settings.TLim + shift;
-                else
-                    obj.settings.TLim = [rect(1), rect(1)+rect(3)];
-                    if obj.menu_AllowYZooms(axnum).Checked && rect(4) > 0
-                        ylim([rect(2) rect(4)+rect(2)]);
+
+                if ~obj.isAltDown()
+                    if rect(3) == 0
+                        shift = rect(1) - obj.settings.TLim(1);
+                        obj.settings.TLim = obj.settings.TLim + shift;
+                    else
+                        obj.settings.TLim = [rect(1), rect(1)+rect(3)];
+                        if obj.menu_AllowYZooms(axnum).Checked && rect(4) > 0
+                            ylim([rect(2) rect(4)+rect(2)]);
+                        end
                     end
-                end
-                obj.updateTimescaleView();
-
-            elseif strcmp(obj.figure_Main.SelectionType, 'alt')
-                % Control-click or right click
-                if ~obj.isControlDown()
-                    % False alarm, this is just a right click, stand down
-                    return;
-                end
-
-                obj.SaveState();
-
-                obj.settings.ActiveEventNum = [];
-                obj.settings.ActiveEventPartNum = [];
-                obj.settings.ActiveEventSourceIdx = [];
-
-                % Remove active event cursor
-                delete(obj.ActiveEventCursors);
-
-                eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
-
-                rect = rbbox();
-                rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Channel(axnum));
-                axesWidthPixels = getPositionWithUnits(obj.axes_Channel(axnum), 'pixels', 3);
-                boxWidthPct = axesWidthPixels * rect(3) / diff(obj.axes_Channel(axnum).XLim);
-                
-
-                if boxWidthPct < 2
-                    % Simple control-click on axes
-                    obj.SetEventThreshold(axnum, rect(2));
+                    obj.updateTimescaleView();
                 else
-                    % Control click and drag on channel axes
-
+                    % Alt click (and/or drag) on channel axes
+                    eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
                     if ~isempty(eventSourceIdx)
                         % Set local threshold
                         obj.SaveState();
@@ -10989,7 +10966,27 @@ end
                         obj.updateEventViewer();
                     end
                 end
+            elseif strcmp(obj.figure_Main.SelectionType, 'alt')
+                % Control-click or right click
+                if ~obj.isControlDown()
+                    % False alarm, this is just a right click, stand down
+                    return;
+                end
 
+                obj.SaveState();
+
+                obj.settings.ActiveEventNum = [];
+                obj.settings.ActiveEventPartNum = [];
+                obj.settings.ActiveEventSourceIdx = [];
+
+                % Remove active event cursor
+                delete(obj.ActiveEventCursors);
+
+                rect = rbbox();
+                rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Channel(axnum));
+
+                % Simple control-click on axes
+                obj.SetEventThreshold(axnum, rect(2));
             elseif strcmp(obj.figure_Main.SelectionType,'extend')
                 % Shift-click
                 obj.SaveState();
@@ -13621,7 +13618,7 @@ end
             '    Event related', ...
             '        Click on event viewer: Set active event', ...
             '        Ctrl-click on channel axes: Set event detector threshold', ...
-            '        Ctrl-click+drag on channel axes: Set local threshold', ...
+            '        Alt-click+drag on channel axes: Set local threshold', ...
             '        Shift-click+drag on channel axes: Unselect events', ...
             '        Ctrl-click+drag on event viewer: Unselect events', ...
             '', ...
