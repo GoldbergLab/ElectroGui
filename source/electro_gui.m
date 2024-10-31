@@ -25,6 +25,7 @@ classdef electro_gui < handle
         loadedChannelLabels = {}
         ChanYLimits
         ActiveAxnum = 1   % Which of the two channel axes was last interacted with?
+        WarningCounts = struct()
     end
     properties  % GUI widgets
         figure_Main
@@ -1763,6 +1764,18 @@ function disableAxesPopupToolbars(obj)
     delete(obj.axes_Events.Toolbar);
 end
 
+function issueWarning(obj, warningMsg, warningType)
+    if ~isfield(obj.WarningCounts, warningType)
+        obj.WarningCounts.(warningType) = 0;
+    end
+    obj.WarningCounts.(warningType) = obj.WarningCounts.(warningType) + 1;
+    if obj.WarningCounts.(warningType) < 5
+        warning(warningMsg);
+    elseif obj.WarningCounts.(warningType) == 6
+        warning('Multiple warnings of type %d - suppressing further warnings.', warningType);
+    end
+end
+
 function loadTempFile(obj)
     % Get temp file
     tempSettingsFields =        {'lastDirectory',   'recentFiles'};
@@ -1967,6 +1980,10 @@ end
 function centerTimescale(obj, centerTime, radiusTime)
     obj.settings.TLim = [centerTime - radiusTime, centerTime + radiusTime];
     obj.updateTimescaleView();
+end
+
+function SetActiveAxnum(obj, axnum)
+    obj.ActiveAxnum = axnum;
 end
 
 function data = retrieveFileFromCache(obj, filepath, loader)
@@ -2212,7 +2229,10 @@ function [channelData, channelSamplingRate, channelLabels, timestamp] = loadChan
     fileNum = options.FileNum;
     filterParams = options.FilterParams;
     filterName = options.FilterName;
+    % Check if this channel represents a pseudo channel
     isPseudoChannel = options.IsPseudoChannel;
+    % Check if this channel represents sound
+    isSound = electro_gui.isChannelSound(channelNum);
 
     if isPseudoChannel
         % This is a pseudochannel - load it based on type
@@ -2226,7 +2246,7 @@ function [channelData, channelSamplingRate, channelLabels, timestamp] = loadChan
                 eventSourceIdx = pChannelInfo.eventSourceIdx;
                 eventPartIdx = pChannelInfo.eventPartIdx;
                 [channelNum, ~, ~, ~, ~, ~, ~, ~, isSourcePseudoChannel] = obj.GetEventSourceInfo(eventSourceIdx);
-                [numSamples, loadedChannelSamplingRate] = obj.eg_GetSamplingInfo(fileNum, channelNum, isSourcePseudoChannel);
+                [numSamples, ~] = obj.eg_GetSamplingInfo(fileNum, channelNum, isSourcePseudoChannel);
 
                 rawChannelData = zeros(numSamples, 1);
                 eventTimes = obj.dbase.EventTimes{eventSourceIdx}{eventPartIdx, fileNum};
@@ -2236,19 +2256,14 @@ function [channelData, channelSamplingRate, channelLabels, timestamp] = loadChan
             otherwise
                 error('PseudoChannel type %s not recognized', pChannelType);
         end
+    elseif isSound
+        % Sound is being loaded as a channel
+        [rawChannelData, channelSamplingRate, timestamp] = obj.getSound([], fileNum, isPseudoChannel);
+        channelLabels = 'Sound Amplitude (V)';
     else
-        % Check if this channel represents sound
-        isSound = electro_gui.isChannelSound(channelNum);
-        if isSound
-            % Load using the specified sound loader
-            loader = obj.dbase.SoundLoader;
-            filePath = fullfile(obj.dbase.PathName, obj.dbase.SoundFiles(fileNum).name);
-        else
-            % Load using the specified channel data loader
-            loader = obj.dbase.ChannelLoader{channelNum};
-            filePath = fullfile(obj.dbase.PathName, obj.dbase.ChannelFiles{channelNum}(fileNum).name);
-        end
-
+        % Just a regular channel - load using the specified channel data loader
+        loader = obj.dbase.ChannelLoader{channelNum};
+        filePath = fullfile(obj.dbase.PathName, obj.dbase.ChannelFiles{channelNum}(fileNum).name);
         if obj.settings.EnableFileCaching
             % File is already cached - retrieve data
             data = obj.retrieveFileFromCache(filePath, loader);
@@ -2257,20 +2272,24 @@ function [channelData, channelSamplingRate, channelLabels, timestamp] = loadChan
             % File is not cached - load data
             [rawChannelData, loadedChannelSamplingRate, timestamp, channelLabels, ~] = electro_gui.eg_runPlugin(obj.plugins.loaders, loader, filePath, true);
         end
-    end
 
-    % loadedChannelSamplingRate is not always reliable, so
-    %   override it if we already have a channel frequency 
-    %   stored for this channel
-    if isnan(obj.dbase.ChannelFs(channelNum))
-        channelSamplingRate = loadedChannelSamplingRate;
-        obj.dbase.ChannelFs(channelNum) = channelSamplingRate;
-    else
-        channelSamplingRate = obj.dbase.ChannelFs(channelNum);
-        if channelSamplingRate ~= loadedChannelSamplingRate
-            fprintf('Loaded sampling rate for channel %d is %f, but stored sampling rate is %f. Using stored sampling rate.\n', channelNum, loadedChannelSamplingRate, channelSamplingRate);
+        if ~isSound && ~isPseudoChannel
+            % loadedChannelSamplingRate is not always reliable, so
+            %   override it if we already have a channel frequency 
+            %   stored for this channel
+            if isnan(obj.dbase.ChannelFs(channelNum))
+                channelSamplingRate = loadedChannelSamplingRate;
+                obj.dbase.ChannelFs(channelNum) = channelSamplingRate;
+            else
+                channelSamplingRate = obj.dbase.ChannelFs(channelNum);
+                if channelSamplingRate ~= loadedChannelSamplingRate
+                    warningMsg = sprintf('Loaded sampling rate for channel %d is %f, but stored sampling rate is %f. Using stored sampling rate.\n', channelNum, loadedChannelSamplingRate, channelSamplingRate);
+                    obj.issueWarning(warningMsg, 'SamplingRateInconsistency');
+                end
+            end
         end
     end
+
 
     if isempty(filterName)
         % Raw data requested
@@ -2281,7 +2300,8 @@ function [channelData, channelSamplingRate, channelLabels, timestamp] = loadChan
 
         % Resample data? This seems bad.
         if length(channelData) < length(rawChannelData)
-            warning('Filter seems to be shortening channel data?')
+            warningMsg = 'Filter seems to be shortening channel data?';
+            obj.issueWarning(warningMsg, 'ChannelDataShortened');
             indx = fix(linspace(1, length(channelData), length(rawChannelData)));
             channelData = channelData(indx);
         end
@@ -7790,6 +7810,7 @@ function setupGUI(obj)
         'Callback',@obj.popup_Channel1_Callback,...
         'Children',[],...
         'CreateFcn',@electro_gui.GenericCreateFcn,...
+        'KeyPressFcn', @obj.keyPressHandler,...
         'Tag','popup_Channel1');
 
     obj.popup_Channel2 = uicontrol(...
@@ -7804,6 +7825,7 @@ function setupGUI(obj)
         'Callback',@obj.popup_Channel2_Callback,...
         'Children',[],...
         'CreateFcn',@electro_gui.GenericCreateFcn,...
+        'KeyPressFcn', @obj.keyPressHandler,...
         'Tag','popup_Channel2');
 
     obj.text_ChannelFunction1 = uicontrol(...
@@ -7841,6 +7863,7 @@ function setupGUI(obj)
         'Children',[],...
         'Enable','off',...
         'CreateFcn',@electro_gui.GenericCreateFcn,...
+        'KeyPressFcn', @obj.keyPressHandler,...
         'Tag','popup_Function1');
 
     obj.popup_Function2 = uicontrol(...
@@ -7856,6 +7879,7 @@ function setupGUI(obj)
         'Children',[],...
         'Enable','off',...
         'CreateFcn',@electro_gui.GenericCreateFcn,...
+        'KeyPressFcn', @obj.keyPressHandler,...
         'Tag','popup_Function2');
 
     obj.text_EventDetector1 = uicontrol(...
@@ -7893,6 +7917,7 @@ function setupGUI(obj)
         'Children',[],...
         'Enable','off',...
         'CreateFcn',@electro_gui.GenericCreateFcn,...
+        'KeyPressFcn', @obj.keyPressHandler,...
         'Tag','popup_EventDetector1');
 
     obj.popup_EventDetector2 = uicontrol(...
@@ -7908,6 +7933,7 @@ function setupGUI(obj)
         'Children',[],...
         'Enable','off',...
         'CreateFcn',@electro_gui.GenericCreateFcn,...
+        'KeyPressFcn', @obj.keyPressHandler,...
         'Tag','popup_EventDetector2');
 
     obj.push_ClearEvents1 = uicontrol(...
@@ -7920,6 +7946,7 @@ function setupGUI(obj)
         'Children',[],...
         'Enable','off',...
         'Tooltip','Clear events for this channel and file', ...
+        'KeyPressFcn', @obj.keyPressHandler,...
         'Tag','push_ClearEvents1');
 
     obj.push_ClearEvents2 = uicontrol(...
@@ -7932,6 +7959,7 @@ function setupGUI(obj)
         'Children',[],...
         'Enable','off',...
         'Tooltip','Clear events for this channel and file', ...
+        'KeyPressFcn', @obj.keyPressHandler,...
         'Tag','push_ClearEvents2');
 
     obj.push_Detect1 = uicontrol(...
@@ -7943,6 +7971,7 @@ function setupGUI(obj)
         'Callback',@obj.push_Detect1_Callback,...
         'Children',[],...
         'Enable','off',...
+        'KeyPressFcn', @obj.keyPressHandler,...
         'Tag','push_Detect1');
 
     obj.push_Detect2 = uicontrol(...
@@ -7954,6 +7983,7 @@ function setupGUI(obj)
         'Callback',@obj.push_Detect2_Callback,...
         'Children',[],...
         'Enable','off',...
+        'KeyPressFcn', @obj.keyPressHandler,...
         'Tag','push_Detect2');
 
     % obj.context_Channel1
@@ -10569,15 +10599,8 @@ end
 
         end
 
-
         function keyPressHandler(obj, hObject, event)
             % Callback to handle a key press
-
-
-        %     if strcmp(event.Key, 'control')
-        %     end
-        %     if strcmp(event.Key, 'shift')
-        %     end
 
             % Get currently loaded file num
             filenum = electro_gui.getCurrentFileNum(obj.settings);
@@ -10638,6 +10661,16 @@ end
                     case 'y'
                         % User pressed control-z - undo last action
                         obj.Redo();
+                    case 'comma'
+                        % User pressed "control-comma" - switch to previous channel
+                        axnum = obj.ActiveAxnum;
+                        obj.changeChannel(axnum, -1);
+                        return
+                    case 'period'
+                        % User pressed "control-period" - switch to next channel
+                        axnum = obj.ActiveAxnum;
+                        obj.changeChannel(axnum, 1);
+                        return
                 end
             else
                 % User pressed a key without control down
@@ -10728,6 +10761,8 @@ end
         end
 
         function popup_Functions_Callback(obj, axnum)
+            obj.SetActiveAxnum(axnum);
+            
             % Update the function parameters for this axis
             obj.settings.ChannelAxesFunctionParams{axnum} = obj.getSelectedFunctionParameters(axnum);
 
@@ -10758,8 +10793,16 @@ end
 
         end
 
+        function changeChannel(obj, axnum, deltaIdx)
+            selectedIdx = obj.popup_Channels(axnum).Value;
+            numIndices = length(obj.popup_Channels(axnum).String);
+            obj.popup_Channels(axnum).Value = mod1(selectedIdx + deltaIdx, numIndices);
+            obj.popup_Channels_Callback(axnum);
+        end
+
         function popup_Channels_Callback(obj, axnum)
             % Handle change in value of either channel source menu
+            obj.SetActiveAxnum(axnum);
 
         %     if isempty(findobj('Parent',obj.axes_Sonogram,'type','text'))
                 % ?? is this for the long file thing?
@@ -10800,7 +10843,8 @@ end
                         obj.popup_Functions_Callback(axnum);
                     end
                 else
-                    warning('Found a default channel function in the defaults file, but it was not a recognized function: %s', obj.settings.DefaultChannelFunction);
+                    warningMsg = sprintf('Found a default channel function in the defaults file, but it was not a recognized function: %s', obj.settings.DefaultChannelFunction);
+                    obj.issueWarning(warningMsg, 'UnrecognizedFunction');
                 end
             end
         end
@@ -10861,6 +10905,8 @@ end
                 axnum = 2;
             end
 
+            obj.SetActiveAxnum(axnum);
+            
             ax = obj.axes_Channel(axnum);
 
             if strcmp(obj.figure_Main.SelectionType,'open')
@@ -11114,19 +11160,14 @@ end
         end
         % --- Executes on selection change in popup_EventDetector1.
         function popup_EventDetector1_Callback(obj, hObject, event)
-
+            obj.SetActiveAxnum(1);
             obj.updateChannelEventDisplay(1);
-
         end
 
         % --- Executes on selection change in popup_EventDetector2.
         function popup_EventDetector2_Callback(obj, hObject, event)
-
-        %     if isempty(findobj('Parent',obj.axes_Sonogram,'type','text'))
-                obj.updateChannelEventDisplay(2);
-        %        obj.eg_clickEventDetector(2);
-        %     end
-
+            obj.SetActiveAxnum(2);
+            obj.updateChannelEventDisplay(2);
         end
 
         function menu_Events1_Callback(obj, hObject, event)
@@ -11176,6 +11217,7 @@ end
         end
 
         function push_ClearEvents_Callback(obj, axnum)
+            obj.SetActiveAxnum(axnum);
             obj.ClearEventsInAxes(axnum);
 
             % Update other channel axes if necessary
@@ -11202,6 +11244,7 @@ end
         end
 
         function push_Detect_Callback(obj, axnum)
+            obj.SetActiveAxnum(axnum);
             obj.DetectEventsInAxes(axnum);
 
             % Update other channel axes if necessary
@@ -13584,6 +13627,8 @@ end
             '        Ctrl-space - play sound', ...
             '        . (period) - switch to previous file', ...
             '        , (comma) - switch to next file', ...
+            '        ctrl-. (ctrl-period) - switch to previous channel in active axes', ...
+            '        ctrl-, (ctrl-comma) - switch to next channel in active axes', ...
             '        ctrl-e - create export figure', ...
             '    Segment/Marker related:', ...
             '        a-z, A-Z, 0-9 - label the active segment or marker', ...
