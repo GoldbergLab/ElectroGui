@@ -1,4 +1,4 @@
-function [ispower, timeResolution, spectrogram_handle] = egs_SonogramTemplate(ax, data, fs, params)
+function [ispower, timeResolution, spectrogram_handle] = egs_Template(ax, data, fs, params)
 % Template for creating ElectroGui filter functions
 %
 % Arguments:

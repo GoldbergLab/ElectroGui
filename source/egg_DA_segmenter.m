@@ -1,4 +1,4 @@
-function [segs, segNames] = egg_DA_segmenter(sound, a,fs,th,params)
+function [segs, segNames] = egg_DA_segmenter(sound, a, fs, th, params)
 % ElectroGui segmenter
 
 defaultParams.Names = {'Minimum duration (ms)','Minimum interval (ms)','Mininum duration for splitting (ms)','Minimum interval for splitting (ms)'};
@@ -6,15 +6,17 @@ defaultParams.Values = {'7', '7','7','0'};
 
 segNames = {};
 
-if ischar(sound) && strcmp(sound, 'params')
+if istext(sound) && strcmp(sound, 'params')
     segs = defaultParams;
     return
 end
 
+% Use default parameters if none are provided
 if ~exist('params', 'var')
     params = defaultParams;
-    params.IsSplit = false;
 end
+% Fill any missing params with defaults
+params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 
 if ~isfield(params, 'IsSplit')
     params.IsSplit = false;

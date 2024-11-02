@@ -1,4 +1,4 @@
-function [filteredData, label] = egf_FilterTemplate(data, fs, params)
+function [filteredData, label] = egf_Template(data, fs, params)
 % Template for creating ElectroGui filter functions
 %
 % Arguments:

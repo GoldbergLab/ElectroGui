@@ -7,15 +7,17 @@ defaultParams.Values = {'7', '7','7','0'};
 % This algorithm does not generate segment names
 segmentNames = {};
 
-if ischar(sound) && strcmp(sound, 'params')
+if istext(sound) && strcmp(sound, 'params')
     segmentTimes = defaultParams;
     return
 end
 
+% Use default parameters if none are provided
 if ~exist('params', 'var')
     params = defaultParams;
-    params.IsSplit = false;
 end
+% Fill any missing params with defaults
+params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 
 if ~isfield(params, 'IsSplit')
     params.IsSplit = false;
