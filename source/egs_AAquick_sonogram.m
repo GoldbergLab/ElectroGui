@@ -5,14 +5,17 @@ function [ispower, timeResolution, spectrogram_handle] = egs_AAquick_sonogram(ax
 defaultParams.Names = {'NFFT', 'windowSize (must be >= NFFT)'};
 defaultParams.Values = {'512', '512'};
 
-if ischar(ax) && strcmp(ax, 'params')
+if istext(ax) && strcmp(ax, 'params')
     ispower = defaultParams;
     return
 end
 
-if ~exist('params', 'var') || isempty(params)
+% Use default parameters if none are provided
+if ~exist('params', 'var')
     params = defaultParams;
 end
+% Fill any missing params with defaults
+params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 
 originalAxesUnits = ax.Units;
 

@@ -1,14 +1,23 @@
-function [ispower, timeResolution, spectrogram_handle] = egs_Spectral_derivative(ax,wv,fs,params)
+function [ispower, timeResolution, spectrogram_handle] = egs_Spectral_derivative(ax, wv, fs, params)
 % ElectroGui spectrum algorithm
 % Multi-taper spectral derivative
 
+defaultParams.Names = {};
+defaultParams.Values = {};
+
 timeResolution = NaN;
 
-if isstr(ax) & strcmp(ax,'params')
-    ispower.Names = {};
-    ispower.Values = {};
+if istext(ax) && strcmp(ax, 'params')
+    ispower = defaultParams;
     return
 end
+
+% Use default parameters if none are provided
+if ~exist('params', 'var')
+    params = defaultParams;
+end
+% Fill any missing params with defaults
+params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 
 ispower = 0;
 
