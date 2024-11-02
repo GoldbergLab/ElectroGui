@@ -1,4 +1,4 @@
-function [amp label] = ega_AP_amplitude(a,fs,ev,indx,xlm)
+function [amp, label] = ega_AP_amplitude(a, fs, ev, indx, xlm)
 % ElectroGui event feature algorithm
 % Returns the amplitude of an action potential
 

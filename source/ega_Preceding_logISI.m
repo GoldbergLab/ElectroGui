@@ -1,4 +1,4 @@
-function [isi label] = ega_Preceding_logISI(a,fs,ev,indx,xlm)
+function [isi, label] = ega_Preceding_logISI(a, fs, ev, indx, xlm)
 
 % ElectroGui event feature algorithm
 % Returns the event number

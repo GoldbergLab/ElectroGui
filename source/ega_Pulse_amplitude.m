@@ -1,4 +1,4 @@
-function [amp label] = ega_Pulse_amplitude(a,fs,ev,indx,xlm)
+function [amp, label] = ega_Pulse_amplitude(a, fs, ev, indx, xlm)
 
 if length(ev) ~= 2
     errordlg('Events must have two components: onsets and offsets!','Error');
