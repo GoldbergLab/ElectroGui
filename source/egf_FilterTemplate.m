@@ -30,15 +30,17 @@ defaultParams.Values = {'400', '9000', '80'};
 
 % If the character array 'params' is passed instead of a data array, simply
 %   return the 
-if ischar(data) && strcmp(data, 'params')
+if istext(data) && strcmp(data, 'params')
     filteredData = defaultParams;
     return
 end
 
-% If no parameters provided, use defaults
-if ~exist('params', 'var') || isempty(params)
+% Use default parameters if none are provided
+if ~exist('params', 'var')
     params = defaultParams;
 end
+% Fill any missing params with defaults
+params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 
 % Extract the parameters provided
 val1 = str2double(params.Values{1});

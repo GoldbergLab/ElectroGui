@@ -1,13 +1,23 @@
-function [snd lab] = egf_AddSubtractChannel(a,fs,params)
+function [snd, lab] = egf_AddSubtractChannel(a, fs, params)
 % Deal with microphonics
+
+defaultParams.Names = {'Lower frequency','Higher frequency','Order'};
+defaultParams.Values = {'400','9000','80'};
 
 scalar=1;%
 lab = 'Band-pass filtered';
-if isstr(a) & strcmp(a,'params')
-    snd.Names = {'Lower frequency','Higher frequency','Order'};
-    snd.Values = {'400','9000','80'};
+if istext(a) && strcmp(a, 'params')
+    snd = defaultParams;
     return
 end
+
+% Use default parameters if none are provided
+if ~exist('params', 'var')
+    params = defaultParams;
+end
+% Fill any missing params with defaults
+params = electro_gui.applyDefaultPluginParams(params, defaultParams);
+
 def = {'F:\RAxDLM\RA_1\2010-01-25','1','3','','1'};
 
 prompt = {'Location of exper file','Add (1) or Subtract? (0)', 'Channel?', 'Filenum?', 'BandPass Filter (1)'};

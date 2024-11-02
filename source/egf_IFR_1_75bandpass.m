@@ -1,16 +1,24 @@
-function [IFR label] = egf_IFR_1_75bandpass(a,fs,params)
+function [IFR, label] = egf_IFR_1_75bandpass(a, fs, params)
 % ElectroGui function algorithm
 
+defaultParams.Names = {};
+defaultParams.Values = {};
+
+label = 'Firing rate (Hz)';
+if istext(a) && strcmp(a, 'params')
+    IFR = defaultParams;
+    return
+end
+
+% Use default parameters if none are provided
+if ~exist('params', 'var')
+    params = defaultParams;
+end
+% Fill any missing params with defaults
+params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 
 Hd_lp = FIR_lp_75;
 b = coeffs(Hd_lp);
-
-label = 'Firing rate (Hz)';
-if isstr(a) && strcmp(a,'params')
-    IFR.Names = {};
-    IFR.Values = {};
-    return
-end
 
 IFR = zeros(size(a));
 f = find(a);

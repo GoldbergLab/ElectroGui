@@ -1,13 +1,21 @@
-function [snd lab] = ege_FricativeDetector(a,fs,params)
+function [snd, lab] = egf_Fricative(a, fs, params)
 % ElectroGui filter
 
+defaultParams.Names = {'Lower frequency','Higher frequency','Order'};
+defaultParams.Values = {'400','9000','80'};
+
 lab = 'Band-pass filtered';
-if isstr(a) & strcmp(a,'params')
-    snd.Names = {'Lower frequency','Higher frequency','Order'};
-    snd.Values = {'400','9000','80'};
+if istext(a) && strcmp(a, 'params')
+    snd = defaultParams;
     return
 end
 
+% Use default parameters if none are provided
+if ~exist('params', 'var')
+    params = defaultParams;
+end
+% Fill any missing params with defaults
+params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 
 %below is from da segmenter
 

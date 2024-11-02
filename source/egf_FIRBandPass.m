@@ -1,19 +1,21 @@
 function [snd, label] = egf_FIRBandPass(a, fs, params)
 % ElectroGui filter
 
-label = 'Band-pass filtered';
 defaultParams.Names = {'Lower frequency','Higher frequency','Order'};
 defaultParams.Values = {'400','9000','80'};
 
-if ischar(a) && strcmp(a, 'params')
+label = 'Band-pass filtered';
+if istext(a) && strcmp(a, 'params')
     snd = defaultParams;
     return
 end
 
-% If no parameters provided, use defaults
-if ~exist('params', 'var') || isempty(params)
+% Use default parameters if none are provided
+if ~exist('params', 'var')
     params = defaultParams;
 end
+% Fill any missing params with defaults
+params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 
 freq1 = str2double(params.Values{1});
 freq2 = str2double(params.Values{2});

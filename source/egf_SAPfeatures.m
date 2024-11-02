@@ -1,11 +1,20 @@
-function [features labels] = egf_SAPfeatures(TS,fs,par);
+function [features, labels] = egf_SAPfeatures(TS, fs, params)
+
+defaultParams.Names = {};
+defaultParams.Values = {};
 
 labels = {'AM', 'FM' ,'Entropy' , 'Amplitude' , 'Pitch goodness' , 'Pitch' ,'Pitch chose', 'Pitch weight','Gravity center'};
-if isstr(TS) & strcmp(TS,'params')
-    features.Names = {};
-    features.Values = {};
+if istext(TS) && strcmp(TS, 'params')
+    features = defaultParams;
     return
 end
+
+% Use default parameters if none are provided
+if ~exist('params', 'var')
+    params = defaultParams;
+end
+% Fill any missing params with defaults
+params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 
 %        Writen by Sigal Saar August 08 2005
 

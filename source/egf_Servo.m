@@ -1,15 +1,23 @@
-function [signal, lab] = egf_Servo(signal,fs,params)
+function [signal, lab] = egf_Servo(signal, fs, params)
 % ElectroGui filter
 % Transform a pulse width modulation (PWM) signal into a steady pulse width
 % levels.
 
+defaultParams.Names = {};
+defaultParams.Values = {};
+
 lab = 'Pulse width (ms)';
-if ischar(signal) && strcmp(signal,'params')
-    signal = struct();
-    signal.Names = {};
-    signal.Values = {};
+if istext(signal) && strcmp(signal, 'params')
+    signal = defaultParams;
     return
 end
+
+% Use default parameters if none are provided
+if ~exist('params', 'var')
+    params = defaultParams;
+end
+% Fill any missing params with defaults
+params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 
 % For a servo signal, there should only be two values
 

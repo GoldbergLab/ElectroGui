@@ -1,13 +1,21 @@
-function [y label] = egf_Gaussian_smooth(a,fs,params)
+function [y, label] = egf_Smooth(a,fs,params)
+
+defaultParams.Names = {'Smoothing window (ms)'};
+defaultParams.Values = {'1'};
 
 label = 'Smoothed data';
-if isstr(a) & strcmp(a,'params')
-    y.Names = {'Smoothing window (ms)'};
-    y.Values = {'1'};
+if istext(a) && strcmp(a, 'params')
+    y = defaultParams;
     return
 end
 
+% Use default parameters if none are provided
+if ~exist('params', 'var')
+    params = defaultParams;
+end
+% Fill any missing params with defaults
+params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 
-num = str2num(params.Values{1});
+num = str2double(params.Values{1});
 num = round(num/1000*fs);
 y = smooth(a.^2,num);

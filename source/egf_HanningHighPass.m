@@ -1,16 +1,25 @@
-function [snd lab] = egf_HanningHighPass(a,fs,params)
+function [snd, lab] = egf_HanningHighPass(a, fs, params)
 % ElectroGui filter
 % Code from Aaron Andalman
 
+defaultParams.Names = {'Cutoff frequency (Hz)','Order'};
+defaultParams.Values = {'750','80'};
+
 lab = 'High-pass filtered';
-if isstr(a) & strcmp(a,'params')
-    snd.Names = {'Cutoff frequency (Hz)','Order'};
-    snd.Values = {'750','80'};
+if istext(a) && strcmp(a, 'params')
+    snd = defaultParams;
     return
 end
 
-cutoff = str2num(params.Values{1});
-ord = str2num(params.Values{2});
+% Use default parameters if none are provided
+if ~exist('params', 'var')
+    params = defaultParams;
+end
+% Fill any missing params with defaults
+params = electro_gui.applyDefaultPluginParams(params, defaultParams);
+
+cutoff = str2double(params.Values{1});
+ord = str2double(params.Values{2});
 
 prstFilt3.order = ord; %80 sufficient for 44100Hz of lower
 prstFilt3.win = hann(prstFilt3.order+1);

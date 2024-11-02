@@ -1,12 +1,21 @@
-function [snd lab] = egf_BandPass860to8600(a,fs,params)
+function [snd, lab] = egf_BandPass860to8600(a, fs, params)
 % ElectroGui filter
 
+defaultParams.Names = {};
+defaultParams.Values = {};
+
 lab = 'Band-pass filtered';
-if isstr(a) & strcmp(a,'params')
-    snd.Names = {};
-    snd.Values = {};
+if istext(a) && strcmp(a,'params')
+    snd = defaultParams;
     return
 end
+
+% Use default parameters if none are provided
+if ~exist('params', 'var')
+    params = defaultParams;
+end
+% Fill any missing params with defaults
+params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 
 bp = [   0.01015209302807
    0.00793240918940
