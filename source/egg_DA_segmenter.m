@@ -9,14 +9,13 @@ segNames = {};
 if istext(sound) && strcmp(sound, 'params')
     segs = defaultParams;
     return
-end
-
-% Use default parameters if none are provided
-if ~exist('params', 'var')
+elseif ~exist('params', 'var')
+    % Use default parameters if none are provided
     params = defaultParams;
+else
+    % Fill any missing params with defaults
+    params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 end
-% Fill any missing params with defaults
-params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 
 if ~isfield(params, 'IsSplit')
     params.IsSplit = false;

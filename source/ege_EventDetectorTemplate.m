@@ -38,11 +38,12 @@ if ischar(data) && strcmp(data,'params')
     % Return default parameters instead of events
     events = defaultParams;
     return
-end
-
-% If no params were provided, use the default ones
-if ~exist('params', 'var') || isempty(params)
+elseif ~exist('params', 'var')
+    % Use default parameters if none are provided
     params = defaultParams;
+else
+    % Fill any missing params with defaults
+    params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 end
 
 % Extract/evaluate parameters - they will arrive as strings, and will need

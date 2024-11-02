@@ -1,12 +1,20 @@
-function [events labels] = ege_Pulse_trains(data,fs,thres,params)
+function [events, labels] = ege_Pulse_trains(data, fs, thres, params)
 % ElectroGui event detector
 % Finds spikes in data
 
+defaultParams.Names = {'Pulse interval threshold (ms)'};
+defaultParams.Values = {'3'};
+
 labels = {'On','Off'};
-if isstr(data) & strcmp(data,'params')
-    events.Names = {'Pulse interval threshold (ms)'};
-    events.Values = {'3'};
+if istext(data) && strcmp(data, 'params')
+    events = defaultParams;
     return
+elseif ~exist('params', 'var')
+    % Use default parameters if none are provided
+    params = defaultParams;
+else
+    % Fill any missing params with defaults
+    params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 end
 
 pint = str2num(params.Values{1})/1000*fs;

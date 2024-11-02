@@ -1,4 +1,4 @@
-function [events, labels] = ege_Spikes_AA(data,fs,thres,params)
+function [events, labels] = ege_Spikes_AA(data, fs, thres, params)
 % Author: Aaron Andalman, 2008.
 % Detects spikes using a threshold crossing.  Defines the spike as the
 % location of the peak (zenith) and trough (nadir).  Also, addition
@@ -13,11 +13,14 @@ labels = {'Zenith','Nadir'};
 if ischar(data) && strcmp(data,'params')
     events = defaultParams;
     return
+elseif ~exist('params', 'var')
+    % Use default parameters if none are provided
+    params = defaultParams;
+else
+    % Fill any missing params with defaults
+    params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 end
 
-if ~exist('params', 'var') || isempty(params)
-    params = defaultParams;
-end
     
 %Orient data properly
 if(size(data,2) > size(data,1))

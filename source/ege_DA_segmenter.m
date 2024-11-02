@@ -1,12 +1,18 @@
-function [segs, labels] = ege_DA_segmenter(a,fs,th,params)
+function [segs, labels] = ege_DA_segmenter(a, fs, th, params)
 % ElectroGui segmenter
 
 labels = {};
 
-if ischar(a) && strcmp(a,'params')
+if istext(a) && strcmp(a, 'params')
     segs.Names = {'Minimum duration (ms)','Minimum interval (ms)','Mininum duration for splitting (ms)','Minimum interval for splitting (ms)'};
     segs.Values = {'7', '7','7','0'};
     return
+elseif ~exist('params', 'var')
+    % Use default parameters if none are provided
+    params = defaultParams;
+else
+    % Fill any missing params with defaults
+    params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 end
 
 min_dur = str2double(params.Values{1})/1000;

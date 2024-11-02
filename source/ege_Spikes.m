@@ -1,14 +1,22 @@
-function [events labels] = ege_Spikes(data,fs,thres,params)
+function [events, labels] = ege_Spikes(data, fs, thres, params)
 % ElectroGui event detector
 % Finds spikes in data
 
+defaultParams.Names = {'Refractory period (ms)'};
+defaultParams.Values = {'1'};
+
 labels = {'Spikes'};
-if isstr(data) & strcmp(data,'params')
-    events.Names = {'Refractory period (ms)'};
-    events.Values = {'1'};
+if istext(data) && strcmp(data, 'params')
+    events = defaultParams;
     return
+elseif ~exist('params', 'var')
+    % Use default parameters if none are provided
+    params = defaultParams;
+else
+    % Fill any missing params with defaults
+    params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 end
-    
+
 rp = str2num(params.Values{1})/1000;
 
 if thres >= 0

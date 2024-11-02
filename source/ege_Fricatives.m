@@ -1,12 +1,20 @@
-function [events labels] = ege_Fricatives(a,fs,thres,params)
+function [events, labels] = ege_Fricatives(a,fs,thres,params)
 % ElectroGui function algorithm
 % Inverts data
 
+defaultParams.Names = {'Threshold','Max distance'};
+defaultParams.Values = {'0','0.2'};
+
 labels = {'Onsets','Offsets'};
-if isstr(a) & strcmp(a,'params')
-    events.Names = {'Threshold','Max distance'};
-    events.Values = {'0','0.2'};
+if istext(a) && strcmp(a, 'params')
+    events = defaultParams;
     return
+elseif ~exist('params', 'var')
+    % Use default parameters if none are provided
+    params = defaultParams;
+else
+    % Fill any missing params with defaults
+    params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 end
 
 if isempty(a)
