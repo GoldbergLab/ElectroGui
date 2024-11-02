@@ -12,14 +12,14 @@ defaultParams.Values = {'goldbergbk.nbb.cornell.edu',   '8050',                 
 segmentTitles = {};
 
 % Check if the user passed in the string "params" instead of audio data
-if exist('data', 'var') && ischar(data)
+if exist('data', 'var') && istext(data)
     if strcmp(data,'params')
         % Return the default parameters
         segmentTimes = defaultParams;
         return
     elseif exist(data, 'file')
         % User has passed in a path - load the data
-        data = audioread(data);
+        [data, fs] = audioread(data);
     end
 end
 
@@ -27,7 +27,7 @@ end
 if ~exist('params', 'var')
     params = defaultParams;
 end
-
+% Fill any missing params with defaults
 params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 
 % Extract the parameters chosen
