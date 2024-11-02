@@ -4,15 +4,13 @@ function [data, fs, dateandtime, label, props] = egl_FP_vg(filename, loaddata)
 % Reads Fiber Photometry files
 % Extracts date and time information from the time column
 
-if loaddata == 1
+if loaddata
     fs = 40000;
     delimiterIn = '	';
     headerlinesIn = 4;
     A = importdata(filename,delimiterIn,headerlinesIn);
     data = A.data(:,1);
-%     dateandtime = datenum(A.textdata{headerlinesIn+1,1});
     dateandtime = datenum(A.textdata{1}(4:end));
-
     label = 'Voltage';
 else
     data = [];

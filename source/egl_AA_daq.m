@@ -1,11 +1,11 @@
-function [data fs dateandtime label props] = egl_AA_daq(filename, loaddata)
+function [data, fs, dateandtime, label, props] = egl_AA_daq(filename, loaddata)
 
 label = 'Voltage (mV)';
 
-if loaddata == 1
-    [data info] = daq_readDatafile_forEG(filename,1,[]);
+if loaddata
+    [data, info] = daq_readDatafile_forEG(filename, 1, []);
 else
-    [data info] = daq_readDatafile_forEG(filename,1,0);
+    [data, info] = daq_readDatafile_forEG(filename, 1, 0);
 end
 
 fs = info.fs;

@@ -1,10 +1,10 @@
-function [data, fs,dateandtime, label, props] = egl_HC_ad(filename, loaddata)
+function [data, fs, dateandtime, label, props] = egl_HC_ad(filename, loaddata)
 % Anindita Das
 % ElectroGui file loader
 % Reads Intan data files saved as txt files
 % Extracts date and time information from the file
  
-if loaddata == 1
+if loaddata
     fs = 20000;
     delimiterIn = ' ';
     headerlinesIn = 4;

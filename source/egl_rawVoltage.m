@@ -1,4 +1,4 @@
-function [data fs dateandtime label props] = egl_rawVoltage(filename, loaddata)
+function [data, fs, dateandtime, label, props] = egl_rawVoltage(filename, loaddata)
 % ElectroGui file loader
 % Reads data files recorded on the surgery rig acquisition setup
 % Files must first be expanded using egm_Expand_rawVoltage

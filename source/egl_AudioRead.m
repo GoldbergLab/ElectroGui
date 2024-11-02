@@ -1,9 +1,9 @@
-function [data fs timestamp label props] = egl_AudioRead(filename, loadData)
+function [data, fs, timestamp, label, props] = egl_AudioRead(filename, loadData)
 % ElectroGui file loader
 % Reads any audio files (even extracts audio from video files)
 % Extracts date and time information from the file info
 
-if loadData == 1
+if loadData
     [data, fs] = audioread(filename);
     if size(data, 2) > 1
         warning('Audio file %s has multiple tracks - discarding all except first one', filename);
