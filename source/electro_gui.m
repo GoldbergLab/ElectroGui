@@ -570,7 +570,7 @@ classdef electro_gui < handle
         function updateSoundEnvelope(obj)
             % Redraw the sound envelope on the top navigation axes
             [numSamples, fs] = obj.eg_GetSamplingInfo();
-            h = electro_gui.eg_peak_detect(obj.axes_Sound, linspace(0, numSamples/fs, numSamples), obj.filtered_sound);
+            h = electro_gui.eg_peak_detect(obj.axes_Sound, linspace(0, (numSamples-1)/fs, numSamples), obj.filtered_sound);
         
             [h.Color] = deal('c');
             obj.axes_Sound.XTick = [];
@@ -898,15 +898,15 @@ classdef electro_gui < handle
             chanData = obj.loadedChannelData{axnum};
         
             chan = obj.getSelectedChannel(axnum);
-            [numSamples, fs] = obj.eg_GetSamplingInfo([], chan);
+            [~, fs] = obj.eg_GetSamplingInfo([], chan);
         
-            times = linspace(0, numSamples/fs, numSamples);
             for eventPartIdx = 1:length(eventTimes)
                 storedInfo.eventPartIdx = eventPartIdx;
                 if eventPartMenuItem(eventPartIdx).Checked
                     % Hack to enable a single plot command to produce many separate
                     % plot objects with no rendered 0-length lines
-                    eventXs = vertcat(times(eventTimes{eventPartIdx}), nan(1, length(eventTimes{eventPartIdx})));
+                    times = electro_gui.samplesToTimes(eventTimes{eventPartIdx}, fs)';
+                    eventXs = vertcat(times, nan(1, length(eventTimes{eventPartIdx})));
                     eventYs = vertcat(chanData(eventTimes{eventPartIdx})', nan(1, length(eventTimes{eventPartIdx})));
                     % Plot all events with black markers
                     obj.EventHandles{axnum}{eventPartIdx} = ...
@@ -1187,7 +1187,7 @@ classdef electro_gui < handle
                         else
                             chan = obj.getSelectedChannel(axnum);
                             [numSamples, fs] = obj.eg_GetSamplingInfo([], chan);
-                            t = linspace(0, numSamples/fs, numSamples);
+                            t = linspace(0, (numSamples-1)/fs, numSamples);
                             obj.Sonogram_Overlays(axnum) = plot(obj.axes_Sonogram, t, y, 'Color', 'b', 'LineWidth', 1);
                             obj.Sonogram_Overlays(axnum).UIContextMenu = obj.axes_Sonogram.UIContextMenu;
                             obj.Sonogram_Overlays(axnum).ButtonDownFcn = obj.axes_Sonogram.ButtonDownFcn;
@@ -1419,16 +1419,19 @@ classdef electro_gui < handle
         
             chan = obj.getSelectedChannel(axnum);
             [numSamples, fs] = obj.eg_GetSamplingInfo([], chan);
-            t = linspace(0, numSamples/fs, numSamples);
+            t = linspace(0, (numSamples-1)/fs, numSamples);
             tlimits = ax.XLim;
             delete(obj.ChannelPlots{axnum});
             obj.ChannelPlots{axnum} = gobjects().empty;
             hold(ax, 'on');
             if obj.menu_PeakDetects(axnum).Checked
                 % Plot peak detection trace
-                visibleTimeIdx = find(t>=tlimits(1) & t<=tlimits(2));
-                if ~isempty(visibleTimeIdx)
-                    obj.ChannelPlots{axnum} = electro_gui.eg_peak_detect(ax, t(visibleTimeIdx), obj.loadedChannelData{axnum}(visibleTimeIdx));
+                sampleLimits = electro_gui.timesToSamples(tlimits, fs, ...
+                    'Round', true, 'Coerce', true, 'NumSamples', numSamples);
+                s1 = sampleLimits(1);
+                s2 = sampleLimits(2);
+                if s1 ~= s2
+                    obj.ChannelPlots{axnum} = electro_gui.eg_peak_detect(ax, t(s1:s2), obj.loadedChannelData{axnum}(s1:s2));
                 end
             else
                 % Plot plain data
@@ -1494,7 +1497,7 @@ classdef electro_gui < handle
                 obj.dbase.SegmentIsSelected{filenum}, ...
                 obj.settings.SegmentSelectColor, obj.settings.SegmentUnSelectColor, ...
                 obj.settings.SegmentActiveColor, obj.settings.SegmentInactiveColor, ...
-                [-1, 1], numSamples, fs, [], @obj.click_segment);
+                [-1, 1], fs, [], @obj.click_segment);
         
             [obj.MarkerHandles, obj.MarkerLabelHandles] = electro_gui.CreateAnnotations(...
                 obj.axes_Segments, ...
@@ -1503,8 +1506,46 @@ classdef electro_gui < handle
                 obj.dbase.MarkerIsSelected{filenum}, ...
                 obj.settings.MarkerSelectColor, obj.settings.MarkerUnSelectColor, ...
                 obj.settings.SegmentInactiveColor, obj.settings.MarkerInactiveColor, ...
-                [1, 3], numSamples, fs, [], @obj.click_segment);
+                [1, 3], fs, [], @obj.click_segment);
         
+            % Warn user if annotation is out of range
+            if size(obj.dbase.SegmentTimes{filenum}, 1) > 0
+                if obj.dbase.SegmentTimes{filenum}(1, 1) < 0
+                    obj.issueWarning(...
+                        sprintf(...
+                            'First segment begins before file start (first segment start = sample #%d)', ...
+                            obj.dbase.SegmentTimes{filenum}(1, 1) ...
+                            ), ...
+                        'sampleOutOfRange');
+                elseif obj.dbase.SegmentTimes{filenum}(end, 2) > numSamples
+                    obj.issueWarning(...
+                        sprintf(...
+                            'Last segment ends after file end (last segment ends at %d out of %d', ...
+                            obj.dbase.SegmentTimes{filenum}(end, 2), ...
+                            numSamples...
+                            ), ...
+                        'sampleOutOfRange');
+                end
+            end
+            if size(obj.dbase.MarkerTimes{filenum}, 1) > 0
+                if obj.dbase.MarkerTimes{filenum}(1, 1) < 0
+                    obj.issueWarning(...
+                        sprintf(...
+                            'First marker begins before file start (first marker start = sample #%d)', ...
+                            obj.dbase.MarkerTimes{filenum}(1, 1) ...
+                            ), ...
+                        'sampleOutOfRange');
+                elseif obj.dbase.MarkerTimes{filenum}(end, 2) > numSamples
+                    obj.issueWarning(...
+                        sprintf(...
+                            'Last marker ends after file end (last marker ends at %d out of %d', ...
+                            obj.dbase.MarkerTimes{filenum}(end, 2), ...
+                            numSamples...
+                            ), ...
+                        'sampleOutOfRange');
+                end
+            end
+
             % Ensure active annotation setting is valid
             obj.SanityCheckActiveAnnotation(filenum);
         
@@ -1772,7 +1813,7 @@ function issueWarning(obj, warningMsg, warningType)
     if obj.WarningCounts.(warningType) < 5
         warning(warningMsg);
     elseif obj.WarningCounts.(warningType) == 6
-        warning('Multiple warnings of type %d - suppressing further warnings.', warningType);
+        warning('Multiple warnings of type %s - suppressing further warnings.', warningType);
     end
 end
 
@@ -4582,12 +4623,11 @@ function SetEventDisplayActiveState(obj, eventNum, eventPartNum, eventSourceIdx,
     % Update active event cursor in sound axes
     if activeState
         sourceChannel = obj.GetEventSourceInfo(eventSourceIdx);
-        [numSamples, fs] = obj.eg_GetSamplingInfo([], sourceChannel);
+        [~, fs] = obj.eg_GetSamplingInfo([], sourceChannel);
         filenum = electro_gui.getCurrentFileNum(obj.settings);
-        ts = linspace(0, numSamples/fs, numSamples);
         eventTimes = obj.dbase.EventTimes{eventSourceIdx}{eventPartNum,filenum};
         if ~isempty(eventTimes)
-            activeEventTime = ts(eventTimes(eventNum));
+            activeEventTime = electro_gui.samplesToTimes(eventTimes(eventNum), fs);
             obj.updateActiveEventCursors(activeEventTime);
         end
     else
@@ -4713,7 +4753,7 @@ function updateAmplitude(obj, options)
         numSamples = obj.eg_GetSamplingInfo();
         filenum = electro_gui.getCurrentFileNum(obj.settings);
 
-        obj.AmplitudePlotHandle = plot(obj.axes_Amplitude, linspace(0, numSamples/fs, numSamples),obj.amplitude,'Color',obj.settings.AmplitudeColor);
+        obj.AmplitudePlotHandle = plot(obj.axes_Amplitude, linspace(0, (numSamples-1)/fs, numSamples),obj.amplitude,'Color',obj.settings.AmplitudeColor);
         obj.axes_Amplitude.XTickLabel  = [];
         ylim(obj.axes_Amplitude, obj.settings.AmplitudeLims);
         box(obj.axes_Amplitude, 'off');
@@ -13719,6 +13759,34 @@ end
             end
         
         end
+        function times = samplesToTimes(samples, fs)
+            % A unified way to transform samples to times
+            % Samples can be an any-dimensional array of samples
+            % fs is the sampling rate
+            times = (samples - 1) / fs;
+        end
+        function samples = timesToSamples(times, fs, options)
+            % A unified way to transform times to samples
+            % Times can be an any-dimensional array of times in seconds
+            % fs is the sampling rate in Hz
+            arguments
+                times
+                fs
+                options.Round = false
+                options.Coerce = false
+                options.NumSamples = NaN
+            end
+            samples = times * fs + 1;
+            if options.Round
+                samples = round(samples);
+            end
+            if options.Coerce
+                samples = max(1, samples);
+                if ~isnan(options.NumSamples)
+                    samples = min(options.NumSamples, samples);
+                end
+            end
+        end
         function SaveDbase(path, dbase, settings)
             save(path, 'dbase', 'settings');
         end
@@ -14343,8 +14411,8 @@ end
         end
         function [annotationHandles, labelHandles] = CreateAnnotations(...
                 ax, times, titles, selects, selectColor, unselectColor, ...
-                activeColor, inactiveColor, yExtent, numSamples, fs, ...
-                activeIndex, click_handler)
+                activeColor, inactiveColor, yExtent, fs, activeIndex, ...
+                click_handler)
             % Create the annotations for a set of timed segments (used for plotting both
             % "segments" and "markers")
             arguments
@@ -14357,15 +14425,14 @@ end
                 activeColor
                 inactiveColor
                 yExtent
-                numSamples
                 fs
                 activeIndex = []
                 click_handler function_handle = @NOP
             end
-        
-            % Create a time vector that corresponds to the loaded audio samples
-            ts = linspace(0, numSamples/fs, numSamples);
-        
+
+            % Convert times from samples to seconds
+            times = electro_gui.samplesToTimes(times, fs);
+
             y0 = yExtent(1);
             y1 = yExtent(1) + (yExtent(2) - yExtent(1))*0.3;
         
@@ -14375,8 +14442,8 @@ end
             % Loop over stored segment start/end times pairs
             for annotationNum = 1:size(times,1)
                 % Extract the start (x1) and end (x2) times of this segment
-                t1 = ts(times(annotationNum, 1));
-                t2 = ts(times(annotationNum, 2));
+                t1 = times(annotationNum, 1);
+                t2 = times(annotationNum, 2);
                 if selects(annotationNum)
                     faceColor = selectColor;
                 else
