@@ -2287,7 +2287,7 @@ function [channelData, channelSamplingRate, channelLabels, timestamp] = loadChan
                 eventSourceIdx = pChannelInfo.eventSourceIdx;
                 eventPartIdx = pChannelInfo.eventPartIdx;
                 [channelNum, ~, ~, ~, ~, ~, ~, ~, isSourcePseudoChannel] = obj.GetEventSourceInfo(eventSourceIdx);
-                [numSamples, ~] = obj.eg_GetSamplingInfo(fileNum, channelNum, isSourcePseudoChannel);
+                [numSamples, channelSamplingRate] = obj.eg_GetSamplingInfo(fileNum, channelNum, isSourcePseudoChannel);
 
                 rawChannelData = zeros(numSamples, 1);
                 eventTimes = obj.dbase.EventTimes{eventSourceIdx}{eventPartIdx, fileNum};
