@@ -4,6 +4,7 @@ classdef electro_gui < handle
         settings struct
         tempSettings struct
         plugins struct
+        defaults cell
         SourcePath char
         SourceDir char
         SourceName char
@@ -214,6 +215,8 @@ classdef electro_gui < handle
         menu_AlterFileList
         menu_ChangeFiles
         menu_DeleteFiles
+        menu_Defaults
+        menu_DefaultOptions
         menu_Playback
         menu_PlaySound
         menu_PlayMix
@@ -290,8 +293,14 @@ classdef electro_gui < handle
             obj.SourcePath = mfilename('fullpath');
             [obj.SourceDir, obj.SourceName, ~] = fileparts(obj.SourcePath);
 
+            % Load temp file, or use defaults if it doesn't exist
+            obj.tempFile = fullfile(obj.SourceDir, 'eg_temp.mat');
+            obj.loadTempFile();            
             % Get current logged in username
             user = electro_gui.getUser();
+
+            % Gather all electro_gui defaults files
+            obj.defaults = electro_gui.gatherDefaults(obj.SourceDir);
 
             % Ensure a defaults file exists for the user
             obj.ensureDefaultsFileExists(user);
@@ -304,11 +313,11 @@ classdef electro_gui < handle
                 return;
             end
 
-            % Load base default settings, then load user defaults on top
-            obj.settings = electro_gui.createMergedSettings(chosenDefaults);
-
             % Store chosen defaults for later
             obj.CurrentDefaults = chosenDefaults;
+
+            % Load base default settings, then load user defaults on top
+            obj.settings = electro_gui.createMergedSettings(obj.CurrentDefaults);
 
             % Warn user of old defaults
             obj.settings = electro_gui.warnAndFixLegacyDefaults(obj.settings);
@@ -333,10 +342,6 @@ classdef electro_gui < handle
             obj.resetFileCache();
 
             waitbar(0.1, progressBar);
-
-            % Load temp file, or use defaults if it doesn't exist
-            obj.tempFile = fullfile(obj.SourceDir, 'eg_temp.mat');
-            obj.loadTempFile();
 
             % Update list of recent files
             obj.updateRecentFileList();
@@ -524,7 +529,7 @@ classdef electro_gui < handle
         
             % Populate macro plugin menu
             obj.menu_Macros = electro_gui.populatePluginMenuList(p.macros, [], obj.menu_Macros, @obj.MacrosMenuclick);
-        
+
             % Populate x-axis event feature algorithm plugin menu
             obj.menu_XAxis_List = electro_gui.populatePluginMenuList(p.eventFeatures, obj.settings.DefaultEventFeatureX, obj.menu_XAxis, @XAxisMenuClick);
             % Populate y-axis event feature algorithm plugin menu
@@ -534,7 +539,7 @@ classdef electro_gui < handle
             pluginNames = {obj.plugins.filters.name};
             str = {'(Raw)'};
             for pluginIdx = 1:length(pluginNames)
-                str{end+1} = pluginNames{pluginIdx};
+                str{end+1} = pluginNames{pluginIdx}; %#ok<*AGROW> 
             end
             obj.popup_Function1.String = str;
             obj.popup_Function2.String = str;
@@ -547,6 +552,16 @@ classdef electro_gui < handle
             end
             obj.popup_EventDetector1.String = str;
             obj.popup_EventDetector2.String = str;
+
+            % Populate defaults menu
+            userList = cellfun(@(defaultsPath)regexp(defaultsPath, '(?<=defaults_).*(?=\.m)', 'match'), obj.defaults);
+            for d = 1:length(obj.defaults)
+                obj.menu_DefaultOptions(d) = uimenu(obj.menu_Defaults, ...
+                    'Label', [userList{d}, '...'], ...
+                    'Callback', @(src, evt)obj.handleDefaultsClick(src.UserData), ...
+                    'UserData', obj.defaults{d});
+            end
+
         end
         function updateChannelPopups(obj)
             % Update the channel selection popups based on stored channel info
@@ -581,6 +596,29 @@ classdef electro_gui < handle
             ylim(obj.axes_Sound, [-yl*1.2, yl*1.2]);
         
             box(obj.axes_Sound, 'on');
+        end
+        function handleDefaultsClick(obj, defaults)
+            % Ask user if they want to edit or set defaults
+            [~, defaultsName, ~] = fileparts(defaults);
+            answer = questdlg(sprintf('Would you like to edit or apply the defaults file "%s". Note that applying defaults to an existing dbase is still experimental, and problems may occur.', defaultsName), 'Defaults', 'Edit', 'Apply', 'Cancel', 'Cancel');
+            switch answer
+                case 'Apply'
+                    obj.resetDefaults(defaults);
+                case 'Edit'
+                    edit(defaults);
+                otherwise
+                    return
+            end
+        end
+        function resetDefaults(obj, defaults)
+            arguments
+                obj electro_gui
+                defaults = obj.CurrentDefaults  % Either a struct of settings, or a file path to a defaults file
+            end
+            % Load base default settings, then load user defaults on top
+            obj.settings = electro_gui.createMergedSettings(defaults);
+            [~, defaultsName, ~] = fileparts(defaults);
+            msgbox(sprintf('Applied defaults settings %s', defaultsName), 'modal');
         end
         function updateTimescaleView(obj, options)
             % Function that handles updating all the axes to show the appropriate
@@ -1819,8 +1857,8 @@ end
 
 function loadTempFile(obj)
     % Get temp file
-    tempSettingsFields =        {'lastDirectory',   'recentFiles'};
-    tempSettingsDefaultValues = {obj.SourceDir,     {}};
+    tempSettingsFields =        {'lastDirectory',   'recentFiles', 'lastDefault'};
+    tempSettingsDefaultValues = {obj.SourceDir,     {},            ''};
     try
         obj.tempSettings = load(obj.tempFile, tempSettingsFields{:});
     catch ME
@@ -1853,7 +1891,10 @@ function updateTempFile(obj)
     tempSettings = obj.tempSettings;
     save(obj.tempFile, '-struct', 'tempSettings');
 end
-
+function setLastDefaults(obj, defaultsPath)
+    obj.tempSettings.lastDefault = defaultsPath;
+    obj.updateTempFile();       
+end
 function addRecentFile(obj, filePath)
     % Add a file to a list of recent files in the temp settings struct
     if ~isfield(obj.tempSettings, 'recentFiles')
@@ -1875,9 +1916,15 @@ function isNewUser = ensureDefaultsFileExists(obj, user)
     % one for the user using the settings in defaults_template file.
 
     % Determine correct defaults filename for user
-    obj.UserFile = fullfile(obj.SourceDir, sprintf('defaults_%s.m', user));
+    userFilename = sprintf('defaults_%s', user);
+    obj.UserFile = fullfile(obj.SourceDir, [userFilename, '.m']);
     % Check if defaults filename for current user exists
-    isNewUser = isempty(dir(obj.UserFile));
+    if ispc()
+        % Windows file paths are case insensitive
+        isNewUser = ~any(strcmpi(obj.UserFile, obj.defaults));
+    else
+        isNewUser = ~any(strcmp(obj.UserFile, obj.defaults));
+    end
 
     if isNewUser
         % No defaults file exists - create a new one and copy defaults into
@@ -1885,12 +1932,13 @@ function isNewUser = ensureDefaultsFileExists(obj, user)
 
         % Open default defaults file
         defaultsTemplate = fullfile(obj.SourceDir, 'defaults_template.m');
-        fid1 = fopen(defaultsTemplate,'r');
+        fid_template = fopen(defaultsTemplate,'r');
         % Create new defaults file for user
-        fid2 = fopen(obj.UserFile,'w');
-        fgetl(fid1);
-        str = ['function handles = ' obj.UserFile(1:end-2) '(handles)'];
+        fid_new = fopen(obj.UserFile,'w');
+        fgetl(fid_template);
+        str = ['function settings = ' userFilename '(settings)'];
         while ischar(str)
+            % Escape special characters
             f = strfind(str,'\');
             for d = length(f):-1:1
                 str = [str(1:f(d)-1) '\\' str(f(d)+1:end)];
@@ -1899,11 +1947,15 @@ function isNewUser = ensureDefaultsFileExists(obj, user)
             for d = length(f):-1:1
                 str = [str(1:f(d)-1) '%%' str(f(d)+1:end)];
             end
-            fprintf(fid2,[str '\n']);
-            str = fgetl(fid1);
+            % Write line to file
+            fprintf(fid_new,[str '\n']);
+            str = fgetl(fid_template);
         end
-        fclose(fid1);
-        fclose(fid2);
+        fclose(fid_template);
+        fclose(fid_new);
+
+        % Update defaults list
+        obj.defaults = electro_gui.gatherDefaults(obj.SourceDir);
     end
 end
 function [chosenDefaults, cancel] = chooseDefaultsFile(obj)
@@ -1911,22 +1963,47 @@ function [chosenDefaults, cancel] = chooseDefaultsFile(obj)
 
     chosenDefaults = '';
 
-    % Populate list of defaults files for user to choose from
-    userList = {'(Default)'};
-    defaultsFileList = dir(fullfile(obj.SourceDir, 'defaults_*.m'));
-    for c = 1:length(defaultsFileList)
-        userList(end+1) = regexp(defaultsFileList(c).name, '(?<=defaults_).*(?=\.m)', 'match'); %#ok<*AGROW>
-    end
-    currentUserDefaultIndex = find(strcmp(obj.UserFile, {defaultsFileList.name}));
+    % Make a copy of the list of defaults paths
+    defaultsPaths = obj.defaults;
 
-    [chosenDefaultIndex, ok] = listdlg('ListString', userList, 'Name', 'Defaults', 'PromptString', 'Select default settings', 'SelectionMode', 'single', 'InitialValue', currentUserDefaultIndex);
+    % Get list of defaults names for user to choose from
+    userList = cellfun(@(defaultsPath)regexp(defaultsPath, '(?<=defaults_).*(?=\.m)', 'match'), obj.defaults);
+
+    % Move defaults template to the top
+    isTemplate = strcmp(userList, 'template');
+    userList(isTemplate) = [];
+    template = obj.defaults(isTemplate);
+    obj.defaults(isTemplate) = [];
+    obj.defaults = [template, obj.defaults];
+    userList = ['(Default)', userList];
+    % Do the same to the list of paths
+    defaultsTemplatePath = defaultsPaths(isTemplate);
+    defaultsPaths(isTemplate) = [];
+    defaultsPaths = [defaultsTemplatePath, defaultsPaths];
+
+    % Attempt to use last chosen defaults
+    preselectedDefaultsPath = obj.tempSettings.lastDefault;
+    preselectedDefaultIndex = find(strcmp(preselectedDefaultsPath, obj.defaults));
+    if isempty(preselectedDefaultsPath)
+        % That failed, attempt to use current user defaults
+        preselectedDefaultsPath = obj.UserFile;
+        preselectedDefaultIndex = find(strcmp(preselectedDefaultsPath, obj.defaults));
+    end
+    if isempty(preselectedDefaultsPath)
+        % That failed just select the template
+        preselectedDefaultIndex = 1;
+    end
+
+    [chosenDefaultIndex, ok] = ...
+        listdlg('ListString', userList, ...
+                'Name', 'Defaults', ...
+                'PromptString', 'Select default settings', ...
+                'SelectionMode', 'single', ...
+                'InitialValue', preselectedDefaultIndex);
     cancel = ~ok;
     if ~cancel
-        if chosenDefaultIndex > 1
-            chosenDefaults = sprintf('defaults_%s', userList{chosenDefaultIndex});
-        else
-            chosenDefaults = 'defaults_template';
-        end
+        chosenDefaults = defaultsPaths{chosenDefaultIndex};
+        obj.setLastDefaults(chosenDefaults);
     end
 end
 function filenum = getSelectedFilenum(obj)
@@ -2026,7 +2103,10 @@ end
 function SetActiveAxnum(obj, axnum)
     obj.ActiveAxnum = axnum;
 end
+function resetAllSettings(obj)
+    obj.settings = electro_gui.createMergedSettings(obj.CurrentDefaults);
 
+end
 function data = retrieveFileFromCache(obj, filepath, loader)
     % Retrieve file from cache. If it has already been loaded, just return it.
     % If is done loading, but its data has not been transferred to the cache,
@@ -8800,6 +8880,13 @@ function setupGUI(obj)
         'Label','Delete files...',...
         'Tag','menu_DeleteFiles');
 
+    % obj.menu_Defaults
+    obj.menu_Defaults = uimenu(...
+        'Parent',obj.menu_File,...
+        'Callback',@NOP,...
+        'Label','Defaults',...
+        'Tag','menu_Defaults');
+
     %% Playback menu
     obj.menu_Playback = uimenu(...
         'Parent',obj.figure_Main,...
@@ -12949,9 +13036,7 @@ end
         
             % Set time
             obj.centerTimescale(centerTime, radiusTime);
-        
         end
-
     end
     methods (Static)   % dbase manipulation methods
         function settings = createMergedSettings(userSettings, dbaseSettings)
@@ -12965,7 +13050,8 @@ end
             settings = defaults_template();
             % Apply user settings on top
             if ischar(userSettings)
-                % User settings given as a defaults_*.m file name
+                % User settings given as a defaults_*.m file path
+                [~, userSettings, ~] = fileparts(userSettings);
                 settings = feval(userSettings, settings);
             elseif isstruct(userSettings)
                 settings = mergeStructures(settings, userSettings);
@@ -13529,6 +13615,12 @@ end
                 end
                 out(badPluginIdx) = [];
             end
+        end
+        function defaults = gatherDefaults(sourceDir)
+            arguments
+                sourceDir char = fileparts(mfilename("fullpath"))
+            end
+            defaults = findFiles(sourceDir, 'defaults_.*\.m');
         end
         function plugins = gatherPlugins(sourceDir)
             % Gather all electro_gui plugins

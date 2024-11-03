@@ -119,7 +119,7 @@ function [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = 
     % Find all loader plugins
     loader_files = dir(fullfile(sourcePath, 'egl_*.m'));
     loader_names = cell(1, length(loader_files));
-    default_loader_indices = ones(NumChannels + 1);
+    default_loader_indices = ones(1, NumChannels + 1);
     for loader_idx = 1:length(loader_files)
         [~, loader_full_name, ~] = fileparts(loader_files(loader_idx).name);
         loader_names{loader_idx} = regexprep(loader_full_name, '^egl_', '');
