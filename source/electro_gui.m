@@ -14163,6 +14163,35 @@ end
                 % This must be an older type of dbase - add blank marker field
                 dbase.MarkerIsSelected = cell(1,numFiles);
             end
+
+            % Check that segment and marker times have a Nx2 size, even when N = 0
+            for filenum = 1:length(dbase.SegmentTimes)
+                if size(dbase.SegmentTimes{filenum}, 2) ~= 2
+                    % Second dimension should be 2 - if it's empty, we can fix it, otherwise, just warn user
+                    if isempty(dbase.SegmentTimes{filenum})
+                        dbase.SegmentTimes{filenum} = zeros([0, 2]);
+                    else
+                        sizeStr = join(split(num2str([4, 6]), '  '), 'x');
+                        sizeStr = sizeStr{1};
+                        msg = sprintf('Segment times for filenum %d should be Nx2, instead it is %s', filenum, sizeStr);
+                        electro_gui.issueWarning(msg, 'wrongSegmentTimesShape')
+                    end
+                end
+            end
+            for filenum = 1:length(dbase.MarkerTimes)
+                if size(dbase.MarkerTimes{filenum}, 2) ~= 2
+                    % Second dimension should be 2 - if it's empty, we can fix it, otherwise, just warn user
+                    if isempty(dbase.MarkerTimes{filenum})
+                        dbase.MarkerTimes{filenum} = zeros([0, 2]);
+                        disp('fixed')
+                    else
+                        sizeStr = join(split(num2str([4, 6]), '  '), 'x');
+                        sizeStr = sizeStr{1};
+                        msg = sprintf('Segment times for filenum %d should be Nx2, instead it is %s', filenum, sizeStr);
+                        electro_gui.issueWarning(msg, 'wrongSegmentTimesShape')
+                    end
+                end
+            end
         
             if isfield(dbase, 'EventXLims')
                 % This is now in settings.EventXLims, but legacy dbases
