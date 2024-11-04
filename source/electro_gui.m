@@ -1805,18 +1805,6 @@ function disableAxesPopupToolbars(obj)
     delete(obj.axes_Events.Toolbar);
 end
 
-function issueWarning(obj, warningMsg, warningType)
-    if ~isfield(obj.WarningCounts, warningType)
-        obj.WarningCounts.(warningType) = 0;
-    end
-    obj.WarningCounts.(warningType) = obj.WarningCounts.(warningType) + 1;
-    if obj.WarningCounts.(warningType) < 5
-        warning(warningMsg);
-    elseif obj.WarningCounts.(warningType) == 6
-        warning('Multiple warnings of type %s - suppressing further warnings.', warningType);
-    end
-end
-
 function loadTempFile(obj)
     % Get temp file
     tempSettingsFields =        {'lastDirectory',   'recentFiles'};
@@ -13328,6 +13316,21 @@ end
             user = user(f);
             if isempty(user)
                 user = 'anonymous';
+            end
+        end
+        function issueWarning(warningMsg, warningType)
+            persistent WarningCounts;
+            if isempty(WarningCounts)
+                WarningCounts = struct();
+            end
+            if ~isfield(WarningCounts, warningType)
+                WarningCounts.(warningType) = 0;
+            end
+            WarningCounts.(warningType) = WarningCounts.(warningType) + 1;
+            if WarningCounts.(warningType) < 5
+                warning(warningMsg);
+            elseif WarningCounts.(warningType) == 6
+                warning('Multiple warnings of type %s - suppressing further warnings.', warningType);
             end
         end
         function params = applyDefaultPluginParams(params, defaultParams)
