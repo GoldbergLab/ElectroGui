@@ -14183,7 +14183,6 @@ end
                     % Second dimension should be 2 - if it's empty, we can fix it, otherwise, just warn user
                     if isempty(dbase.MarkerTimes{filenum})
                         dbase.MarkerTimes{filenum} = zeros([0, 2]);
-                        disp('fixed')
                     else
                         sizeStr = join(split(num2str([4, 6]), '  '), 'x');
                         sizeStr = sizeStr{1};
