@@ -377,7 +377,7 @@ classdef electro_gui < handle
                     p = gcp();
                     p.IdleTimeout = obj.settings.ParallelPoolTimeout;
                 catch
-                    warning('Failed to start parallel pool - maybe the parallel computing toolbox is not installed? Disabling file caching.');
+                    electro_gui.issueWarning('Failed to start parallel pool - maybe the parallel computing toolbox is not installed? Disabling file caching.', 'parallelPoolFail');
                     obj.settings.EnableFileCaching = false;
                 end
             end
@@ -1848,7 +1848,7 @@ end
 
 function Undo(obj)
     if ~obj.settings.UndoEnabled
-        warning('Undo/redo is disabled - enable it by adding ''obj.settings.UndoEnabled = true;'' to your defaults file');
+        electro_gui.issueWarning('Undo/redo is disabled - enable it by adding ''obj.settings.UndoEnabled = true;'' to your defaults file', 'undoRedoDisabled');
     end
     state = obj.History.UndoState(obj.GetDBase(false)); %#ok<*PROP>
     dbase = state{1};
@@ -1858,7 +1858,7 @@ end
 
 function Redo(obj)
     if ~obj.settings.UndoEnabled
-        warning('Undo/redo is disabled - enable it by adding ''obj.settings.UndoEnabled = true;'' to your defaults file');
+        electro_gui.issueWarning('Undo/redo is disabled - enable it by adding ''obj.settings.UndoEnabled = true;'' to your defaults file', 'undoRedoDisabled');
     end
     state = obj.History.RedoState(obj.GetDBase(false));
     dbase = state{1};
@@ -1899,13 +1899,13 @@ function loadTempFile(obj)
         switch ME.identifier
             case 'MATLAB:load:unableToReadMatFile'
                 % temp file is messed up maybe?
-                warning('Unable to open temp file, creating new one.');
+                electro_gui.issueWarning('Unable to open temp file, creating new one.', 'noTempFile');
             case 'MATLAB:load:couldNotReadFile'
                 % temp file does not exist maybe?
-                warning('Unable to find temp file, creating new one.');
+                electro_gui.issueWarning('Unable to find temp file, creating new one.', 'noTempFile');
                 % No temp file - use defaults
             otherwise
-                warning('Unknown error when attempting to read temp file. Creating new one.');
+                electro_gui.issueWarning('Unknown error when attempting to read temp file. Creating new one.', 'noTempFile');
         end
         delete(obj.tempFile);
         obj.tempSettings = struct();
@@ -9505,7 +9505,7 @@ function updateExportControlGUIValues(obj)
             radioButton = obj.ExportControlPanel.(obj.settings.Export.TimeRangeMode);
             radioButton.Value = true;
         else
-            warning('Invalid time range mode found in settings: %s', obj.settings.Export.TimeRangeMode);
+            electro_gui.issueWarning('Invalid time range mode found in settings: %s', obj.settings.Export.TimeRangeMode, 'exportSettingsError');
         end
 
         % Update include values in GUI
@@ -9522,28 +9522,28 @@ function updateExportControlGUIValues(obj)
             radioButton = obj.ExportControlPanel.(obj.settings.Export.LayoutTabMode);
             radioButton.Value = true;
         else
-            warning('Invalid layout tab mode found in settings: %s', obj.settings.Export.LayoutTabMode);
+            electro_gui.issueWarning('Invalid layout tab mode found in settings: %s', obj.settings.Export.LayoutTabMode, 'exportSettingsError');
         end
         %   Update layout sort mode in GUI
         if isfield(obj.ExportControlPanel, obj.settings.Export.LayoutSortMode)
             radioButton = obj.ExportControlPanel.(obj.settings.Export.LayoutSortMode);
             radioButton.Value = true;
         else
-            warning('Invalid layout sort mode found in settings: %s', obj.settings.Export.LayoutSortMode);
+            electro_gui.issueWarning('Invalid layout sort mode found in settings: %s', obj.settings.Export.LayoutSortMode, 'exportSettingsError');
         end
         %   Update layout line mode in GUI
         if isfield(obj.ExportControlPanel, obj.settings.Export.LayoutLineMode)
             radioButton = obj.ExportControlPanel.(obj.settings.Export.LayoutLineMode);
             radioButton.Value = true;
         else
-            warning('Invalid layout line mode found in settings: %s', obj.settings.Export.LayoutLineMode);
+            electro_gui.issueWarning('Invalid layout line mode found in settings: %s', obj.settings.Export.LayoutLineMode, 'exportSettingsError');
         end
         %   Update layout scale mode in GUI
         if isfield(obj.ExportControlPanel, obj.settings.Export.LayoutScaleMode)
             radioButton = obj.ExportControlPanel.(obj.settings.Export.LayoutScaleMode);
             radioButton.Value = true;
         else
-            warning('Invalid layout line mode found in settings: %s', obj.settings.Export.LayoutLineMode);
+            electro_gui.issueWarning('Invalid layout line mode found in settings: %s', obj.settings.Export.LayoutLineMode, 'exportSettingsError');
         end
 
         %   Update layout scale width
@@ -13636,7 +13636,7 @@ end
                 if any(~okChars)
                     % Name contains disallowed characters
                     disallowedChars = sort(unique(name(~okChars)));
-                    warning('Name of plugin ''%s'' contains disallowed characters: ''%s''\nPlease change plugin name so it only includes the characters: \n%s', name, disallowedChars, allowedCharacters);
+                    electro_gui.issueWarning(sprintf('Name of plugin ''%s'' contains disallowed characters: ''%s''\nPlease change plugin name so it only includes the characters: \n%s', name, disallowedChars, allowedCharacters), 'badPluginName');
                     continue;
                 end
                 try
@@ -13652,7 +13652,7 @@ end
             end
             if ~isempty(badPluginIdx)
                 for k = badPluginIdx
-                    warning('Plugin %s appears to be non-runnable.', pluginPaths{k});
+                    electro_gui.issueWarning(sprintf('Plugin %s appears to be non-runnable.', pluginPaths{k}), 'pluginError');
                 end
                 out(badPluginIdx) = [];
             end
@@ -13720,7 +13720,7 @@ end
                 end
             end
             % Didn't find a template
-            warning('No template found for plugin type %s', pluginType);
+            electro_gui.issueWarning(sprintf('No template found for plugin type %s', pluginType), 'noPluginTemplate');
         end
         function channelEntry = CreateChannelInfo(name, number, type, isPseudoChannel, pseudoChannelInfo)
             channelEntry.Name = name;
@@ -14023,7 +14023,6 @@ end
                 error('You must provide the same number of old and new paths.')
             end
 
-            
             successes = 0;
 
             fprintf('Beginning update of %d dbases...', length(oldDbasePaths));
@@ -14047,7 +14046,7 @@ end
                 if ~options.Overwrite && exist(newPath, 'file')
                     % User did not request overwrite, and the new path
                     % already exists, skip this one.
-                    warning('New path (%s) already exists, and Overwrite is false - skipping %s', newPath, oldPath);
+                    electro_gui.issueWarning(sprintf('New path (%s) already exists, and Overwrite is false - skipping %s', newPath, oldPath), 'updateSavedDbasesError');
                     continue
                 end
                 % Load dbase from file
@@ -14066,7 +14065,7 @@ end
 
                     successes = successes + 1;
                 catch ME
-                    warning('Failed to convert dbase: %s', oldPath);
+                    electro_gui.issueWarning(sprintf('Failed to convert dbase: %s', oldPath), 'updateDbaseFail');
                     disp(getReport(ME));
                 end
             end
@@ -14096,7 +14095,9 @@ end
                         dbase.ChannelFs = settings.DefaultChannelFs * ones(1, length(dbase.ChannelFiles));
                     else
                         if length(settings.DefaultChannelFs) ~= length(dbase.ChannelFiles)
-                            warning('Defaults file error: settings.DefaultChannelFs must be either a scalar or have length equal to the number of channels (%d).', length(dbase.ChannelFiles));
+                            electro_gui.issueWarning(...
+                                sprintf('Defaults file error: settings.DefaultChannelFs must be either a scalar or have length equal to the number of channels (%d).', length(dbase.ChannelFiles)), ...
+                                'defaultsFileError');
                         else
                             % A vector fo default channel sampling rates
                             % was provided
