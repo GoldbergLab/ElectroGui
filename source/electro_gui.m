@@ -9979,7 +9979,7 @@ end
                 %   it's just a click.
         
                 rect = rbbox();
-                rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Sound);
+                rect = getFigureCoordsInAxesDataUnits(rect, hObject);
 
                 if rect(3) == 0
                     % Click/drag box has zero width, so we're going to shift the zoom
