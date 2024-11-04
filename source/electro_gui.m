@@ -216,7 +216,10 @@ classdef electro_gui < handle
         menu_ChangeFiles
         menu_DeleteFiles
         menu_Defaults
+        menu_Plugins
         menu_DefaultOptions
+        menu_PluginTypes
+        menu_PluginsAll
         menu_Playback
         menu_PlaySound
         menu_PlayMix
@@ -555,6 +558,37 @@ classdef electro_gui < handle
 
             % Populate defaults menu
             userList = cellfun(@(defaultsPath)regexp(defaultsPath, '(?<=defaults_).*(?=\.m)', 'match'), obj.defaults);
+            for d = 1:length(obj.defaults)
+                obj.menu_DefaultOptions(d) = uimenu(obj.menu_Defaults, ...
+                    'Label', [userList{d}, '...'], ...
+                    'Callback', @(src, evt)obj.handleDefaultsClick(src.UserData), ...
+                    'UserData', obj.defaults{d});
+            end
+
+            % Populate top plugins menu
+            pluginTypes = fieldnames(obj.plugins);
+            for pluginTypeIdx = 1:length(pluginTypes)
+                pluginType = pluginTypes{pluginTypeIdx};
+                pluginTypeLabel = [upper(pluginType(1)), pluginType(2:end), '...'];
+                obj.menu_PluginTypes(pluginTypeIdx) = ...
+                    uimenu(obj.menu_Plugins, ...
+                            'Label', pluginTypeLabel, ...
+                            'UserData', pluginType);
+                obj.menu_PluginsAll(end+1) = ...
+                    uimenu(obj.menu_PluginTypes(pluginTypeIdx), ...
+                    'Label', 'Create new...', ...
+                    'Callback', @(src, evt)electro_gui.createNewPlugin(pluginType));
+                for pluginIdx = 1:length(obj.plugins.(pluginType))
+                    plugin = obj.plugins.(pluginType)(pluginIdx);
+                    if ~strcmp(plugin.name, 'Template')
+                        obj.menu_PluginsAll(end+1) = ...
+                            uimenu(obj.menu_PluginTypes(pluginTypeIdx), ...
+                            'Label', plugin.name, ...
+                            'Callback', @(src, evt)edit(plugin.path));
+                    end
+                end
+
+            end
             for d = 1:length(obj.defaults)
                 obj.menu_DefaultOptions(d) = uimenu(obj.menu_Defaults, ...
                     'Label', [userList{d}, '...'], ...
@@ -8887,6 +8921,13 @@ function setupGUI(obj)
         'Label','Defaults',...
         'Tag','menu_Defaults');
 
+    % obj.menu_Defaults
+    obj.menu_Plugins = uimenu(...
+        'Parent',obj.menu_File,...
+        'Callback',@NOP,...
+        'Label','Plugins',...
+        'Tag','menu_Plugins');
+    
     %% Playback menu
     obj.menu_Playback = uimenu(...
         'Parent',obj.figure_Main,...
@@ -10301,7 +10342,7 @@ end
 
             if isempty(hObject.UserData)
                 alg = hObject.Label;
-                obj.settings.FilterParams = electro_gui.eg_runPlugin(obj.plugins.functions, alg, 'params');
+                obj.settings.FilterParams = electro_gui.eg_runPlugin(obj.plugins.filters, alg, 'params');
                 hObject.UserData = obj.settings.FilterParams;
             else
                 obj.settings.FilterParams = hObject.UserData;
@@ -13616,6 +13657,9 @@ end
                 out(badPluginIdx) = [];
             end
         end
+        function prepareNewDefault(templatePath)
+
+        end
         function defaults = gatherDefaults(sourceDir)
             arguments
                 sourceDir char = fileparts(mfilename("fullpath"))
@@ -13636,8 +13680,8 @@ end
             plugins.filters = electro_gui.findPlugins(sourceDir, 'egf');
             % Find all colormaps
             plugins.colorMaps = electro_gui.findPlugins(sourceDir, 'egc');
-            % % Find all function algorithms
-            plugins.functions = electro_gui.findPlugins(sourceDir, 'egf');
+%             % Find all function algorithms
+%             plugins.functions = electro_gui.findPlugins(sourceDir, 'egf');
             % Find all macros
             plugins.macros = electro_gui.findPlugins(sourceDir, 'egm');
             % Find all event detector algorithms
@@ -13646,6 +13690,39 @@ end
             plugins.eventFeatures = electro_gui.findPlugins(sourceDir, 'ega');
             % Find all loaders
             plugins.loaders= electro_gui.findPlugins(sourceDir, 'egl');
+        end
+        function createNewPlugin(pluginType)
+            sourceDir = fileparts(mfilename("fullpath"));
+            plugins = electro_gui.gatherPlugins(sourceDir);
+            for pluginIdx = 1:length(plugins.(pluginType))
+                plugin = plugins.(pluginType)(pluginIdx);
+                if strcmp(plugin.name, 'Template')
+                    answer = inputdlg({'What do you want to call your plugin?'}, 'New plugin name', [1, 25], {'untitled'});
+                    if ~isempty(answer) && ~isempty(answer{1})
+                        pluginName = answer{1};
+                        if ~strcmp(plugin.prefix, pluginName(1:length(plugin.prefix)))
+                            pluginName = [plugin.prefix, '_', pluginName];
+                        end
+                        if ~strcmp(pluginName(end-1:end), '.m')
+                            pluginName = [pluginName, '.m'];
+                        end
+                        newPluginPath = fullfile(sourceDir, pluginName);
+                        if exist("newPluginPath", 'file')
+                            errordlg('Path "%s" already exists - please use a different name.', newPluginPath);
+                            return
+                        end
+                        lines = readlines(plugin.path);
+                        [~, newPluginName, ~] = fileparts(pluginName);
+                        oldPluginName = [plugin.prefix, '_', plugin.name];
+                        lines{1} = regexprep(lines{1}, oldPluginName, newPluginName);
+                        writelines(lines, newPluginPath);
+                        edit(newPluginPath);
+                    end
+                    return
+                end
+            end
+            % Didn't find a template
+            warning('No template found for plugin type %s', pluginType);
         end
         function channelEntry = CreateChannelInfo(name, number, type, isPseudoChannel, pseudoChannelInfo)
             channelEntry.Name = name;
