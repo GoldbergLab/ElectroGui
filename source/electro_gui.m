@@ -10119,7 +10119,7 @@ end
                 %   it's just a click.
         
                 rect = rbbox();
-                rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Segments);
+                rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Sound);
 
                 if rect(3) == 0
                     % Click/drag box has zero width, so we're going to shift the zoom
@@ -13680,8 +13680,6 @@ end
             plugins.filters = electro_gui.findPlugins(sourceDir, 'egf');
             % Find all colormaps
             plugins.colorMaps = electro_gui.findPlugins(sourceDir, 'egc');
-%             % Find all function algorithms
-%             plugins.functions = electro_gui.findPlugins(sourceDir, 'egf');
             % Find all macros
             plugins.macros = electro_gui.findPlugins(sourceDir, 'egm');
             % Find all event detector algorithms
