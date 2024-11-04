@@ -27,6 +27,7 @@ classdef electro_gui < handle
         ChanYLimits
         ActiveAxnum = 1   % Which of the two channel axes was last interacted with?
         WarningCounts = struct()
+        bugReporter SlackBot
     end
     properties  % GUI widgets
         figure_Main
@@ -251,6 +252,7 @@ classdef electro_gui < handle
         action_ClearExport
         action_ClearExportTab
         menu_Help
+        menu_BugReport
         help_ControlsHelp
     end
     properties  % Graphics elements
@@ -9178,6 +9180,12 @@ function setupGUI(obj)
         'Label','Controls Help',...
         'Tag','help_ControlsHelp');
 
+    obj.menu_BugReport = uimenu(...
+        'Parent', obj.menu_Help, ...
+        'Callback', @(varargin)obj.SendBugReport(), ...
+        'Label', 'Send bug report...', ...
+        'Tag', 'menu_BugReport');
+
     obj.axes_Sonogram.UIContextMenu = obj.context_Sonogram;
     
     obj.axes_Amplitude.UIContextMenu = obj.context_Amplitude;
@@ -11711,6 +11719,84 @@ end
         end
         function help_ControlsHelp_Callback(obj, hObject, eventdata)
             msgbox(electro_gui.HelpText(), 'electro_gui info and help:');
+        end
+        function SendBugReport(obj)
+            if isempty(obj.bugReporter)
+                if isempty(obj.settings.SlackAuthFile)
+                    msg = 'No slack bot AuthFile found - please add "settings.SlackAuthFile = ''path/to/auth/file'' to your defaults file.';
+                    errordlg(msg);
+                    return
+                end
+                obj.bugReporter = SlackBot('AuthFile', obj.settings.SlackAuthFile);
+            end
+            if ispc()
+                [~, osInfo] = system('ver');
+                osInfo = strip(osInfo);
+            elseif ismac()
+                osInfo = 'MacOS';
+            elseif isunix()
+                osInfo = 'Unix';
+            end
+
+            [electroGUICommitDate, electroGUICommitHash, electroGUIBranchName] = getGitInfo('electro_gui');
+            [MATLAB_utilsCommitDate, MATLAB_utilsCommitHash, MATLAB_utilsBranchName] = getGitInfo('MATLAB_utils');
+
+            try
+                lastError = lasterror(); %#ok<LERR> 
+                lastErrorMessage = {sprintf('\t%s\n%s\n%s\n', lastError.message, lastError.identifier)};
+                for k = 1:length(lastError.stack)
+                    lastErrorMessage{end+1} = sprintf('\t\tin %s line %s (%s)', lastError.stack(k).name, lastError.stack(k).line, lastError.stack(k).file);
+                end
+                lastErrorMessage = join(lastErrorMessage, '');
+                lastErrorMessage = lastErrorMessage{1};
+                lastErrorMessage = escapeChars(lastErrorMessage, '<>', '\');
+            catch
+                lastErrorMessage = 'Unable to capture last error:';
+            end
+
+            comments = inputdlg({'Add comments to bug report?'}, 'Send bug report', [4, 35], {'No comment'});
+            comments = char2D_to_cell(comments{1});
+            comments = join(comments, '\n');
+            if isempty(comments)
+                comments = 'No comment';
+            else
+                comments = comments{1};
+            end
+
+            bugReport = {...
+                sprintf(':beetle:electro_gui bug report:beetle:\n'), ...
+                sprintf('*Timestamp*: %s\n', datetime()), ...
+                sprintf('*OS*: %s\n', osInfo), ...
+                sprintf('*electro_gui info*:\n'), ...
+                sprintf('\t*Commit date*: %s\n', electroGUICommitDate), ...
+                sprintf('\t*Commit hash*: %s\n', electroGUICommitHash), ...
+                sprintf('\t*Commit date*: %s\n', electroGUIBranchName), ...
+                sprintf('*MATLAB_utils info*:\n'), ...
+                sprintf('\t*Commit date*: %s\n', MATLAB_utilsCommitDate), ...
+                sprintf('\t*Commit hash*: %s\n', MATLAB_utilsCommitHash), ...
+                sprintf('\t*Commit date*: %s\n', MATLAB_utilsBranchName), ...
+                sprintf('*Last error*:\n\n'), ...
+                lastErrorMessage, ...
+                sprintf('\n\n'), ...
+                sprintf('*User comments*: \n%s', comments);
+                };
+
+            bugReportText = join(bugReport, '');
+            bugReportText = bugReportText{1};
+
+            disp('************************************************************************')
+            disp('BUG REPORT:')
+            disp('')
+            disp(bugReportText);
+            disp('')
+            disp('************************************************************************')
+
+            answer = questdlg('Bug report text has been printed to the console. Send bug report?', 'Send bug report?', 'Send', 'Cancel', 'Send');
+            if strcmp(answer, 'Send')
+                obj.bugReporter.PostMessage(obj.settings.SlackBugReportChannel, sprintf(bugReportText));
+            else
+                msgbox('Bug report cancelled');
+            end
         end
         function menu_Playback_Callback(obj, hObject, eventdata)
 

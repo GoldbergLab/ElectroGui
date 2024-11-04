@@ -11,7 +11,6 @@ settings.IncludeDocumentation = true;    % Include field documentation in dbase?
 settings.CurrentFile = 1;                % File number to start at
 settings.DefaultChannelFs = NaN;         % Default sampling rate for channels. Must be either a single sampling rate which will apply to all channels, or a 1xC list of sampling rates, one per channel. 
                                          % This will override the sampling rate loaded from files, unless a value is NaN, in which the loaded  sampling rate will be used.
-
 % UNDO/REDO SETTINGS
 settings.UndoEnabled = true;             % Enable control-z for undo and control-y or control-shift-z for redo - this adds some overhead to operations.
 settings.MaxHistoryLength = 10;          % Maximum number of states to save (for undo/redo purposes). Higher = more memory, more undos
@@ -36,6 +35,10 @@ settings.EnableFileCaching = true;      % Enable file caching - electrogui will 
 settings.BackwardFileCacheSize = 2;     % Number of files to load before the current file in case user goes backwards
 settings.ForwardFileCacheSize = 4;      % Number of files to load after the current file in case user goes forwards
 settings.ParallelPoolTimeout = 90;      % Number of minutes before parallel pool shuts itself off
+
+% BUG REPORTING
+settings.SlackAuthFile = '';                                    % Path to file containing a slack authentication token so the bug reporting function can send a message to a slack channel
+settings.SlackBugReportChannel = '#bug-reports';                % Slack channel to send bug reports to
 
 % DBASE SETTINGS
 settings.IncludeDocumentation = true;                 % Include documentation in saved dbase?
