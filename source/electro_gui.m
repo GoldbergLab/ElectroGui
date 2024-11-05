@@ -3808,8 +3808,7 @@ function SaveCurrentDbase(obj, dbasePath)
     end
     savePath = fullfile(path, file);
 
-    dbase = obj.GetDBase(obj.settings.IncludeDocumentation);
-    settings = obj.settings;
+    [dbase, settings] = obj.GetDBase(obj.settings.IncludeDocumentation);
 
     electro_gui.SaveDbase(savePath, dbase, settings);
 
@@ -5568,10 +5567,11 @@ function UpdateFiles(obj, old_sound_files)
 
 end
 
-function [dbase, settings] = GetDBase(obj, includeDocumentation)
+function [dbase, settings] = GetDBase(obj, includeDocumentation, includeCustomFields)
     arguments
         obj electro_gui
         includeDocumentation (1,1) logical = obj.settings.IncludeDocumentation
+        includeCustomFields (1, 1) logical = true
     end
 
     dbase = obj.dbase;
@@ -5581,7 +5581,7 @@ function [dbase, settings] = GetDBase(obj, includeDocumentation)
 
     % Add any other custom fields from the original dbase that might exist to
     % the exported dbase
-    if isfield(obj, 'OriginalDbase')
+    if includeCustomFields && isfield(obj, 'OriginalDbase')
         originalFields = fieldnames(obj.OriginalDbase);
         for k = 1:length(originalFields)
             fieldName = originalFields{k};
@@ -11745,11 +11745,13 @@ end
                 lastError = lasterror(); %#ok<LERR> 
                 lastErrorMessage = {sprintf('\t%s\n%s\n%s\n', lastError.message, lastError.identifier)};
                 for k = 1:length(lastError.stack)
-                    lastErrorMessage{end+1} = sprintf('\t\tin %s line %s (%s)', lastError.stack(k).name, lastError.stack(k).line, lastError.stack(k).file);
+                    lastErrorMessage{end+1} = ...
+                        sprintf('\t\tin %s line %s (%s)', ...
+                                lastError.stack(k).name, ...
+                                escapeChars(lastError.stack(k).file, '\', '\'));
                 end
                 lastErrorMessage = join(lastErrorMessage, '');
-                lastErrorMessage = lastErrorMessage{1};
-                lastErrorMessage = escapeChars(lastErrorMessage, '<>', '\');
+                lastErrorMessage = sprintf(lastErrorMessage{1});
             catch
                 lastErrorMessage = 'Unable to capture last error:';
             end
@@ -11763,10 +11765,19 @@ end
                 comments = comments{1};
             end
 
+            if ~isempty(obj.dbase)
+                dataPath = escapeChars(obj.dbase.PathName, '\', '\');
+            else
+                dataPath = '<No dbase>';
+            end
+            dbasePathName = escapeChars(obj.CurrentDbasePath, '\', '\');
+            currentDefaults = escapeChars(obj.CurrentDefaults, '\', '\');
+
             bugReport = {...
                 sprintf(':beetle:electro_gui bug report:beetle:\n'), ...
                 sprintf('*Timestamp*: %s\n', datetime()), ...
                 sprintf('*OS*: %s\n', osInfo), ...
+                sprintf('*MATLAB*: %s\n', version()), ...
                 sprintf('*electro_gui info*:\n'), ...
                 sprintf('\t*Commit date*: %s\n', electroGUICommitDate), ...
                 sprintf('\t*Commit hash*: %s\n', electroGUICommitHash), ...
@@ -11775,14 +11786,18 @@ end
                 sprintf('\t*Commit date*: %s\n', MATLAB_utilsCommitDate), ...
                 sprintf('\t*Commit hash*: %s\n', MATLAB_utilsCommitHash), ...
                 sprintf('\t*Commit date*: %s\n', MATLAB_utilsBranchName), ...
-                sprintf('*Last error*:\n\n'), ...
+                sprintf('*Last error*:\n\n```'), ...
                 lastErrorMessage, ...
-                sprintf('\n\n'), ...
+                sprintf('```\n\n'), ...
+                sprintf('Path to dbase:\n\t%s\n', dbasePathName), ...
+                sprintf('Path to data:\n\t%s\n', dataPath), ...
+                sprintf('Current defaults:\n\t%s\n', currentDefaults), ...
                 sprintf('*User comments*: \n%s', comments);
                 };
 
             bugReportText = join(bugReport, '');
             bugReportText = bugReportText{1};
+            bugReportText = sprintf(bugReportText);
 
             disp('************************************************************************')
             disp('BUG REPORT:')
@@ -11793,7 +11808,22 @@ end
 
             answer = questdlg('Bug report text has been printed to the console. Send bug report?', 'Send bug report?', 'Send', 'Cancel', 'Send');
             if strcmp(answer, 'Send')
-                obj.bugReporter.PostMessage(obj.settings.SlackBugReportChannel, sprintf(bugReportText));
+                % Slack requires certain characters to get encoded like so:
+                bugReportText = strrep(bugReportText, '&', '&amp;');
+                bugReportText = strrep(bugReportText, '<', '&lt;');
+                bugReportText = strrep(bugReportText, '>', '&gt;');
+
+                tempPath = [tempname(), '.mat'];
+                try
+                    [dbase, settings] = obj.GetDBase(false, false);
+                    electro_gui.SaveDbase(tempPath, dbase, settings);
+                    obj.bugReporter.UploadFile(tempPath, obj.settings.SlackBugReportChannel, bugReportText);
+%                     obj.bugReporter.PostMessage(obj.settings.SlackBugReportChannel, bugReportText);
+                    delete(tempPath);
+                catch
+                    delete(tempPath);
+                end
+                
             else
                 msgbox('Bug report cancelled');
             end
