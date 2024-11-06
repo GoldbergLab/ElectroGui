@@ -300,7 +300,7 @@ classdef electro_gui < handle
 
             % Load temp file, or use defaults if it doesn't exist
             obj.tempFile = fullfile(obj.SourceDir, 'eg_temp.mat');
-            obj.loadTempFile();            
+            obj.loadTempFile();
             % Get current logged in username
             user = electro_gui.getUser();
 
@@ -395,10 +395,10 @@ classdef electro_gui < handle
             close(progressBar);
         end
     end
-    methods %% GUI updating - functions that update or initialize the GUI based on stored values        
+    methods %% GUI updating - functions that update or initialize the GUI based on stored values
         function updateRecentFileList(obj)
             % Update the list of recent files
-        
+
             for recentFileItem = obj.menu_OpenRecent.Children'
                 if recentFileItem ~= obj.openRecent_None
                     delete(recentFileItem);
@@ -420,7 +420,7 @@ classdef electro_gui < handle
             if obj.settings.EventsAutoDisplay == 1
                 obj.menu_AutoDisplayEvents.Checked = 'on';
             end
-            
+
             if obj.settings.SonogramAutoCalculate == 1
                 obj.menu_AutoCalculate.Checked = 'on';
             end
@@ -433,59 +433,59 @@ classdef electro_gui < handle
             if obj.settings.OverlayBottom == 1
                 obj.menu_OverlayBottom.Checked = 'on';
             end
-            
+
             if obj.settings.AutoSegment == 1
                 obj.menu_AutoSegment.Checked = 'on';
             end
-            
+
             if obj.settings.AmplitudeAutoThreshold == 1
                 obj.menu_AutoThreshold.Checked = 'on';
             end
-            
+
             if obj.settings.AmplitudeDontPlot == 1
                 obj.menu_DontPlot.Checked = 'on';
             end
-            
+
             if obj.settings.PeakDetect(1) == 1
                 obj.menu_PeakDetect1.Checked = 'on';
             end
             if obj.settings.PeakDetect(2) == 1
                 obj.menu_PeakDetect2.Checked = 'on';
             end
-            
+
             if obj.settings.AutoYZoom(1) == 1
                 obj.menu_AllowYZoom1.Checked = 'on';
             end
             if obj.settings.AutoYZoom(2) == 1
                 obj.menu_AllowYZoom2.Checked = 'on';
             end
-            
+
             if obj.settings.AutoYLimits(1) == 1
                 obj.menu_AutoLimits1.Checked = 'on';
             end
             if obj.settings.AutoYLimits(2) == 1
                 obj.menu_AutoLimits2.Checked = 'on';
             end
-            
+
             if obj.settings.EventsAutoDetect(1) == 1
                 obj.menu_EventAutoDetect1.Checked = 'on';
             end
             if obj.settings.EventsAutoDetect(2) == 1
                 obj.menu_EventAutoDetect2.Checked = 'on';
             end
-            
+
             ch = obj.menu_AmplitudeSource.Children;
             set(ch(3-obj.settings.AmplitudeSource),'Checked','on');
-            
+
             obj.settings.CustomFreqLim = obj.settings.FreqLim;
-            
+
             if obj.settings.FilterSound == 1
                 obj.playback_FilteredSound.Checked = 'on';
             end
             if obj.settings.PlayReverse == 1
                 obj.playback_Reverse.Checked = 'on';
             end
-            
+
             obj.settings.AnimationPlots = fliplr(obj.settings.AnimationPlots);
 %             ch = obj.menu_export_options_Animation.Children;
             for c = 1:length(ch)
@@ -493,7 +493,7 @@ classdef electro_gui < handle
                     ch(c).Checked = 'on';
                 end
             end
-            
+
 %             ch = obj.menu_export_options_Animation.Children;
 %             ischeck = false;
 %             for c = 1:length(ch)
@@ -505,7 +505,7 @@ classdef electro_gui < handle
 %             if ~ischeck
 %                 obj.menu_export_options_Animation_ProgressBar.Checked = 'on';
 %             end
-            
+
             obj.playback_SoundInMix.Checked = obj.settings.DefaultMix(1);
             obj.playback_TopInMix.Checked = obj.settings.DefaultMix(2);
             obj.playback_BottomInMix.Checked = obj.settings.DefaultMix(3);
@@ -516,22 +516,22 @@ classdef electro_gui < handle
         function updatePluginMenus(obj)
             % Populate various GUI menus with available plugins found in the
             % electro_gui directory
-        
+
             p = obj.plugins;
-        
+
             % Populate sonogram algorithm plugin menu
             obj.menu_Algorithm = electro_gui.populatePluginMenuList(p.spectrums, obj.settings.DefaultSonogramPlotter, obj.menu_AlgorithmList, @obj.AlgorithmMenuClick);
-        
+
             % Populate segmenting algorithm plugin menu
             obj.menu_Segmenter = electro_gui.populatePluginMenuList(p.segmenters, obj.settings.DefaultSegmenter, obj.menu_SegmenterList, @obj.SegmenterMenuClick);
-        
+
             % Populate filter algorithm plugin menu
             obj.menu_Filter = electro_gui.populatePluginMenuList(p.filters, obj.settings.DefaultFilter, obj.menu_FilterList, @obj.FilterMenuClick);
-        
+
             % Populate colormap plugin menu
             obj.menu_ColormapList(1) = uimenu(obj.menu_Colormap, 'Label', '(Default)', 'Callback', @obj.ColormapClick);
             obj.menu_ColormapList = electro_gui.populatePluginMenuList(p.colorMaps, '(Default)', obj.menu_Colormap, @ColormapClick);
-        
+
             % Populate macro plugin menu
             obj.menu_Macros = electro_gui.populatePluginMenuList(p.macros, [], obj.menu_Macros, @obj.MacrosMenuclick);
 
@@ -539,16 +539,16 @@ classdef electro_gui < handle
             obj.menu_XAxis_List = electro_gui.populatePluginMenuList(p.eventFeatures, obj.settings.DefaultEventFeatureX, obj.menu_XAxis, @XAxisMenuClick);
             % Populate y-axis event feature algorithm plugin menu
             obj.menu_YAxis_List = electro_gui.populatePluginMenuList(p.eventFeatures, obj.settings.DefaultEventFeatureY, obj.menu_YAxis, @YAxisMenuClick);
-        
+
             % Find all function algorithms
             pluginNames = {obj.plugins.filters.name};
             str = {'(Raw)'};
             for pluginIdx = 1:length(pluginNames)
-                str{end+1} = pluginNames{pluginIdx}; %#ok<*AGROW> 
+                str{end+1} = pluginNames{pluginIdx}; %#ok<*AGROW>
             end
             obj.popup_Function1.String = str;
             obj.popup_Function2.String = str;
-        
+
             % Find all event detector algorithms
             pluginNames = {obj.plugins.eventDetectors.name};
             str = {'(None)'};
@@ -622,7 +622,7 @@ classdef electro_gui < handle
             % Redraw the sound envelope on the top navigation axes
             [numSamples, fs] = obj.eg_GetSamplingInfo();
             h = electro_gui.eg_peak_detect(obj.axes_Sound, linspace(0, (numSamples-1)/fs, numSamples), obj.filtered_sound);
-        
+
             [h.Color] = deal('c');
             obj.axes_Sound.XTick = [];
             obj.axes_Sound.YTick = [];
@@ -630,7 +630,7 @@ classdef electro_gui < handle
             axis(obj.axes_Sound, 'tight');
             yl = max(abs(ylim(obj.axes_Sound)));
             ylim(obj.axes_Sound, [-yl*1.2, yl*1.2]);
-        
+
             box(obj.axes_Sound, 'on');
         end
         function handleDefaultsClick(obj, defaults)
@@ -663,24 +663,24 @@ classdef electro_gui < handle
                 obj electro_gui
                 options.MaintainViewWidth logical = false;
             end
-        
+
             % maintainViewWidth:
             %   If obj.settings.TLim is out of bounds, try to make it in bounds such
             %   that the width of the viewing window stays the same.
             maintainViewWidth = options.MaintainViewWidth;
-        
+
             [numSamples, fs] = obj.eg_GetSamplingInfo();
             numSeconds = numSamples / fs;
-        
+
             % Record width of viewing window
             tWidth = abs(diff(obj.settings.TLim));
-        
+
             if maintainViewWidth
                 originalTLim = obj.settings.TLim;
             end
-        
+
             obj.fixTLim(numSeconds);
-        
+
             if maintainViewWidth
                 matches = obj.settings.TLim == originalTLim;
                 if all(matches == [0, 1])
@@ -695,31 +695,31 @@ classdef electro_gui < handle
                     obj.fixTLim(numSeconds);
                 end
             end
-        
+
             xlim(obj.axes_Sound, [0, numSeconds]);
-        
+
             if obj.menu_AutoCalculate.Checked
                 obj.updateSonogram();
             else
                 xlim(obj.axes_Sonogram, obj.settings.TLim);
         %         obj.axes_Sonogram.UIContextMenu = obj.context_Sonogram;
-        
+
         %         obj.setClickSoundCallback(obj.axes_Sonogram);
                 obj.setClickSoundCallback(obj.axes_Sound);
             end
-        
+
             % Update xlimbox
             obj.updateXLimBox();
-        
+
             % Update string that shows the amount of time visible I guess?
             obj.edit_Timescale.String = num2str(diff(obj.settings.TLim),4);
-        
-        
+
+
             % Set amplitude axes time limits to match
             xlim(obj.axes_Amplitude, obj.settings.TLim);
             % Set segments axes limits to match
             xlim(obj.axes_Segments, obj.settings.TLim);
-        
+
             for axnum = 1:2
                 yl = ylim(obj.axes_Channel(axnum));
                 xlim(obj.axes_Channel(axnum), obj.settings.TLim);
@@ -728,28 +728,28 @@ classdef electro_gui < handle
                 end
                 ylim(obj.axes_Channel(axnum), yl);
             end
-        
+
             obj.updateSonogramOverlay();
         end
         function updateTimeResolutionBar(obj, timeResolution)
             % Update the bar in the sonogram axes that shows the time resolution of
             % the spectrogram.
             % timeResolution is in seconds
-        
+
             delete(obj.TimeResolutionBarHandle);
             delete(obj.TimeResolutionBarText);
-        
+
             if ~isempty(timeResolution) && ~isnan(timeResolution)
                 % Get spectrogram axes data limits
                 xl = xlim(obj.axes_Sonogram);
                 yl = ylim(obj.axes_Sonogram);
-        
+
                 % Calculate bar coordinates (except the one determined by the text
                 % height)
                 xA = xl(2)-timeResolution;
                 xB = xl(2);
                 yB = yl(2);
-        
+
                 % Change number presentation style/units based on order of
                 % magnitude of timeResolution
                 if timeResolution >= 1
@@ -761,22 +761,22 @@ classdef electro_gui < handle
                 else
                     numText = sprintf('Δt=%d us', round(timeResolution*1000000));
                 end
-        
+
                 % Create the time resolution text label
                 obj.TimeResolutionBarText = text(obj.axes_Sonogram, xB, yB, numText, 'VerticalAlignment', 'top', 'HorizontalAlignment' , 'right', 'Color', [0.5, 0.5, 0.5], 'FontSize', 8);
-        
+
                 % Get the height of the text
                 obj.TimeResolutionBarText.Units = 'data';
                 h = obj.TimeResolutionBarText.Extent(4);
-        
+
                 % Determine the final coordinates of the bar
                 yA = yl(2) - h;
                 xdata = [xA, xA, xB, xB];
                 ydata = [yA, yB, yB, yA];
-        
+
                 % Create bar
                 obj.TimeResolutionBarHandle = patch(xdata, ydata, 'w', 'Parent', obj.axes_Sonogram, 'FaceColor', 'w', 'EdgeColor', 'none');
-        
+
                 % Raise up text above bar
         %         uistack(obj.TimeResolutionBarText);
                 % Apparently this is equivalent to and faster than uistack?! Didn't
@@ -788,7 +788,7 @@ classdef electro_gui < handle
         end
         function updateSonogram(obj)
             obj.updateFilteredSound();
-        
+
             % Ensure sample numbers are in range
             [numSamples, fs] = obj.eg_GetSamplingInfo();
             sampleLims = round(obj.settings.TLim * fs);
@@ -798,7 +798,7 @@ classdef electro_gui < handle
             if sampleLims(2) > numSamples
                 sampleLims(2) = numSamples;
             end
-        
+
             % Determine current spectrogram algorithm?
             for c = 1:length(obj.menu_Algorithm)
                 if obj.menu_Algorithm(c).Checked
@@ -806,7 +806,7 @@ classdef electro_gui < handle
                     break;
                 end
             end
-        
+
             %cla(obj.axes_Sonogram);
             delete(obj.axes_Sonogram.Children);
 
@@ -820,7 +820,7 @@ classdef electro_gui < handle
                     electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, ...
                         obj.axes_Sonogram, obj.sound(sampleLims(1):sampleLims(2)), fs, ...
                         obj.settings.SonogramParams);
-        
+
             auxiliarySoundSources = obj.getAuxiliarySoundSources();
             if ~isempty(auxiliarySoundSources)
                 % User has one or more selected auxiliary sound sources
@@ -844,26 +844,26 @@ classdef electro_gui < handle
                 end
                 hold(obj.axes_Sonogram, 'off');
             end
-        
+
             obj.axes_Sonogram.Units = 'normalized';
             obj.axes_Sonogram.YDir = 'normal';
             obj.axes_Sonogram.UIContextMenu = obj.context_Sonogram;
-        
+
 %             obj.updateTimeResolutionBar(timeResolution);
-        
+
             obj.settings.NewDerivativeSlope = obj.settings.DerivativeSlope;
             obj.settings.DerivativeSlope = 0;
             obj.updateSonogramColors();
-        
+
             xt = obj.axes_Sonogram.YTick;
             obj.axes_Sonogram.YTickLabel  = xt/1000;
             ylabel(obj.axes_Sonogram, 'Frequency (kHz)');
-        
+
             ch = obj.axes_Sonogram.Children;
             for c = 1:length(ch)
                 ch(c).UIContextMenu = obj.axes_Sonogram.UIContextMenu;
             end
-        
+
             obj.setClickSoundCallback(obj.axes_Sonogram);
             xlim(obj.axes_Sonogram, obj.settings.TLim);
             obj.axes_Sonogram.Box = 'off';
@@ -885,11 +885,11 @@ classdef electro_gui < handle
                 colormap(obj.axes_Sonogram, cl);
                 obj.axes_Sonogram.CLim = [-pi/2 pi/2];
             end
-        
+
         end
         function updateEventSourceList(obj)
             % Update the list of event sources above the event viewer axes
-        
+
             % Set up the "none" option at the top
             eventListItems = {'(None)'};
             % Set null event list info for the "none" option
@@ -924,11 +924,11 @@ classdef electro_gui < handle
                 % Axes isn't visible, no point in updating it.
                 return;
             end
-        
+
             eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
-        
+
             obj.clearEventMarkerHandles(axnum);
-        
+
             if isempty(eventSourceIdx)
                 % No event source
                 obj.menu_Events(axnum).Enable = 'off';
@@ -936,9 +936,9 @@ classdef electro_gui < handle
             else
                 obj.menu_Events(axnum).Enable = 'on';
             end
-        
+
             obj.UpdateEventThresholdDisplay(eventSourceIdx);
-        
+
             filenum = electro_gui.getCurrentFileNum(obj.settings);
             hold(obj.axes_Channel(axnum), 'on');
             eventTimes = {};
@@ -948,13 +948,13 @@ classdef electro_gui < handle
                 eventTimes{eventPartIdx} = obj.dbase.EventTimes{eventSourceIdx}{eventPartIdx, filenum};
                 eventSelected{eventPartIdx} = obj.dbase.EventIsSelected{eventSourceIdx}{eventPartIdx, filenum};
             end
-        
+
             % Get event detector name
             [~, ~, eventDetectorName] = obj.GetEventSourceInfo(eventSourceIdx);
-        
+
             % Run event detector plugin to get a list of detected event times
             [~, eventParts] = electro_gui.eg_runPlugin(obj.plugins.eventDetectors, eventDetectorName, 'params');
-        
+
             % Update event part selection menu
             for eventPartNum = 1:length(eventParts)
                 eventPart = eventParts{eventPartNum};
@@ -963,17 +963,17 @@ classdef electro_gui < handle
                 'Callback',@obj.EventPartDisplayClick, ...
                 'Checked','on');
             end
-        
+
             % Determine which of the event part to display (based on event parts
             % defined by event detection plugin)
             eventPartMenuItem = obj.menu_EventsDisplayList{axnum};
-        
+
             % Get channel data
             chanData = obj.loadedChannelData{axnum};
-        
+
             chan = obj.getSelectedChannel(axnum);
             [~, fs] = obj.eg_GetSamplingInfo([], chan);
-        
+
             for eventPartIdx = 1:length(eventTimes)
                 storedInfo.eventPartIdx = eventPartIdx;
                 if eventPartMenuItem(eventPartIdx).Checked
@@ -995,7 +995,7 @@ classdef electro_gui < handle
                     obj.EventHandles{axnum}{eventPartIdx} = [];
                 end
             end
-        
+
             % Update event threshold line
             obj.UpdateEventThresholdDisplay(eventSourceIdx);
         end
@@ -1007,26 +1007,26 @@ classdef electro_gui < handle
             if isempty(keepView)
                 keepView = false;
             end
-        
+
             if keepView
                 storedXLim = xlim(obj.axes_Events);
                 storedYLim = ylim(obj.axes_Events);
             end
-        
+
             delete(obj.ActiveEventCursors);
             obj.clearEventWaveHandles();
-        
+
             hold(obj.axes_Events, 'on');
-        
+
             eventSourceIdx = obj.GetEventViewerEventSourceIdx();
-        
+
             if isempty(eventSourceIdx)
                 obj.axes_Events.Visible = 'off';
                 return
             else
                 obj.axes_Events.Visible = 'on';
             end
-        
+
             % Determine what data should be displayed
             val = obj.popup_EventListData.Value;
             dataSources = obj.popup_EventListData.String;
@@ -1063,14 +1063,14 @@ classdef electro_gui < handle
                     channelYLabel = (obj.axes_Channel(2).YLabel.String);
                     fs = obj.loadedChannelFs{2};
             end
-        
+
             filenum = electro_gui.getCurrentFileNum(obj.settings);
             eventPartIdx = obj.GetEventViewerEventPartIdx();
-        
+
             allEventTimes = obj.dbase.EventTimes{eventSourceIdx}(:,filenum);
             eventTimes = obj.dbase.EventTimes{eventSourceIdx}{eventPartIdx,filenum};
             eventSelection = obj.dbase.EventIsSelected{eventSourceIdx}{eventPartIdx,filenum};
-        
+
             if obj.menu_DisplayValues.Checked
                 % "Display > Values" in Event axes context menu is selected
                 obj.EventWaveHandles = gobjects().empty;
@@ -1115,7 +1115,7 @@ classdef electro_gui < handle
                     [feature2, name2] = electro_gui.eg_runPlugin(obj.plugins.eventFeatures, ...
                         str, channelData, fs, allEventTimes, g, ...
                         round(obj.settings.EventXLims(obj.popup_EventListAlign.Value,:)*fs));
-        
+
                     for c = 1:length(feature1)
                         if eventSelection(c)==1
                             obj.EventWaveHandles(end+1) = plot(obj.axes_Events, ...
@@ -1127,7 +1127,7 @@ classdef electro_gui < handle
                     end
                     xlabel(obj.axes_Events, name1);
                     ylabel(obj.axes_Events, name2);
-        
+
                     axis(obj.axes_Events, 'tight');
                     xl = xlim(obj.axes_Events);
                     xlim(obj.axes_Events, [mean(xl)+(xl(1)-mean(xl))*1.1 mean(xl)+(xl(2)-mean(xl))*1.1]);
@@ -1138,22 +1138,22 @@ classdef electro_gui < handle
                     ylabel('');
                 end
             end
-        
+
             % Set click handlers for event waves
             for k = 1:length(obj.EventWaveHandles)
                 if isgraphics(obj.EventWaveHandles(k))
                     obj.EventWaveHandles(k).ButtonDownFcn = @obj.click_eventwave;
                 end
             end
-        
+
             obj.axes_Events.UIContextMenu = obj.context_EventViewer;
             obj.axes_Events.ButtonDownFcn = @obj.click_eventaxes;
             for child = obj.axes_Events.Children'
                 child.UIContextMenu = obj.axes_Events.UIContextMenu;
             end
-        
+
             obj.SetActiveEventDisplay(obj.settings.ActiveEventNum, obj.settings.ActiveEventPartNum, obj.settings.ActiveEventSourceIdx);
-        
+
             if obj.menu_AutoApplyYLim.Checked && ~isempty(obj.EventWaveHandles)
                 if obj.menu_DisplayValues.Checked
                     % Update this
@@ -1164,7 +1164,7 @@ classdef electro_gui < handle
         %             end
                 end
             end
-        
+
             if keepView
                 xlim(obj.axes_Events, storedXLim);
                 ylim(obj.axes_Events, storedYLim);
@@ -1187,27 +1187,27 @@ classdef electro_gui < handle
         function updateAnythingShowingEventSource(obj, eventSourceIdx)
             % Update any event-related stuff that is currently displaying the given
             % event source index
-        
+
             if isempty(eventSourceIdx)
                 % Null event source, do nothing
                 return;
             end
-        
+
             matchingAxnums = obj.WhichChannelAxesMatchEventSource(eventSourceIdx);
             viewerEventSourceIdx = obj.GetEventViewerEventSourceIdx();
-        
+
             % Update any channel axes that are showing that event source index
             for axnum = matchingAxnums
                 obj.updateChannelEventDisplay(axnum);
             end
-        
+
             % Update the event viewer if it is showing that event source index
             if eventSourceIdx == viewerEventSourceIdx
                 obj.updateEventViewer();
             end
         end
         function updateActiveEventDisplay(obj, oldActiveEventNum, oldActiveEventPart, oldEventSourceIdx)
-            arguments       
+            arguments
                 obj electro_gui
                 oldActiveEventNum = obj.settings.ActiveEventNum
                 oldActiveEventPart = obj.settings.ActiveEventPartNum
@@ -1223,7 +1223,7 @@ classdef electro_gui < handle
         function updateSonogramOverlay(obj)
             % Show, delete, or update channel data overlaid directly on top of the
             % sonogram, depending on the settings within obj.menu_Overlay_Callback
-        
+
             % Collect list of channel axes that will and will not be overlaid on
             % top of the sonogram
             axnums = [];
@@ -1238,16 +1238,16 @@ classdef electro_gui < handle
             else
                 notAxnums = [notAxnums, 2];
             end
-        
+
             % Delete unchecked overlays
             for axnum = notAxnums
                 delete(obj.Sonogram_Overlays(axnum));
             end
-        
+
             if ~isempty(axnums)
                 % Create or update overlays
                 hold(obj.axes_Sonogram, 'on');
-        
+
                 for axnum = axnums
                     y = obj.loadedChannelData{axnum};
                     if ~isempty(y)
@@ -1268,17 +1268,17 @@ classdef electro_gui < handle
                         end
                     end
                 end
-        
+
                 hold(obj.axes_Sonogram, 'off');
             end
-        
-        
+
+
         end
         function initializeGraphics(obj)
             % Initialize and configure all the stored graphics handles for the GUI
-    
+
             obj.FileInfoBrowserFirstPropertyColumn = 3;  % First column that contains boolean property checkboxes
-        
+
             % Event-related graphics stuff
             obj.EventWaveHandles = gobjects().empty;
             obj.EventThresholdHandles = gobjects(1, 2);  % Handles for event threshold lines
@@ -1289,21 +1289,21 @@ classdef electro_gui < handle
             obj.EventWaveHandles = gobjects().empty;
             obj.menu_EventsDisplayList = {gobjects().empty, gobjects().empty};
             obj.updateEventSourceList();
-        
+
             % File sort order stuff
             obj.popup_FileSortOrder.String = {'File number', 'Random', 'Property', 'Read status', 'Custom'};
             obj.popup_FileSortOrder.Value = 1;
-        
-        
+
+
             % Min and max time to display on axes
             obj.settings.TLim = [0, 1];
-        
+
             % Handle for box showing time viewing window
             obj.xlimbox = gobjects().empty;
-        
+
             obj.TimeResolutionBarHandle = gobjects();
             obj.TimeResolutionBarText = gobjects();
-        
+
             % Handles for plotted data
             obj.AmplitudePlotHandle = gobjects();       % Handle to amplitude plot
             obj.SegmentThresholdHandle = gobjects();    % Handle for audio segment threshold line
@@ -1311,19 +1311,19 @@ classdef electro_gui < handle
             obj.MarkerHandles = gobjects().empty;
             obj.SegmentLabelHandles = gobjects().empty;
             obj.MarkerLabelHandles = gobjects().empty;
-        
+
             obj.settings.ActiveSegmentNum = [];
             obj.settings.ActiveMarkerNum = [];
-        
+
             % General cursor
             obj.Cursors = gobjects().empty;
-        
+
             % Channel data plot graphics objects
             obj.ChannelPlots = {gobjects().empty, gobjects().empty};
-        
+
             % Sonogram overlay handles
             obj.Sonogram_Overlays = gobjects(1, 2);
-        
+
             %% Set up axes-indexed lists of GUI elements, to make code more extensible
             % obj.popup_Channels are dropdown menus for the channel axes to select a channel of data to display.
             obj.popup_Channels = [obj.popup_Channel1, obj.popup_Channel2];
@@ -1345,7 +1345,7 @@ classdef electro_gui < handle
             obj.menu_Events = [obj.menu_Events1, obj.menu_Events2];
             obj.push_Detects = [obj.push_Detect1, obj.push_Detect2];
             obj.push_ClearEvents = [obj.push_ClearEvents1, obj.push_ClearEvents2];
-        
+
             dr = dir(obj.SourcePath);
             obj.figure_Main.Name = ['ElectroGui v. ', dr.date];
             % Position figure
@@ -1355,9 +1355,9 @@ classdef electro_gui < handle
             obj.figure_Main.KeyPressFcn = @obj.keyPressHandler;
             obj.figure_Main.KeyReleaseFcn = @obj.keyReleaseHandler;
             obj.figure_Main.WindowButtonMotionFcn = @obj.mouseMotionHandler;
-        
+
             obj.disableAxesPopupToolbars();
-        
+
             % Clear all axes
             axes = [obj.axes_Sound, ...
                     obj.axes_Sonogram, ...
@@ -1371,7 +1371,7 @@ classdef electro_gui < handle
                 end
             end
         end
-        function initializeExportOptions(obj) %#ok<MANU> 
+        function initializeExportOptions(obj) %#ok<MANU>
         end
         function clearAxes(obj)
             % Delete old plots
@@ -1390,7 +1390,7 @@ classdef electro_gui < handle
         end
         function updateChannelAxes(obj, axnum)
             % Load a new channel of data
-        
+
             if isempty(obj.getSelectedChannel(axnum))
                 % This is "(None)" channel selection, so disable everything
                 cla(obj.axes_Channel(axnum));
@@ -1412,7 +1412,7 @@ classdef electro_gui < handle
                 obj.axes_Channel(axnum).Visible = 'on';
                 obj.popup_Functions(axnum).Enable = 'on';
             end
-        
+
             % Load channel data
             [selectedChannelNum, ~, ~, isPseudoChannel] = obj.getSelectedChannel(axnum);
             selectedFilter = getSelectedFilter(obj, axnum);
@@ -1422,29 +1422,29 @@ classdef electro_gui < handle
                 'FilterName', selectedFilter, ...
                 'FilterParams', selectedFilterParams, ...
                 'IsPseudoChannel', isPseudoChannel);
-        
+
             % Plot channel data
             obj.updateChannelAxesPlot(axnum);
-        
+
             % Reset active event handles
             obj.settings.ActiveEventNum = [];
             obj.settings.ActiveEventPartNum = [];
-        
+
             obj.updateEventThresholdInAxes(axnum);
             obj.AutoDetectEvents(axnum);
-        
+
             % Update event display
             obj.updateChannelEventDisplay(axnum);
 
             % Update y limits
             obj.updateChannelAxesYLimits(axnum);
-        
+
             % If overlay is requested, overlay channel data on another axes
             obj.updateSonogramOverlay();
-        
+
             % Clear existing event waves
             obj.clearEventWaveHandles();
-        
+
             % Update event viewer in case it was showing data from this axes
             obj.updateEventViewer();
         end
@@ -1481,7 +1481,7 @@ classdef electro_gui < handle
         end
         function updateChannelAxesPlot(obj, axnum)
             ax = obj.axes_Channel(axnum);
-        
+
             if ~ax.Visible
                 return
             end
@@ -1490,7 +1490,7 @@ classdef electro_gui < handle
             obj.popup_EventDetectors(axnum).Enable = 'on';
             obj.push_Detects(axnum).Enable = 'on';
             obj.push_ClearEvents(axnum).Enable = 'on';
-        
+
             chan = obj.getSelectedChannel(axnum);
             [numSamples, fs] = obj.eg_GetSamplingInfo([], chan);
             t = linspace(0, (numSamples-1)/fs, numSamples);
@@ -1515,14 +1515,14 @@ classdef electro_gui < handle
                         'LineWidth',obj.settings.ChannelLineWidth(axnum), ...
                         'Tag', 'channelPlot');
             end
-        
+
             hold(ax, 'off');
             xlim(ax, tlimits);
-        
+
             ax.XTickLabel = [];
             box(ax, 'off');
             ylabel(ax, obj.loadedChannelLabels{axnum});
-        
+
             ax.UIContextMenu = obj.context_Channels(axnum);
             ax.ButtonDownFcn = @obj.click_Channel;
             set(ax.Children, 'UIContextMenu', ax.UIContextMenu);
@@ -1531,7 +1531,7 @@ classdef electro_gui < handle
         function updateAnnotations(obj)
             % Get segment axes
             ax = obj.axes_Segments;
-        
+
             % Set axes properties
             hold(ax, 'on');
             % Set time-zoom state of segment axes to match audio axes
@@ -1548,7 +1548,7 @@ classdef electro_gui < handle
             ax.UIContextMenu = obj.context_Segments;
             % Assign key press function to figure (keyPressHandler) for labeling segments
             obj.figure_Main.KeyPressFcn = @obj.keyPressHandler;
-        
+
             % Clear segment handles and segment label handles
             delete(obj.SegmentHandles);
             obj.SegmentHandles = gobjects().empty;
@@ -1559,9 +1559,9 @@ classdef electro_gui < handle
             obj.MarkerHandles = gobjects().empty;
             delete(obj.MarkerLabelHandles);
             obj.MarkerLabelHandles = gobjects().empty;
-        
+
             filenum = electro_gui.getCurrentFileNum(obj.settings);
-        
+
             [numSamples, fs] = obj.eg_GetSamplingInfo();
 
             [obj.SegmentHandles, obj.SegmentLabelHandles] = electro_gui.CreateAnnotations(...
@@ -1572,7 +1572,7 @@ classdef electro_gui < handle
                 obj.settings.SegmentSelectColor, obj.settings.SegmentUnSelectColor, ...
                 obj.settings.SegmentActiveColor, obj.settings.SegmentInactiveColor, ...
                 [-1, 1], fs, [], @obj.click_segment);
-        
+
             [obj.MarkerHandles, obj.MarkerLabelHandles] = electro_gui.CreateAnnotations(...
                 obj.axes_Segments, ...
                 obj.dbase.MarkerTimes{filenum}, ...
@@ -1581,7 +1581,7 @@ classdef electro_gui < handle
                 obj.settings.MarkerSelectColor, obj.settings.MarkerUnSelectColor, ...
                 obj.settings.SegmentInactiveColor, obj.settings.MarkerInactiveColor, ...
                 [1, 3], fs, [], @obj.click_segment);
-        
+
             % Warn user if annotation is out of range
             if size(obj.dbase.SegmentTimes{filenum}, 1) > 0
                 if obj.dbase.SegmentTimes{filenum}(1, 1) < 0
@@ -1622,7 +1622,7 @@ classdef electro_gui < handle
 
             % Ensure active annotation setting is valid
             obj.SanityCheckActiveAnnotation(filenum);
-        
+
             % Update active segment highlight
             if ~isempty(obj.settings.ActiveSegmentNum)
                 obj.SegmentHandles(obj.settings.ActiveSegmentNum).EdgeColor = obj.settings.SegmentActiveColor;
@@ -1635,18 +1635,18 @@ classdef electro_gui < handle
                 obj.MarkerHandles(obj.settings.ActiveMarkerNum).LineWidth = 2;
                 obj.MarkerHandles(obj.settings.ActiveMarkerNum).LineStyle = '-';
             end
-        
+
             hold(ax, 'off');
         end
         function updateXLimBox(obj)
             % Update the yellow dotted line box on the sound axes that shows what
             % the zoomed in view is
             yl = ylim(obj.axes_Sound);
-        
+
             % Calculate updated position of box
             xdata = [obj.settings.TLim(1), obj.settings.TLim(2), obj.settings.TLim(2), obj.settings.TLim(1), obj.settings.TLim(1)];
             ydata = [yl(1), yl(1), yl(2), yl(2), yl(1)]*0.93;
-        
+
             if isempty(obj.xlimbox) || ~isvalid(obj.xlimbox)
                 % No xlimbox currently, create a new one
                 hold(obj.axes_Sound, 'on');
@@ -1715,21 +1715,21 @@ classdef electro_gui < handle
                 selectedEventLims = obj.settings.EventXLims(eventSourceIdx, :);
             end
         end
-        
+
         function [selectedChannelNum, selectedChannelName, isSound, isPseudoChannel] = getSelectedChannel(obj, axnum)
             % Return the name and number of the selected channel from the specified
             %   axis. If the name is not a valid channel, selectedChannelNum will be
             %   empty.
             channelNameList = {obj.dbase.ChannelInfo.Name};
             channelInfoList = obj.dbase.ChannelInfo;
-        
+
             selectedIdx = obj.popup_Channels(axnum).Value;
-        
+
             selectedChannelName = channelNameList{selectedIdx};
             selectedChannelInfo = channelInfoList(selectedIdx);
             isPseudoChannel = selectedChannelInfo.IsPseudoChannel;
             selectedChannelNum = selectedChannelInfo.Number;
-        
+
             if isPseudoChannel
                 isSound = false;
             else
@@ -1879,18 +1879,6 @@ function disableAxesPopupToolbars(obj)
     delete(obj.axes_Events.Toolbar);
 end
 
-function issueWarning(obj, warningMsg, warningType)
-    if ~isfield(obj.WarningCounts, warningType)
-        obj.WarningCounts.(warningType) = 0;
-    end
-    obj.WarningCounts.(warningType) = obj.WarningCounts.(warningType) + 1;
-    if obj.WarningCounts.(warningType) < 5
-        warning(warningMsg);
-    elseif obj.WarningCounts.(warningType) == 6
-        warning('Multiple warnings of type %s - suppressing further warnings.', warningType);
-    end
-end
-
 function loadTempFile(obj)
     % Get temp file
     tempSettingsFields =        {'lastDirectory',   'recentFiles', 'lastDefault'};
@@ -1929,7 +1917,7 @@ function updateTempFile(obj)
 end
 function setLastDefaults(obj, defaultsPath)
     obj.tempSettings.lastDefault = defaultsPath;
-    obj.updateTempFile();       
+    obj.updateTempFile();
 end
 function addRecentFile(obj, filePath)
     % Add a file to a list of recent files in the temp settings struct
@@ -2403,7 +2391,7 @@ function [channelData, channelSamplingRate, channelLabels, timestamp] = loadChan
                 eventSourceIdx = pChannelInfo.eventSourceIdx;
                 eventPartIdx = pChannelInfo.eventPartIdx;
                 [channelNum, ~, ~, ~, ~, ~, ~, ~, isSourcePseudoChannel] = obj.GetEventSourceInfo(eventSourceIdx);
-                [numSamples, ~] = obj.eg_GetSamplingInfo(fileNum, channelNum, isSourcePseudoChannel);
+                [numSamples, channelSamplingRate] = obj.eg_GetSamplingInfo(fileNum, channelNum, isSourcePseudoChannel);
 
                 rawChannelData = zeros(numSamples, 1);
                 eventTimes = obj.dbase.EventTimes{eventSourceIdx}{eventPartIdx, fileNum};
@@ -2432,7 +2420,7 @@ function [channelData, channelSamplingRate, channelLabels, timestamp] = loadChan
 
         if ~isSound && ~isPseudoChannel
             % loadedChannelSamplingRate is not always reliable, so
-            %   override it if we already have a channel frequency 
+            %   override it if we already have a channel frequency
             %   stored for this channel
             if isnan(obj.dbase.ChannelFs(channelNum))
                 channelSamplingRate = loadedChannelSamplingRate;
@@ -3735,9 +3723,9 @@ function OpenDbase(obj, filePathOrDbase, options)
     obj.setSelectedFilenum(settings.CurrentFile);
     obj.updateShowPropertyColumnMenu();
     obj.UpdateFileInfoBrowser();
-    
+
     obj.setSelectedFilenum(settings.CurrentFile);
-    
+
     % get segmenter parameters
     for c = 1:length(obj.menu_SegmenterList.Children)
         if obj.menu_SegmenterList.Children(c).Checked
@@ -3795,7 +3783,7 @@ function SaveCurrentDbase(obj, dbasePath)
     if isempty(dbasePath)
         % No default path provided, try to use a sensible one
         if ~isempty(obj.tempSettings.recentFiles)
-            % Try most recent file 
+            % Try most recent file
             dbasePath = obj.tempSettings.recentFiles{1};
         else
             dbasePath = obj.settings.DefaultDbaseFilename;
@@ -3985,7 +3973,7 @@ function tlim = getExportTLim(obj, filenum)
         otherwise
             msg = sprintf('Unknown time range mode: %s', obj.settings.Export.TimeRangeMode);
             msgbox(msg);
-            error(msg); %#ok<SPERR> 
+            error(msg); %#ok<SPERR>
     end
 end
 function footerText = generateExportFooterText(obj, notes)
@@ -4164,7 +4152,7 @@ function export(obj, filenum, tlim, tab)
         setPositionWithUnits(footerText, [0, panel.Position(3)], panel.Units, [1, 3]);
         exportWidgets(end+1) = footerText;
     end
-    
+
 
     stackChildren(panel, exportWidgets, 'Orientation', 'downwards', 'SortOrder', 'given');
     shrinkToContent(panel, ...
@@ -4646,7 +4634,7 @@ function axnum = GetAxnum(obj, hObject)
     axnum = find(hObject==obj.axes_Channel, 1);
 end
 
-function DeactivateEventDisplay(obj) %#ok<MANU> 
+function DeactivateEventDisplay(obj) %#ok<MANU>
 end
 
 function numEvents = GetNumEvents(obj, eventSourceIdx, eventPartNum)
@@ -4832,7 +4820,7 @@ function menu_FunctionParams(obj,axnum)
     % Update events for the event source configuration of this
     % channel axes.
     eventSourceIdx = obj.DetectEventsInAxes(axnum);
-    
+
     for axn = 1:2
         if obj.GetChannelAxesEventSourceIdx(axn)==eventSourceIdx
             % Axes is visible and is currently showing the same
@@ -5152,11 +5140,11 @@ function renameProperty(obj, oldPropertyName, newPropertyName, updateGUI)
 end
 
 function updateShowPropertyColumnMenu(obj)
-    % Update context menu with the current properties 
+    % Update context menu with the current properties
     arguments
         obj electro_gui
     end
-        
+
     numProperties = obj.getNumProperties();
 
     % Delete old menu items
@@ -5218,17 +5206,17 @@ function GUIPropertyChangeHandler(obj, hObject, event)
     firstPropertyColumn = obj.FileInfoBrowserFirstPropertyColumn;
 %     if obj.isShiftDown() && ~isempty(obj.FileInfoBrowser.PreviousSelection)
 %         % User was holding shift down - set all values in that range
-% 
+%
 %         changeIndices = event.Indices - [0, firstPropertyColumn - 1];
-% 
+%
 %         selection = obj.FileInfoBrowser.Selection - [0, firstPropertyColumn - 1];
 %         if any(all(changeIndices == selection, 2))
 %             % Change was inside selection
-% 
+%
 %             obj.dbase.Properties(unique(selection(:, 1)), changeIndices(2)) = event.NewData;
 %         end
 %     end
-    
+
     if electro_gui.areFilesSorted(obj.settings)
         propertiesArray = obj.FileInfoBrowser.Data(obj.settings.InverseFileSortOrder, firstPropertyColumn:end);
     else
@@ -5317,7 +5305,7 @@ function UpdateFileInfoBrowser(obj)
         firstColumnsFormat = {'char'};
         firstColumnsWidth = 28;
     end
-    
+
     % Initialize table data array
     data = cell(electro_gui.getNumFiles(obj.dbase), obj.getNumVisibleProperties() + obj.FileInfoBrowserFirstPropertyColumn-1);
     % Assign file numbers
@@ -5442,13 +5430,13 @@ function result = EvaluateFileSortCustomExpression(obj, expression)
     % in this workspace
     for k = 1:length(includedPropertyNames)
         propertyName = includedPropertyNames{k};
-        val = obj.getPropertyValue(propertyName, 1:electro_gui.getNumFiles(obj.dbase))'; %#ok<NASGU> 
+        val = obj.getPropertyValue(propertyName, 1:electro_gui.getNumFiles(obj.dbase))'; %#ok<NASGU>
         eval([propertyName, ' = val;']);
     end
     % Get rid of extra variables
     clear('k', 'propertyName', 'val', 'includedPropertyNames');
     % Assign additional variables
-    Read = obj.dbase.FileReadState; %#ok<NASGU> 
+    Read = obj.dbase.FileReadState; %#ok<NASGU>
     % Evaluate expression and get result
     result = eval(expression);
 end
@@ -7468,7 +7456,7 @@ function setupGUI(obj)
         'Children',[],...
         'Tag','text1',...
         'FontSize',10);
-    
+
     obj.edit_FileNumber = uicontrol(...
         'Parent',obj.panel_Files,...
         'Units','normalized',...
@@ -7675,7 +7663,7 @@ function setupGUI(obj)
         'Label', 'Hide all property columns', ...
         'Tag', 'menu_HideAllPropertyColumns', ...
         'Separator', false);
-    
+
     obj.menu_AutoCalculate = uimenu(...
         'Parent',obj.context_Sonogram,...
         'Callback',@obj.menu_AutoCalculate_Callback,...
@@ -8929,7 +8917,7 @@ function setupGUI(obj)
         'Callback',@NOP,...
         'Label','Plugins',...
         'Tag','menu_Plugins');
-    
+
     %% Playback menu
     obj.menu_Playback = uimenu(...
         'Parent',obj.figure_Main,...
@@ -9140,7 +9128,7 @@ function setupGUI(obj)
         'Callback',@obj.action_ClearExport_Callback,...
         'Label','Clear export',...
         'Tag','action_Export');
-    
+
     obj.action_ClearExportTab = uimenu(...
         'Parent',obj.menu_Export,...
         'Callback',@obj.action_ClearExportTab_Callback,...
@@ -9187,11 +9175,11 @@ function setupGUI(obj)
         'Tag', 'menu_BugReport');
 
     obj.axes_Sonogram.UIContextMenu = obj.context_Sonogram;
-    
+
     obj.axes_Amplitude.UIContextMenu = obj.context_Amplitude;
-    
+
     obj.axes_Segments.UIContextMenu = obj.context_Segments;
-    
+
     obj.popup_EventListAlign.UIContextMenu = obj.context_EventListAlign;
 
     %% File browser-related stuff
@@ -9270,16 +9258,16 @@ function createExportControlPanel(obj)
     obj.ExportControlPanel.includeOptions(end).Label = 'Amplitude';
     obj.ExportControlPanel.includeOptions(end).Default = false;
     obj.ExportControlPanel.includeOptions(end+1).Name = 'IncludeSyllables';
-    obj.ExportControlPanel.includeOptions(end).Label = 'Syllables'; 
+    obj.ExportControlPanel.includeOptions(end).Label = 'Syllables';
     obj.ExportControlPanel.includeOptions(end).Default = false;
     obj.ExportControlPanel.includeOptions(end+1).Name = 'IncludeMarkers';
-    obj.ExportControlPanel.includeOptions(end).Label = 'Markers'; 
+    obj.ExportControlPanel.includeOptions(end).Label = 'Markers';
     obj.ExportControlPanel.includeOptions(end).Default = false;
     obj.ExportControlPanel.includeOptions(end+1).Name = 'IncludeTopChannelAxes';
-    obj.ExportControlPanel.includeOptions(end).Label = 'Top channel axes'; 
+    obj.ExportControlPanel.includeOptions(end).Label = 'Top channel axes';
     obj.ExportControlPanel.includeOptions(end).Default = false;
     obj.ExportControlPanel.includeOptions(end+1).Name = 'IncludeBotChannelAxes';
-    obj.ExportControlPanel.includeOptions(end).Label = 'Bottom channel axes'; 
+    obj.ExportControlPanel.includeOptions(end).Label = 'Bottom channel axes';
     obj.ExportControlPanel.includeOptions(end).Default = false;
     obj.ExportControlPanel.includeOptions(end+1).Name = 'IncludeEvents';
     obj.ExportControlPanel.includeOptions(end).Label = 'Events';
@@ -9288,16 +9276,16 @@ function createExportControlPanel(obj)
     obj.ExportControlPanel.includeOptions(end).Label = 'Timestamp';
     obj.ExportControlPanel.includeOptions(end).Default = false;
     obj.ExportControlPanel.includeOptions(end+1).Name = 'IncludeFilenum';
-    obj.ExportControlPanel.includeOptions(end).Label = 'File number'; 
+    obj.ExportControlPanel.includeOptions(end).Label = 'File number';
     obj.ExportControlPanel.includeOptions(end).Default = false;
     obj.ExportControlPanel.includeOptions(end+1).Name = 'IncludeFilename';
-    obj.ExportControlPanel.includeOptions(end).Label = 'File name'; 
+    obj.ExportControlPanel.includeOptions(end).Label = 'File name';
     obj.ExportControlPanel.includeOptions(end).Default = false;
     obj.ExportControlPanel.includeOptions(end+1).Name = 'IncludeDirectory';
     obj.ExportControlPanel.includeOptions(end).Label = 'File directory';
     obj.ExportControlPanel.includeOptions(end).Default = false;
     obj.ExportControlPanel.includeOptions(end+1).Name = 'IncludeNotes';
-    obj.ExportControlPanel.includeOptions(end).Label = 'Notes'; 
+    obj.ExportControlPanel.includeOptions(end).Label = 'Notes';
     obj.ExportControlPanel.includeOptions(end).Default = false;
     numOptions = length(obj.ExportControlPanel.includeOptions);
     obj.ExportControlPanel.IncludePanel = uipanel(...
@@ -9318,7 +9306,7 @@ function createExportControlPanel(obj)
     stackChildren(obj.ExportControlPanel.IncludePanel, "Direction", "vertical", "Orientation", "upwards");
     gridLayout(end+1, 1:2) = obj.ExportControlPanel.IncludePanel;
     shrinkToContent(obj.ExportControlPanel.IncludePanel);
-    
+
     % Layout widgets
     obj.ExportControlPanel.layoutTabOptions = struct.empty();
     obj.ExportControlPanel.layoutTabOptions(end+1).Name = 'LayoutTabCurrent';
@@ -9370,7 +9358,7 @@ function createExportControlPanel(obj)
             obj.ExportControlPanel.LayoutTabGroup, ...
             "Style", 'radiobutton', ...
             "Value", obj.ExportControlPanel.layoutTabOptions(k).Default, ...
-            "String", obj.ExportControlPanel.layoutTabOptions(k).Label, ... 
+            "String", obj.ExportControlPanel.layoutTabOptions(k).Label, ...
             "Units", 'characters', ...
             "Position", [0, numTabOptions-k, width, 1], ...
             "Visible", true);
@@ -9388,7 +9376,7 @@ function createExportControlPanel(obj)
             obj.ExportControlPanel.LayoutSortGroup, ...
             "Style", 'radiobutton', ...
             "Value", obj.ExportControlPanel.layoutSortOptions(k).Default, ...
-            "String", obj.ExportControlPanel.layoutSortOptions(k).Label, ... 
+            "String", obj.ExportControlPanel.layoutSortOptions(k).Label, ...
             "Units", 'characters', ...
             "Position", [0, numSortOptions-k, width, 1], ...
             "Visible", true);
@@ -9405,7 +9393,7 @@ function createExportControlPanel(obj)
         obj.ExportControlPanel.(obj.ExportControlPanel.layoutLineOptions(k).Name) = uicontrol(obj.ExportControlPanel.LayoutLineGroup, ...
             "Style", 'radiobutton', ...
             "Value", obj.ExportControlPanel.layoutLineOptions(k).Default, ...
-            "String", obj.ExportControlPanel.layoutLineOptions(k).Label, ... 
+            "String", obj.ExportControlPanel.layoutLineOptions(k).Label, ...
             "Units", 'characters', ...
             "Position", [0, numLineOptions-k, width, 1], ...
             "Visible", true);
@@ -9422,14 +9410,14 @@ function createExportControlPanel(obj)
         obj.ExportControlPanel.(obj.ExportControlPanel.layoutScaleOptions(k).Name) = uicontrol(obj.ExportControlPanel.LayoutScaleGroup, ...
             "Style", 'radiobutton', ...
             "Value", obj.ExportControlPanel.layoutScaleOptions(k).Default, ...
-            "String", obj.ExportControlPanel.layoutScaleOptions(k).Label, ... 
+            "String", obj.ExportControlPanel.layoutScaleOptions(k).Label, ...
             "Units", 'characters', ...
             "Position", [0, numScaleOptions + numScaleInputs - k, width, 1], ...
             "Visible", true);
     end
     gridLayout(end+1, 1:2) = obj.ExportControlPanel.LayoutScaleGroup;
     shrinkToContent(obj.ExportControlPanel.LayoutScaleGroup);
-    
+
     obj.ExportControlPanel.LayoutScaleWidthInputLabel = uicontrol(...
         obj.ExportControlPanel.fig, ...
         "Style", 'Text', ...
@@ -9494,7 +9482,7 @@ function createExportControlPanel(obj)
 
     shrinkToContent(obj.ExportControlPanel.fig);
 end
-function updateExportPanelLayout(obj) 
+function updateExportPanelLayout(obj)
     obj.arrangeExportPanels();
 end
 function updateExportControlGUIValues(obj)
@@ -9724,7 +9712,7 @@ function newTab = addExportTab(obj, name)
 
     % Make sure tab name is unique
     name = getUniqueName(name, tabNames);
-    
+
     % Create a new tab
     newTab = uitab(...
         'Parent', obj.ExportWindow.tabGroup, ...
@@ -9866,12 +9854,12 @@ function arrangeExportPanels(obj)
                     panel.Units = 'inches';
                     widthInches = diff(info.timeRange) * obj.settings.Export.LayoutScaleWidth;
                     % Set width in inches
-                    setPositionWithUnits(panel, widthInches, 'inches', 3);    
+                    setPositionWithUnits(panel, widthInches, 'inches', 3);
                 case 'LayoutScaleEqualWidth'
                     panel.Units = 'inches';
                     widthInches = obj.settings.Export.LayoutScaleWidth;
                     % Set width in inches
-                    setPositionWithUnits(panel, widthInches, 'inches', 3);    
+                    setPositionWithUnits(panel, widthInches, 'inches', 3);
                 case 'LayoutScaleFullWidth'
                     % Set width normalized
                     panel.Units = 'normalized';
@@ -9919,7 +9907,7 @@ function arrangeExportPanels(obj)
                 lineAssignments = zeros(size(sortedPanels{tabNum}));
                 lineTopYs = tabHeight;
                 lineHeights = 0;
-    
+
                 for panelNum = 1:length(sortedPanels{tabNum})
                     % Get panel
                     panel = sortedPanels{tabNum}(panelNum);
@@ -10104,7 +10092,7 @@ end
         end
         function click_sound(obj, hObject, event)
             % Callback for a mouse click on any of the sound axes
-        
+
             % If the direct object clicked on was not an axes, find the axes
             % ancestor.
 
@@ -10116,18 +10104,18 @@ end
                     error('Error when clicking on one of the sound axes');
                 end
             end
-        
-        
+
+
             current_axes = hObject;
-        
+
             if strcmp(obj.figure_Main.SelectionType, 'normal')
                 % Normal left mouse button click
                 %   Zoom in (either with a box if it's a
                 %   click/drag, or just shift the zoom box over to click location if
                 %   it's just a click.
-        
+
                 rect = rbbox();
-                rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Sound);
+                rect = getFigureCoordsInAxesDataUnits(rect, hObject);
 
                 if rect(3) == 0
                     % Click/drag box has zero width, so we're going to shift the zoom
@@ -10160,10 +10148,10 @@ end
                 % Double-click
                 %   Reset zoom
                 [numSamples, fs] = obj.eg_GetSamplingInfo();
-        
+
                 obj.settings.TLim = [0, numSamples/fs];
                 obj.updateTimescaleView();
-        
+
                 if obj.menu_FrequencyZoom.Checked
                     % We're resetting y-axis (frequency) zoom too
                     obj.settings.CustomFreqLim = obj.settings.FreqLim;
@@ -10171,13 +10159,13 @@ end
                 % Update spectrogram scales
             elseif strcmp(obj.figure_Main.SelectionType, 'alt') && length(obj.figure_Main.CurrentModifier)==1 && strcmp(obj.figure_Main.CurrentModifier, 'control')
                 % User control-clicked on axes_Sonogram
-        
+
                 rect = rbbox();
                 rect = getFigureCoordsInAxesDataUnits(rect, current_axes);
 
                 time = [rect(1), rect(1) + rect(3)];
                 time = round(obj.dbase.Fs * time);
-        
+
                 % Add new marker to backend
                 obj.CreateNewMarker(time);
             elseif any(strcmp(obj.figure_Main.CurrentModifier, 'control')) && any(strcmp(obj.figure_Main.CurrentModifier, 'alt'))
@@ -10187,7 +10175,7 @@ end
                     % Sonogram has not been plotted - abort
                     return;
                 end
-                
+
                 % Set up a "rubber band box" to display user mouse click/drag. This
                 %   blocks until user lets go of mouse, and returns the *figure*
                 %   coordinates of the click/drag rectangle
@@ -10195,7 +10183,7 @@ end
                 rect = getFigureCoordsInAxesDataUnits(rect, current_axes);
                 electro_gui.CreatePowerSpectrumInfoPopup(rect, obj.axes_Sonogram, obj.SonogramHandle);
             end
-        
+
         end
         % --- Executes on button press in push_PreviousFile.
         function push_PreviousFile_Callback(obj, hObject, event)
@@ -10297,7 +10285,7 @@ end
 
         end
         function scrollHandler(obj, source, event)
-        
+
             obj.figure_Main.Units = 'normalized';
             xy = event.Source.CurrentPoint;
             x = xy(1);
@@ -10316,7 +10304,7 @@ end
                 newActiveEventNum = electro_gui.findNextTrueIdx(visibleEventMask, obj.settings.ActiveEventNum, event.VerticalScrollCount);
                 obj.SetActiveEventDisplay(newActiveEventNum);
             end
-        
+
         end
 
         function AlgorithmMenuClick(obj, hObject, event)
@@ -10372,9 +10360,9 @@ end
 
         end
         function click_segmentaxes(obj, hObject, event)
-        
+
             filenum = electro_gui.getCurrentFileNum(obj.settings);
-        
+
             if strcmp(obj.figure_Main.SelectionType,'normal')
                 % This code takes a selection of segments and toggles their selection
                 %   status. Note that it used to set the selection status to unselected
@@ -10384,24 +10372,24 @@ end
                 obj.axes_Segments.Units = 'pixels';
                 obj.axes_Segments.Parent.Units = 'pixels';
                 rect = rbbox;
-        
+
                 if rect(3) < 10
                 % This was probably not intended to be a click-and-drag - ignore it
                     return
                 end
-        
+
                 rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Segments);
 
                 f = find(obj.dbase.SegmentTimes{filenum}(:,1)>rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*obj.dbase.Fs);
                 g = find(obj.dbase.SegmentTimes{filenum}(:,2)>rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*obj.dbase.Fs);
                 h = find(obj.dbase.SegmentTimes{filenum}(:,1)<rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*obj.dbase.Fs);
                 f = unique([f; g; h]);
-        
+
                 obj.dbase.SegmentIsSelected{filenum}(f) = ~obj.dbase.SegmentIsSelected{filenum}(f); %sum(obj.dbase.SegmentIsSelected{filenum}(f))<=length(f)/2;
                 obj.updateSegmentSelectHighlight();
             elseif strcmp(obj.figure_Main.SelectionType,'open')
                 [numSamples, fs] = obj.eg_GetSamplingInfo();
-        
+
                 obj.settings.TLim = [0, numSamples/fs];
                 obj.updateTimescaleView();
             elseif strcmp(obj.figure_Main.SelectionType,'extend')
@@ -10938,7 +10926,7 @@ end
 
         function popup_Functions_Callback(obj, axnum)
             obj.SetActiveAxnum(axnum);
-            
+
             % Update the function parameters for this axis
             obj.settings.ChannelAxesFunctionParams{axnum} = obj.getSelectedFunctionParameters(axnum);
 
@@ -11082,7 +11070,7 @@ end
             end
 
             obj.SetActiveAxnum(axnum);
-            
+
             ax = obj.axes_Channel(axnum);
 
             if strcmp(obj.figure_Main.SelectionType,'open')
@@ -11227,7 +11215,7 @@ end
                     delete(obj.ActiveEventCursors);
 
                     rect = rbbox();
-                    rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Channel(axnum));                    
+                    rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Channel(axnum));
 
                     % Find events that fall within time bounds of box
                     filenum = electro_gui.getCurrentFileNum(obj.settings);
@@ -11742,7 +11730,7 @@ end
             [MATLAB_utilsCommitDate, MATLAB_utilsCommitHash, MATLAB_utilsBranchName] = getGitInfo('MATLAB_utils');
 
             try
-                lastError = lasterror(); %#ok<LERR> 
+                lastError = lasterror(); %#ok<LERR>
                 lastErrorMessage = {sprintf('\t%s\n%s\n%s\n', lastError.message, lastError.identifier)};
                 for k = 1:length(lastError.stack)
                     lastErrorMessage{end+1} = ...
@@ -11823,7 +11811,7 @@ end
                 catch
                     delete(tempPath);
                 end
-                
+
             else
                 msgbox('Bug report cancelled');
             end
@@ -12059,9 +12047,9 @@ end
                         msgbox('No properties to sort by yet - please add one first')
                         return;
                     end
-    
+
                     obj.SaveState();
-    
+
                     % Determine what default property name to offer the user
                     defaultProperty = obj.settings.FileSortPropertyName;  % Try the previously used sort property first
                     if isempty(defaultProperty) || ~any(strcmp(defaultProperty, obj.dbase.PropertyNames))
@@ -12071,7 +12059,7 @@ end
                     % Query the user
                     defaultProperty = categorical({defaultProperty}, obj.dbase.PropertyNames);
                     inputs = getInputs('Sort by which property?', {'Property name'}, {defaultProperty}, {''});
-    
+
                     % Use user's choice
                     if ~isempty(inputs)
                         obj.settings.FileSortPropertyName = char(inputs{1});
@@ -12160,17 +12148,17 @@ end
                 ch.ButtonDownFcn = ax.ButtonDownFcn;
             end
         end
-        function menu_Animation_Callback(obj, hObject, event) 
+        function menu_Animation_Callback(obj, hObject, event)
         end
         function push_Calculate_Callback(obj, hObject, event)
             if ~electro_gui.isDataLoaded(obj.dbase)
                 % No data yet, do nothing
                 return;
             end
-        
+
             obj.updateSonogram();
-        
-        
+
+
         end
         function setSonogramClim(obj, clim)
             obj.settings.SonogramClim = clim;
@@ -12198,11 +12186,11 @@ end
             end
             obj.settings.FreqLim = [str2double(answer{1}) str2double(answer{2})];
             obj.settings.CustomFreqLim = obj.settings.FreqLim;
-        
+
             obj.updateSonogram();
-        
+
         end
-        
+
         function push_Cancel_Callback(obj, hObject, event)
         end
         function context_Amplitude_Callback(obj, hObject, event)
@@ -12216,54 +12204,54 @@ end
             else
                 obj.menu_AutoThreshold.Checked = 'off';
             end
-        
+
         end
         function context_EventViewer_Callback(obj, hObject, event)
         end
         function menu_ChannelColors1_Callback(obj, hObject, event)
-        
+
         end
         function menu_PlotColor1_Callback(obj, hObject, event)
             c = uisetcolor(obj.settings.ChannelColor(1,:), 'Select color');
             obj.settings.ChannelColor(1,:) = c;
             obj = findobj('Parent',obj.axes_Channel1,'LineStyle','-');
             obj.Color = c;
-        
+
             obj.updateSonogramOverlay();
-        
-        
+
+
         end
         function menu_ThresholdColor1_Callback(obj, hObject, event)
             c = uisetcolor(obj.settings.ChannelThresholdColor(1,:), 'Select color');
             obj.settings.ChannelThresholdColor(1,:) = c;
             obj = findobj('Parent',obj.axes_Channel1,'LineStyle',':');
             obj.Color = c;
-        
-        
-        
+
+
+
         end
         function menu_ChannelColors2_Callback(obj, hObject, event)
-        
+
         end
         function menu_PlotColor2_Callback(obj, hObject, event)
             c = uisetcolor(obj.settings.ChannelColor(2,:), 'Select color');
             obj.settings.ChannelColor(2,:) = c;
             obj = findobj('Parent',obj.axes_Channel2,'LineStyle','-');
             obj.Color = c;
-        
+
             obj.updateSonogramOverlay();
-        
-        
+
+
         end
         function menu_ThresholdColor2_Callback(obj, hObject, event)
             c = uisetcolor(obj.settings.ChannelThresholdColor(2,:), 'Select color');
             obj.settings.ChannelThresholdColor(2,:) = c;
             obj = findobj('Parent',obj.axes_Channel2,'LineStyle',':');
             obj.Color = c;
-        
-        
-        
-        
+
+
+
+
         end
         % --- Executes on button press in push_BrightnessUp.
         function push_BrightnessUp_Callback(obj, hObject, event)
@@ -12271,7 +12259,7 @@ end
                 % No data yet, do nothing
                 return;
             end
-        
+
             if obj.settings.CurrentSonogramIsPower == 1
                 if obj.settings.SonogramClim(2) > obj.settings.SonogramClim(1)+0.5
                     obj.settings.SonogramClim(2) = obj.settings.SonogramClim(2)-0.5;
@@ -12279,9 +12267,9 @@ end
             else
                 obj.settings.NewDerivativeSlope = obj.settings.DerivativeSlope+0.2;
             end
-        
+
             obj.updateSonogramColors();
-        
+
         end
         % --- Executes on button press in push_BrightnessDown.
         function push_BrightnessDown_Callback(obj, hObject, event)
@@ -12289,16 +12277,16 @@ end
                 % No data yet, do nothing
                 return;
             end
-        
+
             if obj.settings.CurrentSonogramIsPower == 1
                 obj.settings.SonogramClim(2) = obj.settings.SonogramClim(2)+0.5;
             else
                 obj.settings.NewDerivativeSlope = obj.settings.DerivativeSlope-0.2;
             end
-        
+
             obj.updateSonogramColors();
-        
-        
+
+
         end
         % --- Executes on button press in push_OffsetUp.
         function push_OffsetUp_Callback(obj, hObject, event)
@@ -12306,7 +12294,7 @@ end
                 % No data yet, do nothing
                 return;
             end
-        
+
             if obj.settings.CurrentSonogramIsPower == 1
                 if obj.settings.SonogramClim(1) < obj.settings.SonogramClim(2)-0.5
                     obj.settings.SonogramClim(1) = obj.settings.SonogramClim(1)+0.5;
@@ -12315,8 +12303,8 @@ end
                 obj.settings.DerivativeOffset = obj.settings.DerivativeOffset + 0.05;
             end
             obj.updateSonogramColors();
-        
-        
+
+
         end
         % --- Executes on button press in push_OffsetDown.
         function push_OffsetDown_Callback(obj, hObject, event)
@@ -12324,30 +12312,30 @@ end
                 % No data yet, do nothing
                 return;
             end
-        
+
             if obj.settings.CurrentSonogramIsPower == 1
                 obj.settings.SonogramClim(1) = obj.settings.SonogramClim(1)-0.5;
             else
                 obj.settings.DerivativeOffset = obj.settings.DerivativeOffset - 0.05;
             end
             obj.updateSonogramColors();
-        
-        
-        
+
+
+
         end
         function menu_AmplitudeColors_Callback(obj, hObject, event)
-        
+
         end
         function menu_AmplitudeColor_Callback(obj, hObject, event)
             c = uisetcolor(obj.settings.AmplitudeColor, 'Select color');
             obj.settings.AmplitudeColor = c;
-        
+
             if isempty(obj.AmplitudePlotHandle) || ~isgraphics(obj.AmplitudePlotHandle)
                 obj.AmplitudePlotHandle.Color = c;
             end
-        
-        
-        
+
+
+
         end
         function menu_AmplitudeThresholdColor_Callback(obj, hObject, event)
             c = uisetcolor(obj.settings.AmplitudeThresholdColor, 'Select color');
@@ -12355,82 +12343,82 @@ end
             if ~isempty(obj.SegmentThresholdHandle) && isgraphics(obj.SegmentThresholdHandle)
                 obj.SegmentThresholdHandle.Color = c;
             end
-        
+
         end
-        
+
         function edit_SoundWeight_Callback(obj, hObject, event)
-        
+
         end
-        
+
         function edit_TopWeight_Callback(obj, hObject, event)
-        
+
         end
-        
+
         function edit_BottomWeight_Callback(obj, hObject, event)
-        
+
         end
-        
+
         function edit_SoundClipper_Callback(obj, hObject, event)
-        
+
         end
-        
+
         function edit_TopClipper_Callback(obj, hObject, event)
-        
+
         end
-        
+
         function edit_BottomClipper_Callback(obj, hObject, event)
-        
+
         end
-        
+
         function menu_EventsDisplay1_Callback(obj, hObject, event)
         end
         function menu_EventsDisplay2_Callback(obj, hObject, event)
         end
         function menu_SelectionParameters1_Callback(obj, hObject, event)
             obj.SelectionParameters(1);
-        
-        
+
+
         end
         function menu_SelectionParameters2_Callback(obj, hObject, event)
             obj.SelectionParameters(2);
-        
+
         end
-        
+
         function SelectionParameters(obj,axnum)
-        
+
             answer = inputdlg({'Search before (ms)','Search after (ms)'},'Selection parameteres',1,{num2str(obj.SearchBefore(axnum)*1000),num2str(obj.SearchAfter(axnum)*1000)});
             if isempty(answer)
                 return
             end
-        
+
             obj.SearchBefore(axnum) = str2double(answer{1})/1000;
             obj.SearchAfter(axnum) = str2double(answer{2})/1000;
-        
+
         end
         function menu_ViewerDisplay_Callback(obj, hObject, event)
         end
         function menu_DisplayValues_Callback(obj, hObject, event)
             obj.menu_DisplayValues.Checked = 'on';
             obj.menu_DisplayFeatures.Checked = 'off';
-        
+
             obj.menu_XAxis.Enable = 'off';
             obj.menu_YAxis.Enable = 'off';
-        
+
             obj.updateEventViewer();
-        
-        
+
+
         end
         function menu_DisplayFeatures_Callback(obj, hObject, event)
             obj.menu_DisplayValues.Checked = 'off';
             obj.menu_DisplayFeatures.Checked = 'on';
-        
+
             obj.menu_XAxis.Enable = 'on';
             obj.menu_YAxis.Enable = 'on';
-        
+
             obj.updateEventViewer();
-        
-        
-        
+
+
+
         end
         function menu_AutoDisplayEvents_Callback(obj, hObject, event)
             if obj.menu_AutoDisplayEvents.Checked
@@ -12439,9 +12427,9 @@ end
                 obj.menu_AutoDisplayEvents.Checked = 'on';
                 obj.updateEventViewer();
             end
-        
-        
-        
+
+
+
         end
         function menu_EventsAxisLimits_Callback(obj, hObject, event)
             eventSourceIdx = obj.GetEventViewerEventSourceIdx();
@@ -12452,34 +12440,34 @@ end
                 return
             end
             obj.settings.EventXLims(eventSourceIdx,:) = [-str2double(answer{1})/1000, str2double(answer{2})/1000];
-        
+
             obj.updateEventViewer();
-        
+
         end
-        
+
         function menu_XAxis_Callback(obj, hObject, event)
         end
         function menu_Yaxis_Callback(obj, hObject, event)
         end
         function menu_YAxis_Callback(obj, hObject, event)
         end
-        
+
         function XAxisMenuClick(obj, hObject, event)
-        
+
             obj.menu_XAxis_List.Checked = 'off';
             hObject.Checked = 'on';
-        
+
             obj.updateEventViewer();
-        
+
         end
-        
+
         function YAxisMenuClick(obj, hObject, event)
-        
+
             obj.menu_YAxis_List.Checked = 'off';
             hObject.Checked = 'on';
-        
+
             obj.updateEventViewer();
-        
+
         end
 
         function menu_FrequencyZoom_Callback(obj, hObject, event)
@@ -12488,17 +12476,17 @@ end
             else
                 obj.menu_FrequencyZoom.Checked = 'on';
             end
-        
-        
+
+
         end
         function MacrosMenuclick(obj, hObject, event)
             obj.SaveState();
-        
+
             f = find(obj.menu_Macros==hObject);
-        
+
             mcr = obj.menu_Macros(f).Label;
             electro_gui.eg_runPlugin(obj.plugins.macros, mcr, obj);
-        
+
         end
         function menu_LineWidth1_Callback(obj, hObject, event)
             answer = inputdlg({'Line width'},'Line width',1,{num2str(obj.settings.ChannelLineWidth(1))});
@@ -12508,10 +12496,10 @@ end
             obj.settings.ChannelLineWidth(1) = str2double(answer{1});
             obj = findobj('Parent',obj.axes_Channel1,'LineStyle','-');
             obj.LineWidth  = obj.settings.ChannelLineWidth(1);
-        
+
             obj.updateSonogramOverlay();
-        
-        
+
+
         end
         function menu_LineWidth2_Callback(obj, hObject, event)
             answer = inputdlg({'Line width'},'Line width',1,{num2str(obj.settings.ChannelLineWidth(2))});
@@ -12521,17 +12509,17 @@ end
             obj.settings.ChannelLineWidth(2) = str2double(answer{1});
             obj = findobj('Parent',obj.axes_Channel2,'LineStyle','-');
             obj.LineWidth  = obj.settings.ChannelLineWidth(2);
-        
+
             obj.updateSonogramOverlay();
-        
-        
-        
+
+
+
         end
         function menu_BackgroundColor_Callback(obj, hObject, event)
-        
+
             c = uisetcolor(obj.settings.BackgroundColors(2-obj.settings.CurrentSonogramIsPower,:), 'Select color');
             obj.settings.BackgroundColors(2-obj.settings.CurrentSonogramIsPower,:) = c;
-        
+
             if obj.settings.CurrentSonogramIsPower == 1
                 obj.Colormap(1,:) = c;
                 colormap(obj.Colormap);
@@ -12542,15 +12530,15 @@ end
                 cl(indx,:) = repmat(obj.settings.BackgroundColors(2,:),length(indx),1);
                 colormap(cl);
             end
-        
-        
-        
+
+
+
         end
         function menu_Colormap_Callback(obj, hObject, event)
         end
-        
+
         function ColormapClick(obj, hObject, event)
-        
+
             if strcmp(hObject.Label,'(Default)')
                 colormap('parula');
                 cmap = colormap;
@@ -12558,14 +12546,14 @@ end
             else
                 cmap = electro_gui.eg_runPlugin(obj.plugins.colorMaps, hObject.Label);
             end
-        
+
             obj.Colormap = cmap;
             obj.settings.BackgroundColors(1,:) = cmap(1,:);
-        
+
             colormap(obj.Colormap);
-        
-        
-        
+
+
+
         end
         function menu_OverlayTop_Callback(obj, hObject, event)
             if ~obj.menu_OverlayTop.Checked
@@ -12573,14 +12561,14 @@ end
             else
                 obj.menu_OverlayTop.Checked = 'off';
             end
-        
+
             obj.updateSonogramOverlay();
-        
-        
-        
+
+
+
         end
         function menu_Overlay_Callback(obj, hObject, event)
-        
+
         end
         function menu_OverlayBottom_Callback(obj, hObject, event)
             if ~obj.menu_OverlayBottom.Checked
@@ -12588,48 +12576,48 @@ end
             else
                 obj.menu_OverlayBottom.Checked = 'off';
             end
-        
+
             obj.updateSonogramOverlay();
-        
+
         end
         function menu_SonogramParameters_Callback(obj, hObject, event)
-        
+
             if isempty(obj.settings.SonogramParams.Names)
                 errordlg('Current sonogram algorithm does not require parameters.','Sonogram error');
                 return
             end
-        
+
             answer = inputdlg(obj.settings.SonogramParams.Names,'Sonogram parameters',1,obj.settings.SonogramParams.Values);
             if isempty(answer)
                 return
             end
             obj.settings.SonogramParams.Values = answer;
-        
+
             for c = 1:length(obj.menu_Algorithm)
                 if obj.menu_Algorithm(c).Checked
                     h = obj.menu_Algorithm(c);
                     h.UserData = obj.settings.SonogramParams;
                 end
             end
-        
+
             obj.updateSonogram();
-        
+
             obj.updateSonogramOverlay();
-        
-        
-        
+
+
+
         end
         function menu_EventParams1_Callback(obj, hObject, event)
             obj.menu_EventParams(1);
-        
-        
-        
+
+
+
         end
         function menu_EventParams2_Callback(obj, hObject, event)
             obj.menu_EventParams(2);
-        
+
         end
-        
+
         function menu_EventParams(obj, axnum)
             eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
             if isempty(eventSourceIdx)
@@ -12637,7 +12625,7 @@ end
                 errordlg('Error, no event source yet. Please select an event detector first.')
                 return;
             end
-            
+
             params = obj.getSelectedEventParameters(axnum);
 
             if ~isfield(params, 'Names') || isempty(params.Names)
@@ -12660,7 +12648,7 @@ end
             % Update events for the event source configuration of this
             % channel axes.
             eventSourceIdx = obj.DetectEventsInAxes(axnum);
-        
+
             for axn = 1:2
                 if obj.GetChannelAxesEventSourceIdx(axn)==eventSourceIdx
                     % Axes is visible and is currently showing the same
@@ -12668,21 +12656,21 @@ end
                     obj.updateChannelEventDisplay(axn);
                 end
             end
-        
+
             obj.updateEventViewer();
 
         end
         function menu_FunctionParams1_Callback(obj, hObject, event)
             obj.menu_FunctionParams(1);
-        
-        
+
+
         end
         function menu_FunctionParams2_Callback(obj, hObject, event)
             obj.menu_FunctionParams(2);
-        
+
         end
         function menu_Split_Callback(obj, hObject, event)
-        
+
             % ginput(1);
             myginput(1); %mod by VG
             set(gca,'Units','pixels');
@@ -12696,16 +12684,16 @@ end
             rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
             rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
             rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
-        
+
             for c = 1:length(obj.menu_SegmenterList.Children)
                 if obj.menu_SegmenterList.Children(c).Checked
                     alg = obj.menu_SegmenterList.Children(c).Label;
                 end
             end
-        
+
             filenum = electro_gui.getCurrentFileNum(obj.settings);
-        
-        
+
+
             f = find(obj.dbase.SegmentTimes{filenum}(:,1)>rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*obj.dbase.Fs);
             g = find(obj.dbase.SegmentTimes{filenum}(:,2)>rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*obj.dbase.Fs);
             h = find(obj.dbase.SegmentTimes{filenum}(:,1)<rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*obj.dbase.Fs);
@@ -12713,19 +12701,19 @@ end
             if isempty(dl)
                 return
             end
-        
+
             sound = obj.getSound();
-        
+
             obj.settings.SegmenterParams.IsSplit = 1;
             sg = electro_gui.eg_runPlugin(obj.plugins.segmenters, alg, obj.amplitude, ...
                 sound, obj.dbase.Fs, rect(2), obj.settings.SegmenterParams);
-        
+
             f = find(sg(:,1)>rect(1)*obj.dbase.Fs & sg(:,1)<(rect(1)+rect(3))*obj.dbase.Fs);
             g = find(sg(:,2)>rect(1)*obj.dbase.Fs & sg(:,2)<(rect(1)+rect(3))*obj.dbase.Fs);
             h = find(sg(:,1)<rect(1)*obj.dbase.Fs & sg(:,2)>(rect(1)+rect(3))*obj.dbase.Fs);
             nw = unique([f; g; h]);
             sg = sg(nw,:);
-        
+
             obj.dbase.SegmentTimes{filenum} = [obj.dbase.SegmentTimes{filenum}(1:min(dl)-1,:); sg; obj.dbase.SegmentTimes{filenum}(max(dl)+1:end,:)];
             st = {};
             st = [st obj.dbase.SegmentTitles{filenum}(1:min(dl)-1)];
@@ -12740,32 +12728,32 @@ end
             obj.menu_SourceSoundAmplitude.Checked = 'on';
             obj.menu_SourceTopPlot.Checked = 'off';
             obj.menu_SourceBottomPlot.Checked = 'off';
-        
+
             obj.updateAmplitude();
-        
-        
-        
+
+
+
         end
         function menu_SourceTopPlot_Callback(obj, hObject, event)
             obj.menu_SourceSoundAmplitude.Checked = 'off';
             obj.menu_SourceTopPlot.Checked = 'on';
             obj.menu_SourceBottomPlot.Checked = 'off';
-        
+
             obj.updateAmplitude();
-        
-        
-        
+
+
+
         end
         function menu_SourceBottomPlot_Callback(obj, hObject, event)
-        
+
             obj.menu_SourceSoundAmplitude.Checked = 'off';
             obj.menu_SourceTopPlot.Checked = 'off';
             obj.menu_SourceBottomPlot.Checked = 'on';
-        
+
             obj.updateAmplitude();
-        
+
         end
-        
+
         function menu_Concatenate_Callback(obj, hObject, event)
             filenum = electro_gui.getCurrentFileNum(obj.settings);
 
@@ -12777,22 +12765,22 @@ end
             g = find(obj.dbase.SegmentTimes{filenum}(:,2)>rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*obj.dbase.Fs);
             h = find(obj.dbase.SegmentTimes{filenum}(:,1)<rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*obj.dbase.Fs);
             f = unique([f; g; h]);
-        
+
             if isempty(f)
                 return
             end
-        
+
             obj.dbase.SegmentTimes{filenum}(min(f),2) = obj.dbase.SegmentTimes{filenum}(max(f),2);
             obj.dbase.SegmentTimes{filenum}(min(f)+1:max(f),:) = [];
             obj.dbase.SegmentTitles{filenum}(min(f)+1:max(f)) = [];
             obj.dbase.SegmentIsSelected{filenum}(min(f)+1:max(f)) = [];
             obj.updateAnnotations();
-        
+
             obj.SetActiveSegment(min(f));
             obj.figure_Main.KeyPressFcn = @obj.keyPressHandler;
-        
-        
-        
+
+
+
         end
         function menu_DontPlot_Callback(obj, hObject, event)
             if ~obj.menu_DontPlot.Checked
@@ -12800,81 +12788,81 @@ end
             else
                 obj.menu_DontPlot.Checked = 'off';
             end
-        
+
             obj.LoadFile();
-        
+
         end
         function menu_FilterList_Callback(obj, hObject, event)
-        
+
         end
         function menu_FilterParameters_Callback(obj, hObject, event)
-        
+
             if isempty(obj.settings.FilterParams.Names)
                 errordlg('Current sound filter does not require parameters.','Filter error');
                 return
             end
-        
+
             answer = inputdlg(obj.settings.FilterParams.Names,'Filter parameters',1,obj.settings.FilterParams.Values);
             if isempty(answer)
                 return
             end
             obj.settings.FilterParams.Values = answer;
-        
+
             for c = 1:length(obj.menu_Filter)
                 if obj.menu_Filter(c).Checked
                     h = obj.menu_Filter(c);
                     h.UserData = obj.settings.FilterParams;
                 end
             end
-        
+
             obj.updateFilteredSound();
-        
+
             cla(obj.axes_Sound);
 
             obj.updateSoundEnvelope();
-        
+
             obj.updateXLimBox();
-        
+
             obj.setClickSoundCallback(obj.axes_Sonogram);
             obj.setClickSoundCallback(obj.axes_Sound);
-        
+
             obj.updateAmplitude();
-        
+
         end
         function menu_AmplitudeAutoRange_Callback(obj, hObject, event)
             mn = min(obj.amplitude);
             mx = max(obj.amplitude);
             obj.settings.AmplitudeLims = [mn-0.05*(mx-mn) mx+0.05*(mx-mn)];
-        
+
             obj.axes_Amplitude.YLim = obj.settings.AmplitudeLims;
-        
+
         end
         function menu_Properties_Callback(obj, hObject, eventdata)
-        
+
         end
         function menu_AddProperty_Callback(obj, hObject, event)
             if ~electro_gui.isDataLoaded(obj.dbase)
                 % No data yet, do nothing
                 return;
             end
-        
+
             obj.SaveState();
-        
+
             obj.eg_AddProperty();
-        
-        
+
+
         end
         function context_Properties_Callback(obj, hObject, event)
         end
-        
+
         function menu_RemoveProperty_Callback(obj, hObject, event)
             if ~electro_gui.isDataLoaded(obj.dbase)
                 % No data yet, do nothing
                 return;
             end
-        
+
             obj.SaveState();
-        
+
             [~, propertyNames] = obj.getProperties();
             if isempty(propertyNames)
                 % No properties to remove, do nothing
@@ -12886,16 +12874,16 @@ end
             if ~isempty(input)
                 obj.removeProperty(input{1});
             end
-        
-        
+
+
         end
         function menu_Search_Callback(obj, hObject, event)
         end
-        
+
         function SearchProperties(obj,search_type)
             error('Searching properties not implemented yet')
-        
-        
+
+
         %     if ~isfield(handles,'PropertyNames') || isempty(obj.dbase.PropertyNames)
         %         errordlg('No properties to search!','Error');
         %         return
@@ -12998,8 +12986,8 @@ end
         %     obj.edit_FileNumber.String = num2str(obj.settings.FileSortOrder(1));
         %
         %     obj.eg_LoadFile();
-        
-        
+
+
         end
         function menu_SearchNew_Callback(obj, hObject, event)
             obj.SearchProperties(1);
@@ -13012,7 +13000,7 @@ end
         end
         function menu_SearchNot_Callback(obj, hObject, event)
             error('Searching not implemented yet')
-        
+
         %     str = obj.list_XXFiles.String;
         %     found = [];
         %     for c = 1:obj.TotalFileNumber
@@ -13034,28 +13022,28 @@ end
         %     obj.eg_LoadFile();
         %
         %     guidata(hObject, handles);
-        
-        
+
+
         end
         function menu_RenameProperty_Callback(obj, hObject, event)
             obj.SaveState();
-        
+
             if obj.getNumProperties() == 0
                 % No properties to rename, do nothing
                 return;
             end
-        
+
             defaultProperty = categorical(obj.dbase.PropertyNames(1), obj.dbase.PropertyNames);
-        
+
             inputs = getInputs('Rename property', {'Property to rename', 'New property name'}, {defaultProperty, char(defaultProperty)}, {'', ''});
             if isempty(inputs)
                 % User cancelled, do nothing
                 return;
             end
-        
+
             propertyToRename = char(inputs{1});
             newPropertyName = char(inputs{2});
-        
+
             obj.renameProperty(propertyToRename, newPropertyName, true);
         end
         function menu_FillProperty_Callback(obj, hObject, event)
@@ -13063,30 +13051,30 @@ end
                 % No properties to fill, do nothing
                 return;
             end
-        
+
             defaultProperty = categorical(obj.dbase.PropertyNames(1), obj.dbase.PropertyNames);
             defaultValue = false;
-        
+
             inputs = getInputs('Fill property with value', {'Property to fill', 'Fill value'}, {defaultProperty, defaultValue}, {'', ''});
             if isempty(inputs)
                 % User cancelled, do nothing
                 return;
             end
-        
+
             obj.SaveState();
-        
+
             propertyToFill = char(inputs{1});
             fillValue = inputs{2};
-        
+
             propertyIdx = find(strcmp(propertyToFill, obj.dbase.PropertyNames), 1);
             obj.dbase.Properties(:, propertyIdx) = fillValue;
             obj.UpdateFileInfoBrowser();
-        
-        
-        
+
+
+
         end
         function menu_ScalebarHeight_Callback(obj, hObject, event)
-        
+
         end
         function menu_ChangeFiles_Callback(obj, hObject, event)
             if ~electro_gui.isDataLoaded(obj.dbase)
@@ -13099,55 +13087,55 @@ end
                 obj.settings.FileString, obj.settings.DefaultFileLoader, ...
                 obj.settings.DefaultChannelNumber, ...
                 "TitleString", "Update file lists", "GUI", true);
-        
+
             if cancel
                 return
             end
-        
+
             obj.SaveState();
 
             obj.dbase = mergeStructures(obj.dbase, dbase);
 
             obj.UpdateFiles(old_sound_files);
-        
+
             obj.UpdateFileInfoBrowser();
 
             obj.LoadFile();
-        
+
         end
         function menu_DeleteFiles_Callback(obj, hObject, event)
             if ~electro_gui.isDataLoaded(obj.dbase)
                 % No data yet, do nothing
                 return
             end
-        
+
             fileNames = obj.getFileNames();
-        
+
             [fileNumsToDelete,ok] = listdlg('ListString',fileNames,'Name','Delete files','PromptString','Select files to DELETE','InitialValue',[],'ListSize',[300 450]);
             if ok == 0
                 return
             end
-        
+
             obj.SaveState();
-        
+
             old_sound_files = obj.dbase.SoundFiles;
-        
+
             obj.dbase.SoundFiles(fileNumsToDelete) = [];
             for channelNum = 1:length(obj.dbase.ChannelFiles)
                 if ~isempty(obj.dbase.ChannelFiles{channelNum})
                     obj.dbase.ChannelFiles{channelNum}(fileNumsToDelete) = [];
                 end
             end
-        
+
             obj.UpdateFiles(old_sound_files);
 
             obj.UpdateFileInfoBrowser();
-            
+
             obj.LoadFile();
-        
+
         end
         function menu_AutoApplyYLim_Callback(obj, hObject, event)
-        
+
             if obj.menu_AutoApplyYLim.Checked
                 obj.menu_AutoApplyYLim.Checked = 'off';
             else
@@ -13155,7 +13143,7 @@ end
                 if obj.menu_AutoApplyYLim.Checked
                     if obj.menu_DisplayValues.Checked
                         % UPDATE THIS
-        
+
         %                 if obj.menu_AnalyzeTop.Checked && obj.menu_AutoLimits1.Checked
         %                     obj.axes_Channel1.YLim = obj.axes_Events.YLim;
         %                 elseif obj.menu_AutoLimits2.Checked
@@ -13164,20 +13152,20 @@ end
                     end
                 end
             end
-        
+
         end
-        
+
         function center_Timescale_Callback(obj, hObject, eventdata) %#ok<*INUSD>
             % When user right clicks on axes_Sonogram, and selects "Center timescale",
             %   display a popup so they can select a center time (default is where they
             %   right-click), and a radius (how much time on either side of center time
             %   to display), then set the timescale accordingly
-        
-        
+
+
             % Get time where user right-clicks
             click_position = obj.axes_Sonogram.CurrentPoint;
             centerTime = click_position(1, 1);
-        
+
             % Prompt user to alter center time if desired, and choose a radius
             prompt = {'Time radius (sec):', 'Center time (sec):'};
             dlgtitle = 'Center timescale';
@@ -13190,7 +13178,7 @@ end
             end
             radiusTime = str2double(answer{1});
             centerTime = str2double(answer{2});
-        
+
             % Set time
             obj.centerTimescale(centerTime, radiusTime);
         end
@@ -13202,7 +13190,7 @@ end
                 userSettings
                 dbaseSettings = struct()
             end
-        
+
             % Get defaults
             settings = defaults_template();
             % Apply user settings on top
@@ -13217,7 +13205,7 @@ end
             end
             % Apply dbase settings on top
             settings = mergeStructures(settings, dbaseSettings);
-        end       
+        end
         function dbase = InitializeDbase(settings, options)
             % Build empty structure for dbase data to go into, or if a baseDbase is
             % supplied, clear the analyzed data without clearing the settings
@@ -13514,7 +13502,7 @@ end
             pseudoChannelInfo.eventSourceIdx = eventSourceIdx;
             pseudoChannelInfo.eventPartIdx = eventPartIdx;
             pseudoChannelInfo.description = sprintf('%s of events in %s', eventPartName, baseChannelName);
-        
+
             % Make sure this isn't a duplicate pseudochannel
             for k = 1:length(dbase.ChannelInfo)
                 if strcmp(dbase.ChannelInfo(k).Type, 'PseudoChannel') && ...
@@ -13527,7 +13515,7 @@ end
                     end
                 end
             end
-        
+
             name = sprintf('PseudoChannel %d', pseudoChannelNum);
             number = electro_gui.getNumPseudoChannels(dbase) + 1;
             type = 'PseudoChannel';
@@ -13571,6 +13559,21 @@ end
             user = user(f);
             if isempty(user)
                 user = 'anonymous';
+            end
+        end
+        function issueWarning(warningMsg, warningType)
+            persistent WarningCounts;
+            if isempty(WarningCounts)
+                WarningCounts = struct();
+            end
+            if ~isfield(WarningCounts, warningType)
+                WarningCounts.(warningType) = 0;
+            end
+            WarningCounts.(warningType) = WarningCounts.(warningType) + 1;
+            if WarningCounts.(warningType) < 5
+                warning(warningMsg);
+            elseif WarningCounts.(warningType) == 6
+                warning('Multiple warnings of type %s - suppressing further warnings.', warningType);
             end
         end
         function params = applyDefaultPluginParams(params, defaultParams)
@@ -13886,7 +13889,7 @@ end
             else
                 msg = sprintf('Attempted to run plugin ''%s'', but it could not be found.', name);
                 errordlg(msg, 'Plugin error');
-                error(msg); %#ok<SPERR> 
+                error(msg); %#ok<SPERR>
             end
         end
         function GenericCreateFcn(hObject, eventdata)
@@ -13993,7 +13996,7 @@ end
             '', ...
             '');
         end
-        
+
         function threshold = eg_AutoThreshold(amp)
             % by Aaron Andalman
 
@@ -14007,7 +14010,7 @@ end
                 threshold = inf;
                 return;
             end
-        
+
             try
                 % Code from Aaron Andalman
                 [noiseEst, soundEst, noiseStd, soundStd] = electro_gui.eg_estimateTwoMeans(amp);
@@ -14028,7 +14031,7 @@ end
                     end
                 end
                 threshold = disc;
-        
+
                 if ~isreal(threshold)
                     threshold = max(amp)*1.1;
                 end
@@ -14036,11 +14039,11 @@ end
                 getReport(ME)
                 threshold = max(amp)*1.1;
             end
-        
+
             if isneg
                 threshold = -threshold;
             end
-        
+
         end
         function times = samplesToTimes(samples, fs)
             % A unified way to transform samples to times
@@ -14079,9 +14082,9 @@ end
             % then saving it.
             %
             % Arguments:
-            %   oldDbasePathsOrRoot: path to a dbase, or a cell array of 
+            %   oldDbasePathsOrRoot: path to a dbase, or a cell array of
             %       paths, or a path to a root directory. If it is the
-            %       latter, this will assume any .mat file within the root 
+            %       latter, this will assume any .mat file within the root
             %       directory and attempt to update it.
             %   newDbasePaths: path to save dbase to, or a cell array of
             %       paths, one per old dbase path. If omitted or empty, the
@@ -14175,7 +14178,7 @@ end
                 try
                     % Update the dbase/settings format
                     [S.dbase, S.settings] = electro_gui.updateDbaseFormat(S.dbase, S.settings);
-    
+
                     % Save updated dbase and settings to file
                     electro_gui.SaveDbase(newPath, S.dbase, S.settings);
 
@@ -14194,7 +14197,7 @@ end
                 settings struct = defaults_template()
                 options.SourceDir = fileparts(mfilename("fullpath"))
             end
-        
+
             % If the legacy field AnalysisState exists, merge the given settings
             % with the settings from defaults_template.
             if isfield(dbase, 'AnalysisState')
@@ -14226,12 +14229,12 @@ end
                     dbase.ChannelFs = NaN(1, length(dbase.ChannelFiles));
                 end
             end
-        
+
             sourceDir = options.SourceDir;
-        
+
             numFiles = electro_gui.getNumFiles(dbase);
             numEventSources = length(dbase.EventTimes);
-        
+
             if ~isfield(dbase, 'EventParts')
                 % Legacy dbases did not have a list of event part names
                 dbase.EventParts = {};
@@ -14244,17 +14247,17 @@ end
                     dbase.EventParts{eventSourceIdx} = eventParts;
                 end
             end
-        
+
             if ~isfield(dbase, 'EventChannels')
                 % Legacy dbases do not have a list of channel numbers, only channel
                 % names (stored in "EventSources" field)
                 dbase.EventChannels = cellfun(@electro_gui.channelNameToNumLegacy, dbase.EventSources, 'UniformOutput', true);
             end
-        
+
             if ~isfield(dbase, 'EventChannelIsPseudo')
                 dbase.EventChannelIsPseudo = false(1, numEventSources);
             end
-        
+
             if ~isfield(dbase, 'ChannelInfo')
                 dbase = electro_gui.UpdateChannelInfo(dbase);
                 if isfield(dbase, 'PseudoChannelNames') || ...
@@ -14276,7 +14279,7 @@ end
                     end
                 end
             end
-        
+
             % Ensure EventSelected field is all logical not double
             for eventSourceIdx = 1:numEventSources
                 for eventPartNum = 1:size(dbase.EventIsSelected{eventSourceIdx}, 1)
@@ -14287,21 +14290,21 @@ end
                     end
                 end
             end
-        
+
             if ~isfield(dbase, 'EventParameters')
                 % Legacy dbases do not have a list of event parameters
                 dbase.EventParameters = cell(1, numEventSources);
                 if ~exist('plugins', 'var')
                     plugins = electro_gui.gatherPlugins(sourceDir);
                 end
-        
+
                 for eventSourceIdx = 1:numEventSources
                     eventDetectorName = dbase.EventDetectors{eventSourceIdx};
                     eventParameters = electro_gui.eg_runPlugin(plugins.eventDetectors, eventDetectorName, 'params');
                     dbase.EventParameters{eventSourceIdx} = eventParameters;
                 end
             end
-        
+
             if ~isfield(dbase, 'EventFunctionParameters')
                 % Legacy dbases do not have a list of event parameters
                 dbase.EventFunctionParameters = cell(1, numEventSources);
@@ -14320,7 +14323,7 @@ end
                     end
                 end
             end
-        
+
             % FileReadState has been moved from settings to main dbase
             if ~isfield(dbase, 'FileReadstate')
                 if isfield(settings, 'FileReadState')
@@ -14345,7 +14348,7 @@ end
                 % populated by the function ensureExportSettingsExist
                 settings.Export = struct();
             end
-        
+
             if ~isfield(settings, 'EventThresholdDefaults') || length(settings.EventThresholdDefaults) ~= numEventSources
                 % Legacy dbases did not have stored defaults - initialize a new one
                 if isempty(dbase.EventThresholds)
@@ -14353,7 +14356,7 @@ end
                 else
                     % Use the most common non-infinite threshold for each event
                     % source
-        
+
                     % Make a copy of all the thresholds
                     thresholds = dbase.EventThresholds;
                     % Replace inf with NaN to exclude it from the mode calculation
@@ -14367,11 +14370,11 @@ end
                     settings.EventThresholdDefaults = thresholds;
                 end
             end
-        
+
             if ~isfield(settings, 'CurrentFile')
                 settings.CurrentFile = 1;
             end
-        
+
             if isstruct(dbase.Properties)
                 % This is a legacy format for properties - import it
                 % Get every property name across dbase
@@ -14396,11 +14399,11 @@ end
                 % Set properties
                 dbase = electro_gui.setProperties(dbase, propertyValues, propertyNames);
             end
-        
+
             if ~isfield(settings, 'FileSortMethod')
                 settings.FileSortMethod = 'File number';
             end
-        
+
             if ~isfield(settings, 'FileSortPropertyName')
                 if isfield(dbase, 'FileSortPropertyName')
                     settings.FileSortPropertyName = dbase.FileSortPropertyName;
@@ -14414,7 +14417,7 @@ end
             if ~isfield(settings, 'FileSortCustomExpression')
                 settings.FileSortCustomExpression = '';
             end
-        
+
             if ~isfield(settings, 'FileSortReversed')
                 settings.FileSortReversed = false;
             end
@@ -14422,16 +14425,16 @@ end
             if ~isfield(settings, 'PropertyColumnVisible')
                 settings.PropertyColumnVisible = true(1, length(dbase.PropertyNames));
             end
-        
+
             if ~isfield(dbase, 'Notes')
                 % Legacy dbase - create empty notes
                 dbase.Notes = repmat({''}, 1, numFiles);
             end
-        
+
             if ~isfield(settings, 'AuxiliarySoundSources')
                 settings.AuxiliarySoundSources = {};
             end
-        
+
             if ~isfield(dbase, 'MarkerTimes')
                 % This must be an older type of dbase - add blank marker field
                 dbase.MarkerTimes = cell(1,numFiles);
@@ -14444,7 +14447,35 @@ end
                 % This must be an older type of dbase - add blank marker field
                 dbase.MarkerIsSelected = cell(1,numFiles);
             end
-        
+
+            % Check that segment and marker times have a Nx2 size, even when N = 0
+            for filenum = 1:length(dbase.SegmentTimes)
+                if size(dbase.SegmentTimes{filenum}, 2) ~= 2
+                    % Second dimension should be 2 - if it's empty, we can fix it, otherwise, just warn user
+                    if isempty(dbase.SegmentTimes{filenum})
+                        dbase.SegmentTimes{filenum} = zeros([0, 2]);
+                    else
+                        sizeStr = join(split(num2str([4, 6]), '  '), 'x');
+                        sizeStr = sizeStr{1};
+                        msg = sprintf('Segment times for filenum %d should be Nx2, instead it is %s', filenum, sizeStr);
+                        electro_gui.issueWarning(msg, 'wrongSegmentTimesShape')
+                    end
+                end
+            end
+            for filenum = 1:length(dbase.MarkerTimes)
+                if size(dbase.MarkerTimes{filenum}, 2) ~= 2
+                    % Second dimension should be 2 - if it's empty, we can fix it, otherwise, just warn user
+                    if isempty(dbase.MarkerTimes{filenum})
+                        dbase.MarkerTimes{filenum} = zeros([0, 2]);
+                    else
+                        sizeStr = join(split(num2str([4, 6]), '  '), 'x');
+                        sizeStr = sizeStr{1};
+                        msg = sprintf('Segment times for filenum %d should be Nx2, instead it is %s', filenum, sizeStr);
+                        electro_gui.issueWarning(msg, 'wrongSegmentTimesShape')
+                    end
+                end
+            end
+
             if isfield(dbase, 'EventXLims')
                 % This is now in settings.EventXLims, but legacy dbases
                 % may have it simply in dbase.EventXLims, so look for it here too
@@ -14457,7 +14488,7 @@ end
             if ~isfield(settings, 'EventXLims') || isempty(settings.EventXLims)
                 settings.EventXLims = settings.DefaultEventXLims;
             end
-        
+
             if size(settings.EventXLims, 1) ~= length(dbase.EventSources)
                 % Legacy dbases had event xlims per channel axes, not per file,
                 % so not complete.
@@ -14467,9 +14498,9 @@ end
             end
         end
         function [uNoise, uSound, sdNoise, sdSound] = eg_estimateTwoMeans(audioLogPow)
-        
+
             %Run EM algorithm on mixture of two gaussian model:
-        
+
             %set initial conditions
             l = length(audioLogPow);
             len = 1/l;
@@ -14478,7 +14509,7 @@ end
             uSound = median(m(fix(length(m)/2:length(m))));
             sdNoise = 5;
             sdSound = 20;
-        
+
             %compute estimated log likelihood given these initial conditions...
             prob = zeros(2,l);
             prob(1,:) = (exp(-(audioLogPow - uNoise).^2 / (2*sdNoise^2)))./sdNoise;
@@ -14488,15 +14519,15 @@ end
             logEstLike = sum(log(estProb)) * len;
             warning on
             logOldEstLike = -Inf;
-        
+
             %maximize using Estimation Maximization
             while(abs(logEstLike-logOldEstLike) > .005)
                 logOldEstLike = logEstLike;
-        
+
                 %Which samples are noise and which are sound.
                 nndx = find(class==1);
                 sndx = find(class==2);
-        
+
                 %Maximize based on this classification.
                 uNoise = mean(audioLogPow(nndx));
                 sdNoise = std(audioLogPow(nndx));
@@ -14507,15 +14538,15 @@ end
                     uSound = max(audioLogPow);
                     sdSound = 0;
                 end
-        
+
                 %Given new parameters, recompute log likelihood.
                 prob(1,:) = (exp(-(audioLogPow - uNoise).^2 / (2*sdNoise^2+eps)))./(sdNoise+eps);
                 prob(2,:) = (exp(-(audioLogPow - uSound).^2 / (2*sdSound^2+eps)))./(sdSound+eps)+eps;
                 [estProb, class] = max(prob);
                 logEstLike = sum(log(estProb+eps)) * len;
             end
-        
-        
+
+
         end
         function inside = areCoordinatesIn(x, y, figureChild)
             % Check if given normalized figure coordinates are inside the borders
@@ -14549,7 +14580,7 @@ end
         function nextIdx = findNextTrueIdx(mask, startIdx, direction)
             % Given a mask and a starting index, find the next true value in
             % the mask in the given direction.
-        
+
             if direction > 0
                 nextIdx = find(mask(startIdx+1:end), 1) + startIdx;
                 if isempty(nextIdx)
@@ -14575,7 +14606,7 @@ end
             width = fix(pos(3));
             ax.Parent.Units = 'normalized';
             ax.Units = 'normalized';
-        
+
             xl = xlim(ax);
             if length(y) < width*3
                 h = plot(ax, x,y);
@@ -14587,7 +14618,7 @@ end
                 ynew(setdiff(1:length(ynew),pos)) = y;
                 ynew(pos) = ynew(pos-1);
                 y = reshape(ynew,length(ynew)/width,width);
-        
+
                 h(1) = plot(ax, linspace(min(x),max(x),size(y,2)),max(y,[],1));
                 hold(ax, 'on');
                 h(2) = plot(ax, linspace(min(x),max(x),size(y,2)),min(y,[],1));
@@ -14601,13 +14632,13 @@ end
         end
         function [totalBandPower, totalPower, totalFlim] = CalculateSpectrogramPower(...
                 spectrogramHandle, spectrogramAxes, tlim, flim)
-        
+
             % Get the time and frequency coordinate info for spectrogram
             times = spectrogramHandle.XData;
             freqs = spectrogramHandle.YData;
             % Get the spectrogram power matrix
             power = spectrogramHandle.CData;
-            
+
             % Get total frequency limits
             [totalMinF, totalMaxF] = bounds(freqs);
             totalFlim = [totalMinF, totalMaxF];
@@ -14653,14 +14684,14 @@ end
                 'Units', 'normalized', ...
                 'Position', [0, 0.9, 1, 0.1], ...
                 'HorizontalAlignment', 'center', ...
-                'FontSize', 24); %#ok<NASGU> 
+                'FontSize', 24); %#ok<NASGU>
             text = uicontrol(pan, ...
                 "Style", "text", ...
                 "String", msg, ...
                 'Units', 'normalized', ...
                 'Position', [0, 0, 0.4, 0.85], ...
                 'HorizontalAlignment', 'left', ...
-                'FontSize', 10); %#ok<NASGU> 
+                'FontSize', 10); %#ok<NASGU>
             ax = axes(pan, "Position", [0.5, 0.1, 0.5, 0.75], ...
                 'Units', 'normalized');
             t = sonogramHandle.XData;
@@ -14672,7 +14703,7 @@ end
             [~, tMaxIdx] = min(abs(t - tlim(2)));
             t = t(tMinIdx:tMaxIdx);
             p = p(:, tMinIdx:tMaxIdx);
-            h = imagesc(ax, 'CData', p, 'XData', t, 'YData', f); %#ok<NASGU> 
+            h = imagesc(ax, 'CData', p, 'XData', t, 'YData', f); %#ok<NASGU>
             % Fudge the time and frequency axes to account for the
             % images being centered on half-integers eyeroll
             t = linspace(min(t)-dt/2, max(t)+dt/2, length(t));
@@ -14687,11 +14718,11 @@ end
             tMean = tRange * mean(p, 2)/m; % Mean power averaged across time
             plot(ax, t, fMean + max(f));
             plot(ax, tMean + max(t), f);
-            r1 = rectangle(ax, 'Position', [min(t), max(f), range(t), fRange]); %#ok<NASGU> 
-            r2 = rectangle(ax, 'Position', [max(t), min(f), tRange, range(f)]); %#ok<NASGU> 
-            rBand = rectangle(ax, 'Position', [min(t), flim(1), range(t)+tRange, flim(2)-flim(1)], 'LineStyle', '--', 'LineWidth', 2); %#ok<NASGU> 
+            r1 = rectangle(ax, 'Position', [min(t), max(f), range(t), fRange]); %#ok<NASGU>
+            r2 = rectangle(ax, 'Position', [max(t), min(f), tRange, range(f)]); %#ok<NASGU>
+            rBand = rectangle(ax, 'Position', [min(t), flim(1), range(t)+tRange, flim(2)-flim(1)], 'LineStyle', '--', 'LineWidth', 2); %#ok<NASGU>
             xlim(ax, [min(t), min(t) + range(t) + tRange]);
-            ylim(ax, [min(f), min(f) + range(f) + fRange]);            
+            ylim(ax, [min(f), min(f) + range(f) + fRange]);
         end
         function [annotationHandles, labelHandles] = CreateAnnotations(...
                 ax, times, titles, selects, selectColor, unselectColor, ...
@@ -14719,10 +14750,10 @@ end
 
             y0 = yExtent(1);
             y1 = yExtent(1) + (yExtent(2) - yExtent(1))*0.3;
-        
+
             annotationHandles = gobjects().empty;
             labelHandles = gobjects().empty;
-        
+
             % Loop over stored segment start/end times pairs
             for annotationNum = 1:size(times,1)
                 % Extract the start (x1) and end (x2) times of this segment
@@ -14738,7 +14769,7 @@ end
                 % Create a text graphics object right above the middle of the segment
                 % rectangle
                 newLabel = text(ax, (t1+t2)/2,y1,titles(annotationNum), 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'center', 'ContextMenu', ax.ContextMenu, 'Interpreter', 'none');
-        
+
                 % Set annotation style to inactive
                 if activeIndex == annotationNum
                     newAnnotation.EdgeColor = activeColor;
@@ -14749,11 +14780,11 @@ end
                     newAnnotation.LineWidth = 1;
                     newAnnotation.LineStyle = '-';
                 end
-        
+
                 % Attach click handler "click_segment" to segment rectangle
                 newAnnotation.ButtonDownFcn = click_handler;
                 newLabel.ButtonDownFcn = @(hObject, event)click_handler(newAnnotation, event);
-        
+
                 % Put new handles in list
                 labelHandles(annotationNum) = newLabel;
                 annotationHandles(annotationNum) = newAnnotation;
