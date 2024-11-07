@@ -2884,6 +2884,9 @@ function [newAnnotationNum, newAnnotationType] = FindClosestAnnotationOfOtherTyp
     %   segment or marker. If no annotations of the other type exist,
     %   return the same annotation.
 
+    newAnnotationNum = [];
+    newAnnotationType = 'none';
+
     if ~exist('annotationNum', 'var') || isempty(annotationNum)
         % No annotation number provided - use the currently active one
         annotationNum = obj.FindActiveAnnotation();
