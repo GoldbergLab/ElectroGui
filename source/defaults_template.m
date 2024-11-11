@@ -126,9 +126,8 @@ settings.PlayReverse = 0; % Play sound in reverse?
 
 % Plugin parameters
 blankParams = struct('Names', {{}}, 'Values', {{}});
-settings.ChannelAxesEventParams = {blankParams, blankParams};
-settings.ChannelAxesFunctionParams = {blankParams, blankParams};
-settings.ChannelAxesEventParams = {blankParams, blankParams};
+settings.DefaultEventParameters = containers.Map();                  % dictionary mapping event detector names to default parameters.  If using R2022 or later, this can be changed to the newer dictionary()
+settings.DefaultFunctionParams = containers.Map();                   % dictionary mapping filter names to default parameters.  If using R2022 or later, this can be changed to the newer dictionary()
 settings.FilterParams = blankParams;
 settings.SegmenterParams = blankParams;
 settings.SonogramParams = blankParams;

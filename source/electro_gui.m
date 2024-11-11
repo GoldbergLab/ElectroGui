@@ -1415,7 +1415,7 @@ classdef electro_gui < handle
 
             % Load channel data
             [selectedChannelNum, ~, ~, isPseudoChannel] = obj.getSelectedChannel(axnum);
-            selectedFilter = getSelectedFilter(obj, axnum);
+            selectedFilter = obj.getSelectedFilter(axnum);
             selectedFilterParams = obj.getSelectedFunctionParameters(axnum);
             [obj.loadedChannelData{axnum}, obj.loadedChannelFs{axnum}, obj.loadedChannelLabels{axnum}] = ...
                 obj.loadChannelData(selectedChannelNum, ...
@@ -1666,21 +1666,27 @@ classdef electro_gui < handle
             % Get the function parameters for the given channel axes
             eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
             if isempty(eventSourceIdx)
-                % Current axis configuration does not correspond to a know event source
-                % Use temporary axes params instead
-                selectedFunctionParameters = obj.settings.ChannelAxesFunctionParams{axnum};
-                if isempty(selectedFunctionParameters) || ~isfield(selectedFunctionParameters, 'Names') || isempty(selectedFunctionParameters.Names)
-                    % Get default params from event detector
-                    functionName = obj.getSelectedFilter(axnum);
-                    if ~isempty(functionName)
-                        selectedFunctionParameters = electro_gui.eg_runPlugin(obj.plugins.filters, functionName, 'params');
-                    else
-                        selectedFunctionParameters = struct.empty();
-                    end
-                    % Store for next time
-                    obj.settings.ChannelAxesFunctionParams{axnum} = selectedFunctionParameters;
+                % Current axis configuration does not correspond to a known event source
+                % Use default params instead
+                functionName = obj.getSelectedFilter(axnum);
+                if isempty(functionName)
+                    % No filter selected
+                    selectedFunctionParameters = electro_gui.createEmptyPluginParams();
+                    return
                 end
+                defaultFunctionParameters = electro_gui.eg_runPlugin(obj.plugins.filters, functionName, 'params');
+                try
+                    selectedFunctionParameters = obj.settings.DefaultFunctionParameters(functionName);
+                catch
+                    % This filter probably does not have an assigned default parameter - get it from the plugin
+                    selectedFunctionParameters = electro_gui.createEmptyPluginParams();
+                end
+                % Merge defaults into selected parameters to make sure its a complete set of parameters
+                selectedFunctionParameters = electro_gui.applyDefaultPluginParams(selectedFunctionParameters, defaultFunctionParameters);
+                % Store for next time
+                obj.settings.DefaultFunctionParameters(functionName) = selectedFunctionParameters;
             else
+                % Event source exists - get function params for that event source
                 selectedFunctionParameters = obj.dbase.EventFunctionParameters{eventSourceIdx};
             end
         end
@@ -1688,20 +1694,25 @@ classdef electro_gui < handle
             % Get the event parameters for the given channel axes
             eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
             if isempty(eventSourceIdx)
-                % Current axis configuration does not correspond to a know event source
-                % Use temporary axes params instead
-                selectedEventParameters = obj.settings.ChannelAxesEventParams{axnum};
-                if isempty(selectedEventParameters) || ~isfield(selectedEventParameters, 'Names') || isempty(selectedEventParameters.Names)
-                    % Get default params from event detector
-                    eventDetector = obj.getSelectedEventDetector(axnum);
-                    if ~isempty(eventDetector)
-                        selectedEventParameters = electro_gui.eg_runPlugin(obj.plugins.eventDetectors, eventDetector, 'params');
-                    else
-                        selectedEventParameters = struct.empty();
-                    end
-                    % Store for next time
-                    obj.settings.ChannelAxesEventParams{axnum} = selectedEventParameters;
+                % Current axis configuration does not correspond to a event source (yet)
+                % Get default params from event detector
+                eventDetector = obj.getSelectedEventDetector(axnum);
+                if isempty(eventDetector)
+                    % No event detector selected
+                    selectedEventParameters = electro_gui.createEmptyPluginParams();
+                    return
                 end
+                defaultEventParameters = electro_gui.eg_runPlugin(obj.plugins.eventDetectors, eventDetector, 'params');
+                try
+                    selectedEventParameters = obj.settings.DefaultEventParameters(functionName);
+                catch
+                    % This filter probably does not have an assigned default parameter - get it from the plugin
+                    selectedEventParameters = electro_gui.createEmptyPluginParams();
+                end
+                % Merge defaults into selected parameters to make sure its a complete set of parameters
+                selectedEventParameters = electro_gui.applyDefaultPluginParams(selectedEventParameters, defaultEventParameters);
+                % Store for next time
+                obj.settings.DefaultEventParameters(functionName) = selectedEventParameters;
             else
                 selectedEventParameters = obj.dbase.EventParameters{eventSourceIdx};
             end
@@ -4792,7 +4803,7 @@ function UnselectEvents(obj, eventNums, eventSourceIdx, filenum)
     end
 end
 
-function menu_FunctionParams(obj,axnum)
+function menu_FunctionParams(obj, axnum)
     params = obj.getSelectedFunctionParameters(axnum);
 
     if ~isfield(params,'Names') || isempty(params.Names)
@@ -4806,8 +4817,9 @@ function menu_FunctionParams(obj,axnum)
     end
     params.Values = answer';
 
-    % Set default channel function params
-    obj.settings.ChannelAxesFunctionParams{axnum} = params;
+    % Set default function params
+    functionName = obj.getSelectedFilter(axnum);
+    obj.settings.DefaultFunctionParameters(functionName) = params;
 
     eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
     if isempty(eventSourceIdx)
@@ -10927,9 +10939,6 @@ end
         function popup_Functions_Callback(obj, axnum)
             obj.SetActiveAxnum(axnum);
 
-            % Update the function parameters for this axis
-            obj.settings.ChannelAxesFunctionParams{axnum} = obj.getSelectedFunctionParameters(axnum);
-
             % Set the event detector back to none? Not sure why
             obj.popup_EventDetectors(axnum).Value = 1;
 
@@ -11672,20 +11681,15 @@ end
             if isempty(eventSourceIdx)
                 obj.popup_Channel(axnum).Value = 1;
             else
-                [channelNum, filterName, eventDetectorName, eventParameters, ...
-                    filterParameters, ~, ~] = ...
+                [channelNum, filterName, eventDetectorName] = ...
                     obj.GetEventSourceInfo(eventSourceIdx);
                 channelName = electro_gui.channelNumToName(channelNum);
                 obj.setSelectedChannel(axnum, channelName);
                 obj.setSelectedFilter(axnum, filterName);
                 obj.setSelectedEventDetector(axnum, eventDetectorName);
-                obj.settings.ChannelAxesEventParams{axnum} = eventParameters;
-                obj.settings.ChannelAxesFunctionParams{axnum} = filterParameters;
             end
 
             obj.updateChannelAxes(axnum);
-
-
         end
         function menu_File_Callback(obj, hObject, eventdata)
 
@@ -12603,22 +12607,15 @@ end
             obj.updateSonogram();
 
             obj.updateSonogramOverlay();
-
-
-
         end
         function menu_EventParams1_Callback(obj, hObject, event)
-            obj.menu_EventParams(1);
-
-
-
+            obj.menu_EventParams_Callback(1);
         end
         function menu_EventParams2_Callback(obj, hObject, event)
-            obj.menu_EventParams(2);
-
+            obj.menu_EventParams_Callback(2);
         end
-
-        function menu_EventParams(obj, axnum)
+        
+        function menu_EventParams_Callback(obj, axnum)
             eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
             if isempty(eventSourceIdx)
                 % No event source - this shouldn't be possible
@@ -12626,8 +12623,12 @@ end
                 return;
             end
 
-            params = obj.getSelectedEventParameters(axnum);
+            params = obj.dbase.EventParameters{eventSourceIdx};
 
+            if isempty(params)
+                % Get default params from event detector plugin
+            end
+            
             if ~isfield(params, 'Names') || isempty(params.Names)
                 errordlg('Current event detector does not require parameters.', 'Event detector error');
                 return
@@ -12638,9 +12639,6 @@ end
                 return
             end
             params.Values = answer';
-
-            % Set default channel axes parameters
-            obj.settings.ChannelAxesEventParams{axnum} = params;
 
             % Set event params for event source
             obj.dbase.EventParameters{eventSourceIdx} = params;
@@ -13576,11 +13574,14 @@ end
                 warning('Multiple warnings of type %s - suppressing further warnings.', warningType);
             end
         end
+        function params = createEmptyPluginParams()
+            params = struct('Names', {}, 'Values', {});
+        end
         function params = applyDefaultPluginParams(params, defaultParams)
             % Replace any default values with user selected values
             for k = 1:length(defaultParams.Names)
                 name = defaultParams.Names{k};
-                idx = find(strcmp(name, params.Names), 1);
+                idx = find(strcmp(name, {params.Names}), 1);
                 if ~isempty(idx)
                     defaultParams.Values{k} = params.Values{idx};
                 end
@@ -14203,6 +14204,40 @@ end
             if isfield(dbase, 'AnalysisState')
                 settings = mergeStructures(settings, dbase.AnalysisState, "Overwrite", true);
                 dbase = rmfield(dbase, 'AnalysisState');
+            end
+
+            % Add settings.DefaultEventParameters field if it doesn't already exist
+            % A mapping between event detector names and event detector parameters
+            % Whenver an event detector is used, these default parameters are loaded.
+            % When event detector parameters are changed, they are stored as the new
+            % default.
+            if ~isfield(settings, 'DefaultEventParameters')
+                try
+                    % dictionary was added in R2022
+                    settings.DefaultEventParameters = dictionary();
+                catch
+                    settings.DefaultEventParameters = containers.Map();
+                end
+            end
+            if isfield(settings, 'ChannelAxesEventParams')
+                settings = rmfield(settings, 'ChannelAxesEventParams');
+            end
+
+            % Add settings.DefaultFunctionParameters field if it doesn't already exist
+            % A mapping between filter (function) names and filter parameters
+            % Whenver an filter is used, these default parameters are loaded.
+            % When filter parameters are changed, they are stored as the new
+            % default.
+            if ~isfield(settings, 'DefaultFunctionParameters')
+                try
+                    % dictionary was added in R2022
+                    settings.DefaultFunctionParameters = dictionary();
+                catch
+                    settings.DefaultFunctionParameters = containers.Map();
+                end
+            end
+            if isfield(settings, 'ChannelAxesFunctionParams')
+                settings = rmfield(settings, 'ChannelAxesFunctionParams');
             end
 
             % Add ChannelFs field if it doesn't exist
