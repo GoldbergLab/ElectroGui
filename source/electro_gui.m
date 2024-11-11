@@ -27,7 +27,7 @@ classdef electro_gui < handle
         ChanYLimits
         ActiveAxnum = 1   % Which of the two channel axes was last interacted with?
         WarningCounts = struct()
-        bugReporter SlackBot
+        slackAgent SlackBot
     end
     properties  % GUI widgets
         figure_Main
@@ -11712,14 +11712,21 @@ end
         function help_ControlsHelp_Callback(obj, hObject, eventdata)
             msgbox(electro_gui.HelpText(), 'electro_gui info and help:');
         end
-        function SendBugReport(obj)
-            if isempty(obj.bugReporter)
+        function ensureSlackAgentExists(obj)
+            if isempty(obj.slackAgent)
                 if isempty(obj.settings.SlackAuthFile)
                     msg = 'No slack bot AuthFile found - please add "settings.SlackAuthFile = ''path/to/auth/file'' to your defaults file.';
                     errordlg(msg);
                     return
                 end
-                obj.bugReporter = SlackBot('AuthFile', obj.settings.SlackAuthFile);
+                obj.slackAgent = SlackBot('AuthFile', obj.settings.SlackAuthFile);
+            end
+        end
+        function SendBugReport(obj)
+            obj.ensureSlackAgentExists();
+            if isempty(obj.slackAgent)
+                msgbox('SlackBot not available - make sure you have the SlackAuthFile parameter set in your defaults file (see defaults_template).');
+                return
             end
             if ispc()
                 [~, osInfo] = system('ver');
@@ -11809,7 +11816,7 @@ end
                 try
                     [dbase, settings] = obj.GetDBase(false, false);
                     electro_gui.SaveDbase(tempPath, dbase, settings);
-                    obj.bugReporter.UploadFile(tempPath, obj.settings.SlackBugReportChannel, bugReportText);
+                    obj.slackAgent.UploadFile(tempPath, obj.settings.SlackBugReportChannel, bugReportText);
 %                     obj.bugReporter.PostMessage(obj.settings.SlackBugReportChannel, bugReportText);
                     delete(tempPath);
                 catch
