@@ -137,7 +137,7 @@ try
     segmentTimes = round([response.onset, response.offset]*whisperSegFs) + 1;  % + 1 to convert from python's zero-indexing to MATLAB's one-indexing
     if use_labels
         % Use WhisperSeg segment labels
-        segmentTitles = response.cluster;
+        segmentTitles = response.cluster.';
     end
     if isfield(response, 'message') && ~isempty(response.message) && ~strcmp(response.message, 'Success')
         % If WhisperSeg sent a message, display it in alert and command window

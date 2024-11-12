@@ -14167,7 +14167,7 @@ end
                 dbase.MarkerIsSelected = cell(1,numFiles);
             end
 
-            % Check that segment and marker times have a Nx2 size, even when N = 0
+            % Check that segment and marker times have a Nx2 size, even when N = 0, and that segment/marker titles are row vectors, not column vectors
             for filenum = 1:length(dbase.SegmentTimes)
                 if size(dbase.SegmentTimes{filenum}, 2) ~= 2
                     % Second dimension should be 2 - if it's empty, we can fix it, otherwise, just warn user
@@ -14178,6 +14178,10 @@ end
                         sizeStr = sizeStr{1};
                         msg = sprintf('Segment times for filenum %d should be Nx2, instead it is %s', filenum, sizeStr);
                         electro_gui.issueWarning(msg, 'wrongSegmentTimesShape')
+                    end
+                    if iscolumn(dbase.SegmentTitles{filenum})
+                        % Switch column vectors of titles to row vectors
+                        dbase.SegmentTitles{filenum} = transpose(dbase.SegmentTitles{filenum});
                     end
                 end
             end
@@ -14191,6 +14195,10 @@ end
                         sizeStr = sizeStr{1};
                         msg = sprintf('Segment times for filenum %d should be Nx2, instead it is %s', filenum, sizeStr);
                         electro_gui.issueWarning(msg, 'wrongSegmentTimesShape')
+                    end
+                    if iscolumn(dbase.MarkerTitles{filenum})
+                        % Switch column vectors of titles to row vectors
+                        dbase.MarkerTitles{filenum} = transpose(dbase.MarkerTitles{filenum});
                     end
                 end
             end
