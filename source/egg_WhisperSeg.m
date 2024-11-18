@@ -7,7 +7,7 @@ function [segmentTimes, segmentTitles] = egg_WhisperSeg(data, ~, fs, ~, params)
 
 % Define default segmenter parameters
 defaultParams.Names =  {'WhisperSeg hostname/IP',       'WhisperSeg service port',  'Mininum frequency (Hz)',   'Spectrogram time step (s)',    'Minimum segment length (s)',   'Tolerance',   'eps',  'time_per_frame_for_scoring', 'Number of trials', 'Network name',                            'Use labels'};
-defaultParams.Values = {'goldbergbk.nbb.cornell.edu',   '8050',                     '0',                        '0.0025',                       '0.01',                         '0.01',        '0.02', '0.001',                      '3',                '0240907_ZhileiEphysWarble20kFinetune3',   'true'};
+defaultParams.Values = {'goldbergbk.nbb.cornell.edu',   '8050',                     '0',                        '0.0025',                       '0.01',                         '0.01',        '0.02', '0.001',                      '3',                '20240907_ZhileiEphysWarble20kFinetune3',   'true'};
 
 segmentTitles = {};
 
