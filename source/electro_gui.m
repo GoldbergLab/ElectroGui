@@ -3487,6 +3487,9 @@ function OpenDbase(obj, filePathOrDbase, options)
 
         % Load dbase into 'dbase' variable
         S = load(fullfile(path, file), 'dbase', 'settings');
+        if ~isfield(S, 'dbase')
+            error('This .mat file does not appear to contain a dbase - please check the data format.');
+        end
         dbase = S.dbase;
         if isfield(S, 'settings')
             dbaseSettings = S.settings;
