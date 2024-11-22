@@ -1712,7 +1712,7 @@ classdef electro_gui < handle
                 % Merge defaults into selected parameters to make sure its a complete set of parameters
                 selectedEventParameters = electro_gui.applyDefaultPluginParams(selectedEventParameters, defaultEventParameters);
                 % Store for next time
-                obj.settings.DefaultEventParameters(functionName) = selectedEventParameters;
+                obj.settings.DefaultEventParameters(eventDetector) = selectedEventParameters;
             else
                 selectedEventParameters = obj.dbase.EventParameters{eventSourceIdx};
             end
@@ -2669,16 +2669,11 @@ function SetSegmentThreshold(obj)
         xlim(ax, xl);
         hold(ax, 'off');
 
-        % Check if there are any segment times recorded
-        if size(obj.dbase.SegmentTimes{electro_gui.getCurrentFileNum(obj.settings)},2)==0
-            % No segment times found
-            if obj.menu_AutoSegment.Checked
-                % User has requested auto-segmentation. Auto segment!
-                obj.SegmentSounds();
-            end
+        if obj.menu_AutoSegment.Checked
+            % User has requested auto-segmentation. Auto segment!
+            obj.SegmentSounds();
         else
-            % Segment times already exist, just plot them (probably preexisting
-            % from loaded dbase?)
+            % Do not segment sounds, just redraw existing ones
             obj.updateAnnotations();
         end
     else
@@ -10551,7 +10546,6 @@ end
             end
 
             obj.SegmentSounds();
-
         end
 
         function SegmenterMenuClick(obj, hObject, event)
