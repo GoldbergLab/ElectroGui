@@ -245,6 +245,8 @@ classdef electro_gui < handle
         menu_SearchAnd
         menu_SearchOr
         menu_SearchNot
+        menu_Annotations
+        menu_AutoIncrementAnnotation
         menu_Channels
         action_SetChannelFs
         menu_Export
@@ -417,74 +419,46 @@ classdef electro_gui < handle
             else
                 obj.menu_DisplayFeatures.Checked = 'on';
             end
-            if obj.settings.EventsAutoDisplay == 1
-                obj.menu_AutoDisplayEvents.Checked = 'on';
-            end
 
-            if obj.settings.SonogramAutoCalculate == 1
-                obj.menu_AutoCalculate.Checked = 'on';
-            end
-            if obj.settings.AllowFrequencyZoom == 1
-                obj.menu_FrequencyZoom.Checked = 'on';
-            end
-            if obj.settings.OverlayTop == 1
-                obj.menu_OverlayTop.Checked = 'on';
-            end
-            if obj.settings.OverlayBottom == 1
-                obj.menu_OverlayBottom.Checked = 'on';
-            end
-
-            if obj.settings.AutoSegment == 1
-                obj.menu_AutoSegment.Checked = 'on';
-            end
-
-            if obj.settings.AmplitudeAutoThreshold == 1
-                obj.menu_AutoThreshold.Checked = 'on';
-            end
-
-            if obj.settings.AmplitudeDontPlot == 1
-                obj.menu_DontPlot.Checked = 'on';
-            end
-
-            if obj.settings.PeakDetect(1) == 1
-                obj.menu_PeakDetect1.Checked = 'on';
-            end
-            if obj.settings.PeakDetect(2) == 1
-                obj.menu_PeakDetect2.Checked = 'on';
-            end
-
-            if obj.settings.AutoYZoom(1) == 1
-                obj.menu_AllowYZoom1.Checked = 'on';
-            end
-            if obj.settings.AutoYZoom(2) == 1
-                obj.menu_AllowYZoom2.Checked = 'on';
-            end
-
-            if obj.settings.AutoYLimits(1) == 1
-                obj.menu_AutoLimits1.Checked = 'on';
-            end
-            if obj.settings.AutoYLimits(2) == 1
-                obj.menu_AutoLimits2.Checked = 'on';
-            end
-
-            if obj.settings.EventsAutoDetect(1) == 1
-                obj.menu_EventAutoDetect1.Checked = 'on';
-            end
-            if obj.settings.EventsAutoDetect(2) == 1
-                obj.menu_EventAutoDetect2.Checked = 'on';
-            end
-
+            obj.menu_AutoDisplayEvents.Checked = obj.settings.EventsAutoDisplay;
+            
+            obj.menu_AutoCalculate.Checked = obj.settings.SonogramAutoCalculate;
+            obj.menu_FrequencyZoom.Checked = obj.settings.AllowFrequencyZoom;
+            obj.menu_OverlayTop.Checked = obj.settings.OverlayTop;
+            obj.menu_OverlayBottom.Checked = obj.settings.OverlayBottom;
+            
+            obj.menu_AutoSegment.Checked = obj.settings.AutoSegment;
+            
+            obj.menu_AutoThreshold.Checked = obj.settings.AmplitudeAutoThreshold;
+            
+            obj.menu_DontPlot.Checked = obj.settings.AmplitudeDontPlot;
+            
+            obj.menu_PeakDetect1.Checked = obj.settings.PeakDetect(1);
+            obj.menu_PeakDetect2.Checked = obj.settings.PeakDetect(2);
+            
+            obj.menu_AllowYZoom1.Checked = obj.settings.AutoYZoom(1);
+            obj.menu_AllowYZoom2.Checked = obj.settings.AutoYZoom(2);
+            
+            obj.menu_AutoLimits1.Checked = obj.settings.AutoYLimits(1);
+            obj.menu_AutoLimits2.Checked = obj.settings.AutoYLimits(2);
+            
+            obj.menu_EventAutoDetect1.Checked = obj.settings.EventsAutoDetect(1);
+            obj.menu_EventAutoDetect2.Checked = obj.settings.EventsAutoDetect(2);
             ch = obj.menu_AmplitudeSource.Children;
             set(ch(3-obj.settings.AmplitudeSource),'Checked','on');
 
             obj.settings.CustomFreqLim = obj.settings.FreqLim;
 
-            if obj.settings.FilterSound == 1
-                obj.playback_FilteredSound.Checked = 'on';
-            end
-            if obj.settings.PlayReverse == 1
-                obj.playback_Reverse.Checked = 'on';
-            end
+            obj.playback_FilteredSound.Checked = obj.settings.FilterSound;
+            obj.playback_Reverse.Checked = obj.settings.PlayReverse;
+
+            obj.menu_AutoIncrementAnnotation.Checked = obj.settings.AutoIncrementActiveAnnotation;
+
+            obj.playback_SoundInMix.Checked = obj.settings.DefaultMix(1);
+            obj.playback_TopInMix.Checked = obj.settings.DefaultMix(2);
+            obj.playback_BottomInMix.Checked = obj.settings.DefaultMix(3);
+
+            obj.menu_ShowFileNameColumn.Checked = obj.settings.ShowFileNameColumn;
 
             obj.settings.AnimationPlots = fliplr(obj.settings.AnimationPlots);
 %             ch = obj.menu_export_options_Animation.Children;
@@ -505,12 +479,6 @@ classdef electro_gui < handle
 %             if ~ischeck
 %                 obj.menu_export_options_Animation_ProgressBar.Checked = 'on';
 %             end
-
-            obj.playback_SoundInMix.Checked = obj.settings.DefaultMix(1);
-            obj.playback_TopInMix.Checked = obj.settings.DefaultMix(2);
-            obj.playback_BottomInMix.Checked = obj.settings.DefaultMix(3);
-
-            obj.menu_ShowFileNameColumn.Checked = obj.settings.ShowFileNameColumn;
 
         end
         function updatePluginMenus(obj)
@@ -1352,7 +1320,7 @@ classdef electro_gui < handle
             obj.figure_Main.Position = [.025 0.075 0.95 0.85];
             % Set scroll handler
             obj.figure_Main.WindowScrollWheelFcn = @obj.scrollHandler;
-            obj.figure_Main.KeyPressFcn = @obj.keyPressHandler;
+            obj.figure_Main.WindowKeyPressFcn = @obj.keyPressHandler;
             obj.figure_Main.KeyReleaseFcn = @obj.keyReleaseHandler;
             obj.figure_Main.WindowButtonMotionFcn = @obj.mouseMotionHandler;
 
@@ -1547,7 +1515,7 @@ classdef electro_gui < handle
             ax.ButtonDownFcn = @obj.click_segmentaxes;
             ax.UIContextMenu = obj.context_Segments;
             % Assign key press function to figure (keyPressHandler) for labeling segments
-            obj.figure_Main.KeyPressFcn = @obj.keyPressHandler;
+            obj.figure_Main.WindowKeyPressFcn = @obj.keyPressHandler;
 
             % Clear segment handles and segment label handles
             delete(obj.SegmentHandles);
@@ -3157,20 +3125,82 @@ function SetAnnotationTitles(obj, titles, filenum, annotationNums, annotationTyp
             % Do nothing for 'none' or invalid type
     end
 end
-
-function SetAnnotationTitle(obj, title, filenum, annotationNum, annotationType)
-    % Set the title of the specified segment or marker
-
-    if ~exist('filenum', 'var') || isempty(filenum)
+function annotationTitle = GetAnnotationTitle(obj, filenum, annotationNum, annotationType)
+    arguments
+        obj electro_gui
+        filenum double = []
+        annotationNum double = []
+        annotationType char = ''
+    end
+    if isempty(filenum)
         filenum = electro_gui.getCurrentFileNum(obj.settings);
     end
 
-    if ~exist('annotationNum', 'var') || isempty(annotationNum)
+    if isempty(annotationNum)
         % No annotation number provided - use the currently active one
         annotationNum = obj.FindActiveAnnotation();
     end
 
-    if ~exist('annotationType', 'var') || isempty(annotationType)
+    if isempty(annotationType)
+        % No annotation type provided - use the currently active type
+        [~, annotationType] = obj.FindActiveAnnotation();
+    end
+
+    switch annotationType
+        case 'segment'
+            % Get the segment title
+            annotationTitle = obj.dbase.SegmentTitles{filenum}{annotationNum};
+        case 'marker'
+            % Set the marker title
+            annotationTitle = obj.dbase.MarkerTitles{filenum}{annotationNum};
+        otherwise
+            error('Invalid annotation type: %s', annotationType);
+    end
+end
+function AppendAnnotationTitle(obj, newTitlePiece, filenum, annotationNum, annotationType)
+    arguments
+        obj electro_gui
+        newTitlePiece char
+        filenum double = []
+        annotationNum double = []
+        annotationType char = ''
+    end
+    if isempty(filenum)
+        filenum = electro_gui.getCurrentFileNum(obj.settings);
+    end
+
+    if isempty(annotationNum)
+        % No annotation number provided - use the currently active one
+        annotationNum = obj.FindActiveAnnotation();
+    end
+
+    if isempty(annotationType)
+        % No annotation type provided - use the currently active type
+        [~, annotationType] = obj.FindActiveAnnotation();
+    end
+    oldTitle = obj.GetAnnotationTitle(filenum, annotationNum, annotationType);
+    newTitle = [oldTitle, newTitlePiece];
+    obj.SetAnnotationTitle(newTitle, filenum, annotationNum, annotationType);
+end
+function SetAnnotationTitle(obj, title, filenum, annotationNum, annotationType)
+    % Set the title of the specified segment or marker
+    arguments
+        obj electro_gui
+        title char
+        filenum double = []
+        annotationNum double = []
+        annotationType char = ''
+    end
+    if isempty(filenum)
+        filenum = electro_gui.getCurrentFileNum(obj.settings);
+    end
+
+    if isempty(annotationNum)
+        % No annotation number provided - use the currently active one
+        annotationNum = obj.FindActiveAnnotation();
+    end
+
+    if isempty(annotationType)
         % No annotation type provided - use the currently active type
         [~, annotationType] = obj.FindActiveAnnotation();
     end
@@ -3199,7 +3229,7 @@ function JoinSegmentWithNext(obj, filenum, segmentNum)
         obj.dbase.SegmentIsSelected{filenum}(segmentNum+1) = [];
         obj.updateAnnotations();
         obj.SetActiveSegment(segmentNum);
-        obj.figure_Main.KeyPressFcn = @obj.keyPressHandler;
+        obj.figure_Main.WindowKeyPressFcn = @obj.keyPressHandler;
     end
 end
 
@@ -9102,6 +9132,19 @@ function setupGUI(obj)
         'Callback',@obj.menu_SearchNot_Callback,...
         'Label','NOT current',...
         'Tag','menu_SearchNot');
+    %% Properties menu
+    obj.menu_Annotations = uimenu(...
+        'Parent',obj.figure_Main,...
+        'Callback',@obj.menu_Annotations_Callback,...
+        'Label','Annotations',...
+        'Tag','menu_Annotations');
+
+    obj.menu_AutoIncrementAnnotation = uimenu(...
+        'Parent',obj.menu_Annotations,...
+        'Callback',@obj.menu_AutoIncrementAnnotation_Callback,...
+        'Label','AutoIncrementAnnotation',...
+        'Checked', true,...
+        'Tag','menu_AutoIncrementAnnotation');
 
     %% Channels menu
     obj.menu_Channels = uimenu(...
@@ -10454,7 +10497,7 @@ end
                                 obj.dbase.SegmentIsSelected{filenum}(clickedAnnotationNum+1) = [];
                                 % Select new active segment
                                 obj.SetActiveSegment(clickedAnnotationNum);
-                                obj.figure_Main.KeyPressFcn = @obj.keyPressHandler;
+                                obj.figure_Main.WindowKeyPressFcn = @obj.keyPressHandler;
                                 obj.updateAnnotations();
                             end
                         case 'marker'
@@ -10870,16 +10913,34 @@ end
                     case obj.settings.ValidSegmentCharacters
                         % Key was a valid character for naming a segment/marker
                         obj.SaveState();
-                        obj.SetAnnotationTitle(event.Character, filenum);
-                        obj.UpdateAnnotationTitleDisplay();
-                        oldAnnotationNum = obj.IncrementActiveAnnotation(+1);
-                        obj.UpdateActiveAnnotationDisplay(oldAnnotationNum);
+                        if obj.settings.AutoIncrementActiveAnnotation
+                            % Replace title with keystroke character and
+                            %   move on to next annotation
+                            obj.SetAnnotationTitle(event.Character, filenum);
+                            obj.UpdateAnnotationTitleDisplay();
+                            oldAnnotationNum = obj.IncrementActiveAnnotation(+1);
+                            obj.UpdateActiveAnnotationDisplay(oldAnnotationNum);
+                        else
+                            % Add character on to existing title, and don't
+                            %   automatically move on to next annotation
+                            obj.AppendAnnotationTitle(event.Character, filenum);
+                            obj.UpdateAnnotationTitleDisplay();
+                        end
                     case 'backspace'
                         obj.SaveState();
-                        obj.SetAnnotationTitle('', filenum);
-                        obj.UpdateAnnotationTitleDisplay();
-                        oldAnnotationNum = obj.IncrementActiveAnnotation(+1);
-                        obj.UpdateActiveAnnotationDisplay(oldAnnotationNum);
+                        if obj.settings.AutoIncrementActiveAnnotation
+                            obj.SetAnnotationTitle('', filenum);
+                            obj.UpdateAnnotationTitleDisplay();
+                            oldAnnotationNum = obj.IncrementActiveAnnotation(+1);
+                            obj.UpdateActiveAnnotationDisplay(oldAnnotationNum);
+                        else
+                            annotationTitle = obj.GetAnnotationTitle(filenum);
+                            if ~isempty(annotationTitle)
+                                annotationTitle = annotationTitle(1:end-1);
+                            end
+                            obj.SetAnnotationTitle(annotationTitle, filenum);
+                            obj.UpdateAnnotationTitleDisplay();
+                        end
                     case 'rightarrow'
                         % User pressed right arrow
                         oldAnnotationNum = obj.IncrementActiveAnnotation(+1);
@@ -12721,7 +12782,7 @@ end
             obj.dbase.SegmentTitles{filenum} = st;
             obj.dbase.SegmentIsSelected{filenum} = [obj.dbase.SegmentIsSelected{filenum}(1:min(dl)-1) ones(1,size(sg,1)) obj.dbase.SegmentIsSelected{filenum}(max(dl)+1:end)];
             obj.updateAnnotations();
-            obj.figure_Main.KeyPressFcn = @obj.keyPressHandler;
+            obj.figure_Main.WindowKeyPressFcn = @obj.keyPressHandler;
         end
         function menu_SourceSoundAmplitude_Callback(obj, hObject, event)
             obj.menu_SourceSoundAmplitude.Checked = 'on';
@@ -12776,7 +12837,7 @@ end
             obj.updateAnnotations();
 
             obj.SetActiveSegment(min(f));
-            obj.figure_Main.KeyPressFcn = @obj.keyPressHandler;
+            obj.figure_Main.WindowKeyPressFcn = @obj.keyPressHandler;
 
 
 
@@ -12836,8 +12897,13 @@ end
             obj.axes_Amplitude.YLim = obj.settings.AmplitudeLims;
 
         end
+        function menu_Annotations_Callback(obj, hObject, eventdata)
+        end
+        function menu_AutoIncrementAnnotation_Callback(obj, hObject, eventdata)
+            obj.menu_AutoIncrementAnnotation.Checked = ~obj.menu_AutoIncrementAnnotation.Checked;
+            obj.settings.AutoIncrementActiveAnnotation = (obj.menu_AutoIncrementAnnotation.Checked == true);
+        end
         function menu_Properties_Callback(obj, hObject, eventdata)
-
         end
         function menu_AddProperty_Callback(obj, hObject, event)
             if ~electro_gui.isDataLoaded(obj.dbase)
