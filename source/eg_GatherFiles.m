@@ -1,9 +1,9 @@
-function [dbase, cancel] = eg_GatherFiles(PathName, FileString, FileLoader, NumChannels, options)
+function [dbase, cancel] = eg_GatherFiles(pathName, fileString, fileLoader, numChannels, options)
     arguments
-        PathName char
-        FileString
-        FileLoader
-        NumChannels double = []
+        pathName char
+        fileString
+        fileLoader
+        numChannels double = []
         options.TitleString char = 'Locate data files'
         options.GUI (1, 1) logical = true
     end
@@ -12,46 +12,46 @@ function [dbase, cancel] = eg_GatherFiles(PathName, FileString, FileLoader, NumC
     dbase = struct();
 
     if options.GUI
-        PathName = uigetdir(PathName, 'Experiment Directory');
-        if ~ischar(PathName)
+        pathName = uigetdir(pathName, 'Experiment Directory');
+        if ~ischar(pathName)
             cancel = true;
             return
         end
     end
 
-    dbase.PathName = PathName;
+    dbase.PathName = pathName;
 
     % If user did not provide number of channels, attempt to deduce it from
     % the file string or file loader
-    if iscell(FileString) && isempty(NumChannels)
+    if iscell(fileString) && isempty(numChannels)
         % User provided one file string per channel, so we can use this to
         % determine # of channels
-        NumChannels = length(FileString) - 1;
-    elseif iscell(FileLoader) && isempty(NumChannels)
+        numChannels = length(fileString) - 1;
+    elseif iscell(fileLoader) && isempty(numChannels)
         % User provided one file loader per channel, so we can use this to
         % determine # of channels
-        NumChannels = length(FileLoader) - 1;
+        numChannels = length(fileLoader) - 1;
     end
     
     % Determine the sound and channel file patterns and loaders
-    ChannelPatterns = cell(1, NumChannels);
-    ChannelLoaders = cell(1, NumChannels);
-    for chanIdx = 1:NumChannels+1
-        if iscell(FileString)
+    ChannelPatterns = cell(1, numChannels);
+    ChannelLoaders = cell(1, numChannels);
+    for chanIdx = 1:numChannels+1
+        if iscell(fileString)
             % Defaults file has a different file string for each channel
-            file_string_pattern = FileString{chanIdx};
+            file_string_pattern = fileString{chanIdx};
         else
             % Defaults file has only one file string for all channels
-            file_string_pattern = FileString;
+            file_string_pattern = fileString;
         end
         file_string = sprintf(file_string_pattern, chanIdx-1);
 
-        if iscell(FileLoader)
+        if iscell(fileLoader)
             % User provided a different default file loader for each channel
-            file_loader = FileLoader{chanIdx-1};
+            file_loader = fileLoader{chanIdx-1};
         else
             % User provided a single default file loader for all channels
-            file_loader = FileLoader;
+            file_loader = fileLoader;
         end
 
         if strcmp(file_string, file_string_pattern) && contains(file_string_pattern, '#')
@@ -84,14 +84,14 @@ function [dbase, cancel] = eg_GatherFiles(PathName, FileString, FileLoader, NumC
     cancel = false;
 
     if options.GUI
-        [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = SpecifyFilesGUI(PathName, SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, NumChannels, options.TitleString);
+        [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = SpecifyFilesGUI(pathName, SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, numChannels, options.TitleString);
     end
 
     % Assign fields to dbase
     dbase.SoundFiles = dir(fullfile(dbase.PathName, SoundPattern));
     dbase.SoundLoader = SoundLoader;
     dbase.ChannelFiles = {};
-    for chan = 1:NumChannels
+    for chan = 1:numChannels
         dbase.ChannelFiles{chan} = dir(fullfile(dbase.PathName, ChannelPatterns{chan}));
     end
     dbase.ChannelLoader = ChannelLoaders;

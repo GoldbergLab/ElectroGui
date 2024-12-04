@@ -301,9 +301,9 @@ classdef electro_gui < handle
             obj.SourcePath = mfilename('fullpath');
             [obj.SourceDir, obj.SourceName, ~] = fileparts(obj.SourcePath);
 
-            % Load temp file, or use defaults if it doesn't exist
+            % Set temp file location
             obj.tempFile = fullfile(obj.SourceDir, 'eg_temp.mat');
-            obj.loadTempFile();
+
             % Get current logged in username
             user = electro_gui.getUser();
 
@@ -407,9 +407,10 @@ classdef electro_gui < handle
                     delete(recentFileItem);
                 end
             end
-            obj.openRecent_None.Visible = isempty(obj.tempSettings.recentFiles);
-            for k = 1:length(obj.tempSettings.recentFiles)
-                recentFilePath = obj.tempSettings.recentFiles{k};
+            recentFiles = obj.getTempSetting('recentFiles');
+            obj.openRecent_None.Visible = isempty(recentFiles);
+            for k = 1:length(recentFiles)
+                recentFilePath = recentFiles{k};
                 uimenu(obj.menu_OpenRecent, 'Text', recentFilePath, 'UserData', recentFilePath, 'MenuSelectedFcn', @obj.click_recentFile);
             end
         end
@@ -1886,12 +1887,21 @@ function disableAxesPopupToolbars(obj)
     delete(obj.axes_Events.Toolbar);
 end
 
-function loadTempFile(obj)
-    % Get temp file
-    tempSettingsFields =        {'lastDirectory',   'recentFiles', 'lastDefault'};
-    tempSettingsDefaultValues = {obj.SourceDir,     {},            ''};
+function setTempSetting(obj, field, value)
+    tempSettings = obj.loadTempSettings();
+    tempSettings.(field) = value;
+    save(obj.tempFile, '-struct', 'tempSettings');
+end
+function setTempSettings(obj, fields, values)
+    tempSettings = obj.loadTempSettings();
+    for k = 1:length(fields)
+        tempSettings.(fields{k}) = values{k};
+    end
+    save(obj.tempFile, '-struct', 'tempSettings');
+end
+function tempSettings = loadTempSettings(obj)
     try
-        obj.tempSettings = load(obj.tempFile, tempSettingsFields{:});
+        tempSettings = load(obj.tempFile);
     catch ME
         switch ME.identifier
             case 'MATLAB:load:unableToReadMatFile'
@@ -1905,42 +1915,36 @@ function loadTempFile(obj)
                 electro_gui.issueWarning('Unknown error when attempting to read temp file. Creating new one.', 'noTempFile');
         end
         delete(obj.tempFile);
-        obj.tempSettings = struct();
-    end
-    % Loop over expected temp settings fields and set defaults if they
-    % aren't there
-    for k = 1:length(tempSettingsFields)
-        if ~isfield(obj.tempSettings, tempSettingsFields{k})
-            obj.tempSettings.(tempSettingsFields{k}) = tempSettingsDefaultValues{k};
+        % Use defaults
+        tempSettingsFields =        {'lastDirectory',   'recentFiles', 'lastDefault'};
+        tempSettingsDefaultValues = {pwd(),     {},            ''};
+        tempSettings = struct();
+        for k = 1:length(tempSettingsFields)
+            tempSettings.(tempSettingsFields{k}) = tempSettingsDefaultValues{k};
         end
-    end
-    obj.updateTempFile();
-end
 
-function updateTempFile(obj)
-    % Update temp file
-    tempSettings = obj.tempSettings;
-    save(obj.tempFile, '-struct', 'tempSettings');
+    end
+end
+function value = getTempSetting(obj, field)
+    tempSettings = obj.loadTempSettings();
+    value = tempSettings.(field);
 end
 function setLastDefaults(obj, defaultsPath)
-    obj.tempSettings.lastDefault = defaultsPath;
-    obj.updateTempFile();
+    obj.setTempSetting('lastDefault', defaultsPath);
 end
 function addRecentFile(obj, filePath)
     % Add a file to a list of recent files in the temp settings struct
-    if ~isfield(obj.tempSettings, 'recentFiles')
-        obj.tempSettings.recentFiles = {};
-    end
+    recentFiles = obj.getTempSetting('recentFiles');
     % Add file
-    obj.tempSettings.recentFiles = [filePath, obj.tempSettings.recentFiles];
+    recentFiles = [filePath, recentFiles];
     % Remove duplicates
-    obj.tempSettings.recentFiles = unique(obj.tempSettings.recentFiles, 'stable');
+    recentFiles = unique(recentFiles, 'stable');
     % Limit number of stored recent files
     maxFiles = 10;
-    numFiles = min(maxFiles, length(obj.tempSettings.recentFiles));
-    obj.tempSettings.recentFiles = obj.tempSettings.recentFiles(1:numFiles);
+    numFiles = min(maxFiles, length(recentFiles));
+    recentFiles = recentFiles(1:numFiles);
     obj.updateRecentFileList();
-    obj.updateTempFile();
+    obj.setTempSetting('recentFiles', recentFiles);
 end
 function isNewUser = ensureDefaultsFileExists(obj, user)
     % Check if a defaults file exists for the given user. If not, create
@@ -2023,7 +2027,7 @@ function [chosenDefaults, cancel] = chooseDefaultsFile(obj)
     defaultsPaths = [defaultsTemplatePath, defaultsPaths];
 
     % Attempt to use last chosen defaults
-    preselectedDefaultsPath = obj.tempSettings.lastDefault;
+    preselectedDefaultsPath = obj.getTempSetting('lastDefault');
     preselectedDefaultIndex = find(strcmp(preselectedDefaultsPath, obj.defaults));
     if isempty(preselectedDefaultsPath)
         % That failed, attempt to use current user defaults
@@ -3592,8 +3596,8 @@ function newMarkerNum = ConvertSegmentToMarker(obj, filenum, segmentNum)
 end
 
 function CreateNewDbase(obj)
-    if isfield(obj.tempSettings, 'lastDirectory')
-        path = obj.tempSettings.lastDirectory;
+    if ~isempty(obj.getTempSetting('lastDirectory'))
+        path = obj.getTempSetting('lastDirectory');
     else
         path = '.';
     end
@@ -3604,11 +3608,17 @@ function CreateNewDbase(obj)
     [dbase, cancel] = electro_gui.CreateDbase(obj.settings, ...
         path, 'SavePath', '', 'GUI', true);
 
-    numFiles = electro_gui.getNumFiles(dbase);
-    if cancel || numFiles == 0
+    if cancel
         return
     end
 
+    numFiles = electro_gui.getNumFiles(dbase);
+    if numFiles == 0
+        return
+    end
+
+    obj.setTempSetting('lastDirectory', dbase.PathName);
+    
     % Dbase hasn't been saved yet, so clear current dbase path
     obj.CurrentDbasePath = '';
 
@@ -3730,11 +3740,7 @@ function OpenDbase(obj, filePathOrDbase, options)
         progressBar = waitbar(0.05, progressMsg, 'WindowStyle', 'modal');
         if isempty(filePathOrDbase)
             % Prompt user to select dbase .mat file
-            if isfield(obj.tempSettings, 'lastDirectory')
-                path = obj.tempSettings.lastDirectory;
-            else
-                path = '.';
-            end
+            path = obj.getTempSetting('lastDirectory');
             [file, path] = uigetfile(fullfile(path, '*.mat'), 'Load analysis');
             if ~ischar(file)
                 % User cancelled load
@@ -3795,7 +3801,7 @@ function OpenDbase(obj, filePathOrDbase, options)
                     dbase.PathName = RootSwap(dbase.PathName, oldRoot, newRoot);
                 end
             case choice2
-                dbase.PathName = uigetdir(obj.tempSettings.lastDirectory, ...
+                dbase.PathName = uigetdir(obj.getTempSetting('lastDirectory'), ...
                     'Locate the data directory manually:');
                 if ~ischar(dbase.PathName)
                     % User cancelled
@@ -3813,8 +3819,7 @@ function OpenDbase(obj, filePathOrDbase, options)
 
     if exist('path', 'var')
         % Save the selected directory in temporary settings for next time
-        obj.tempSettings.lastDirectory = path;
-        obj.updateTempFile();
+        obj.setTempSetting('lastDirectory', path);
 
         dbaseSettings.settings.DefaultDbaseFilename = fullfile(path, file);
     end
@@ -3937,9 +3942,10 @@ function SaveCurrentDbase(obj, dbasePath)
 
     if isempty(dbasePath)
         % No default path provided, try to use a sensible one
-        if ~isempty(obj.tempSettings.recentFiles)
+        recentFiles = obj.getTempSetting('recentFiles');
+        if ~isempty(recentFiles)
             % Try most recent file
-            dbasePath = obj.tempSettings.recentFiles{1};
+            dbasePath = recentFiles{1};
         else
             dbasePath = obj.settings.DefaultDbaseFilename;
         end
@@ -10976,9 +10982,10 @@ end
                         obj.UpdateAnnotationTitleDisplay(changedAnnotationNums, annotationType);
                     case 'o'
                         % User pressed control-o - activate open dbase dialog
-                        if any(strcmp('shift', event.Modifier)) && ~isempty(obj.tempSettings.recentFiles)
+                        recentFiles = obj.getTempSettings('recentFiles');
+                        if any(strcmp('shift', event.Modifier)) && ~isempty(recentFiles)
                             % Shift is also down - open the most recent one
-                            obj.OpenDbase(obj.tempSettings.recentFiles{1});
+                            obj.OpenDbase(recentFiles{1});
                         else
                             obj.OpenDbase();
                         end
@@ -10987,8 +10994,9 @@ end
                         obj.CreateNewDbase();
                     case 's'
                         % User pressed control-s - activate save dbase dialog
-                        if ~isempty(obj.tempSettings.recentFiles)
-                            obj.SaveCurrentDbase(obj.tempSettings.recentFiles{1});
+                        recentFiles = obj.getTempSettings('recentFiles');
+                        if ~isempty(recentFiles)
+                            obj.SaveCurrentDbase(recentFiles{1});
                         else
                             obj.SaveCurrentDbase();
                         end
@@ -13292,6 +13300,8 @@ end
             if cancel
                 return
             end
+
+            obj.setTempSetting('lastDirectory', dbase.PathName);
 
             obj.SaveState();
 
