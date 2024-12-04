@@ -1628,7 +1628,7 @@ classdef electro_gui < handle
                 warndlg('Please load or create a dbase first.');
                 return;
             end
-            markerInfo = table(obj.settings.MarkerTypes, obj.settings.MarkerColors);
+            markerInfo = table(obj.settings.MarkerTypes', obj.settings.MarkerColors');
             f = uifigure('WindowStyle', 'modal');
             anchorWidget(f, 'C', obj.figure_Main, 'C');
             uitable('Data', markerInfo, 'Parent', f);
