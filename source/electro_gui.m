@@ -2006,8 +2006,6 @@ function [chosenDefaults, cancel] = chooseDefaultsFile(obj)
             userList(end+1) = userName; %#ok<*AGROW>
         end
     end
-    currentUserDefaultIndex = find(strcmp(obj.UserFile, {defaultsFileList.name}));
-
 
     % Get list of defaults names for user to choose from
     userList = cellfun(@(defaultsPath)regexp(defaultsPath, '(?<=defaults_).*(?=\.m)', 'match'), obj.defaults);
@@ -2664,15 +2662,23 @@ function updateFilteredSound(obj)
     obj.updateSoundData();
     obj.filtered_sound = obj.filterSound(obj.sound);
 end
-
+function autoSegment = isAutoSegmentEligible(obj, filenum)
+    arguments
+        obj electro_gui
+        filenum = electro_gui.getCurrentFileNum(obj.settings)
+    end
+    % Check if we should autosegment this file
+    %   a) is auto-segment turned on
+    %   b) are there no pre-existing segments
+    autoSegment = obj.menu_AutoSegment.Checked && isempty(obj.dbase.SegmentTimes{filenum});
+end
 function SetSegmentThreshold(obj)
-    % Clear segments axes
-    cla(obj.axes_Segments);
+    % Clear threshold line
+    delete(obj.SegmentThresholdHandle)
 
     if isempty(obj.SegmentThresholdHandle) || ~isvalid(obj.SegmentThresholdHandle) || ~isgraphics(obj.SegmentThresholdHandle)
         % No threshold line has been created yet
         ax = obj.axes_Amplitude;
-        hold(ax, 'on')
         xl = xlim(ax);
         % Create new threshold line
         [numSamples, fs] = obj.eg_GetSamplingInfo();
@@ -2680,9 +2686,8 @@ function SetSegmentThreshold(obj)
             [obj.settings.CurrentThreshold, obj.settings.CurrentThreshold], ...
             ':', 'Color',obj.settings.AmplitudeThresholdColor);
         xlim(ax, xl);
-        hold(ax, 'off');
 
-        if obj.menu_AutoSegment.Checked
+        if obj.isAutoSegmentEligible()
             % User has requested auto-segmentation. Auto segment!
             obj.SegmentSounds();
         else
@@ -2692,7 +2697,7 @@ function SetSegmentThreshold(obj)
     else
         % Threshold line already exists, just update its Y position
         obj.SegmentThresholdHandle.YData = [obj.settings.CurrentThreshold obj.settings.CurrentThreshold];
-        if obj.menu_AutoSegment.Checked
+        if obj.isAutoSegmentEligible()
             % User has requested auto-segmentation. Auto-segment!
             obj.SegmentSounds();
         end
@@ -10684,7 +10689,9 @@ end
 
             if ~obj.menu_AutoSegment.Checked
                 obj.menu_AutoSegment.Checked = 'on';
-                obj.SegmentSounds();
+                if obj.isAutoSegmentEligible()
+                    obj.SegmentSounds();
+                end
             else
                 obj.menu_AutoSegment.Checked = 'off';
             end
@@ -10713,7 +10720,9 @@ end
                 end
             end
 
-            obj.SegmentSounds();
+            if obj.isAutoSegmentEligible()
+                obj.SegmentSounds();
+            end
         end
 
         function SegmenterMenuClick(obj, hObject, event)
