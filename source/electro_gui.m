@@ -246,6 +246,7 @@ classdef electro_gui < handle
         menu_SearchOr
         menu_SearchNot
         menu_Annotations
+        menu_ManageMarkerTypes
         menu_AutoIncrementAnnotation
         menu_Channels
         action_SetChannelFs
@@ -1532,23 +1533,41 @@ classdef electro_gui < handle
 
             [numSamples, fs] = obj.eg_GetSamplingInfo();
 
+            segmentUnselectColor = electro_gui.getAnnotationUnselectColor(obj.settings.SegmentColor);
+
             [obj.SegmentHandles, obj.SegmentLabelHandles] = electro_gui.CreateAnnotations(...
                 obj.axes_Segments, ...
                 obj.dbase.SegmentTimes{filenum}, ...
                 obj.dbase.SegmentTitles{filenum}, ...
                 obj.dbase.SegmentIsSelected{filenum}, ...
-                obj.settings.SegmentSelectColor, obj.settings.SegmentUnSelectColor, ...
-                obj.settings.SegmentActiveColor, obj.settings.SegmentInactiveColor, ...
+                obj.settings.SegmentColor, segmentUnselectColor, ...
+                obj.settings.AnnotationActiveColor, ...
+                obj.settings.AnnotationInactiveColor, ...
                 [-1, 1], fs, [], @obj.click_segment);
 
-            [obj.MarkerHandles, obj.MarkerLabelHandles] = electro_gui.CreateAnnotations(...
-                obj.axes_Segments, ...
-                obj.dbase.MarkerTimes{filenum}, ...
-                obj.dbase.MarkerTitles{filenum}, ...
-                obj.dbase.MarkerIsSelected{filenum}, ...
-                obj.settings.MarkerSelectColor, obj.settings.MarkerUnSelectColor, ...
-                obj.settings.MarkerActiveColor, obj.settings.MarkerInactiveColor, ...
-                [1, 3], fs, [], @obj.click_segment);
+            obj.MarkerHandles = gobjects().empty();
+            obj.MarkerLabelHandles = gobjects().empty();
+            for markerTypeIdx = 1:length(obj.settings.MarkerTypes)
+                markerType = obj.settings.MarkerTypes{markerTypeIdx};
+                markerMask = obj.dbase.MarkerTypes{filenum} == markerType;
+                if ~any(markerMask)
+                    % No markers of this type, move on
+                    continue
+                end
+
+                markerColor = obj.settings.MarkerColors{markerTypeIdx};
+                markerUnselectColor = electro_gui.getAnnotationUnselectColor(markerColor);
+    
+                [obj.MarkerHandles(markerMask), obj.MarkerLabelHandles(markerMask)] = electro_gui.CreateAnnotations(...
+                    obj.axes_Segments, ...
+                    obj.dbase.MarkerTimes{filenum}(markerMask, :), ...
+                    obj.dbase.MarkerTitles{filenum}(markerMask), ...
+                    obj.dbase.MarkerIsSelected{filenum}(markerMask), ...
+                    markerColor, markerUnselectColor, ...
+                    obj.settings.AnnotationActiveColor, ...
+                    obj.settings.AnnotationInactiveColor, ...
+                    [1, 3], fs, [], @obj.click_segment);
+            end
 
             % Warn user if annotation is out of range
             if size(obj.dbase.SegmentTimes{filenum}, 1) > 0
@@ -1593,18 +1612,29 @@ classdef electro_gui < handle
 
             % Update active segment highlight
             if ~isempty(obj.settings.ActiveSegmentNum)
-                obj.SegmentHandles(obj.settings.ActiveSegmentNum).EdgeColor = obj.settings.SegmentActiveColor;
+                obj.SegmentHandles(obj.settings.ActiveSegmentNum).EdgeColor = obj.settings.AnnotationActiveColor;
                 obj.SegmentHandles(obj.settings.ActiveSegmentNum).LineWidth = 2;
                 obj.SegmentHandles(obj.settings.ActiveSegmentNum).LineStyle = '-';
             end
             % Update active marker highlight
             if ~isempty(obj.settings.ActiveMarkerNum)
-                obj.MarkerHandles(obj.settings.ActiveMarkerNum).EdgeColor = obj.settings.SegmentInactiveColor;
+                obj.MarkerHandles(obj.settings.ActiveMarkerNum).EdgeColor = obj.settings.AnnotationActiveColor;
                 obj.MarkerHandles(obj.settings.ActiveMarkerNum).LineWidth = 2;
                 obj.MarkerHandles(obj.settings.ActiveMarkerNum).LineStyle = '-';
             end
 
             hold(ax, 'off');
+        end
+        function manageMarkerTypes(obj)
+            if ~electro_gui.isDataLoaded(obj.dbase)
+                warndlg('Please load or create a dbase first.');
+                return;
+            end
+            markerInfo = table(obj.settings.MarkerTypes, obj.settings.MarkerColors);
+            f = uifigure('WindowStyle', 'modal');
+            anchorWidget(f, 'C', obj.figure_Main, 'C');
+            uitable('Data', markerInfo, 'Parent', f);
+            uiwait(f);
         end
         function updateXLimBox(obj)
             % Update the yellow dotted line box on the sound axes that shows what
@@ -2292,6 +2322,10 @@ function LoadFile(obj, showWaitBar)
 
     [numSamples, fs] = obj.eg_GetSamplingInfo();
 
+    if numSamples == 0
+        error('Sound file failed to load properly. Please check that the correct loader is selected for the file type.');
+    end
+
     obj.dbase.FileLength(filenum) = numSamples;
     obj.text_DateAndTime.String = electro_gui.getFileTimestamp(obj.dbase, filenum);
 
@@ -2300,6 +2334,7 @@ function LoadFile(obj, showWaitBar)
     obj.clearAxes();
 
     tmax = numSamples/fs;
+    
     obj.settings.TLim = [0, tmax];
 
     obj.updateAnnotations();
@@ -2750,11 +2785,11 @@ function UpdateActiveAnnotationDisplay(obj, oldAnnotationNum, oldAnnotationType,
     % Update old active segment display to inactive
     switch oldAnnotationType
         case 'segment'
-            obj.SegmentHandles(oldAnnotationNum).EdgeColor = obj.settings.SegmentInactiveColor;
+            obj.SegmentHandles(oldAnnotationNum).EdgeColor = electro_gui.getAnnotationInactiveColor();
             obj.SegmentHandles(oldAnnotationNum).LineWidth = 1;
             obj.SegmentHandles(oldAnnotationNum).LineStyle = '-';
         case 'marker'
-            obj.MarkerHandles(oldAnnotationNum).EdgeColor = obj.settings.MarkerInactiveColor;
+            obj.MarkerHandles(oldAnnotationNum).EdgeColor = electro_gui.getAnnotationInactiveColor();
             obj.MarkerHandles(oldAnnotationNum).LineWidth = 1;
             obj.MarkerHandles(oldAnnotationNum).LineStyle = '-';
         case 'none'
@@ -2767,12 +2802,12 @@ function UpdateActiveAnnotationDisplay(obj, oldAnnotationNum, oldAnnotationType,
 
     switch newAnnotationType
         case 'segment'
-            obj.SegmentHandles(newAnnotationNum).EdgeColor = obj.settings.SegmentActiveColor;
+            obj.SegmentHandles(newAnnotationNum).EdgeColor = obj.settings.AnnotationActiveColor;
             obj.SegmentHandles(newAnnotationNum).LineWidth = 2;
             obj.SegmentHandles(newAnnotationNum).LineStyle = '-';
             activeAnnotationTimes = obj.dbase.SegmentTimes{filenum}(newAnnotationNum, :) / obj.dbase.Fs;
         case 'marker'
-            obj.MarkerHandles(newAnnotationNum).EdgeColor = obj.settings.MarkerActiveColor;
+            obj.MarkerHandles(newAnnotationNum).EdgeColor = obj.settings.AnnotationActiveColor;
             obj.MarkerHandles(newAnnotationNum).LineWidth = 2;
             obj.MarkerHandles(newAnnotationNum).LineStyle = '-';
             activeAnnotationTimes = obj.dbase.MarkerTimes{filenum}(newAnnotationNum, :) / obj.dbase.Fs;
@@ -2863,9 +2898,10 @@ function updateSegmentSelectHighlight(obj)
     filenum = electro_gui.getCurrentFileNum(obj.settings);
     for segmentNum = 1:length(obj.SegmentHandles)
         if obj.dbase.SegmentIsSelected{filenum}(segmentNum)
-            obj.SegmentHandles(segmentNum).FaceColor = obj.settings.SegmentSelectColor;
+            obj.SegmentHandles(segmentNum).FaceColor = obj.settings.SegmentColor;
         else
-            obj.SegmentHandles(segmentNum).FaceColor = obj.settings.SegmentUnSelectColor;
+            unselectColor = electro_gui.getAnnotationUnselectColor(obj.settings.SegmentColor);
+            obj.SegmentHandles(segmentNum).FaceColor = unselectColor;
         end
     end
 end
@@ -2890,19 +2926,19 @@ function ToggleAnnotationSelect(obj, filenum, annotationNum, annotationType)
             % Do nothing
     end
 end
-function color = getAnnotationFaceColor(obj, annotationType, selectionState)
+function color = getAnnotationFaceColor(obj, annotationType, selectionState, markerType)
     switch annotationType
         case 'segment'
             if selectionState
-                color = obj.settings.SegmentSelectColor;
+                color = obj.settings.SegmentColor;
             else
-                color = obj.settings.SegmentUnSelectColor;
+                color = electro_gui.getAnnotationUnselectColor(obj.settings.SegmentColor);
             end
         case 'marker'
             if selectionState
-                color = obj.settings.MarkerSelectColor;
+                color = obj.settings.MarkerColors{markerType};
             else
-                color = obj.settings.MarkerUnSelectColor;
+                color = electro_gui.getAnnotationUnselectColor(obj.settings.MarkerColors{markerType});
             end
         otherwise
             error('Unknown annotation type: %s', annotationType);
@@ -2912,15 +2948,15 @@ function color = getAnnotationEdgeColor(obj, annotationType, activeState)
     switch annotationType
         case 'segment'
             if activeState
-                color = obj.settings.SegmentActiveColor;
+                color = obj.settings.AnnotationActiveColor;
             else
-                color = obj.settings.SegmentInactiveColor;
+                color = electro_gui.getAnnotationInactiveColor();
             end
         case 'marker'
             if activeState
-                color = obj.settings.MarkerActiveColor;
+                color = obj.settings.AnnotationActiveColor;
             else
-                color = obj.settings.MarkerInactiveColor;
+                color = electro_gui.getAnnotationInactiveColor();
             end
         otherwise
             error('Unknown annotation type: %s', annotationType);
@@ -2934,7 +2970,7 @@ end
 function ToggleMarkerSelect(obj, filenum, markerNum)
     obj.dbase.MarkerIsSelected{filenum}(markerNum) = ~obj.dbase.MarkerIsSelected{filenum}(markerNum);
     obj.MarkerHandles(markerNum).FaceColor = obj.getAnnotationFaceColor('marker', ...
-        obj.dbase.MarkerIsSelected{filenum}(markerNum));
+        obj.dbase.MarkerIsSelected{filenum}(markerNum), obj.dbase.MarkerTypes{filenum}(markerNum));
 end
 function annotationType = findActiveAnnotationType(obj)
     [~, annotationType] = FindActiveAnnotation(obj);
@@ -3239,6 +3275,7 @@ function CreateNewMarker(obj, x)
     obj.dbase.MarkerTimes{filenum}(end+1, :) = x;
     obj.dbase.MarkerIsSelected{filenum}(end+1) = 1;
     obj.dbase.MarkerTitles{filenum}{end+1} = '';
+    obj.dbase.MarkerTypes{filenum}(end+1) = obj.settings.MarkerTypes{obj.settings.CurrentMarkerTypeIdx};
 
     % Replot frontend annotation display
     obj.updateAnnotations();
@@ -3280,6 +3317,7 @@ function DeleteMarker(obj, filenum, markerNum)
     obj.dbase.MarkerTimes{filenum}(markerNum, :) = [];
     obj.dbase.MarkerIsSelected{filenum}(markerNum) = [];
     obj.dbase.MarkerTitles{filenum}(markerNum) = [];
+    obj.dbase.MarkerTypes{filenum}(markerNum) = [];
 end
 function DeleteSegment(obj, filenum, segmentNum)
     % Delete the specified marker
@@ -3296,6 +3334,7 @@ function order = SortMarkers(obj, filenum)
     obj.dbase.MarkerTimes{filenum} = obj.dbase.MarkerTimes{filenum}(order, :);
     obj.dbase.MarkerIsSelected{filenum} = obj.dbase.MarkerIsSelected{filenum}(order);
     obj.dbase.MarkerTitles{filenum} = obj.dbase.MarkerTitles{filenum}(order);
+    obj.dbase.MarkerTypes{filenum} = obj.dbase.MarkerTypes{filenum}(order);
     obj.MarkerHandles = obj.MarkerHandles(order);
 end
 function numAnnotations = GetNumAnnotations(obj, annotationType, filenum)
@@ -3313,12 +3352,16 @@ function numAnnotations = GetNumAnnotations(obj, annotationType, filenum)
     end
 end
 function SetActiveAnnotation(obj, annotationNum, annotationType)
-    if ~exist('annotationNum', 'var') || isempty(annotationNum)
+    arguments
+        obj electro_gui
+        annotationNum double = []
+        annotationType char = ''
+    end
+    if isempty(annotationNum)
         % No annotation number provided - use the currently active one
         annotationNum = obj.FindActiveAnnotation();
     end
-
-    if ~exist('annotationType', 'var') || isempty(annotationType)
+    if isempty(annotationType)
         % No annotation type provided - use the currently active type
         [~, annotationType] = obj.FindActiveAnnotation();
     end
@@ -3382,28 +3425,81 @@ function [oldAnnotationNum, newAnnotationNum] = IncrementActiveAnnotation(obj, d
     % Set new annotation number
     obj.SetActiveAnnotation(newAnnotationNum, annotationType);
 end
-function [newAnnotationNum, newAnnotationType] = ConvertAnnotationType(obj, filenum, annotationNum, annotationType)
-    if ~exist('annotationNum', 'var') || isempty(annotationNum)
+function [newAnnotationNum, newAnnotationType, newMarkerType] = ConvertAnnotationType(obj, filenum, annotationNum, annotationType)
+    arguments
+        obj electro_gui
+        filenum double
+        annotationNum double = []
+        annotationType char = []
+    end
+    if isempty(annotationNum)
         % No annotation number provided - use the currently active one
         annotationNum = obj.FindActiveAnnotation();
     end
-
-    if ~exist('annotationType', 'var') || isempty(annotationType)
+    if isempty(annotationType)
         % No annotation type provided - use the currently active type
         [~, annotationType] = obj.FindActiveAnnotation();
     end
+
+    newMarkerType = 'none';
+
     switch annotationType
         case 'segment'
             newAnnotationNum = obj.ConvertSegmentToMarker(filenum, annotationNum);
             newAnnotationType = 'marker';
         case 'marker'
-            newAnnotationNum = obj.ConvertMarkerToSegment(filenum, annotationNum);
-            newAnnotationType = 'segment';
+            markerType = obj.getMarkerType(filenum, annotationNum);
+            [newMarkerType, newMarkerTypeIdx, isLastMarkerType] = obj.getNextMarkerType(markerType);
+            if isLastMarkerType
+                % We're at the end of the list of marker types - switch to segment instead
+                newAnnotationNum = obj.ConvertMarkerToSegment(filenum, annotationNum);
+                newAnnotationType = 'segment';
+            else
+                newAnnotationNum = annotationNum;
+                obj.dbase.MarkerTypes{filenum}(annotationNum) = newMarkerType;
+                newAnnotationType = 'marker';
+            end
+            obj.settings.CurrentMarkerTypeIdx = newMarkerTypeIdx;
         case 'none'
             return;
         otherwise
             error('Invalid annotation type: %s', annotationType);
     end
+end
+function markerType = getMarkerType(obj, filenum, markerNum)
+    arguments
+        obj electro_gui
+        filenum = electro_gui.getCurrentFileNum(obj.settings)
+        markerNum = []
+    end
+    if isempty(markerNum)
+        [annotationNum, annotationType] = obj.FindActiveAnnotation();
+        if strcmp(annotationType, 'marker')
+            markerNum = annotationNum;
+        else
+            markerType = 'none';
+            return
+        end
+    end
+
+    markerType = obj.dbase.MarkerTypes{filenum}(markerNum);
+end
+function [newMarkerType, newMarkerTypeIdx, isLastMarkerType] = getNextMarkerType(obj, markerType)
+    arguments
+        obj electro_gui
+        markerType = ''
+    end
+    if isempty(markerType)
+        markerTypeIdx = obj.settings.CurrentMarkerTypeIdx;
+    else
+        markerTypeIdx = find(obj.settings.MarkerTypes == markerType);
+    end
+    if isempty(markerTypeIdx)
+        error('Unknown marker type: %s', markerType);
+    end
+    isLastMarkerType = markerTypeIdx == length(obj.settings.MarkerTypes);
+    newMarkerTypeIdx = mod1(markerTypeIdx+1, length(obj.settings.MarkerTypes));
+    newMarkerType = obj.settings.MarkerTypes(newMarkerTypeIdx);
 end
 function newSegmentNum = ConvertMarkerToSegment(obj, filenum, markerNum)
     activeMarkerNum = obj.FindActiveMarker();
@@ -3449,6 +3545,8 @@ function newMarkerNum = ConvertSegmentToMarker(obj, filenum, segmentNum)
     MTs = obj.dbase.MarkerTimes{filenum};
     MSs = obj.dbase.MarkerIsSelected{filenum};
     MNs = obj.dbase.MarkerTitles{filenum};
+    MTypes = obj.dbase.MarkerTypes{filenum};
+    markerType = obj.settings.MarkerTypes{obj.settings.CurrentMarkerTypeIdx};
 
     if isempty(MTs)
         % No existing markers
@@ -3460,7 +3558,7 @@ function newMarkerNum = ConvertSegmentToMarker(obj, filenum, segmentNum)
     obj.dbase.MarkerTimes{filenum} = [MTs(1:ind-1, :); [t0, t1]; MTs(ind:end, :)];
     obj.dbase.MarkerIsSelected{filenum} = [MSs(1:ind-1), SS, MSs(ind:end)];
     obj.dbase.MarkerTitles{filenum} = [MNs(1:ind-1), SN, MNs(ind:end)];
-
+    obj.dbase.MarkerTypes{filenum} = [MTypes(1:ind-1), markerType, MTypes(ind:end)];
     newMarkerNum = ind;
 
     obj.DeleteSegment(filenum, segmentNum);
@@ -3717,6 +3815,7 @@ function OpenDbase(obj, filePathOrDbase, options)
     obj.settings = settings;
 
     % Adjust settings based on dbase contents
+    obj.updateGUIControls();
 
     obj.updateChannelPopups();
     obj.popup_Channel1.Value = 1;
@@ -5549,6 +5648,10 @@ function UpdateFiles(obj, old_sound_files)
     originalValues = obj.dbase.MarkerIsSelected(oldnum);
     obj.dbase.MarkerIsSelected = cell(1,numFiles);
     obj.dbase.MarkerIsSelected(newnum) = originalValues;
+
+    originalValues = obj.dbase.MarkerTypes(oldnum);
+    obj.dbase.MarkerTypes = cell(1,numFiles);
+    obj.dbase.MarkerTypes(newnum) = originalValues;
 
     originalValues = obj.dbase.EventTimes;
     for eventSourceIdx = 1:length(originalValues)
@@ -9139,6 +9242,12 @@ function setupGUI(obj)
         'Label','Annotations',...
         'Tag','menu_Annotations');
 
+    obj.menu_ManageMarkerTypes = uimenu(...
+        'Parent',obj.menu_Annotations,...
+        'Callback',@obj.menu_ManageMarkerTypes_Callback,...
+        'Label','Manage marker types...',...
+        'Tag','menu_ManageMarkerTypes');
+
     obj.menu_AutoIncrementAnnotation = uimenu(...
         'Parent',obj.menu_Annotations,...
         'Callback',@obj.menu_AutoIncrementAnnotation_Callback,...
@@ -10483,7 +10592,7 @@ end
                             hObject.FaceColor = obj.getAnnotationFaceColor('segment', obj.dbase.SegmentIsSelected{filenum}(clickedAnnotationNum));
                         case 'marker'
                             obj.dbase.MarkerIsSelected{filenum}(clickedAnnotationNum) = ~obj.dbase.MarkerIsSelected{filenum}(clickedAnnotationNum);
-                            hObject.FaceColor = obj.getAnnotationFaceColor('marker',  obj.dbase.MarkerIsSelected{filenum}(clickedAnnotationNum));
+                            hObject.FaceColor = obj.getAnnotationFaceColor('marker',  obj.dbase.MarkerIsSelected{filenum}(clickedAnnotationNum), obj.dbase.MarkerTypes{filenum}(clickedAnnotationNum));
                     end
                 case 'open'
                     switch clickedAnnotationType
@@ -10682,7 +10791,7 @@ end
 
         function mouseMotionHandler(obj, hObject, event)
             % Callback to handle mouse motion
-
+            obj.figure_Main.SelectionType
             if obj.isShiftDown()
                 % User is holding the shift key down
 
@@ -11136,7 +11245,7 @@ end
             obj.SetActiveAxnum(axnum);
 
             ax = obj.axes_Channel(axnum);
-
+            
             if strcmp(obj.figure_Main.SelectionType,'open')
                 chan = obj.getSelectedChannel(axnum);
                 [numSamples, fs] = obj.eg_GetSamplingInfo([], chan);
@@ -12899,6 +13008,9 @@ end
         end
         function menu_Annotations_Callback(obj, hObject, eventdata)
         end
+        function menu_ManageMarkerTypes_Callback(obj, hObject, eventdata)
+            obj.manageMarkerTypes();
+        end
         function menu_AutoIncrementAnnotation_Callback(obj, hObject, eventdata)
             obj.menu_AutoIncrementAnnotation.Checked = ~obj.menu_AutoIncrementAnnotation.Checked;
             obj.settings.AutoIncrementActiveAnnotation = (obj.menu_AutoIncrementAnnotation.Checked == true);
@@ -13249,6 +13361,12 @@ end
         end
     end
     methods (Static)   % dbase manipulation methods
+        function annotationUnselectColor = getAnnotationUnselectColor(annotationColor)
+            annotationUnselectColor = changeColorBrightness(annotationColor, 0.5);
+        end
+        function annotationInactiveColor = getAnnotationInactiveColor(annotationActiveColor)
+            annotationInactiveColor = 'none';
+        end
         function settings = createMergedSettings(userSettings, dbaseSettings)
             % Merge the defaults_template, userSettings, and dbaseSettings
             arguments
@@ -13331,6 +13449,7 @@ end
                 dbase.help.MarkerTimes = 'A 1xN cell array containing Sx2 arrays of marker start and end times. For example, dbase.SegmentTimes{11}(7, 1) would give you the start time of syllable #7 in file #11.';
                 dbase.help.MarkerTitles = 'A 1xN cell array of 1xS cell arrays. Each sub-cell array contains the titles given to each marker. For example, dbase.MarkerTitles{11}{7} would give you the title of marker #7 in file #11';
                 dbase.help.MarkerIsSelected = 'A 1xN cell array of 1xS logical arrays. Each logical array contains the selected/unselected state of each marker. For example, dbase.MarkerIsSelected{11}(7) would give you true/false indicating whether or not marker #7 in file #11 is selected';
+                dbase.help.MarkerType = 'A 1xN cell array of 1xS categorical arrays. Each categorical array contains the type of each marker. For example, dbase.MarkerTypes{11}(7) would give you a category like ''HeadBob'' indicating whether or not marker #7 in file #11 is of type ''HeadBob''';
                 dbase.help.EventChannels = '';
                 dbase.help.EventChannelIsPseudo = '';
                 dbase.help.EventSources = '';
@@ -13366,6 +13485,11 @@ end
             dbase.MarkerTimes =         gvod(baseDbase, 'MarkerTimes', cell(1,numFiles));
             dbase.MarkerTitles =        gvod(baseDbase, 'MarkerTitles', cell(1,numFiles));
             dbase.MarkerIsSelected =    gvod(baseDbase, 'MarkerIsSelected', cell(1,numFiles));
+            dbase.MarkerTypes =          gvod(baseDbase, 'MarkerType', cell(1, numFiles));
+            for filenum = 1:numFiles
+                % Initialize each MarkerType array as an empty categorical array with the categories as the marker types defined in settings.
+                dbase.MarkerTypes{filenum} = categorical({}, settings.MarkerTypes);
+            end
             dbase.EventThresholds =     gvod(baseDbase, 'EventThresholds', zeros(0,numFiles));
 
             % Create properties info
@@ -13678,6 +13802,55 @@ end
                 msgs{end+1} = 'PropertyColumnVisible should be a logical array of the same length as DefaultProperties.Names';
                 defaults.PropertyColumnVisible = logical.empty();
             end
+            if ~isfield(defaults, 'PropertyColumnVisible')
+                msgs{end+1} = 'PropertyColumnVisible should be a logical array of the same length as DefaultProperties.Names';
+                defaults.PropertyColumnVisible = logical.empty();
+            end
+            if isfield(defaults, 'MarkerSelectColor')
+                if ~isfield(defaults, 'MarkerColors')
+                    defaults.MarkerColors = {defaults.MarkerSelectColor};
+                end
+                msgs{end+1} = 'MarkerSelectColor has been renamed to MarkerColors';
+                defaults = rmfield(defaults, 'MarkerSelectColor');
+            end
+            if isfield(defaults, 'SegmentSelectColor')
+                if ~isfield(defaults, 'SegmentColor')
+                    defaults.SegmentColor = defaults.SegmentSelectColor;
+                end
+                msgs{end+1} = 'SegmentSelectColor has been renamed to SegmentColor';
+                defaults = rmfield(defaults, 'SegmentSelectColor');
+            end
+            if isfield(defaults, 'MarkerUnSelectColor')
+                msgs{end+1} = 'MarkerUnSelectColor has been removed and will be ignored';
+                defaults = rmfield(defaults, 'MarkerUnSelectColor');
+            end
+            if isfield(defaults, 'SegmentUnSelectColor')
+                msgs{end+1} = 'SegmentUnSelectColor has been removed and will be ignored';
+                defaults = rmfield(defaults, 'SegmentUnSelectColor');
+            end
+            if isfield(defaults, 'MarkerActiveColor')
+                msgs{end+1} = 'MarkerActiveColor has been replaced by AnnotationActiveColor and will be ignored';
+                defaults = rmfield(defaults, 'MarkerActiveColor');
+            end
+            if isfield(defaults, 'SegmentActiveColor')
+                msgs{end+1} = 'SegmentActiveColor has been replaced by AnnotationActiveColor and will be ignored';
+                defaults = rmfield(defaults, 'SegmentActiveColor');
+            end
+            if isfield(defaults, 'MarkerInactiveColor')
+                msgs{end+1} = 'MarkerInactiveColor has been removed and will be ignored';
+                defaults = rmfield(defaults, 'MarkerInactiveColor');
+            end
+            if isfield(defaults, 'SegmentInactiveColor')
+                msgs{end+1} = 'SegmentInactiveColor has been removed and will be ignored';
+                defaults = rmfield(defaults, 'SegmentInactiveColor');
+            end
+            if isstring(defaults.MarkerColors)
+                defaults.MarkerColors = cellstr(defaults.MarkerColors);
+            elseif ~iscell(defaults.MarkerColors)
+                defaults.MarkerColors = {defaults.MarkerColors};
+                msgs{end+1} = 'MarkerColors should be a cell array of one or more colors indicating the colors for the first N marker types';
+            end
+
 %             if length(defaults.PropertyColumnVisible > defaults.)
             if ~isempty(msgs)
                 fprintf('\n*************************************************************************************************************\n')
@@ -14368,8 +14541,8 @@ end
                     % Dbases briefly had these fields to keep track of
                     % pseudochannel info, but this has been combined into
                     % dbase.ChannelInfo
-                    for k = 1:length(dbase.PseudoChannelNames)
-                        info = dbase.PseudoChannelInfo{k};
+                    for filenum = 1:length(dbase.PseudoChannelNames)
+                        info = dbase.PseudoChannelInfo{filenum};
                         dbase = electro_gui.createEventPseudoChannel(dbase, info.eventSourceIdx, info.eventPartIdx);
                     end
                 else
@@ -14549,6 +14722,38 @@ end
                 % This must be an older type of dbase - add blank marker field
                 dbase.MarkerIsSelected = cell(1,numFiles);
             end
+            if ~isfield(dbase, 'MarkerType')
+                % This must be an older type of dbase - add default marker type field
+                dbase.MarkerTypes = cell(1,numFiles);
+                markerValueSet = 1:length(settings.MarkerTypes);
+                for filenum = 1:numFiles
+                    defaultMarkerType = ones(size(dbase.MarkerTitles{filenum}));
+                    dbase.MarkerTypes{filenum} = categorical(defaultMarkerType, markerValueSet, settings.MarkerTypes);
+                end
+            else
+                % Check that all marker types have the same categories
+
+                % First collect all existing categories
+                cats = {};
+                for filenum = 1:numFiles
+                    if ~iscategorical(dbase.MarkerTypes{filenum})
+                        dbase.MarkerTypes{filenum} = categorical(dbase.MarkerTypes{filenum});
+                    end
+                    cats = unique(vertcat(cats, categories(dbase.MarkerTypes{filenum})), 'stable');
+                end
+                % Make sure settings.MarkerTypes corresponds to the markers found in the dbase
+                if length(cats) ~= length(settings.MarkerTypes) || ~all(strcmp(sort(cats)', sort(settings.MarkerTypes)))
+                    warning('Marker types found in dbase do not correspond to MarkerTypes defined in settings/defaults - updating settings.MarkerTypes. This should not normally happen, and may result in mismatched/scrambled marker types. Attempting to fix.')
+                    settings.MarkerTypes = cats;
+                    for filenum = 1:numFiles
+                        if ~iscategorical(dbase.MarkerTypes{filenum})
+                            dbase.MarkerTypes{filenum} = categorical(dbase.MarkerTypes{filenum}, settings.MarkerTypes);
+                        else
+                            dbase.MarkerTypes{filenum} = setcats(dbase.MarkerTypes{filenum}, settings.MarkerTypes);
+                        end
+                    end
+                end
+            end
 
             % Check that segment and marker times have a Nx2 size, even when N = 0
             for filenum = 1:length(dbase.SegmentTimes)
@@ -14597,6 +14802,48 @@ end
                 for eventSourceIdx = 1:length(dbase.EventTimes)
                     settings.EventXLims(eventSourceIdx, :) = settings.EventXLims(1, :);
                 end
+            end
+
+            % Convert named colors to RGB triplets
+            colorFields = {'SegmentColor', 'MarkerColors', 'ProgressBarColor', 'FileReadColor', 'FileUnreadColor', 'AmplitudeColor', 'AmplitudeThresholdColor'};
+            for fieldnum = 1:length(colorFields)
+                colorField = colorFields{fieldnum};
+                color = settings.(colorField);
+                if ~iscell(color)
+                    single = true;
+                    color = {color};
+                else
+                    single = false;
+                end
+                try
+                    color = cellfun(@validatecolor_safe, color, 'UniformOutput', false);
+                catch ME
+                    switch ME.identifier
+                        case 'MATLAB:graphics:validatecolor:InvalidColorString'
+                            fprintf('settings.%s = ', colorField);
+                            disp(settings.(colorField));
+                            error('Invalid color value for field %s', colorField)
+                        otherwise
+                            rethrow(ME);
+                    end
+                end
+                if single
+                    settings.(colorField) = color{1};
+                else
+                    settings.(colorField) = color;
+                end
+            end
+            if length(settings.MarkerColors) < length(settings.MarkerTypes)
+                % Choose enough colors to fill out marker colors
+                numExtraColors = length(settings.MarkerTypes) - length(settings.MarkerColors);
+                settings.MarkerColors = ...
+                    [...
+                        settings.MarkerColors, ...
+                        getContrastingColor(...
+                            [{settings.SegmentColor}, settings.MarkerColors], ...
+                            'N', numExtraColors...
+                        )...
+                    ];
             end
         end
         function [uNoise, uSound, sdNoise, sdSound] = eg_estimateTwoMeans(audioLogPow)
@@ -14828,7 +15075,7 @@ end
         end
         function [annotationHandles, labelHandles] = CreateAnnotations(...
                 ax, times, titles, selects, selectColor, unselectColor, ...
-                activeColor, inactiveColor, yExtent, fs, activeIndex, ...
+                activeOutlineColor, inactiveOutlineColor, yExtent, fs, activeIndex, ...
                 click_handler)
             % Create the annotations for a set of timed segments (used for plotting both
             % "segments" and "markers")
@@ -14839,8 +15086,8 @@ end
                 selects
                 selectColor
                 unselectColor
-                activeColor
-                inactiveColor
+                activeOutlineColor
+                inactiveOutlineColor
                 yExtent
                 fs
                 activeIndex = []
@@ -14874,11 +15121,11 @@ end
 
                 % Set annotation style to inactive
                 if activeIndex == annotationNum
-                    newAnnotation.EdgeColor = activeColor;
+                    newAnnotation.EdgeColor = activeOutlineColor;
                     newAnnotation.LineWidth = 2;
                     newAnnotation.LineStyle = '-';
                 else
-                    newAnnotation.EdgeColor = inactiveColor;
+                    newAnnotation.EdgeColor = inactiveOutlineColor;
                     newAnnotation.LineWidth = 1;
                     newAnnotation.LineStyle = '-';
                 end
