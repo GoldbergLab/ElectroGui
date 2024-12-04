@@ -910,6 +910,7 @@ classdef electro_gui < handle
             obj.UpdateEventThresholdDisplay(eventSourceIdx);
 
             filenum = electro_gui.getCurrentFileNum(obj.settings);
+
             hold(obj.axes_Channel(axnum), 'on');
             eventTimes = {};
             eventSelected = {};
@@ -1399,7 +1400,10 @@ classdef electro_gui < handle
             obj.settings.ActiveEventPartNum = [];
 
             obj.updateEventThresholdInAxes(axnum);
-            obj.AutoDetectEvents(axnum);
+
+            if obj.isAutoDetectEligible(axnum)
+                obj.DetectEventsInAxes(axnum);
+            end
 
             % Update event display
             obj.updateChannelEventDisplay(axnum);
@@ -4546,34 +4550,6 @@ function threshold = updateEventThresholdInAxes(obj, axnum)
     threshold = obj.updateEventThreshold(eventSourceIdx, filenum);
 end
 
-function AutoDetectEvents(obj, axnum)
-    % If appropriate, detect events in the axes
-
-    % Get event source matching current channel configuration
-    eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
-
-    filenum = electro_gui.getCurrentFileNum(obj.settings);
-
-    if obj.menu_EventAutoDetect(axnum).Checked
-        % User requests auto detect
-        if isempty(eventSourceIdx)
-            % Create an event source from the current axes configuration
-            eventSourceIdx = obj.addNewEventSourceFromChannelAxes(axnum);
-            obj.updateChannelPopups();
-            obj.updateEventSourceList();
-        end
-        if isempty(eventSourceIdx)
-            % If event source is still empty, channel must not be ready for
-            % event detection - abort.
-            return
-        end
-        if all(cellfun(@isempty, obj.dbase.EventTimes{eventSourceIdx}(:, filenum)), 'all')
-            % No events currently exist for this event source/filenum
-            obj.DetectEventsInAxes(axnum);
-        end
-    end
-end
-
 function eventSourceIdx = ClearEventsInAxes(obj, axnum)
     % Use the configuration of the given channel axes to clear the events
     % for the matching event source.
@@ -4602,6 +4578,23 @@ function eventSourceIdx = ClearEventsInAxes(obj, axnum)
     obj.updateChannelEventDisplay(axnum);
     obj.updateEventSourceList();
     obj.updateEventViewer();
+end
+function autoDetect = isAutoDetectEligible(obj, axnum, filenum)
+    arguments
+        obj electro_gui
+        axnum
+        filenum = electro_gui.getCurrentFileNum(obj.settings)
+    end
+    % Check if we should auto-detect events in this file & channel axes
+    %   a) is auto-detect turned on for this axis
+    %   b) are there no pre-existing events
+    eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
+    eventSourceExists = ~isempty(eventSourceIdx);
+    noExistingEvents = all(cellfun(@isempty, obj.dbase.EventTimes{1}(:, filenum)));
+    autoDetect = ...
+        obj.menu_EventAutoDetect(axnum).Checked && ...
+        eventSourceExists && ...
+        noExistingEvents;
 end
 
 function eventSourceIdx = DetectEventsInAxes(obj, axnum)
@@ -11529,14 +11522,21 @@ end
         end
         % --- Executes on selection change in popup_EventDetector1.
         function popup_EventDetector1_Callback(obj, hObject, event)
-            obj.SetActiveAxnum(1);
-            obj.updateChannelEventDisplay(1);
+            obj.popup_EventDetector_Callback(1);
         end
 
         % --- Executes on selection change in popup_EventDetector2.
         function popup_EventDetector2_Callback(obj, hObject, event)
-            obj.SetActiveAxnum(2);
-            obj.updateChannelEventDisplay(2);
+            obj.popup_EventDetector_Callback(2);
+        end
+
+        function popup_EventDetector_Callback(obj, axnum)
+            obj.SetActiveAxnum(axnum);
+            if obj.isAutoDetectEligible(axnum)
+                % Auto-detect if appropriate
+                obj.DetectEventsInAxes(axnum);
+            end
+            obj.updateChannelEventDisplay(axnum);
         end
 
         function menu_Events1_Callback(obj, hObject, event)
@@ -11547,7 +11547,9 @@ end
                 obj.menu_EventAutoDetect(axnum).Checked = 'off';
             else
                 obj.menu_EventAutoDetect(axnum).Checked = 'on';
-                obj.DetectEventsInAxes(1);
+                if obj.isAutoDetectEligible(axnum)
+                    obj.DetectEventsInAxes(axnum);
+                end
 
                 eventSourceIdx = obj.GetChannelAxesEventSourceIdx(1);
                 obj.updateAnythingShowingEventSource(eventSourceIdx);
