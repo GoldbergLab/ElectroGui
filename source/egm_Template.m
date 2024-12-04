@@ -26,4 +26,12 @@ param = eval(answer{2});
 for fileIdx = 1:length(filenums)
     filenum = filenums(fileIdx);
     fprintf('Doing something with file #%d (%d of %d)', filenum, fileIdx, length(filenums))
+
+    % You can acccess the current state of the loaded dbase like so:
+    obj.dbase
+    % You can access the current settings like so:
+    obj.settings
+    % Most purposes should only require those two structs, but you can also
+    %   interact with the GUI itself if you want by looking through the 
+    %   other fields in the 'obj' object.
 end
