@@ -422,27 +422,27 @@ classdef electro_gui < handle
             end
 
             obj.menu_AutoDisplayEvents.Checked = obj.settings.EventsAutoDisplay;
-            
+
             obj.menu_AutoCalculate.Checked = obj.settings.SonogramAutoCalculate;
             obj.menu_FrequencyZoom.Checked = obj.settings.AllowFrequencyZoom;
             obj.menu_OverlayTop.Checked = obj.settings.OverlayTop;
             obj.menu_OverlayBottom.Checked = obj.settings.OverlayBottom;
-            
+
             obj.menu_AutoSegment.Checked = obj.settings.AutoSegment;
-            
+
             obj.menu_AutoThreshold.Checked = obj.settings.AmplitudeAutoThreshold;
-            
+
             obj.menu_DontPlot.Checked = obj.settings.AmplitudeDontPlot;
-            
+
             obj.menu_PeakDetect1.Checked = obj.settings.PeakDetect(1);
             obj.menu_PeakDetect2.Checked = obj.settings.PeakDetect(2);
-            
+
             obj.menu_AllowYZoom1.Checked = obj.settings.AutoYZoom(1);
             obj.menu_AllowYZoom2.Checked = obj.settings.AutoYZoom(2);
-            
+
             obj.menu_AutoLimits1.Checked = obj.settings.AutoYLimits(1);
             obj.menu_AutoLimits2.Checked = obj.settings.AutoYLimits(2);
-            
+
             obj.menu_EventAutoDetect1.Checked = obj.settings.EventsAutoDetect(1);
             obj.menu_EventAutoDetect2.Checked = obj.settings.EventsAutoDetect(2);
             ch = obj.menu_AmplitudeSource.Children;
@@ -1555,7 +1555,7 @@ classdef electro_gui < handle
 
                 markerColor = obj.settings.MarkerColors{markerTypeIdx};
                 markerUnselectColor = electro_gui.getAnnotationUnselectColor(markerColor);
-    
+
                 [obj.MarkerHandles(markerMask), obj.MarkerLabelHandles(markerMask)] = electro_gui.CreateAnnotations(...
                     obj.axes_Segments, ...
                     obj.dbase.MarkerTimes{filenum}(markerMask, :), ...
@@ -1997,6 +1997,18 @@ function [chosenDefaults, cancel] = chooseDefaultsFile(obj)
     % Make a copy of the list of defaults paths
     defaultsPaths = obj.defaults;
 
+    % Populate list of defaults files for user to choose from
+    userList = {'(Default)'};
+    defaultsFileList = dir(fullfile(obj.SourceDir, 'defaults_*.m'));
+    for c = 1:length(defaultsFileList)
+        userName = regexp(defaultsFileList(c).name, '(?<=defaults_).*(?=\.m)', 'match'); %#ok<*AGROW>
+        if ~isempty(userName) && ~isempty(userName{1})
+            userList(end+1) = userName; %#ok<*AGROW>
+        end
+    end
+    currentUserDefaultIndex = find(strcmp(obj.UserFile, {defaultsFileList.name}));
+
+
     % Get list of defaults names for user to choose from
     userList = cellfun(@(defaultsPath)regexp(defaultsPath, '(?<=defaults_).*(?=\.m)', 'match'), obj.defaults);
 
@@ -2332,7 +2344,7 @@ function LoadFile(obj, showWaitBar)
     obj.clearAxes();
 
     tmax = numSamples/fs;
-    
+
     obj.settings.TLim = [0, tmax];
 
     obj.updateAnnotations();
@@ -3007,6 +3019,9 @@ function [newAnnotationNum, newAnnotationType] = FindClosestAnnotationOfOtherTyp
     % Find the marker or segment closest in time to the currently selected
     %   segment or marker. If no annotations of the other type exist,
     %   return the same annotation.
+
+    newAnnotationNum = [];
+    newAnnotationType = 'none';
 
     if ~exist('annotationNum', 'var') || isempty(annotationNum)
         % No annotation number provided - use the currently active one
@@ -3732,6 +3747,9 @@ function OpenDbase(obj, filePathOrDbase, options)
 
         % Load dbase into 'dbase' variable
         S = load(fullfile(path, file), 'dbase', 'settings');
+        if ~isfield(S, 'dbase')
+            error('This .mat file does not appear to contain a dbase - please check the data format.');
+        end
         dbase = S.dbase;
         if isfield(S, 'settings')
             dbaseSettings = S.settings;
@@ -11243,7 +11261,7 @@ end
             obj.SetActiveAxnum(axnum);
 
             ax = obj.axes_Channel(axnum);
-            
+
             if strcmp(obj.figure_Main.SelectionType,'open')
                 chan = obj.getSelectedChannel(axnum);
                 [numSamples, fs] = obj.eg_GetSamplingInfo([], chan);
@@ -12783,7 +12801,7 @@ end
         function menu_EventParams2_Callback(obj, hObject, event)
             obj.menu_EventParams_Callback(2);
         end
-        
+
         function menu_EventParams_Callback(obj, axnum)
             eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
             if isempty(eventSourceIdx)
@@ -12797,7 +12815,7 @@ end
             if isempty(params)
                 % Get default params from event detector plugin
             end
-            
+
             if ~isfield(params, 'Names') || isempty(params.Names)
                 errordlg('Current event detector does not require parameters.', 'Event detector error');
                 return
@@ -14753,7 +14771,7 @@ end
                 end
             end
 
-            % Check that segment and marker times have a Nx2 size, even when N = 0
+            % Check that segment and marker times have a Nx2 size, even when N = 0, and that segment/marker titles are row vectors, not column vectors
             for filenum = 1:length(dbase.SegmentTimes)
                 if size(dbase.SegmentTimes{filenum}, 2) ~= 2
                     % Second dimension should be 2 - if it's empty, we can fix it, otherwise, just warn user
@@ -14764,6 +14782,10 @@ end
                         sizeStr = sizeStr{1};
                         msg = sprintf('Segment times for filenum %d should be Nx2, instead it is %s', filenum, sizeStr);
                         electro_gui.issueWarning(msg, 'wrongSegmentTimesShape')
+                    end
+                    if iscolumn(dbase.SegmentTitles{filenum})
+                        % Switch column vectors of titles to row vectors
+                        dbase.SegmentTitles{filenum} = transpose(dbase.SegmentTitles{filenum});
                     end
                 end
             end
@@ -14777,6 +14799,10 @@ end
                         sizeStr = sizeStr{1};
                         msg = sprintf('Segment times for filenum %d should be Nx2, instead it is %s', filenum, sizeStr);
                         electro_gui.issueWarning(msg, 'wrongSegmentTimesShape')
+                    end
+                    if iscolumn(dbase.MarkerTitles{filenum})
+                        % Switch column vectors of titles to row vectors
+                        dbase.MarkerTitles{filenum} = transpose(dbase.MarkerTitles{filenum});
                     end
                 end
             end

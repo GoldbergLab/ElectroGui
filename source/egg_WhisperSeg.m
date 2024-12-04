@@ -6,8 +6,8 @@ function [segmentTimes, segmentTitles] = egg_WhisperSeg(data, ~, fs, ~, params)
 % running either locally or remotely.
 
 % Define default segmenter parameters
-defaultParams.Names =  {'WhisperSeg hostname/IP',       'WhisperSeg service port',  'Mininum frequency (Hz)',   'Spectrogram time step (s)',    'Minimum segment length (s)',   'Tolerance',   'eps',  'time_per_frame_for_scoring', 'Number of trials', 'Network name', 'Use labels'};
-defaultParams.Values = {'goldbergbk.nbb.cornell.edu',   '8050',                     '0',                        '0.0025',                       '0.01',                         '0.01',        '0.02', '0.001',                      '3',                'zhilei_ct2',   'false'};
+defaultParams.Names =  {'WhisperSeg hostname/IP',       'WhisperSeg service port',  'Mininum frequency (Hz)',   'Spectrogram time step (s)',    'Minimum segment length (s)',   'Tolerance',   'eps',  'time_per_frame_for_scoring', 'Number of trials', 'Network name',                            'Use labels'};
+defaultParams.Values = {'goldbergbk.nbb.cornell.edu',   '8050',                     '0',                        '0.0025',                       '0.01',                         '0.01',        '0.02', '0.001',                      '3',                '0240907_ZhileiEphysWarble20kFinetune3',   'true'};
 
 segmentTitles = {};
 
@@ -137,7 +137,7 @@ try
     segmentTimes = round([response.onset, response.offset]*whisperSegFs) + 1;  % + 1 to convert from python's zero-indexing to MATLAB's one-indexing
     if use_labels
         % Use WhisperSeg segment labels
-        segmentTitles = response.cluster;
+        segmentTitles = response.cluster.';
     end
     if isfield(response, 'message') && ~isempty(response.message) && ~strcmp(response.message, 'Success')
         % If WhisperSeg sent a message, display it in alert and command window
