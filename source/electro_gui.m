@@ -1237,10 +1237,8 @@ classdef electro_gui < handle
                         end
                     end
                 end
-
                 hold(obj.axes_Sonogram, 'off');
             end
-
 
         end
         function initializeGraphics(obj)
@@ -10791,7 +10789,7 @@ end
 
         function mouseMotionHandler(obj, hObject, event)
             % Callback to handle mouse motion
-            obj.figure_Main.SelectionType
+
             if obj.isShiftDown()
                 % User is holding the shift key down
 
