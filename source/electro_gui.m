@@ -2673,18 +2673,17 @@ function autoSegment = isAutoSegmentEligible(obj, filenum)
     autoSegment = obj.menu_AutoSegment.Checked && isempty(obj.dbase.SegmentTimes{filenum});
 end
 function SetSegmentThreshold(obj)
-    % Clear threshold line
-    delete(obj.SegmentThresholdHandle)
-
     if isempty(obj.SegmentThresholdHandle) || ~isvalid(obj.SegmentThresholdHandle) || ~isgraphics(obj.SegmentThresholdHandle)
         % No threshold line has been created yet
         ax = obj.axes_Amplitude;
         xl = xlim(ax);
         % Create new threshold line
         [numSamples, fs] = obj.eg_GetSamplingInfo();
+        hold(ax, 'on');
         obj.SegmentThresholdHandle = plot(ax, [0, numSamples/fs], ...
             [obj.settings.CurrentThreshold, obj.settings.CurrentThreshold], ...
             ':', 'Color',obj.settings.AmplitudeThresholdColor);
+        hold(ax, 'off');
         xlim(ax, xl);
 
         if obj.isAutoSegmentEligible()
