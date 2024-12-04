@@ -10975,7 +10975,7 @@ end
                         obj.UpdateAnnotationTitleDisplay(changedAnnotationNums, annotationType);
                     case 'o'
                         % User pressed control-o - activate open dbase dialog
-                        recentFiles = obj.getTempSettings('recentFiles');
+                        recentFiles = obj.getTempSetting('recentFiles');
                         if any(strcmp('shift', event.Modifier)) && ~isempty(recentFiles)
                             % Shift is also down - open the most recent one
                             obj.OpenDbase(recentFiles{1});
@@ -10987,7 +10987,7 @@ end
                         obj.CreateNewDbase();
                     case 's'
                         % User pressed control-s - activate save dbase dialog
-                        recentFiles = obj.getTempSettings('recentFiles');
+                        recentFiles = obj.getTempSetting('recentFiles');
                         if ~isempty(recentFiles)
                             obj.SaveCurrentDbase(recentFiles{1});
                         else
