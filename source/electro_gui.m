@@ -1625,7 +1625,6 @@ classdef electro_gui < handle
                 obj.MarkerHandles(obj.settings.ActiveMarkerNum).LineWidth = 2;
                 obj.MarkerHandles(obj.settings.ActiveMarkerNum).LineStyle = '-';
             end
-
             hold(ax, 'off');
         end
         function manageMarkerTypes(obj)
@@ -1633,11 +1632,260 @@ classdef electro_gui < handle
                 warndlg('Please load or create a dbase first.');
                 return;
             end
-            markerInfo = table(obj.settings.MarkerTypes', obj.settings.MarkerColors');
+            MarkerTypes = obj.settings.MarkerTypes';
+            MarkerCounts = obj.getMarkerCounts(); 
+            Red = cellfun(@(c)c(1), obj.settings.MarkerColors)';
+            Green = cellfun(@(c)c(2), obj.settings.MarkerColors)';
+            Blue = cellfun(@(c)c(3), obj.settings.MarkerColors)';
+            markerInfo = table(MarkerTypes, MarkerCounts, Red, Green, Blue);
             f = uifigure('WindowStyle', 'modal');
             anchorWidget(f, 'C', obj.figure_Main, 'C');
-            uitable('Data', markerInfo, 'Parent', f);
+            g = uigridlayout(f);
+            g.RowHeight = {50, '1x', 30};
+            g.ColumnWidth = {'1x'};
+            h = uilabel('Parent', g, ...
+                'Text', 'Marker type manager', 'FontSize', 30);
+            t = uitable('Data', markerInfo, ...
+                'Parent', g,...
+                'ColumnEditable', [true, false, true, true, true], ...
+                'CellEditCallback', @obj.updateMarkerInfoCallback, ...
+                'SelectionType', 'row', ...
+                'Multiselect', 'off');
+            a = uibutton('Parent', g, ...
+                'Text', 'Add new marker type', ...
+                'UserData', t, ...
+                'ButtonPushedFcn', @obj.addMarkerTypeCallback);
+            r = uibutton('Parent', g, ...
+                'Text', 'Remove selected marker type', ...
+                'UserData', t, ...
+                'ButtonPushedFcn', @obj.removeMarkerTypeCallback);
+            h.Layout.Column = [1, 2];
+            h.Layout.Row = 1;
+            t.Layout.Column = [1, 2];
+            t.Layout.Row = 2;
+            a.Layout.Column = 1;
+            a.Layout.Row = 3;
+            r.Layout.Column = 2;
+            r.Layout.Row = 3;
             uiwait(f);
+        end
+        function addMarkerTypeCallback(obj, buttonWidget, ~)
+            t = buttonWidget.UserData;
+            markerInfo = t.Data;
+            colors = arrayfun(@(r, g, b)[r, g, b], ...
+                markerInfo.Red', ...
+                markerInfo.Green', ...
+                markerInfo.Blue', ...
+                'UniformOutput', false);
+            newColor = getContrastingColor(colors);
+            newMarkerName = obj.getNewMarkerName();
+            newMarkerInfo = table({newMarkerName}, 0, newColor(1), newColor(2), newColor(3), 'VariableNames', t.Data.Properties.VariableNames);
+            t.Data = [t.Data; newMarkerInfo];
+            obj.SaveState();
+            obj.addMarkerTypes(newMarkerName, newColor);
+        end
+        function removeMarkerTypeCallback(obj, buttonWidget, event)
+            t = buttonWidget.UserData;
+            if isempty(t.Selection)
+                errordlg('Please select a marker row to delete first.', 'Nothing selected');
+                return
+            end
+            if size(t.Selection, 1) > 1
+                error('Something went wrong, shouldn''t be possible to select more than one row');
+            end
+            obj.SaveState();
+            selectedMarkerIdx = t.Selection(1);
+            typeToRemove = t.Data.MarkerTypes{selectedMarkerIdx};
+            removeCount = t.Data.MarkerCounts(selectedMarkerIdx);
+            if removeCount > 0
+                answer = questdlg(sprintf('Removing marker type ''%s'' will cause %d markers to be deleted - are you sure?', typeToRemove, removeCount));
+                if ~strcmp(answer, 'Yes')
+                    return;
+                end
+            end
+            obj.removeMarkerTypes(typeToRemove);
+            t.Data(selectedMarkerIdx, :) = [];
+        end
+        function newName = getNewMarkerName(obj)
+            baseName = 'Marker';
+            newName = baseName;
+            count = 0;
+            while ismember(newName, obj.settings.MarkerTypes)
+                count = count + 1;
+                newName = sprintf('%s%d', baseName, count);
+            end
+        end
+        function MarkerCounts = getMarkerCounts(obj)
+            MarkerCounts = zeros(size(obj.settings.MarkerTypes'));
+            allMarkers = [obj.dbase.MarkerTypes{:}];
+            for k = 1:length(obj.settings.MarkerTypes)
+                MarkerCounts(k) = sum(allMarkers == obj.settings.MarkerTypes{k});
+            end
+        end
+        function updateMarkerInfoCallback(obj, tableWidget, cellEditData)
+            if ~isempty(cellEditData.Error)
+                % Error in entered data, don't use it
+                return;
+            end
+            obj.SaveState();
+            markerInfo = tableWidget.Data;
+            newMarkerTypes = markerInfo.MarkerTypes';
+            if length(newMarkerTypes) ~= length(obj.settings.MarkerTypes)
+                error('Something went wrong with editing marker types - no changes made.');
+            end
+            if length(unique(newMarkerTypes)) < length(newMarkerTypes)
+                % Duplicate value
+                    warndlg('Duplicate marker names are not possible');
+                    tableWidget.Data(cellEditData.Indices) = cellEditData.PreviousData;
+                    return;
+            end
+
+            obj.renameMarkerTypes(obj.settings.MarkerTypes, newMarkerTypes);
+            obj.settings.MarkerTypes = newMarkerTypes;
+            obj.settings.MarkerColors = ...
+                arrayfun(@(r, g, b)[r, g, b], ...
+                    markerInfo.Red', ...
+                    markerInfo.Green', ...
+                    markerInfo.Blue', ...
+                    'UniformOutput', false);
+            obj.updateAnnotations();
+        end
+        function allMarkerTypes = collectMarkerTypes(obj)
+            allMarkerTypes = categories([obj.dbase.MarkerTypes{:}]);
+        end
+        function removeMarkerTypes(obj, typesToRemove)
+            arguments
+                obj electro_gui
+                typesToRemove {mustBeText}
+            end
+            if ~iscell(typesToRemove)
+                % Single name provided, wrap in cell array
+                typesToRemove = {typesToRemove};
+            end
+            if iscolumn(typesToRemove)
+                typesToRemove = typesToRemove';
+            end
+            % Make sure type to remove actually exists
+            if ~all(ismember(typesToRemove, obj.settings.MarkerTypes))
+                for k = 1:length(typesToRemove)
+                    if ~ismember(typesToRemove{k}, obj.settings.MarkerTypes)
+                        error('Unknown marker types: %s', typesToRemove{k});
+                    end
+                end
+            end
+
+            numFiles = electro_gui.getNumFiles(obj.dbase);
+            for filenum = 1:numFiles
+                obj.dbase.MarkerTypes{filenum} = ...
+                    removecats(...
+                        obj.dbase.MarkerTypes{filenum}, ...
+                        typesToRemove);
+                % Delete any undefined markers
+                undefinedMask = isundefined(obj.dbase.MarkerTypes{filenum});
+                if ~isempty(undefinedMask) && sum(undefinedMask) > 0
+                    obj.dbase.MarkerTimes{filenum}(undefinedMask, :) = [];
+                    obj.dbase.MarkerTitles{filenum}(undefinedMask) = [];
+                    obj.dbase.MarkerIsSelected{filenum}(undefinedMask) = [];
+                    obj.dbase.MarkerTypes{filenum}(undefinedMask) = [];
+                end
+            end
+
+            removeMask = ismember(obj.settings.MarkerTypes, typesToRemove);
+            obj.settings.MarkerTypes(removeMask) = [];
+            obj.settings.MarkerColors(removeMask) = [];
+
+            obj.updateAnnotations();
+        end
+        function addMarkerTypes(obj, newTypes, newColors)
+            arguments
+                obj electro_gui
+                newTypes {mustBeText}
+                newColors
+            end
+            if ~iscell(newTypes)
+                % Single name provided, wrap in cell array
+                newTypes = {newTypes};
+            end
+            if iscolumn(newTypes)
+                newTypes = newTypes';
+            end
+            if ~iscell(newColors)
+                % Single color provided, wrap in cell array
+                newColors = {newColors};
+            end
+            if iscolumn(newColors)
+                newColors = newColors';
+            end
+
+            % Remove types that already exist
+            noChangeMask = ismember(newTypes, obj.settings.MarkerTypes);
+            newTypes(noChangeMask) = [];
+            newColors(noChangeMask) = [];
+            if isempty(newTypes)
+                % Nothing to do
+                return;
+            end
+            newColors = cellfun(@validatecolor_safe, newColors, 'UniformOutput', false);
+            
+            obj.settings.MarkerTypes = [obj.settings.MarkerTypes, newTypes];
+            obj.settings.MarkerColors = [obj.settings.MarkerColors, newColors];
+            numFiles = electro_gui.getNumFiles(obj.dbase);
+            for filenum = 1:numFiles
+                obj.dbase.MarkerTypes{filenum} = ...
+                    addcats(...
+                        obj.dbase.MarkerTypes{filenum}, ...
+                        newTypes);
+            end
+            obj.updateAnnotations();
+        end
+        function renameMarkerTypes(obj, oldNames, newNames)
+            arguments
+                obj electro_gui
+                oldNames {mustBeText}
+                newNames {mustBeText}
+            end
+            if ~iscell(oldNames)
+                % Single name provided, wrap in cell array
+                oldNames = {oldNames};
+            end
+            if ~iscell(newNames)
+                % Single name provided, wrap in cell array
+                newNames = {newNames};
+            end
+            % Check if there are no changes
+            if all(ismember(oldNames, newNames))
+                % No changes, nothing to do
+                return
+            end
+            % Make sure there are the same number of old and new names
+            if length(oldNames) ~= length(newNames)
+                error('Old names and new names must have the same length.');
+            end
+            % Make sure old names are valid
+            if ~all(ismember(oldNames, obj.settings.MarkerTypes))
+                for k = 1:length(oldNames)
+                    if ~ismember(oldNames{k}, obj.settings.MarkerTypes)
+                        error('Marker type not recognized: %s', oldName);
+                    end
+                end
+            end
+            % Remove pairs that don't need renaming
+            noChangeMask = cellfun(@strcmp, oldNames, newNames);
+            oldNames(noChangeMask) = [];
+            newNames(noChangeMask) = [];
+            if isempty(oldNames)
+                % Nothing to do
+                return;
+            end
+
+            numFiles = electro_gui.getNumFiles(obj.dbase);
+            for filenum = 1:numFiles
+                obj.dbase.MarkerTypes{filenum} = ...
+                    renamecats(...
+                        obj.dbase.MarkerTypes{filenum}, ...
+                        oldNames, ...
+                        newNames);
+            end
         end
         function updateXLimBox(obj)
             % Update the yellow dotted line box on the sound axes that shows what

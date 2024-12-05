@@ -106,7 +106,7 @@ function [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = 
     fig.Visible = 'on';
     fig.Position = [(screen_size(3)-figure_width)/2 (screen_size(4)-figure_height)/2 figure_width figure_height];
     fig.CloseRequestFcn = @CloseFig;
-    fig.KeyPressFcn = @DialogKeyPress;
+    fig.WindowKeyPressFcn = @DialogKeyPress;
     fig.UserData.textlabels = gobjects(1, NumChannels+1);
     fig.UserData.textboxes = gobjects(1, NumChannels+1);
     fig.UserData.popups = gobjects(1, NumChannels+1);
@@ -178,8 +178,10 @@ function PushOK(src, ~)
 
 function DialogKeyPress(src, event)
     src = ancestor(src, 'figure');
-    if strcmp(event.Key, 'return') && any(strcmp('shift', event.Modifier))
+    if strcmp(event.Key, 'return') % && any(strcmp('shift', event.Modifier))
         PushOK(src);
+    elseif strcmp(event.Key, 'escape')
+        CloseFig(src);
     end
 
 function CloseFig(src, ~)
