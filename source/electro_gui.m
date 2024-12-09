@@ -2815,7 +2815,10 @@ function [sound, fs, timestamp] = getSound(obj, soundChannel, filenum, isPseudoC
                 stereoChannel), ...
             'StereoChannelError');
     end
-    sound = sound(:, stereoChannel);
+    if size(sound, 2) > 1
+        % If sound actually has more than one channel, extract only the desired channel from it.
+        sound = sound(:, stereoChannel);
+    end
 end
 
 function [filteredSound, fs, timestamp] = getFilteredSound(obj, sound, algorithm, filterParams, filenum)
