@@ -93,6 +93,7 @@ classdef electro_gui < handle
         menu_DisplayValues
         menu_DisplayFeatures
         menu_AutoDisplayEvents
+        menu_SoundStereoChannel
         menu_AutoCalculate
         menu_FrequencyZoom
         menu_OverlayTop
@@ -2801,6 +2802,10 @@ function [sound, fs, timestamp] = getSound(obj, soundChannel, filenum, isPseudoC
     if size(sound,2) > size(sound,1)
         sound = sound';
     end
+
+    % Select one channel if there are multiple
+    stereoChannel = min(obj.settings.SoundStereoChannel, size(sound, 2));
+    sound = sound(:, stereoChannel);
 end
 
 function [filteredSound, fs, timestamp] = getFilteredSound(obj, sound, algorithm, filterParams, filenum)
@@ -8071,8 +8076,15 @@ function setupGUI(obj)
         'Tag', 'menu_HideAllPropertyColumns', ...
         'Separator', false);
 
+    obj.menu_SoundStereoChannel = uimenu(...
+        'Parent',obj.context_Sonogram,...
+        'Callback',@obj.menu_SoundStereoChannel_Callback,...
+        'Label','Select stereo channel',...
+        'Tag','menu_SoundStereoChannel');
+
     obj.menu_AutoCalculate = uimenu(...
         'Parent',obj.context_Sonogram,...
+        'Separator','on',...
         'Callback',@obj.menu_AutoCalculate_Callback,...
         'Label','Auto calculate',...
         'Tag','menu_AutoCalculate');
@@ -10694,6 +10706,31 @@ end
             obj.menu_ShowFileNameColumn.Checked = ~obj.menu_ShowFileNameColumn.Checked;
             obj.settings.ShowFileNameColumn = logical(obj.menu_ShowFileNameColumn.Checked);
             obj.UpdateFileInfoBrowser();
+        end
+
+        function menu_SoundStereoChannel_Callback(obj, hObject, event)
+            % Prompt user to pick a sound stereo channel source
+            defaultStereoChannel = num2str(obj.settings.SoundStereoChannel);
+            stereoChannel = inputdlg({'Choose a stereo channel number to use as the sound source'}, 'Sound stereo channel', [1, 80], {defaultStereoChannel});
+            if isempty(stereoChannel)
+                % User pressed cancel
+                return
+            end
+            stereoChannel = str2double(stereoChannel);  
+            if isnan(stereoChannel)
+                errordlg('Invalid channel - please use an integer to specify the stereo channel.');
+                return
+            end
+            if obj.settings.SoundStereoChannel ~= stereoChannel
+                obj.settings.SoundStereoChannel = stereoChannel;
+                obj.updateFilteredSound();
+                obj.updateSoundEnvelope();
+                obj.updateAmplitude('ForceRedraw', true);
+                obj.updateSonogram();
+                obj.updateSonogramOverlay();
+                obj.updateTimescaleView();
+            end
+
         end
 
         function menu_AutoCalculate_Callback(obj, hObject, event)

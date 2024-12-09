@@ -62,6 +62,7 @@ settings.OverlayTop = 0;                    % Overlay the top plot over the sono
 settings.OverlayBottom = 0;                 % Overlay the bottom plot over the sonogram?
 settings.SoundChannel = 0;                  % Channel number to use as sound
 settings.SoundExpression = '';              % An expression to use to create a derived sound channel
+settings.SoundStereoChannel = 1;            % Channel to select from the audio file to load, if there are multiple
 
 % AMPLITUDE SETTINGS
 settings.DefaultFilter = 'BandPass860to8600'; % Filter to use for calculating sound amplitudes. Choose from egf_* files.
