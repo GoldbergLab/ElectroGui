@@ -1903,7 +1903,10 @@ function [chosenDefaults, cancel] = chooseDefaultsFile(obj)
     userList = {'(Default)'};
     defaultsFileList = dir(fullfile(obj.SourceDir, 'defaults_*.m'));
     for c = 1:length(defaultsFileList)
-        userList(end+1) = regexp(defaultsFileList(c).name, '(?<=defaults_).*(?=\.m)', 'match'); %#ok<*AGROW>
+        userName = regexp(defaultsFileList(c).name, '(?<=defaults_).*(?=\.m)', 'match'); %#ok<*AGROW>
+        if ~isempty(userName) && ~isempty(userName{1})
+            userList(end+1) = userName; %#ok<*AGROW>
+        end
     end
     currentUserDefaultIndex = find(strcmp(obj.UserFile, {defaultsFileList.name}));
 
@@ -3487,6 +3490,9 @@ function OpenDbase(obj, filePathOrDbase, options)
 
         % Load dbase into 'dbase' variable
         S = load(fullfile(path, file), 'dbase', 'settings');
+        if ~isfield(S, 'dbase')
+            error('This .mat file does not appear to contain a dbase - please check the data format.');
+        end
         dbase = S.dbase;
         if isfield(S, 'settings')
             dbaseSettings = S.settings;
