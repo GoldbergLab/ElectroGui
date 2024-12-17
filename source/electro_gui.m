@@ -13863,7 +13863,7 @@ end
             arguments
                 settings struct = defaults_template()
                 rootDir = '.'
-                options.savePath = '.\analysis.mat'
+                options.SavePath = ''
                 options.GUI = false
             end
 
@@ -13881,8 +13881,8 @@ end
             numFiles = electro_gui.getNumFiles(dbase);
             dbase = electro_gui.InitializeDbase(settings, 'NumFiles', numFiles, 'BaseDbase', dbase, 'IncludeHelp', false);
 
-            if ~isempty(options.savePath)
-                save(options.savePath, 'dbase');
+            if ~isempty(options.SavePath)
+                save(options.SavePath, 'dbase');
             end
 
         end
