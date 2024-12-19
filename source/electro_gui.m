@@ -2180,7 +2180,11 @@ function tempSettings = loadTempSettings(obj)
 end
 function value = getTempSetting(obj, field)
     tempSettings = obj.loadTempSettings();
-    value = tempSettings.(field);
+    if isfield(tempSettings, field)
+        value = tempSettings.(field);
+    else
+        value = [];
+    end
 end
 function setLastDefaults(obj, defaultsPath)
     obj.setTempSetting('lastDefault', defaultsPath);
@@ -2281,11 +2285,13 @@ function [chosenDefaults, cancel] = chooseDefaultsFile(obj)
 
     % Attempt to use last chosen defaults
     preselectedDefaultsPath = obj.getTempSetting('lastDefault');
-    preselectedDefaultIndex = find(strcmp(preselectedDefaultsPath, obj.defaults));
-    if isempty(preselectedDefaultsPath)
-        % That failed, attempt to use current user defaults
-        preselectedDefaultsPath = obj.UserFile;
+    if ~isempty(preselectedDefaultsPath)
         preselectedDefaultIndex = find(strcmp(preselectedDefaultsPath, obj.defaults));
+        if isempty(preselectedDefaultsPath)
+            % That failed, attempt to use current user defaults
+            preselectedDefaultsPath = obj.UserFile;
+            preselectedDefaultIndex = find(strcmp(preselectedDefaultsPath, obj.defaults));
+        end
     end
     if isempty(preselectedDefaultsPath)
         % That failed just select the template
