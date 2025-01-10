@@ -5968,6 +5968,10 @@ function UpdateFiles(obj, old_sound_files)
     obj.dbase.FileLength = zeros(1,numFiles);
     obj.dbase.FileLength(newnum) = originalValues;
 
+    originalValues = obj.dbase.Notes(oldnum);
+    obj.dbase.Notes = cell(1,numFiles);
+    obj.dbase.Notes(newnum) = originalValues;
+
     % Check if current filenum is still in range
     currentFileNum = electro_gui.getCurrentFileNum(obj.settings);
     if currentFileNum > numFiles
