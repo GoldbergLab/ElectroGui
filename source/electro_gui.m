@@ -5941,7 +5941,7 @@ function UpdateFiles(obj, old_sound_files)
     obj.dbase.MarkerIsSelected(newnum) = originalValues;
 
     originalValues = obj.dbase.MarkerTypes(oldnum);
-    obj.dbase.MarkerTypes = cell(1,numFiles);
+    obj.dbase.MarkerTypes = repmat({categorical({}, obj.settings.MarkerTypes)}, 1, numFiles);
     obj.dbase.MarkerTypes(newnum) = originalValues;
 
     originalValues = obj.dbase.EventTimes;
