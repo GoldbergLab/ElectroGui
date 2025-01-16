@@ -1,11 +1,13 @@
-function handles = egm_cj_playvideo_POPS(handles)
+function obj = egm_cj_playvideo_POPS(obj)
     %% electro_gui macro to play a video based on the current view of the sonogram
-    dbase = handles.dbase;
-    fileNum = getCurrentFileNum(handles);
-    n = getCurrentFileName(handles);
+
+    % Get the current file number
+    fileNum = electro_gui.getCurrentFileNum(obj.settings);
+    % Get the current file name
+    n = electro_gui.getCurrentFileName(obj.dbase, obj.settings);
     
     % get start and stop time for video
-    xl = get(handles.axes_Sonogram,'xlim');
+    xl = get(obj.axes_Sonogram,'xlim');
     
     % get birdID & date from file name
     birdID = n(1:4);
@@ -17,9 +19,9 @@ function handles = egm_cj_playvideo_POPS(handles)
     % build path to video
     basepath = 'Y:\ht452\AAc_analysis';
     birdpath = [basepath '\' birdID '\videos\' month day year];
-    if birdID == '0010'
+    if strcmp(birdID, '0010')
          birdpath = [basepath '\' birdID '\videos\' month day year '\Alligned_videos_new'];
-         if ~isdir(birdpath)
+         if ~isfolder(birdpath)
             birdpath = [basepath '\' birdID '\videos\' month day year '\Alligned_videos'];
          end 
     end
@@ -39,24 +41,30 @@ function handles = egm_cj_playvideo_POPS(handles)
     %video stuff
     % Load audio
     axnum = 1;
-    [snd, fs, dt, label, props] = eg_runPlugin(handles.plugins.loaders, handles.sound_loader, fullfile(handles.DefaultRootPath, handles.sound_files(fileNum).name), true);
-    if size(snd,2)>size(snd,1)
-        snd = snd';
-    end
+    eventPart = 2;
+
+    [snd, fs] = obj.getSound([], fileNum);
+
     tempVidPath = tempname();
     tempAudPath = tempname();
     tempAudPath = [tempAudPath '.wav'];
     tempVidPath = [tempVidPath '.mp4'];
-    display(tempVidPath)
-    display(tempAudPath)
-    chanNum = handles.EventCurrentIndex(axnum);
+    disp(tempVidPath)
+    disp(tempAudPath)
+
+    % Get the event source index for the specified channel axes
+    eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
+    if isempty(eventSourceIdx)
+        % No event source in the axes
+        error('No events detected in the axes %d', axnum);
+    end
+
     spikeAudio = zeros(1,length(snd));
     if chanNum ~= 0
-        [handles.loadedChannelData{axnum}, ~, ~, handles.Labels{axnum}, ~] = eg_runPlugin(handles.plugins.loaders, handles.chan_loader{chanNum}, fullfile(handles.DefaultRootPath, handles.chan_files{chanNum}(fileNum).name), true);
-        eventTimes = handles.EventTimes{chanNum}{2,fileNum};
+        % Get the event times for the given event source index, event part,
+        %   and file number
+        eventTimes = obj.dbase.EventTimes{eventSourceIdx}{eventPart, fileNum};
         spikeAudio(eventTimes) = 1;
-    else 
-        eventTimes = zeros(1,length(snd));
     end
     
     padsize = 5; % Higher number means lower frequency sound for spikes 
@@ -68,9 +76,9 @@ function handles = egm_cj_playvideo_POPS(handles)
     [~,~] = system(cmd);
     
     % get behavior segments for this file
-    fs = handles.fs;
-    markerTimes = handles.MarkerTimes{fileNum}/fs;
-    markerTitles = handles.MarkerTitles{fileNum};
+    fs = obj.fs;
+    markerTimes = obj.dbase.MarkerTimes{fileNum}/fs;
+    markerTitles = obj.dbase.MarkerTitles{fileNum};
     smarkTimes = cell(size(markerTimes));
     for i = 1:numel(markerTimes)
         seconds = mod(markerTimes(i),60);
@@ -82,7 +90,7 @@ function handles = egm_cj_playvideo_POPS(handles)
         for i = 1:size(markerTimes,1)
             switch markerTitles{i}
                 case 'h'
-                    subtitles{i} = struct('startTime',smarkTimes{i,1},'endTime',smarkTimes{i,2},'text','Headbob');
+                    subtitles{i} = struct('startTime',smarkTimes{i,1},'endTime',smarkTimes{i,2},'text','Headbob'); %#ok<*AGROW> 
                 case 'a'
                     subtitles{i} = struct('startTime',smarkTimes{i,1},'endTime',smarkTimes{i,2},'text','Allogroom');
                 case 'g'
@@ -124,8 +132,8 @@ function handles = egm_cj_playvideo_POPS(handles)
     % process = runtime.exec(vlcCommand);
     system(vlcCommand);
     
-    savedir = 'X:\Budgie\Caleb_saved_videos';
-    savename = [birdID '_' date '_' num2str(chanNum) '_' num2str(fileNum) '.mp4'];
+%     savedir = 'X:\Budgie\Caleb_saved_videos';
+%     savename = [birdID '_' date '_' num2str(chanNum) '_' num2str(fileNum) '.mp4'];
 %     Closeoption = questdlg('Save video?','Save video','Save','Exit without saving','Exit without saving');
 %     if strcmp(Closeoption,'Save')
 %         movefile(tempVidPath,fullfile(savedir,savename);
@@ -133,18 +141,4 @@ function handles = egm_cj_playvideo_POPS(handles)
 %         process.destroy();
 %     end
     
-    
-    
-    
-    
-end
-
-
-%define functions to retrieve filenum and name
-function currentFileNum = getCurrentFileNum(handles)
-currentFileNum = str2double(get(handles.edit_FileNumber, 'string'));
-end
-function currentFileName = getCurrentFileName(handles)
-currentFileNum = getCurrentFileNum(handles);
-currentFileName = handles.sound_files(currentFileNum).name;
 end
