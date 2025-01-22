@@ -81,27 +81,23 @@ else
     ncid = netcdf.create(filepath, 'NOCLOBBER');
 end
 
-try
-    % Define variables that will go into file
-    timeVectorDimID = netcdf.defDim(ncid,'p',7);
-    timeVectorVarID = netcdf.defVar(ncid,'time','NC_INT',timeVectorDimID);
-    deltaTVarID = netcdf.defVar(ncid,'dt','NC_DOUBLE',[]);
-    channelVarID = netcdf.defVar(ncid,'chan','NC_INT',[]);
-    metaDataDimID = netcdf.defDim(ncid,'c',metaDataLength);
-    metaDataVarID = netcdf.defVar(ncid,'metaData','NC_CHAR',metaDataDimID);
-    unlimDimId = netcdf.defDim(ncid,'t', netcdf.getConstant('NC_UNLIMITED'));
-    dataVarID = netcdf.defVar(ncid,'data','NC_FLOAT',unlimDimId);
-    netcdf.endDef(ncid);
+% Define variables that will go into file
+timeVectorDimID = netcdf.defDim(ncid,'p',7);
+timeVectorVarID = netcdf.defVar(ncid,'time','NC_INT',timeVectorDimID);
+deltaTVarID = netcdf.defVar(ncid,'dt','NC_DOUBLE',[]);
+channelVarID = netcdf.defVar(ncid,'chan','NC_INT',[]);
+metaDataDimID = netcdf.defDim(ncid,'c',metaDataLength);
+metaDataVarID = netcdf.defVar(ncid,'metaData','NC_CHAR',metaDataDimID);
+unlimDimId = netcdf.defDim(ncid,'t', netcdf.getConstant('NC_UNLIMITED'));
+dataVarID = netcdf.defVar(ncid,'data','NC_FLOAT',unlimDimId);
+netcdf.endDef(ncid);
 
-    % Add data for each variable
-    netcdf.putVar(ncid,timeVectorVarID,timeVector);
-    netcdf.putVar(ncid,deltaTVarID,deltaT);
-    netcdf.putVar(ncid,channelVarID,channel);
-    netcdf.putVar(ncid,metaDataVarID,metaData);
-    netcdf.putVar(ncid,dataVarID,0, length(data), data);
-catch ME
-    disp(getReport(ME));
-end
+% Add data for each variable
+netcdf.putVar(ncid,timeVectorVarID,timeVector);
+netcdf.putVar(ncid,deltaTVarID,deltaT);
+netcdf.putVar(ncid,channelVarID,channel);
+netcdf.putVar(ncid,metaDataVarID,metaData);
+netcdf.putVar(ncid,dataVarID,0, length(data), data);
 
 % Close netCDF file.
 netcdf.close(ncid)
