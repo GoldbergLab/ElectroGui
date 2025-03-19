@@ -10150,6 +10150,33 @@ function renameExportTab(obj, tab)
         tab.Title = name{1};
     end
 end
+function exportSaveAllWavs(obj, nameIdxOrTab)
+    tabIdx = obj.getExportTab(nameIdxOrTab);
+    root = uigetdir('', 'Select a directory to save all the wav files');
+    if ~isempty(root)
+        wavPaths = {};
+        overwrites = 0;
+        for k = 1:length(obj.ExportWindow.panels{tabIdx})
+            wavPaths{k} = fullfile(root, sprintf('clip%02d.wav', k));
+            if exist(wavPaths{k}, 'file')
+                overwrites = overwrites + 1;
+            end
+        end
+        if overwrites > 0
+            overwrite = strcmp(questdlg(sprintf('Some files already exist in %d - overwrite?', root), 'Overwrite?', 'Cancel', 'Overwrite', 'Cancel'), 'Overwrite');
+            if ~overwrite
+                % User cancelled
+                return
+            end
+        end
+        for k = 1:length(obj.ExportWindow.panels{tabIdx})
+            panel = obj.ExportWindow.panels{tabIdx}(k);
+            electro_gui.exportSaveWav(panel, wavPaths{k}, true, false)
+        end
+        msgbox(sprintf('%d clips saved to %s', length(wavPaths), root))
+    end
+end
+
 function newTab = addExportTab(obj, name)
     arguments
         obj electro_gui
@@ -10202,8 +10229,8 @@ function newTab = addExportTab(obj, name)
         'Label', 'Rename tab', ...
         'Callback', @(hObject, event)obj.renameExportTab(newTab));
     uimenu(newTab.ContextMenu, ...
-        'Label', 'Rename tab', ...
-        'Callback', @(hObject, event)obj.renameExportTab(newTab));
+        'Label', 'Save all as .wav files', ...
+        'Callback', @(hObject, event)obj.exportSaveAllWavs(newTab));
     uimenu(newTab.ContextMenu, ...
         'Label', 'Show control panel', ...
         'Callback', @(hObject, event)obj.showExportControlPanel(), ...
@@ -10264,6 +10291,9 @@ function newPanel = addExportPanel(obj, nameIdxOrTab, filenum, filename, fileTim
     uimenu(newPanel.ContextMenu, ...
         'Label', 'Stop', ...
         'Callback', @(hObject, event)electro_gui.exportStopPlayback(newPanel));
+    uimenu(newPanel.ContextMenu, ...
+        'Label', 'Save as wav', ...
+        'Callback', @(hObject, event)electro_gui.exportSaveWav(newPanel));
     uimenu(newPanel.ContextMenu, ...
         'Label', 'Show in explorer', ...
         'Callback', @(hObject, event)electro_gui.showFileInExplorer(fullfile(obj.dbase.PathName, filename)));
@@ -14273,6 +14303,39 @@ end
         end
         function exportStopPlayback(panel)
             panel.UserData.stopFlag = true;
+        end
+        function exportSaveWav(panel, wavPath, overwrite, verbose)
+            arguments
+                panel
+                wavPath = ''
+                overwrite = logical.empty
+                verbose = true
+            end
+            if isempty(wavPath)
+                % Ask user for save path
+                [wavName, wavDir] = uiputfile('', 'Choose where to save wav file', 'clip.wav');
+                if isempty(wavName)
+                    % User cancelled
+                    return
+                end
+                wavPath = fullfile(wavDir, wavName);
+            end
+            if isempty(overwrite) && exist(wavPath, 'file')
+                % User has not specified an overwrite policy, and file already exists, check if user wants to overwrite
+                overwrite = strcmp(questdlg(sprintf('File %s already exists - overwrite?', wavPath), 'Overwrite?', 'Cancel', 'Overwrite', 'Cancel'), 'Overwrite');
+                if ~overwrite
+                    % User cancelled
+                    return
+                end
+            elseif ~isempty(overwrite) && ~overwrite && exist(wavPath, 'file')
+                % User requested no overwrite
+                return
+            end
+            % Save clip as wav file
+            audiowrite(wavPath, panel.UserData.soundData, panel.UserData.fs);
+            if verbose
+                msgbox(sprintf('Clip saved as %s', wavPath))
+            end
         end
         function showFileInExplorer(filepath)
             command = sprintf('explorer.exe /select,"%s"', filepath);
