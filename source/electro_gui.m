@@ -11047,7 +11047,7 @@ end
 
             obj.SaveState();
 
-            obj.settings.SegmenterParams.Values = answer;
+            obj.settings.SegmenterParams.Values = answer';
 
             for c = 1:length(obj.menu_SegmenterList.Children)
                 if obj.menu_SegmenterList.Children(c).Checked
@@ -14144,11 +14144,13 @@ end
         end
         function params = applyDefaultPluginParams(params, defaultParams)
             % Replace any default values with user selected values
-            for k = 1:length(defaultParams.Names)
-                name = defaultParams.Names{k};
-                idx = find(strcmp(name, {params.Names}), 1);
-                if ~isempty(idx)
-                    defaultParams.Values{k} = params.Values{idx};
+            if ~isempty(params)
+                for k = 1:length(defaultParams.Names)
+                    name = defaultParams.Names{k};
+                    idx = find(strcmp(name, params.Names), 1);
+                    if ~isempty(idx)
+                        defaultParams.Values{k} = params.Values{idx};
+                    end
                 end
             end
             params = defaultParams;
