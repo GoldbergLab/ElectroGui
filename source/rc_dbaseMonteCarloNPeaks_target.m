@@ -77,7 +77,7 @@ for r=1:1000
     ratemin=[ratemin min(fd)];ratemax=[ratemax max(fd)];
 
     fds=smooth(fd,s);
-    [pks,locs,w,p] = findpeaks(fds,'MinPeakDistance',5);
+    [pks,locs,w,p] = findpeaks_alt(fds,'MinPeakDistance',5);
     fprom = [fprom;p];
     fdall = [fdall fds];
 %     if r>990
@@ -101,8 +101,8 @@ end
 % tf.p_min_motif = p_min;
 % tf.p_max_motif = p_max;
 
-[pks,indpks] = findpeaks(rds,'MinPeakDistance',5);
-[trofs,indtrofs] = findpeaks(-rds,'MinPeakDistance',5);
+[pks,indpks] = findpeaks_alt(rds,'MinPeakDistance',5);
+[trofs,indtrofs] = findpeaks_alt(-rds,'MinPeakDistance',5);
 
 [maximum,i_max] = max(pks);
 t_max = edges(indpks(i_max));
@@ -140,8 +140,8 @@ tf.rate_trofs = -trofs((find(-trofs<prctile(ratemins,5))));
 % tf.ntrofs = length(find(-trofs<threshLo));
 % tf.npeakss = length(find(pks>prctile(threshs,95)));
 % tf.ntrofss = length(find(-trofs<prctile(threshsLo,5)));
-% [pks,locs,w,p] = findpeaks(rds,'MinPeakDistance',5,'MinPeakProminence',prctile(fprom,95));
-[pks,locs,w,p] = findpeaks(rds,'MinPeakDistance',5);
+% [pks,locs,w,p] = findpeaks_alt(rds,'MinPeakDistance',5,'MinPeakProminence',prctile(fprom,95));
+[pks,locs,w,p] = findpeaks_alt(rds,'MinPeakDistance',5);
 tf.npeaksProm = length(pks);
 tf.meanProm = mean(p(pks>prctile(ratemaxs,95)));
 end
