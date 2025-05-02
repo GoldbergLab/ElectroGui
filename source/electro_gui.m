@@ -328,9 +328,6 @@ classdef electro_gui < handle
             % Load base default settings, then load user defaults on top
             obj.settings = electro_gui.createMergedSettings(obj.CurrentDefaults);
 
-            % Warn user of old defaults
-            obj.settings = electro_gui.warnAndFixLegacyDefaults(obj.settings);
-
             % Initialize blank dbase
             obj.dbase = electro_gui.InitializeDbase(obj.settings, 'BaseDbase', obj.dbase);
 
@@ -3882,7 +3879,7 @@ function CreateNewDbase(obj)
     obj.settings = electro_gui.createMergedSettings(obj.CurrentDefaults);
 
     [dbase, cancel] = electro_gui.CreateDbase(obj.settings, ...
-        path, 'SavePath', '', 'GUI', true);
+        path, 'SavePath', '', 'GUI', true, 'Check', false);
 
     if cancel
         return
@@ -13762,6 +13759,9 @@ end
             end
             % Apply dbase settings on top
             settings = mergeStructures(settings, dbaseSettings);
+
+            % Warn user of old defaults
+            settings = electro_gui.warnAndFixLegacyDefaults(settings);
         end
         function dbase = InitializeDbase(settings, options)
             % Build empty structure for dbase data to go into, or if a baseDbase is
@@ -13905,9 +13905,12 @@ end
                 rootDir = '.'
                 options.SavePath = ''
                 options.GUI = false
+                options.Check = true   % Warn and fix outdated settings
             end
 
-            settings = electro_gui.warnAndFixLegacyDefaults(settings);
+            if options.Check
+                settings = electro_gui.warnAndFixLegacyDefaults(settings);
+            end
 
             [dbase, cancel] = eg_GatherFiles(rootDir, settings.FileString, ...
                 settings.DefaultFileLoader, settings.DefaultChannelNumber, ...
@@ -14225,6 +14228,10 @@ end
             elseif ~iscell(defaults.MarkerColors)
                 defaults.MarkerColors = {defaults.MarkerColors};
                 msgs{end+1} = 'MarkerColors should be a cell array of one or more colors indicating the colors for the first N marker types';
+            end
+            if isfield(defaults, 'DefaultChannelFunction') && any(strcmp(defaults.DefaultChannelFunction, {'Raw', 'raw'}))
+                defaults.DefaultChannelFunction = '(Raw)';
+                msgs{end+1} = 'The "raw" DefaultChannelFunction should be spelled "(Raw)".';
             end
 
 %             if length(defaults.PropertyColumnVisible > defaults.)
