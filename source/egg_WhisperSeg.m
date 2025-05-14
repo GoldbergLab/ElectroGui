@@ -143,6 +143,10 @@ try
         % If WhisperSeg sent a message, display it in alert and command window
         fprintf('\nMessage from WhisperSeg server... \n\n%s\n\n ...message end\n\n.', response.message)
     end
+    if isempty(segmentTimes)
+        % Make sure empty array is 0x2
+        segmentTimes = zeros(0, 2);
+    end
 catch ME
     % Request failed
     if strcmp(ME.identifier, 'MATLAB:webservices:UnknownHost')
