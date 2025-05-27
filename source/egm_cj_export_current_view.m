@@ -116,7 +116,7 @@ function obj = egm_cj_export_current_view(obj)
 
     %change color and thickness
     xd = get(h2,'Children');
-    set(xd,'LineWidth',2)
+    %set(xd,'LineWidth',2)
     set(xd,'Color','k')
     xl = get(h2,'Xlim');
     line([xl(1),xl(1)],[-100, 0],'LineWidth',8)
