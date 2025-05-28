@@ -2311,7 +2311,7 @@ function filenum = getSelectedFilenum(obj)
     % Get the filenum currently displayed as selected in the
     % FileInfoBrowser
     if electro_gui.areFilesSorted(obj.settings)
-        obj.RefreshSortOrder();
+%         obj.RefreshSortOrder();
         filenum = obj.settings.FileSortOrder(obj.FileInfoBrowser.SelectedRow);
     else
         filenum = obj.FileInfoBrowser.SelectedRow;
@@ -2320,7 +2320,7 @@ end
 function setSelectedFilenum(obj, filenum)
     % Set the row that should display as selected in the FileInfoBrowser
     if electro_gui.areFilesSorted(obj.settings)
-        obj.RefreshSortOrder();
+%         obj.RefreshSortOrder();
         obj.FileInfoBrowser.SelectedRow = obj.settings.InverseFileSortOrder(filenum);
     else
         obj.FileInfoBrowser.SelectedRow = filenum;
