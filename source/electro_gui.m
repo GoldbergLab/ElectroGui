@@ -2332,6 +2332,10 @@ function setFilenum(obj, filenum, loadFile)
         filenum double
         loadFile logical = true
     end
+    if filenum < 1 || filenum > electro_gui.getNumFiles(obj.dbase)
+        warndlg(sprintf('File number out of range: %d', filenum));
+        return
+    end
     if str2double(obj.edit_FileNumber.String) ~= filenum
         obj.edit_FileNumber.String = num2str(filenum);
     end
