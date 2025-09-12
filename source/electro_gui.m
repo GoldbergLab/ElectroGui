@@ -2359,12 +2359,13 @@ function [numSamples, fs] = eg_GetSamplingInfo(obj, filenum, chan, isPseudoChann
     numSamples = length(data);
 end
 
-function [sound, fs, timestamp] = getSound(obj, soundChannel, filenum, isPseudoChannel)
+function [sound, fs, timestamp] = getSound(obj, soundChannel, filenum, isPseudoChannel, includeAuxiliary)
     arguments
         obj electro_gui
         soundChannel = []
         filenum double = []
         isPseudoChannel (1, 1) logical = false
+        includeAuxiliary logical = false
     end
     if isempty(filenum)
         filenum = electro_gui.getCurrentFileNum(obj.settings);
@@ -2399,16 +2400,26 @@ function [sound, fs, timestamp] = getSound(obj, soundChannel, filenum, isPseudoC
         [sound, fs, ~, timestamp] = obj.loadChannelData(soundChannel, 'FileNum', filenum, 'IsPseudoChannel', isPseudoChannel);
     end
 
+    if size(sound,2) > size(sound,1)
+        sound = sound';
+    end
+
+    if includeAuxiliary
+        auxiliarySoundSources = obj.getAuxiliarySoundSources();
+        if ~isempty(auxiliarySoundSources)
+            % User has one or more selected auxiliary sound sources
+            for k = 1:length(auxiliarySoundSources)
+                sound = [sound. obj.getSound(auxiliarySoundSources{k})];
+            end
+        end
+    end
+
     if ~isnan(obj.dbase.Fs)
         % Sound sampling rate was already known, use it
         fs = obj.dbase.Fs;
     else
         % Sound sampling rate was not known, update it
         obj.dbase.Fs = fs;
-    end
-
-    if size(sound,2) > size(sound,1)
-        sound = sound';
     end
 end
 
@@ -2583,12 +2594,13 @@ function SegmentSounds(obj, updateGUI)
         end
     end
 
-    [sound, fs] = obj.getSound();
+    [sound, fs] = obj.getSound([], [], false, true);  % Load sound with auxiliary sound sources
+    amplitude = obj.calculateAmplitude();
 
     filenum = electro_gui.getCurrentFileNum(obj.settings);
     obj.settings.SegmenterParams.IsSplit = 0;
     [obj.dbase.SegmentTimes{filenum}, segmentTitles] = electro_gui.eg_runPlugin(obj.plugins.segmenters, ...
-        segmentationAlgorithmName, sound, obj.amplitude, fs, obj.settings.CurrentThreshold, ...
+        segmentationAlgorithmName, sound, amplitude, fs, obj.settings.CurrentThreshold, ...
         obj.settings.SegmenterParams);
     if isempty(segmentTitles)
         obj.dbase.SegmentTitles{filenum} = cell(1,size(obj.dbase.SegmentTimes{filenum},1));
