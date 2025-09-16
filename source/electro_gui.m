@@ -28,6 +28,7 @@ classdef electro_gui < handle
         ActiveAxnum = 1   % Which of the two channel axes was last interacted with?
         WarningCounts = struct()
         slackAgent SlackBot
+        TooLong = false
     end
     properties  % GUI widgets
         figure_Main
@@ -1429,7 +1430,7 @@ classdef electro_gui < handle
                         ~isempty(obj.dbase.EventTimes{eventSourceIdx}{1, filenum})
                     % There are events here - fit ylim to the highest and
                     % lowest selected event
-                    allEventTimes = [(obj.dbase.EventTimes{eventSourceIdx}{:, filenum})];
+                    allEventTimes = [(obj.dbase.EventTimes{eventSourceIdx}{:, filenum})]; %#ok<*UNRCH>
                     selectedEventTimes = allEventTimes([obj.dbase.EventIsSelected{eventSourceIdx}{:, filenum}]);
                     minData = min(obj.loadedChannelData{axnum}(selectedEventTimes), [], 'all');
                     maxData = max(obj.loadedChannelData{axnum}(selectedEventTimes), [], 'all');
@@ -2843,7 +2844,7 @@ function [filteredSound, fs, timestamp] = getFilteredSound(obj, sound, algorithm
             % User passed in a channel name - get raw sound
             soundChannel = electro_gui.channelNameToNum(obj.dbase, sound);
             [sound, fs, timestamp] = obj.getSound(soundChannel, filenum);
-        elseif isnumeric(sound) && length(sound) == 1
+        elseif isnumeric(sound) && isscalar(sound)
             % User passed in a channel number - get raw sound
             soundChannel = sound;
             [sound, fs, timestamp] = obj.getSound(soundChannel, filenum);
@@ -10649,7 +10650,7 @@ end
                     obj.settings.CustomFreqLim = obj.settings.FreqLim;
                 end
                 % Update spectrogram scales
-            elseif strcmp(obj.figure_Main.SelectionType, 'alt') && length(obj.figure_Main.CurrentModifier)==1 && strcmp(obj.figure_Main.CurrentModifier, 'control')
+            elseif strcmp(obj.figure_Main.SelectionType, 'alt') && length(obj.figure_Main.CurrentModifier)==1 && strcmp(obj.figure_Main.CurrentModifier, 'control') %#ok<ISCL>
                 % User control-clicked on axes_Sonogram
 
                 rect = rbbox();
@@ -12216,7 +12217,7 @@ end
 
         function setChannelAxesEventSource(obj, axnum, eventSourceIdx)
             if isempty(eventSourceIdx)
-                obj.popup_Channel(axnum).Value = 1;
+                obj.popup_Channels(axnum).Value = 1;
             else
                 [channelNum, filterName, eventDetectorName] = ...
                     obj.GetEventSourceInfo(eventSourceIdx);
@@ -12458,7 +12459,7 @@ end
 
         end
         function ChangeProgress(obj, hObject)
-            if strcmp(obj.Checked,'off')
+            if strcmp(hObject.Checked,'off')
                 hObject.Checked = 'on';
             else
                 hObject.Checked = 'off';
@@ -12762,8 +12763,8 @@ end
         function menu_PlotColor1_Callback(obj, hObject, event)
             c = uisetcolor(obj.settings.ChannelColor(1,:), 'Select color');
             obj.settings.ChannelColor(1,:) = c;
-            obj = findobj('Parent',obj.axes_Channel1,'LineStyle','-');
-            obj.Color = c;
+            plotObj = findobj('Parent', obj.axes_Channel1, 'LineStyle', '-');
+            plotObj.Color = c;
 
             obj.updateSonogramOverlay();
 
@@ -12772,8 +12773,8 @@ end
         function menu_ThresholdColor1_Callback(obj, hObject, event)
             c = uisetcolor(obj.settings.ChannelThresholdColor(1,:), 'Select color');
             obj.settings.ChannelThresholdColor(1,:) = c;
-            obj = findobj('Parent',obj.axes_Channel1,'LineStyle',':');
-            obj.Color = c;
+            threshObj = findobj('Parent',obj.axes_Channel1,'LineStyle',':');
+            threshObj.Color = c;
 
 
 
@@ -12784,8 +12785,8 @@ end
         function menu_PlotColor2_Callback(obj, hObject, event)
             c = uisetcolor(obj.settings.ChannelColor(2,:), 'Select color');
             obj.settings.ChannelColor(2,:) = c;
-            obj = findobj('Parent',obj.axes_Channel2,'LineStyle','-');
-            obj.Color = c;
+            plotObj = findobj('Parent', obj.axes_Channel2, 'LineStyle', '-');
+            plotObj.Color = c;
 
             obj.updateSonogramOverlay();
 
@@ -12794,8 +12795,8 @@ end
         function menu_ThresholdColor2_Callback(obj, hObject, event)
             c = uisetcolor(obj.settings.ChannelThresholdColor(2,:), 'Select color');
             obj.settings.ChannelThresholdColor(2,:) = c;
-            obj = findobj('Parent',obj.axes_Channel2,'LineStyle',':');
-            obj.Color = c;
+            threshObj = findobj('Parent', obj.axes_Channel2, 'LineStyle', ':');
+            threshObj.Color = c;
 
 
 
@@ -13042,8 +13043,8 @@ end
                 return
             end
             obj.settings.ChannelLineWidth(1) = str2double(answer{1});
-            obj = findobj('Parent',obj.axes_Channel1,'LineStyle','-');
-            obj.LineWidth  = obj.settings.ChannelLineWidth(1);
+            lineObj = findobj('Parent', obj.axes_Channel1, 'LineStyle', '-');
+            lineObj.LineWidth  = obj.settings.ChannelLineWidth(1);
 
             obj.updateSonogramOverlay();
 
