@@ -5316,12 +5316,17 @@ function updateAmplitude(obj, options)
     end
 end
 
-function [amp, fs, labels] = calculateAmplitude(obj, filenum)
-    if ~exist('filenum', 'var') || isempty(filenum)
+function [amp, fs, labels] = calculateAmplitude(obj, filenum, channel)
+    arguments
+        obj
+        filenum = []
+        channel = []
+    end
+    if isempty(filenum)
         filenum = electro_gui.getCurrentFileNum(obj.settings);
     end
 
-    [filteredSound, fs] = obj.getFilteredSound([], [], [], filenum);
+    [filteredSound, fs] = obj.getFilteredSound(channel, [], [], filenum);
 
     windowSize = round(obj.settings.SmoothWindow*fs);
     if obj.menu_SourceSoundAmplitude.Checked
