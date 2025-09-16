@@ -41,8 +41,8 @@ function egm_Batch_segment(obj)
         end
         curr = obj.dbase.SegmentThresholds(filenum);
         
-        obj.dbase.SegmentTimes{filenum} = electro_gui.eg_runPlugin(obj.plugins.segmenters, segmenterAlgorithmName, sound, amp, fs, curr, obj.settings.SegmenterParams);
-        obj.dbase.SegmentTitles{filenum} = cell(1,size(obj.dbase.SegmentTimes{filenum},1));
+        [obj.dbase.SegmentTimes{filenum},obj.dbase.SegmentTitles{filenum}] = electro_gui.eg_runPlugin(obj.plugins.segmenters, segmenterAlgorithmName, sound, amp, fs, curr, obj.settings.SegmenterParams);
+    
         obj.dbase.SegmentIsSelected{filenum} = true(1,size(obj.dbase.SegmentTimes{filenum},1));
     
     end
