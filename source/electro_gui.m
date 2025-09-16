@@ -11322,6 +11322,12 @@ end
                         else
                             obj.OpenDbase();
                         end
+                    case 'm'
+                        % User pressed control-m - activate most recent macro
+                        macro = obj.getTempSetting('last_macro');
+                        if ~isempty(macro)
+                            electro_gui.eg_runPlugin(obj.plugins.macros, macro, obj);
+                        end
                     case 'n'
                         % User pressed control-n - activate new dbase dialog
                         obj.CreateNewDbase();
@@ -13034,6 +13040,7 @@ end
             f = find(obj.menu_Macros==hObject);
 
             mcr = obj.menu_Macros(f).Label;
+            obj.setTempSetting('last_macro', mcr);
             electro_gui.eg_runPlugin(obj.plugins.macros, mcr, obj);
 
         end
@@ -14618,6 +14625,7 @@ end
             '        ctrl-. (ctrl-period) - switch to previous channel in active axes', ...
             '        ctrl-, (ctrl-comma) - switch to next channel in active axes', ...
             '        ctrl-e - create export figure', ...
+            '        ctrl-m - run last-used macro', ...
             '    Segment/Marker related:', ...
             '        a-z, A-Z, 0-9 - label the active segment or marker', ...
             '        ` (backtick or tilde key) - convert active segment to marker',...
