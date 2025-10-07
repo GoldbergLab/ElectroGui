@@ -2387,8 +2387,8 @@ function progress_play(obj, wav)
 
     fs = obj.dbase.Fs * obj.settings.SoundSpeed;
 
-    playbackFcn = @sound;
-    playbackFcn(wav,fs);
+    % playbackFcn = @sound;
+    % playbackFcn(wav,fs);
 
     ap = audioplayer(wav,fs);
     play(ap);
