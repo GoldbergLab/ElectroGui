@@ -13515,7 +13515,7 @@ end
             % electro_gui plugin functions with the given prefix (for example 'egl_')
             allowedCharacters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_';
             pattern = sprintf('%s_.*\\.m', prefix);
-            pluginPaths = findFiles(root, pattern, "SearchSubdirectories", false);
+            pluginPaths = findPaths(root, pattern, "SearchSubdirectories", false);
             badPluginIdx = [];
             for k = 1:length(pluginPaths)
                 [~, fileName, ~] = fileparts(pluginPaths{k});
@@ -13852,7 +13852,7 @@ end
                 if exist(oldDbasePathsOrRoot, 'dir')
                     % It is a directory - assume that any mat file inside
                     % is a dbase.
-                    oldDbasePaths = findFiles(oldDbasePathsOrRoot, '.*\.mat', 'CaseSensitive', false);
+                    oldDbasePaths = findPaths(oldDbasePathsOrRoot, '.*\.mat', 'CaseSensitive', false);
                 else
                     % Not a directory, must be a single path; wrap it in a
                     %   cell arrays for consistency
