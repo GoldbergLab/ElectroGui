@@ -15156,7 +15156,7 @@ end
                 % This must be an older type of dbase - add blank marker field
                 dbase.MarkerIsSelected = cell(1,numFiles);
             end
-            if ~isfield(dbase, 'MarkerType')
+            if ~isfield(dbase, 'MarkerTypes')
                 % This must be an older type of dbase - add default marker type field
                 dbase.MarkerTypes = cell(1,numFiles);
                 markerValueSet = 1:length(settings.MarkerTypes);
