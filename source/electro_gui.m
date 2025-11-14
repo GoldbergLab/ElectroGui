@@ -11484,14 +11484,14 @@ end
         end
 
         function SelectionParameters(obj,axnum)
-
-            answer = inputdlg({'Search before (ms)','Search after (ms)'},'Selection parameteres',1,{num2str(obj.SearchBefore(axnum)*1000),num2str(obj.SearchAfter(axnum)*1000)});
-            if isempty(answer)
-                return
-            end
-
-            obj.SearchBefore(axnum) = str2double(answer{1})/1000;
-            obj.SearchAfter(axnum) = str2double(answer{2})/1000;
+            error('SelectionParameters not implemented.');
+            % answer = inputdlg({'Search before (ms)','Search after (ms)'},'Selection parameteres',1,{num2str(obj.SearchBefore(axnum)*1000),num2str(obj.SearchAfter(axnum)*1000)});
+            % if isempty(answer)
+            %     return
+            % end
+            % 
+            % obj.SearchBefore(axnum) = str2double(answer{1})/1000;
+            % obj.SearchAfter(axnum) = str2double(answer{2})/1000;
 
         end
         function menu_ViewerDisplay_Callback(obj, hObject, event)
