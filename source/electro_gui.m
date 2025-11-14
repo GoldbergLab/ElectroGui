@@ -12915,7 +12915,14 @@ end
             end
         end
         function showFileInExplorer(filepath)
-            command = sprintf('explorer.exe /select,"%s"', filepath);
+            if ispc()
+                command = sprintf('explorer.exe /select,"%s"', filepath);
+            elseif ismac()
+                command = sprintf('open -R "%s"', filepath);
+            else
+                % I think this is only for Ubuntu, but oh well.
+                command = sprintf('nautilus --browser "%s"', filepath);
+            end
             system(command);
         end
         %% Plugin related utility functions
