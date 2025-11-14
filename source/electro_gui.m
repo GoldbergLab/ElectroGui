@@ -299,9 +299,13 @@ classdef electro_gui < handle
                 fprintf('\n')
                 return;
             else
-                [~, ~, MATLAB_utilsCommitDate] = MATLAB_utils(false);
-                if MATLAB_utilsCommitDate < obj.MinMATLAB_utilsCommitDate
-                    warning('MATLAB_utils repository appears to be out of date - please update to ensure compatibility.')
+                try
+                    [~, ~, MATLAB_utilsCommitDate] = MATLAB_utils(false);
+                    if MATLAB_utilsCommitDate < obj.MinMATLAB_utilsCommitDate
+                        warning('MATLAB_utils repository appears to be out of date - please update to ensure compatibility.')
+                    end
+                catch ME
+                    warning('Unable to check MATLAB_utils repository - make sure it is up to date.')
                 end
             end
 
@@ -739,7 +743,7 @@ classdef electro_gui < handle
                 end
 
                 % Create the time resolution text label
-                obj.TimeResolutionBarText = text(obj.axes_Sonogram, xB, yB, numText, 'AffectAutoLimits', 'off', 'VerticalAlignment', 'top', 'HorizontalAlignment' , 'right', 'Color', [0.5, 0.5, 0.5], 'FontSize', 8);
+                obj.TimeResolutionBarText = text(obj.axes_Sonogram, xB, yB, numText, 'VerticalAlignment', 'top', 'HorizontalAlignment' , 'right', 'Color', [0.5, 0.5, 0.5], 'FontSize', 8);
 
                 % Get the height of the text
                 obj.TimeResolutionBarText.Units = 'data';
@@ -6121,7 +6125,11 @@ function styleAxesTitle(obj, title, options)
         options.Position = [0, 0, 0];
         options.Color = [0 0 0]
     end
-    title.AffectAutoLimits = 'off';
+    try
+        title.AffectAutoLimits = 'off';
+    catch ME
+        % Older versions of MATLAB do not have this property
+    end
     title.Units = 'data';
     title.Position = options.Position;
     title.FontUnits = 'points';
@@ -6185,7 +6193,11 @@ function styleAxesLabel(obj, label, options)
         options.Position = [0, 0, 0];
         options.Color = [0.15 0.15 0.15]
     end
-    label.AffectAutoLimits = 'off';
+    try
+        label.AffectAutoLimits = 'off';
+    catch ME
+        % Older versions of MATLAB do not have this property
+    end
     label.Units = 'data';
     label.Position = options.Position;
     label.FontUnits = 'points';
