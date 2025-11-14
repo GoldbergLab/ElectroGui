@@ -348,7 +348,7 @@ classdef electro_gui < handle
             % Gather all electro_gui plugins
             obj.plugins = electro_gui.gatherPlugins();
 
-            progressBar = ProgressBar('Initializing electro_gui...');
+            progressBar = ProgressBar('Initializing electro_gui...', "WindowStyle", "modal");
 
             % Setup Undo/Redo stack
             obj.History = StateStack(10);   % GUI state history for undo/redo purposes
@@ -2563,7 +2563,7 @@ function LoadFile(obj, showWaitBar)
     end
 
     if showWaitBar
-        progressBar = ProgressBar('Loading file...');
+        progressBar = ProgressBar('Loading file...', "WindowStyle", "modal");
         progressBar.WindowStyle = 'modal';
     end
 
@@ -4026,7 +4026,7 @@ function OpenDbase(obj, filePathOrDbase, options)
 
     if ischar(filePathOrDbase)
         % User supplied a path name - load the dbase from that path
-        progressBar = ProgressBar('Opening dbase...');
+        progressBar = ProgressBar('Opening dbase...', "WindowStyle", "modal");
         progressBar.Progress = 0.05;
         progressBar.WindowStyle = 'modal';
         if isempty(filePathOrDbase)
