@@ -12,6 +12,7 @@ classdef electro_gui < handle
         OriginalDbase struct
         CurrentDbasePath char = ''   % Keep track of currently loaded dbase name
         CurrentDefaults char = ''
+        MinMATLAB_utilsCommitDate = datetime('14-Nov-2025 12:06:11')
     end
     properties % Temporary/cached properties
         History StateStack
@@ -297,6 +298,11 @@ classdef electro_gui < handle
                 fprintf('\n')
                 fprintf('\n')
                 return;
+            else
+                [~, ~, MATLAB_utilsCommitDate] = MATLAB_utils(false);
+                if MATLAB_utilsCommitDate < obj.MinMATLAB_utilsCommitDate
+                    warning('MATLAB_utils repository appears to be out of date - please update to ensure compatibility.')
+                end
             end
 
             % Get the ElectroGui source directory
