@@ -11607,8 +11607,8 @@ end
                 return
             end
             obj.settings.ChannelLineWidth(2) = str2double(answer{1});
-            obj = findobj('Parent',obj.axes_Channel2,'LineStyle','-');
-            obj.LineWidth  = obj.settings.ChannelLineWidth(2);
+            lineObj = findobj('Parent',obj.axes_Channel2,'LineStyle','-');
+            lineObj.LineWidth  = obj.settings.ChannelLineWidth(2);
 
             obj.updateSonogramOverlay();
 
