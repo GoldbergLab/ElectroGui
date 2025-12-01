@@ -3,7 +3,8 @@ function settings = defaults_template(settings)
 
 % GENERAL SETTINGS
 settings.TooLong = 400000000;            % Number of points for a file to be considered too long for loading automatically
-settings.FileString = '*chan%d.nc';      % File search string; must include a string formatting expression to handle an integer channel #, such as %02d for integers zero-padded to 2 digits, or %d for unpadded integers.handles.DefaultFileLoader = 'Intan_Bin'; % Default file loader. Choose from egl_* files.
+settings.FileString = '*chan%d.nc';      % File search string; must include a string formatting expression to handle an integer channel #, 
+                                         % such as %02d for integers zero-padded to 2 digits, or %d for unpadded integers.
 settings.DefaultFileLoader = 'Intan_Nc'; % Default file loader. Choose from egl_* files.
 settings.DefaultChannelNumber = 20;      % Default number of channels
 settings.QuoteFile = 'quotes.txt';       % File to get startup quotes from
