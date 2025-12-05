@@ -1073,12 +1073,17 @@ classdef electro_gui < handle
                             obj.EventWaveHandles(eventNum) = gobjects();
                         end
                     end
-                    xlabel(obj.axes_Events, 'Time (ms)');
-                    ylabel(obj.axes_Events, channelYLabel);
-                    xlim(obj.axes_Events, [-obj.settings.EventXLims(eventSourceIdx, 1), obj.settings.EventXLims(eventSourceIdx, 2)]*1000);
+                    obj.axes_Events.XLabel.String = 'Time (ms)';
+                    obj.axes_Events.YLabel.String = channelYLabel;
+                    obj.axes_Events.XLim = [-obj.settings.EventXLims(eventSourceIdx, 1), obj.settings.EventXLims(eventSourceIdx, 2)]*1000;
                     axis(obj.axes_Events, 'tight');
                     yl = ylim(obj.axes_Events);
-                    ylim(obj.axes_Events, [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
+                    obj.axes_Events.YLim = [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1];
+
+                    obj.axes_Events.XLabel.Position(1) = obj.axes_Events.XLim(2);
+                    obj.axes_Events.XLabel.Position(2) = obj.axes_Events.YLim(1);
+                    obj.axes_Events.XLabel.HorizontalAlignment = 'right';
+                    obj.axes_Events.XLabel.VerticalAlignment = 'bottom';
                 else
                     obj.clearEventWaveHandles();
                 end
@@ -6190,8 +6195,9 @@ function styleAxesLabel(obj, label, options)
     arguments
         obj electro_gui %#ok<INUSA>
         label
-        options.Position = [0, 0, 0];
+        options.Position = label.Position;
         options.Color = [0.15 0.15 0.15]
+        options.FontSize = 10
     end
     try
         label.AffectAutoLimits = 'off';
@@ -6201,22 +6207,24 @@ function styleAxesLabel(obj, label, options)
     label.Units = 'data';
     label.Position = options.Position;
     label.FontUnits = 'points';
+    label.FontName = 'Helvetica';
+    label.FontSize = options.FontSize;
+    label.FontAngle = 'normal';
+    label.FontWeight = 'normal';
+    label.FontSmoothing = 'on';
+    label.FontSmoothingMode = 'auto';
     label.DecorationContainer = [];
     label.DecorationContainerMode = 'auto';
     label.Color = options.Color;
     label.ColorMode = 'auto';
-    label.String = blanks(0);
+    label.String = '';
     label.Interpreter = 'tex';
     label.Rotation = 0;
     label.RotationMode = 'auto';
-    label.FontName = 'Helvetica';
-    label.FontSize = 10;
-    label.FontAngle = 'normal';
-    label.FontWeight = 'normal';
-    label.HorizontalAlignment = 'center';
-    label.HorizontalAlignmentMode = 'auto';
-    label.VerticalAlignment = 'top';
-    label.VerticalAlignmentMode = 'auto';
+    % label.HorizontalAlignment = 'center';
+    % label.HorizontalAlignmentMode = 'auto';
+    % label.VerticalAlignment = 'top';
+    % label.VerticalAlignmentMode = 'auto';
     label.EdgeColor = 'none';
     label.LineStyle = '-';
     label.LineWidth = 0.5;
@@ -6225,30 +6233,19 @@ function styleAxesLabel(obj, label, options)
     label.Clipping = 'off';
     label.Layer = 'back';
     label.LayerMode = 'auto';
-    label.FontSmoothing = 'on';
-    label.FontSmoothingMode = 'auto';
-    label.DisplayName = blanks(0);
+    label.DisplayName = '';
     label.IncludeRenderer = 'on';
     label.IsContainer = 'off';
     label.IsContainerMode = 'auto';
-    label.DimensionNames = {  'X' 'Y' 'Z' };
-    label.DimensionNamesMode = 'auto';
-    label.XLimInclude = 'on';
-    label.YLimInclude = 'on';
-    label.ZLimInclude = 'on';
-    label.CLimInclude = 'on';
-    label.ALimInclude = 'on';
-    label.Description = 'AxisRulerBase Label';
-    label.DescriptionMode = 'auto';
     label.Visible = 'on';
     label.Serializable = 'on';
     label.HandleVisibility = 'off';
-    label.HelpTopicKey = blanks(0);
-    label.ButtonDownFcn = blanks(0);
+    label.HelpTopicKey = '';
+    label.ButtonDownFcn = '';
     label.BusyAction = 'queue';
     label.Interruptible = 'on';
-    label.DeleteFcn = blanks(0);
-    label.Tag = blanks(0);
+    label.DeleteFcn = '';
+    label.Tag = '';
     label.HitTest = 'on';
     label.PickableParts = 'visible';
     label.PickablePartsMode = 'auto';
@@ -7637,6 +7634,7 @@ function setupGUI(obj)
     obj.axes_Events = axes(...
         'Parent',obj.panel_Events,...
         'FontUnits',get(0,'defaultaxesFontUnits'),...
+        'FontSize', 8, ...
         'Units',get(0,'defaultaxesUnits'),...
         'CameraPosition',[0.5 0.5 9.16025403784439],...
         'CameraPositionMode',get(0,'defaultaxesCameraPositionMode'),...
@@ -7683,11 +7681,11 @@ function setupGUI(obj)
         'Visible','off',...
         'Tag','axes_Events');
 
-    obj.styleAxesTitle(obj.axes_Events.Title, "Position", [0.500000545853063 1.00722543352601 0.500000000000007], "Color", [0, 0, 0]);
-    obj.styleAxesLabel(obj.axes_Events.XLabel, "Position", [0.500000476837158 -0.0847784214855849 7.105427357601e-15], "Color", [0.15 0.15 0.15]);
-    obj.styleAxesLabel(obj.axes_Events.YLabel, "Position", [-0.0782163755238405 0.500000476837158 7.105427357601e-15], "Color", [0.15 0.15 0.15]);
-    obj.styleAxesLabel(obj.axes_Events.ZLabel, "Position", [0, 0, 0]);
-   
+    obj.styleAxesTitle(obj.axes_Events.Title, "Color", [0, 0, 0]);
+    obj.styleAxesLabel(obj.axes_Events.XLabel, "Color", [0.15 0.15 0.15], "FontSize", 8);
+    obj.styleAxesLabel(obj.axes_Events.YLabel, "Color", [0.15 0.15 0.15], "FontSize", 8);
+
+
     obj.text_AlignmentSource = uicontrol(...
         'Parent',obj.panel_Events,...
         'Units','normalized',...
