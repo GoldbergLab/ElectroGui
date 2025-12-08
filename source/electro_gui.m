@@ -9441,9 +9441,13 @@ end
                 %   if less than half of the selected segments were selected. Which
                 %   seems...convoluted and weird. So I changed it to just toggling all
                 %   the selection statuses.
+                axes_segments_original_units = obj.axes_Segments.Units;
+                axes_segments_parent_original_units = obj.axes_Segments.Parent.Units;
                 obj.axes_Segments.Units = 'pixels';
                 obj.axes_Segments.Parent.Units = 'pixels';
                 rect = rbbox;
+                obj.axes_Segments.Units = axes_segments_original_units;
+                obj.axes_Segments.Parent.Units = axes_segments_parent_original_units;
 
                 if rect(3) < 10
                 % This was probably not intended to be a click-and-drag - ignore it
