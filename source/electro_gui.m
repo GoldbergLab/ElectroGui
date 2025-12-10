@@ -608,7 +608,7 @@ classdef electro_gui < handle
             obj.axes_Sound.YTick = [];
             obj.axes_Sound.Color = [0 0 0];
             axis(obj.axes_Sound, 'tight');
-            yl = max(abs(ylim(obj.axes_Sound)));
+            yl = max(abs(obj.axes_Sound.YLim));
             ylim(obj.axes_Sound, [-yl*1.2, yl*1.2]);
 
             box(obj.axes_Sound, 'on');
@@ -676,7 +676,7 @@ classdef electro_gui < handle
                 end
             end
 
-            xlim(obj.axes_Sound, [0, numSeconds]);
+            obj.axes_Sound.XLim = [0, numSeconds];
 
             if obj.menu_AutoCalculate.Checked
                 obj.updateSonogram();
@@ -701,12 +701,12 @@ classdef electro_gui < handle
             obj.axes_Segments.XLim = obj.settings.TLim;
 
             for axnum = 1:2
-                yl = ylim(obj.axes_Channel(axnum));
-                xlim(obj.axes_Channel(axnum), obj.settings.TLim);
+                yl = obj.axes_Channel(axnum).YLim;
+                obj.axes_Channel(axnum).XLim = obj.settings.TLim;
                 if obj.menu_PeakDetects(axnum).Checked
                     obj.updateChannelAxesPlot(axnum);
                 end
-                ylim(obj.axes_Channel(axnum), yl);
+                obj.axes_Channel(axnum).YLim = yl;
             end
 
             obj.updateSonogramOverlay();
@@ -721,8 +721,8 @@ classdef electro_gui < handle
 
             if ~isempty(timeResolution) && ~isnan(timeResolution)
                 % Get spectrogram axes data limits
-                xl = xlim(obj.axes_Sonogram);
-                yl = ylim(obj.axes_Sonogram);
+                xl = obj.axes_Sonogram.XLim;
+                yl = obj.axes_Sonogram.YLim;
 
                 % Calculate bar coordinates (except the one determined by the text
                 % height)
@@ -990,8 +990,8 @@ classdef electro_gui < handle
             end
 
             if keepView
-                storedXLim = xlim(obj.axes_Events);
-                storedYLim = ylim(obj.axes_Events);
+                storedXLim = obj.axes_Events.XLim;
+                storedYLim = obj.axes_Events.YLim;
             end
 
             delete(obj.ActiveEventCursors);
@@ -1077,7 +1077,7 @@ classdef electro_gui < handle
                     obj.axes_Events.YLabel.String = channelYLabel;
                     obj.axes_Events.XLim = [-obj.settings.EventXLims(eventSourceIdx, 1), obj.settings.EventXLims(eventSourceIdx, 2)]*1000;
                     axis(obj.axes_Events, 'tight');
-                    yl = ylim(obj.axes_Events);
+                    yl = obj.axes_Events.YLim;
                     obj.axes_Events.YLim = [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1];
 
                     obj.axes_Events.XLabel.Position(1) = obj.axes_Events.XLim(2);
@@ -1115,10 +1115,10 @@ classdef electro_gui < handle
                     ylabel(obj.axes_Events, name2);
 
                     axis(obj.axes_Events, 'tight');
-                    xl = xlim(obj.axes_Events);
-                    xlim(obj.axes_Events, [mean(xl)+(xl(1)-mean(xl))*1.1 mean(xl)+(xl(2)-mean(xl))*1.1]);
-                    yl = ylim(obj.axes_Events);
-                    ylim(obj.axes_Events, [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
+                    xl = obj.axes_Events.XLim;
+                    obj.axes_Events.XLim = [mean(xl)+(xl(1)-mean(xl))*1.1 mean(xl)+(xl(2)-mean(xl))*1.1];
+                    yl = obj.axes_Events.YLim;
+                    obj.axes_Events.YLim = [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1];
                 else
                     xlabel('');
                     ylabel('');
@@ -1460,7 +1460,7 @@ classdef electro_gui < handle
                     yl = [yl(1)-1, yl(2)+1];
                 end
                 yl = [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1];
-                ylim(obj.axes_Channel(axnum), yl);
+                obj.axes_Channel(axnum).YLim = yl;
                 obj.ChanYLimits(axnum, :) = yl;
             else
                 obj.axes_Channel(axnum).YLim = obj.ChanYLimits(axnum, :);
@@ -1905,7 +1905,7 @@ classdef electro_gui < handle
         function updateXLimBox(obj)
             % Update the yellow dotted line box on the sound axes that shows what
             % the zoomed in view is
-            yl = ylim(obj.axes_Sound);
+            yl = obj.axes_Sound.YLim;
 
             % Calculate updated position of box
             xdata = [obj.settings.TLim(1), obj.settings.TLim(2), obj.settings.TLim(2), obj.settings.TLim(1), obj.settings.TLim(1)];
@@ -2975,7 +2975,7 @@ function SetSegmentThreshold(obj)
     if isempty(obj.SegmentThresholdHandle) || ~isvalid(obj.SegmentThresholdHandle) || ~isgraphics(obj.SegmentThresholdHandle)
         % No threshold line has been created yet
         ax = obj.axes_Amplitude;
-        xl = xlim(ax);
+        xl = ax.XLim;
         % Create new threshold line
         [numSamples, fs] = obj.eg_GetSamplingInfo();
         hold(ax, 'on');
@@ -4593,7 +4593,7 @@ function export(obj, filenum, tlim, tab)
         set(ax.Children, 'ContextMenu', panel.ContextMenu);
         exportWidgets(end+1) = ax;
         % Set up invisible cursor for playing
-        panel.UserData.soundCursors(axesNum) = line([tlim(1), tlim(1)], ylim(ax), 'Parent', ax, 'Color', 'green', 'Visible', false);
+        panel.UserData.soundCursors(axesNum) = line([tlim(1), tlim(1)], ax.YLim, 'Parent', ax, 'Color', 'green', 'Visible', false);
     end
     if ~obj.settings.Export.IncludeEvents
         % Find which export axes are the copies of the axes_Channels
@@ -4661,8 +4661,8 @@ function UpdateEventThresholdDisplay(obj, eventSourceIdx)
             threshold = obj.settings.EventThresholdDefaults(eventSourceIdx);
         end
         % Get axes limits
-        xl = xlim(obj.axes_Channel(axnum));
-        yl = ylim(obj.axes_Channel(axnum));
+        xl = obj.axes_Channel(axnum).XLim;
+        yl = obj.axes_Channel(axnum).YLim;
         % Check if we need to create new threshold line, or just modify
         % existing one
         if ~isvalid(obj.EventThresholdHandles(axnum)) || ...
@@ -4682,8 +4682,8 @@ function UpdateEventThresholdDisplay(obj, eventSourceIdx)
             obj.EventThresholdHandles(axnum).YData = [threshold, threshold];
         end
         % Reset axes limits to what they were before
-        xlim(obj.axes_Channel(axnum), xl);
-        ylim(obj.axes_Channel(axnum), yl);
+        obj.axes_Channel(axnum).XLim = xl;
+        obj.axes_Channel(axnum).YLim = yl;
     end
 end
 
@@ -5205,7 +5205,7 @@ function updateActiveEventCursors(obj, eventTime)
         axesList(~isvalid(axesList) | ~[axesList.Visible]) = [];
         for ax = axesList
             hold(ax, 'on');
-            obj.ActiveEventCursors(end+1) = plot(ax, [eventTime, eventTime], ylim(ax), '-.', 'LineWidth' , 1, 'Color', 'r');
+            obj.ActiveEventCursors(end+1) = plot(ax, [eventTime, eventTime], ax.YLim, '-.', 'LineWidth' , 1, 'Color', 'r');
             hold(ax, 'off');
         end
 end
@@ -9414,7 +9414,7 @@ end
                     % ax1 is the particular axes the mouse is currently inside
                     ax1 = cursor_axes(inside);
                     % xlim will be the same for all the axes
-                    xl = xlim(ax1);
+                    xl = ax1.XLim;
                     % get the x position as a fraction of the axes limits
                     x = (xy(1) - ax1.Position(1)) / ax1.Position(3);
                     % Get the x position is a time in the axes coordinate system
@@ -9426,7 +9426,7 @@ end
                         sampleNum = t*obj.dbase.Fs;
                         % Check how far away we are from the nearest segment
                         [minSampleDistance, minIdx] = min(abs(obj.dbase.SegmentTimes{filenum}(:) - sampleNum));
-                        threshold = diff(xlim(ax1)) / 50;
+                        threshold = diff(ax1.XLim) / 50;
                         if minSampleDistance / obj.dbase.Fs < threshold
                             % We're close to a segment boundary - snap to it
                             t = obj.dbase.SegmentTimes{filenum}(minIdx) / obj.dbase.Fs;
@@ -9451,7 +9451,7 @@ end
                             eventSamples = vertcat(obj.dbase.EventTimes{eventSourceIdx}{:, filenum});
                             % Check how far away we are from the nearest event
                             [minSampleDistance, minIdx] = min(abs(eventSamples - sampleNum));
-                            threshold = diff(xlim(ax1)) / 50;
+                            threshold = diff(ax1.XLim) / 50;
                             if minSampleDistance / fs < threshold
                                 % We're close to an event - snap to it
                                 t = eventSamples(minIdx) / fs;
@@ -9494,7 +9494,7 @@ end
                     % Cursor is not valid, create a new one
                     delete(obj.Cursors(k));
                     if ax.Visible
-                        yl = ylim(ax);
+                        yl = ax.YLim;
                         obj.Cursors(k) = line([t, t], yl, 'Parent', ax, 'Color', 'green', 'PickableParts', 'none', 'HitTest', 'off');
                     end
                 else
@@ -9503,7 +9503,7 @@ end
                         % This cursor belongs to some other axes, fix it
                         obj.Cursors(k).Parent = ax;
                     end
-                    yl = ylim(ax);
+                    yl = ax.YLim;
                     obj.Cursors(k).XData = [t, t];
                     obj.Cursors(k).YData = yl;
                 end
@@ -10041,9 +10041,9 @@ end
                     if yl(1)==yl(2)
                         yl = [yl(1)-1 yl(2)+1];
                     end
-                    ylim(obj.axes_Channel(axnum), [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
+                    obj.axes_Channel(axnum).YLim = [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1];
                 else
-                    ylim(obj.axes_Channel(axnum), obj.ChanYLimits(axnum, :));
+                    obj.axes_Channel(axnum).YLim = obj.ChanYLimits(axnum, :);
                 end
                 obj.updateSonogramOverlay();
             else
@@ -10089,7 +10089,7 @@ end
                 obj.ChanYLimits(axnum, :) = str2double(answer(1:2));
             end
 
-            ylim(obj.axes_Channel(axnum), str2double(answer(1:2)));
+            obj.axes_Channel(axnum).YLim = str2double(answer(1:2));
 
             obj.updateSonogramOverlay();
         end
@@ -10323,8 +10323,8 @@ end
                     % Left click and drag
                     rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Events);
 
-                    xlim(obj.axes_Events, [rect(1) rect(1)+rect(3)]);
-                    ylim(obj.axes_Events, [rect(2) rect(2)+rect(4)]);
+                    obj.axes_Events.XLim = [rect(1) rect(1)+rect(3)];
+                    obj.axes_Events.YLim = [rect(2) rect(2)+rect(4)];
                 else
                     % Left click - deactivate currently active event
                     obj.DeactivateActiveEvent();
@@ -10333,11 +10333,11 @@ end
             elseif strcmp(obj.figure_Main.SelectionType,'open')
                 % Double click
                 axis(obj.axes_Events, 'tight');
-                yl = ylim(obj.axes_Events);
-                ylim(obj.axes_Events, [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1]);
+                yl = obj.axes_Events.YLim;
+                obj.axes_Events.YLim = [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1];
                 if obj.menu_DisplayFeatures.Checked
-                    xl = xlim(obj.axes_Events);
-                    xlim(obj.axes_Events, [mean(xl)+(xl(1)-mean(xl))*1.1 mean(xl)+(xl(2)-mean(xl))*1.1]);
+                    xl = obj.axes_Events.XLim;
+                    obj.axes_Events.XLim = [mean(xl)+(xl(1)-mean(xl))*1.1 mean(xl)+(xl(2)-mean(xl))*1.1];
                 end
                 if obj.menu_AutoApplyYLim.Checked
                     if obj.menu_DisplayValues.Checked
@@ -11458,14 +11458,21 @@ end
 
             % ginput(1);
             myginput(1); %mod by VG
-            set(gca,'Units','pixels');
-            set(get(gca,'Parent'),'Units','pixels');
+
+            ax_original_units = obj.axes_Segments.Units;
+            fig_original_units = obj.axes_Segments.Parent.Units;
+            obj.axes_Segments.Units = 'pixels';
+            obj.axes_Segments.Parent.Units = 'pixels';
+
             rect = rbbox;
-            pos = get(gca,'Position');
-            set(get(gca,'Parent'),'Units','normalized');
-            set(gca,'Units','normalized');
-            xl = xlim;
-            yl = ylim;
+            pos = obj.axes_Segments.Position;
+
+            obj.axes_Segments.Units = ax_original_units;
+            obj.axes_Segments.Parent.Units = fig_original_units;
+
+            xl = obj.axes_Segments.XLim;
+            yl = obj.axes_Segments.Ylim;
+
             rect(1) = xl(1)+(rect(1)-pos(1))/pos(3)*(xl(2)-xl(1));
             rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
             rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
@@ -11477,7 +11484,6 @@ end
             end
 
             filenum = electro_gui.getCurrentFileNum(obj.settings);
-
 
             f = find(obj.dbase.SegmentTimes{filenum}(:,1)>rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*obj.dbase.Fs);
             g = find(obj.dbase.SegmentTimes{filenum}(:,2)>rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*obj.dbase.Fs);
@@ -13635,7 +13641,7 @@ end
             ax.Parent.Units = 'normalized';
             ax.Units = 'normalized';
 
-            xl = xlim(ax);
+            xl = ax.XLim;
             if length(y) < width*3
                 h = plot(ax, x,y);
             else
@@ -13749,8 +13755,8 @@ end
             r1 = rectangle(ax, 'Position', [min(t), max(f), range(t), fRange]); %#ok<NASGU>
             r2 = rectangle(ax, 'Position', [max(t), min(f), tRange, range(f)]); %#ok<NASGU>
             rBand = rectangle(ax, 'Position', [min(t), flim(1), range(t)+tRange, flim(2)-flim(1)], 'LineStyle', '--', 'LineWidth', 2); %#ok<NASGU>
-            xlim(ax, [min(t), min(t) + range(t) + tRange]);
-            ylim(ax, [min(f), min(f) + range(f) + fRange]);
+            ax.XLim = [min(t), min(t) + range(t) + tRange];
+            ax.YLim = [min(f), min(f) + range(f) + fRange];
         end
         function [annotationHandles, labelHandles] = CreateAnnotations(...
                 ax, times, titles, selects, selectColor, unselectColor, ...
