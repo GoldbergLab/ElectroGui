@@ -681,7 +681,7 @@ classdef electro_gui < handle
             if obj.menu_AutoCalculate.Checked
                 obj.updateSonogram();
             else
-                xlim(obj.axes_Sonogram, obj.settings.TLim);
+                obj.axes_Sonogram.XLim = obj.settings.TLim;
         %         obj.axes_Sonogram.UIContextMenu = obj.context_Sonogram;
 
         %         obj.setClickSoundCallback(obj.axes_Sonogram);
@@ -696,9 +696,9 @@ classdef electro_gui < handle
 
 
             % Set amplitude axes time limits to match
-            xlim(obj.axes_Amplitude, obj.settings.TLim);
+            obj.axes_Amplitude.XLim = obj.settings.TLim;
             % Set segments axes limits to match
-            xlim(obj.axes_Segments, obj.settings.TLim);
+            obj.axes_Segments.XLim = obj.settings.TLim;
 
             for axnum = 1:2
                 yl = ylim(obj.axes_Channel(axnum));
@@ -790,11 +790,11 @@ classdef electro_gui < handle
             %cla(obj.axes_Sonogram);
             delete(obj.axes_Sonogram.Children);
 
-            xlim(obj.axes_Sonogram, obj.settings.TLim);
+            obj.axes_Sonogram.XLim = obj.settings.TLim;
             if obj.menu_FrequencyZoom.Checked
-                ylim(obj.axes_Sonogram, obj.settings.CustomFreqLim);
+                obj.axes_Sonogram.YLim = obj.settings.CustomFreqLim;
             else
-                ylim(obj.axes_Sonogram, obj.settings.FreqLim);
+                obj.axes_Sonogram.YLim = obj.settings.FreqLim;
             end
             [obj.settings.CurrentSonogramIsPower, ~, obj.SonogramHandle] = ...
                     electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, ...
@@ -845,7 +845,7 @@ classdef electro_gui < handle
             end
 
             obj.setClickSoundCallback(obj.axes_Sonogram);
-            xlim(obj.axes_Sonogram, obj.settings.TLim);
+            obj.axes_Sonogram.XLim = obj.settings.TLim;
             obj.axes_Sonogram.Box = 'off';
         end
         function updateSonogramColors(obj)
@@ -1152,8 +1152,8 @@ classdef electro_gui < handle
             end
 
             if keepView
-                xlim(obj.axes_Events, storedXLim);
-                ylim(obj.axes_Events, storedYLim);
+                obj.axes_Events.XLim = storedXLim;
+                obj.axes_Events.YLim = storedYLim;
             end
         end
         function updateDisplayForEventSource(obj, eventSourceIdx)
@@ -1504,7 +1504,7 @@ classdef electro_gui < handle
             end
 
             hold(ax, 'off');
-            xlim(ax, tlimits);
+            ax.XLim = tlimits;
 
             ax.XTickLabel = [];
             box(ax, 'off');
@@ -1522,9 +1522,9 @@ classdef electro_gui < handle
             % Set axes properties
             hold(ax, 'on');
             % Set time-zoom state of segment axes to match audio axes
-            xlim(ax, obj.settings.TLim);
+            ax.XLim = obj.settings.TLim;
             % Set y-scale of axes
-            ylim(ax, [-2 3.5]);
+            ax.YLim = [-2 3.5];
             % Get figure background color
             % Set segment axes background & axis colors to the figure background color, I guess to hide them
             ax.XAxis.Visible = 'off';
@@ -2983,7 +2983,7 @@ function SetSegmentThreshold(obj)
             [obj.settings.CurrentThreshold, obj.settings.CurrentThreshold], ...
             ':', 'Color',obj.settings.AmplitudeThresholdColor);
         hold(ax, 'off');
-        xlim(ax, xl);
+        ax.XLim = xl;
 
         if obj.isAutoSegmentEligible()
             % User has requested auto-segmentation. Auto segment!
@@ -5307,7 +5307,7 @@ function updateAmplitude(obj, options)
 
         obj.AmplitudePlotHandle = plot(obj.axes_Amplitude, linspace(0, (numSamples-1)/fs, numSamples),obj.amplitude,'Color',obj.settings.AmplitudeColor);
         obj.axes_Amplitude.XTickLabel  = [];
-        ylim(obj.axes_Amplitude, obj.settings.AmplitudeLims);
+        obj.axes_Amplitude.YLim = obj.settings.AmplitudeLims;
         box(obj.axes_Amplitude, 'off');
         ylabel(obj.axes_Amplitude, labels);
         obj.axes_Amplitude.UIContextMenu = obj.context_Amplitude;
@@ -13652,7 +13652,7 @@ end
                 h(2) = plot(ax, linspace(min(x),max(x),size(y,2)),min(y,[],1));
                 hold(ax, 'off');
             end
-            xlim(ax, xl);
+            ax.XLim = xl;
         end
         function ind = getSortedArrayInsertion(sortedArr, value)
             [~, ind] = min(abs(sortedArr-value));
