@@ -509,8 +509,7 @@ classdef electro_gui < handle
             obj.menu_Filter = electro_gui.populatePluginMenuList(p.filters, obj.settings.DefaultFilter, obj.menu_FilterList, @obj.FilterMenuClick);
 
             % Populate colormap plugin menu
-            obj.menu_ColormapList(1) = uimenu(obj.menu_Colormap, 'Label', '(Default)', 'Callback', @obj.ColormapClick);
-            obj.menu_ColormapList = electro_gui.populatePluginMenuList(p.colorMaps, '(Default)', obj.menu_Colormap, @obj.ColormapClick);
+            obj.menu_ColormapList = electro_gui.populatePluginMenuList(p.colorMaps, 'Default', obj.menu_Colormap, @obj.ColormapClick);
 
             % Populate macro plugin menu
             obj.menu_Macros = electro_gui.populatePluginMenuList(p.macros, [], obj.menu_Macros, @obj.MacrosMenuclick);
@@ -11330,20 +11329,15 @@ end
 
         function ColormapClick(obj, hObject, event)
 
-            if strcmp(hObject.Label,'(Default)')
-                colormap('parula');
-                cmap = colormap;
-                cmap(1,:) = [0 0 0];
-            else
-                cmap = electro_gui.eg_runPlugin(obj.plugins.colorMaps, hObject.Label);
-            end
+            cmap = electro_gui.eg_runPlugin(obj.plugins.colorMaps, hObject.Label);
 
             obj.Colormap = cmap;
             obj.settings.BackgroundColors(1,:) = cmap(1,:);
 
             colormap(obj.Colormap);
 
-
+            set(hObject.Parent.Children, 'Checked', false);
+            hObject.Checked = true;
 
         end
         function menu_OverlayTop_Callback(obj, hObject, event)
