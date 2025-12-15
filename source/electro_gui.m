@@ -1374,7 +1374,9 @@ classdef electro_gui < handle
         function updateChannelAxes(obj, axnum)
             % Load a new channel of data
 
-            if isempty(obj.getSelectedChannel(axnum))
+            [selectedChannelNum, ~, ~, isPseudoChannel] = obj.getSelectedChannel(axnum);
+
+            if isempty(selectedChannelNum)
                 % This is "(None)" channel selection, so disable everything
                 cla(obj.axes_Channel(axnum));
                 obj.axes_Channel(axnum).Visible = 'off';
@@ -1397,7 +1399,6 @@ classdef electro_gui < handle
             end
 
             % Load channel data
-            [selectedChannelNum, ~, ~, isPseudoChannel] = obj.getSelectedChannel(axnum);
             selectedFilter = obj.getSelectedFilter(axnum);
             selectedFilterParams = obj.getSelectedFunctionParameters(axnum);
             [obj.loadedChannelData{axnum}, obj.loadedChannelFs{axnum}, obj.loadedChannelLabels{axnum}] = ...
@@ -5026,26 +5027,26 @@ function eventSourceIdx = GetChannelAxesEventSourceIdx(obj, axnum)
     % No match found
     eventSourceIdx = [];
 end
-function matchingEventSourceIdx = WhichEventSourceIdxMatch(obj, channelNum, filterName, eventDetectorName)
+function matchingEventSourceIdx = WhichEventSourceIdxMatch(obj, channelNum, filterName, eventDetectorName, isPseudoChannel)
     % Get a list of eventSourceIdx that match a given set of channelNum,
     % filterName, eventDetectorName. If any of those are empty, they will
     % not be considered in the matching process
-    if ~exist('channelNum', 'var')
-        channelNum = [];
-    end
-    if ~exist('filterName', 'var')
-        filterName = [];
-    end
-    if ~exist('eventDetectorName', 'var')
-        eventDetectorName = [];
+    arguments
+        obj electro_gui
+        channelNum = []
+        filterName = []
+        eventDetectorName = []
+        isPseudoChannel = []
     end
 
     matchingEventSourceIdx = [];
     for eventSourceIdx = 1:length(obj.dbase.EventTimes)
-        [channelNum2, filterName2, eventDetectorName2] = obj.GetEventSourceInfo(eventSourceIdx);
+        [channelNum2, filterName2, eventDetectorName2, ~, ~, ~, ~, ~, isPseudoChannel2] = ...
+            obj.GetEventSourceInfo(eventSourceIdx);
         if (isempty(channelNum) || channelNum==channelNum2) && ...
            (isempty(filterName) || strcmp(filterName, filterName2)) && ...
-           (isempty(eventDetectorName) || eventDetectorName==eventDetectorName2)
+           (isempty(eventDetectorName) || eventDetectorName==eventDetectorName2) && ...
+           (isempty(isPseudoChannel) || isPseudoChannel == isPseudoChannel2)
             matchingEventSourceIdx(end+1) = eventSourceIdx;
         end
     end
@@ -9753,20 +9754,18 @@ end
             % Handle change in value of either channel source menu
             obj.SetActiveAxnum(axnum);
 
-        %     if isempty(findobj('Parent',obj.axes_Sonogram,'type','text'))
-                % ?? is this for the long file thing?
-                obj.popup_Functions(axnum).Value = 1;
-                obj.popup_EventDetectors(axnum).Value = 1;
-                obj.updateChannelAxes(axnum);
-        %     end
+            obj.popup_Functions(axnum).Value = 1;
+            obj.popup_EventDetectors(axnum).Value = 1;
+            obj.updateChannelAxes(axnum);
 
-            channelNum = obj.getSelectedChannel(axnum);
+            [channelNum, ~, ~, isPseudoChannel] = obj.getSelectedChannel(axnum);
+
             if isempty(channelNum)
                 obj.popup_EventDetectors(axnum).Enable = 'off';
                 matchingEventSourceIdx = [];
             else
                 obj.popup_EventDetectors(axnum).Enable = 'on';
-                matchingEventSourceIdx = obj.WhichEventSourceIdxMatch(channelNum);
+                matchingEventSourceIdx = obj.WhichEventSourceIdxMatch(channelNum, [], [], isPseudoChannel);
             end
 
             if obj.menu_SourcePlots(axnum).Checked
@@ -13214,8 +13213,8 @@ end
                     % Dbases briefly had these fields to keep track of
                     % pseudochannel info, but this has been combined into
                     % dbase.ChannelInfo
-                    for filenum = 1:length(dbase.PseudoChannelNames)
-                        info = dbase.PseudoChannelInfo{filenum};
+                    for pseudoChannelNumber = 1:length(dbase.PseudoChannelNames)
+                        info = dbase.PseudoChannelInfo{pseudoChannelNumber};
                         dbase = electro_gui.createEventPseudoChannel(dbase, info.eventSourceIdx, info.eventPartIdx);
                     end
                 else
