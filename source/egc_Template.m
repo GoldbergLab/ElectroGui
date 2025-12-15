@@ -12,4 +12,4 @@ function colorMap = egc_Template()
 % source code folder with a name beginning with 'egc_' and ending with '.m'
 
 % ADD YOUR CODE BELOW
-colorMap = [];
+colorMap = [1, 1, 1];
