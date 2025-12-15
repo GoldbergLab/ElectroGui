@@ -807,8 +807,24 @@ classdef electro_gui < handle
                 hold(obj.axes_Sonogram, 'on');
                 for k = 1:length(auxiliarySoundSources)
                     [auxiliarySound, fs] = obj.getSound(auxiliarySoundSources{k});
+                    if fs ~= obj.dbase.Fs
+                        % Auxiliary sampling rate is not the same as the sound sampling rate.
+                        %   adjust sample limits accordingly.
+                        [auxChannelNum, isAuxPseudoChannel] = electro_gui.channelNameToNum(obj.dbase, auxiliarySoundSources{k});
+                        [aux_numSamples, aux_fs] = obj.eg_GetSamplingInfo([], auxChannelNum, isAuxPseudoChannel);
+                        aux_sampleLims = round(obj.settings.TLim * aux_fs);
+                        if aux_sampleLims(1) < 1
+                            aux_sampleLims(1) = 1;
+                        end
+                        if aux_sampleLims(2) > aux_numSamples
+                            aux_sampleLims(2) = aux_numSamples;
+                        end
+                    else
+                        aux_sampleLims = sampleLims;
+                        aux_fs = fs;
+                    end
                     [obj.settings.CurrentSonogramIsPower, ~, obj.AuxiliarySonogramHandles(k)] = electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, ...
-                        obj.axes_Sonogram, auxiliarySound(sampleLims(1):sampleLims(2)), fs, ...
+                        obj.axes_Sonogram, auxiliarySound(aux_sampleLims(1):aux_sampleLims(2)), aux_fs, ...
                         obj.settings.SonogramParams);
                 end
                 nSpectrograms = 1 + length(obj.AuxiliarySonogramHandles);
@@ -2814,10 +2830,18 @@ function [sound, fs, timestamp] = getSound(obj, soundChannel, filenum, isPseudoC
         [sound, fs, ~, timestamp] = obj.loadChannelData(soundChannel, 'FileNum', filenum, 'IsPseudoChannel', isPseudoChannel);
     end
 
-    if ~isnan(obj.dbase.Fs)
-        % Sound sampling rate was already known, use it
-        fs = obj.dbase.Fs;
-    else
+    if isempty(fs) || isnan(fs)
+        % fs not found
+        if ~isnan(obj.dbase.ChannelFs(soundChannel))
+            % Specific fs is set for this channel, use it
+            fs = obj.dbase.ChannelFs(soundChannel);
+        elseif ~isnan(obj.dbase.Fs)
+            % No specific channel sampling rate, use the overall dbase sampling rate
+            fs = obj.dbase.Fs;
+        end
+    end
+
+    if isnan(obj.dbase.Fs)
         % Sound sampling rate was not known, update it
         obj.dbase.Fs = fs;
     end
