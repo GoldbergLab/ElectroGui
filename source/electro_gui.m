@@ -1533,8 +1533,6 @@ classdef electro_gui < handle
             % Assign context menu and click listener to segment axes
             ax.ButtonDownFcn = @obj.click_segmentaxes;
             ax.UIContextMenu = obj.context_Segments;
-            % Assign key press function to figure (keyPressHandler) for labeling segments
-            obj.figure_Main.WindowKeyPressFcn = @obj.keyPressHandler;
 
             % Clear segment handles and segment label handles
             delete(obj.SegmentHandles);
@@ -3581,7 +3579,6 @@ function JoinSegmentWithNext(obj, filenum, segmentNum)
         obj.dbase.SegmentIsSelected{filenum}(segmentNum+1) = [];
         obj.updateAnnotations();
         obj.SetActiveSegment(segmentNum);
-        obj.figure_Main.WindowKeyPressFcn = @obj.keyPressHandler;
     end
 end
 
@@ -3962,7 +3959,6 @@ function CreateNewDbase(obj)
     obj.popup_EventDetector2.Enable  = 'off';
     obj.push_Detect1.Enable  = 'off';
     obj.push_Detect2.Enable  = 'off';
-
     obj.axes_Events.Visible = 'off';
 
     % get segmenter parameters
@@ -7891,8 +7887,6 @@ function setupGUI(obj)
         'Data', {}, ...
         'RowName', {});
     obj.FileInfoBrowser.ColumnRearrangeable = true;
-    obj.FileInfoBrowser.KeyPressFcn = @obj.keyPressHandler;
-    obj.FileInfoBrowser.KeyReleaseFcn = @obj.keyReleaseHandler;
     obj.FileInfoBrowser.CellSelectionCallback = @(src, event)obj.HandleFileListChange(src.Parent, event);
     obj.FileInfoBrowser.CellEditCallback = @obj.GUIPropertyChangeHandler;
     obj.FileInfoBrowser.ContextMenu = obj.context_FileInfoBrowser;
@@ -9207,7 +9201,6 @@ end
                                 obj.dbase.SegmentIsSelected{filenum}(clickedAnnotationNum+1) = [];
                                 % Select new active segment
                                 obj.SetActiveSegment(clickedAnnotationNum);
-                                obj.figure_Main.WindowKeyPressFcn = @obj.keyPressHandler;
                                 obj.updateAnnotations();
                             end
                         case 'marker'
@@ -11508,7 +11501,6 @@ end
             obj.dbase.SegmentTitles{filenum} = st;
             obj.dbase.SegmentIsSelected{filenum} = [obj.dbase.SegmentIsSelected{filenum}(1:min(dl)-1) ones(1,size(sg,1)) obj.dbase.SegmentIsSelected{filenum}(max(dl)+1:end)];
             obj.updateAnnotations();
-            obj.figure_Main.WindowKeyPressFcn = @obj.keyPressHandler;
         end
         function menu_SourceSoundAmplitude_Callback(obj, hObject, event)
             obj.menu_SourceSoundAmplitude.Checked = 'on';
@@ -11563,10 +11555,6 @@ end
             obj.updateAnnotations();
 
             obj.SetActiveSegment(min(f));
-            obj.figure_Main.WindowKeyPressFcn = @obj.keyPressHandler;
-
-
-
         end
         function menu_DontPlot_Callback(obj, hObject, event)
             if ~obj.menu_DontPlot.Checked
