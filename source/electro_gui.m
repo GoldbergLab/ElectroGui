@@ -5257,6 +5257,8 @@ function menu_FunctionParams(obj, axnum)
     functionName = obj.getSelectedFilter(axnum);
     obj.settings.DefaultFunctionParameters(functionName) = params;
 
+    obj.updateChannelAxes(axnum)
+
     eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
     if isempty(eventSourceIdx)
         % No event source - nothing more to do
