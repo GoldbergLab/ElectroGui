@@ -3986,46 +3986,19 @@ function CreateNewDbase(obj)
     obj.axes_Events.Visible = 'off';
 
     % get segmenter parameters
-    for segmenterIdx = 1:length(obj.menu_SegmenterList.Children)
-        if obj.menu_SegmenterList.Children(segmenterIdx).Checked
-            h = obj.menu_SegmenterList.Children(segmenterIdx);
-            alg = obj.menu_SegmenterList.Children(segmenterIdx).Label;
-        end
-    end
-    if isempty(h.UserData)
-        obj.settings.SegmenterParams = electro_gui.eg_runPlugin(obj.plugins.segmenters, alg, 'params');
-        h.UserData = obj.settings.SegmenterParams;
-    else
-        obj.settings.SegmenterParams = h.UserData;
-    end
+    segmenterIdx = find([obj.menu_SegmenterList.Children.Checked], 1);
+    alg = obj.menu_SegmenterList.Children(segmenterIdx).Label;
+    obj.settings.SegmenterParams = electro_gui.eg_runPlugin(obj.plugins.segmenters, alg, 'params');
 
     % get sonogram parameters
-    for segmenterIdx = 1:length(obj.menu_Algorithm)
-        if obj.menu_Algorithm(segmenterIdx).Checked
-            h = obj.menu_Algorithm(segmenterIdx);
-            alg = obj.menu_Algorithm(segmenterIdx).Label;
-        end
-    end
-    if isempty(h.UserData)
-        obj.settings.SonogramParams = electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, 'params');
-        h.UserData = obj.settings.SonogramParams;
-    else
-        obj.settings.SonogramParams = h.UserData;
-    end
+    sonogramIdx = find([obj.menu_Algorithm.Checked], 1);
+    alg = obj.menu_Algorithm(sonogramIdx).Label;
+    obj.settings.SonogramParams = electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, 'params');
 
     % get sound filter parameters
-    for segmenterIdx = 1:length(obj.menu_Filter)
-        if obj.menu_Filter(segmenterIdx).Checked
-            h = obj.menu_Filter(segmenterIdx);
-            alg = obj.menu_Filter(segmenterIdx).Label;
-        end
-    end
-    if isempty(h.UserData)
-        obj.settings.FilterParams = electro_gui.eg_runPlugin(obj.plugins.filters, alg, 'params');
-        h.UserData = obj.settings.FilterParams;
-    else
-        obj.settings.FilterParams = h.UserData;
-    end
+    filterIdx = find([obj.menu_Filter.Checked], 1);
+    alg = obj.menu_Filter(filterIdx).Label;
+    obj.settings.FilterParams = electro_gui.eg_runPlugin(obj.plugins.filters, alg, 'params');
 
     % get event parameters
     for axnum = 1:2
@@ -12410,6 +12383,10 @@ end
             if ~isempty(params)
                 for k = 1:length(defaultParams.Names)
                     name = defaultParams.Names{k};
+                    disp('name=')
+                    name
+                    disp('params.Names=')
+                    params.Names
                     idx = find(strcmp(name, params.Names), 1);
                     if ~isempty(idx)
                         defaultParams.Values{k} = params.Values{idx};
@@ -12732,6 +12709,36 @@ end
             % Find all loaders
             plugins.loaders= electro_gui.findPlugins(sourceDir, 'egl');
         end
+        function defaultParams = getDefaultPluginParams(pluginGroup, pluginName)
+            if istext(pluginGroup)
+                % User passed a plugin prefix instead of a plugin group struct
+                %   Find the plugin group struct.
+                plugins = electro_gui.gatherPlugins();
+                pluginGroupNames = fieldnames(plugins);
+                foundPluginGroup = false;
+                for k = 1:length(pluginGroupNames)
+                    fieldname = pluginGroupNames{k};
+                    possiblePluginGroup = plugins.(fieldname);
+                    if strcmp(pluginGroup, plugins.(fieldname)(1).prefix)
+                        pluginGroup = possiblePluginGroup;
+                        foundPluginGroup = true;
+                        break
+                    end
+                end
+                if ~foundPluginGroup
+                    error('Plugin %s not found in plugin group %s', pluginName, pluginGroup)
+                end
+            end
+            % User must have passed in plugin group struct
+            defaultParams = electro_gui.eg_runPlugin(pluginGroup, pluginName, 'params');
+        end
+        function defaultParams = getSavedPluginParams(settings, pluginGroup, pluginName)
+            % Check if plugin params are stored in settings, or get
+            %   built in default if not.
+            if isfield(settings, 'PluginParams')
+
+            end
+        end
         function createNewPlugin(pluginType)
             sourceDir = fileparts(mfilename("fullpath"));
             plugins = electro_gui.gatherPlugins(sourceDir);
@@ -12772,6 +12779,15 @@ end
             channelEntry.IsPseudoChannel = isPseudoChannel;
             channelEntry.PseudoChannelInfo = pseudoChannelInfo;
         end
+        function plugin = findPlugin(pluginGroup, name)
+            plugin = [];
+            for k = 1:length(pluginGroup)
+                if strcmp(pluginGroup(k).name, name)
+                    plugin = pluginGroup(k).func;
+                    return;
+                end
+            end            
+        end
         function varargout = eg_runPlugin(pluginGroup, name, varargin)
             % Look for the requested plugin by name, then run it with the
             %   given arguments, and return arbitrary output arguments
@@ -12793,15 +12809,8 @@ end
             % varargin: Arbitrary number of input arguments for the plugin
             % varargout: Arbitrary output arguments from the plugin
 
-            foundIt = false;
-            for k = 1:length(pluginGroup)
-                if strcmp(pluginGroup(k).name, name)
-                    plugin = pluginGroup(k).func;
-                    foundIt = true;
-                    break;
-                end
-            end
-            if foundIt
+            plugin = electro_gui.findPlugin(pluginGroup, name);
+            if ~isempty(plugin)
                 try
                     varargout = cell(1, nargout);
                     % Run plugin and gather output arguments.
@@ -13128,6 +13137,29 @@ end
             if isfield(dbase, 'AnalysisState')
                 settings = mergeStructures(settings, dbase.AnalysisState, "Overwrite", true);
                 dbase = rmfield(dbase, 'AnalysisState');
+            end
+
+            % Check for an error in which the DefaultFunctionParameters becomes
+            %   a struct array instead of a map/dictionary
+            if ~isany(settings.DefaultFunctionParameters, {'containers.Map', 'dictionary'})
+                sprintf('Something went wrong with DefaultFunctionParameters - resetting\n')
+                settings = rmfield(settiongs, 'DefaultFunctionParameters');
+            end
+            % Do the same for DefaultEventParameters in case it can happen
+            %   to that too
+            if ~isany(settings.DefaultEventParameters, {'containers.Map', 'dictionary'})
+                sprintf('Something went wrong with DefaultEventParameters - resetting\n')
+                settings = rmfield(settiongs, 'DefaultEventParameters');
+            end
+
+            % At some point DefaultFunctionParams got added to dbases
+            if isfield(settings, 'DefaultFunctionParams') 
+                sprintf('Found invalid field - DefaultFunctionParams - removing\n')
+                settings = rmfield(settings, 'DefaultFunctionParams');
+            end
+            if isfield(settings, 'DefaultEventParams') 
+                sprintf('Found invalid field - DefaultEventParams - removing\n')
+                settings = rmfield(settings, 'DefaultEventParams');
             end
 
             % Add settings.DefaultEventParameters field if it doesn't already exist
