@@ -12383,10 +12383,6 @@ end
             if ~isempty(params)
                 for k = 1:length(defaultParams.Names)
                     name = defaultParams.Names{k};
-                    disp('name=')
-                    name
-                    disp('params.Names=')
-                    params.Names
                     idx = find(strcmp(name, params.Names), 1);
                     if ~isempty(idx)
                         defaultParams.Values{k} = params.Values{idx};
@@ -12708,36 +12704,6 @@ end
             plugins.eventFeatures = electro_gui.findPlugins(sourceDir, 'ega');
             % Find all loaders
             plugins.loaders= electro_gui.findPlugins(sourceDir, 'egl');
-        end
-        function defaultParams = getDefaultPluginParams(pluginGroup, pluginName)
-            if istext(pluginGroup)
-                % User passed a plugin prefix instead of a plugin group struct
-                %   Find the plugin group struct.
-                plugins = electro_gui.gatherPlugins();
-                pluginGroupNames = fieldnames(plugins);
-                foundPluginGroup = false;
-                for k = 1:length(pluginGroupNames)
-                    fieldname = pluginGroupNames{k};
-                    possiblePluginGroup = plugins.(fieldname);
-                    if strcmp(pluginGroup, plugins.(fieldname)(1).prefix)
-                        pluginGroup = possiblePluginGroup;
-                        foundPluginGroup = true;
-                        break
-                    end
-                end
-                if ~foundPluginGroup
-                    error('Plugin %s not found in plugin group %s', pluginName, pluginGroup)
-                end
-            end
-            % User must have passed in plugin group struct
-            defaultParams = electro_gui.eg_runPlugin(pluginGroup, pluginName, 'params');
-        end
-        function defaultParams = getSavedPluginParams(settings, pluginGroup, pluginName)
-            % Check if plugin params are stored in settings, or get
-            %   built in default if not.
-            if isfield(settings, 'PluginParams')
-
-            end
         end
         function createNewPlugin(pluginType)
             sourceDir = fileparts(mfilename("fullpath"));
