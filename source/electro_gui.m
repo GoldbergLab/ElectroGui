@@ -4060,7 +4060,7 @@ function OpenDbase(obj, filePathOrDbase, options)
             [file, path] = uigetfile(fullfile(path, '*.mat'), 'Load analysis');
             if ~ischar(file)
                 % User cancelled load
-                close(progressBar)
+                delete(progressBar)
                 return
             end
             filePathOrDbase = fullfile(path, file);
@@ -4111,7 +4111,7 @@ function OpenDbase(obj, filePathOrDbase, options)
                 newRoot = inputdlg('Choose new drive letter:', 'Choose new drive letter', 1, {oldRoot});
                 if isempty(newRoot)
                     % User cancelled
-                    close(progressBar);
+                    delete(progressBar);
                     return;
                 else
                     dbase.PathName = RootSwap(dbase.PathName, oldRoot, newRoot);
@@ -4121,12 +4121,12 @@ function OpenDbase(obj, filePathOrDbase, options)
                     'Locate the data directory manually:');
                 if ~ischar(dbase.PathName)
                     % User cancelled
-                    close(progressBar);
+                    delete(progressBar);
                     return
                 end
             case {choice3, ''}
                 % User cancelled
-                close(progressBar);
+                delete(progressBar);
                 return
         end
     end
