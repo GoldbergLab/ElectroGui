@@ -12013,8 +12013,8 @@ end
                     % User passed only defaults name, not full filename
                     settings = sprintf('defaults_%s', settings);
                 end
-                settings = electro_gui.createMergedSettings(settings);
             end
+            settings = electro_gui.createMergedSettings(settings);
 
             gvod = @electro_gui.getValueOrDefault;
 
