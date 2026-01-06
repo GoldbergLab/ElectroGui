@@ -39,6 +39,9 @@ for propertyIdx = 1:numProperties
     stats(propertyIdx) = sum(obj.dbase.Properties(filenums, propertyIdx));
 end
 
+stats2d = obj.dbase.Properties(filenums, :)' * obj.dbase.Properties(filenums, :);
+disp(size(stats2d))
+
 numReadFiles = sum(obj.dbase.FileReadState(filenums));
 
 propertyNames = ['viewed', propertyNames];
@@ -46,13 +49,31 @@ stats = [numReadFiles, stats];
 
 f = figure('NumberTitle', 'off', 'Name', 'Boolean statistics'); 
 f.ToolBar = "none";
-ax = axes(f);
-ax.Toolbar.Visible = "off";
-ax.Title.Interpreter = "none";
-ax.Title.String = 'electro_gui boolean statistics';
-hold(ax, 'on');
-bar(propertyNames, stats, 'Parent', ax, 'Labels', arrayfun(@num2str, stats, "UniformOutput", false));
-ax.YLim = [0, numFiles];
-ax.YTick(end+1) = numFiles;
-ax.YLabel.String = 'Number of files with boolean';
-hold(ax, 'off');
+
+ax1 = subplot(2, 1, 1);
+ax2 = subplot(2, 1, 2);
+
+ax2.Visible = false;
+
+ax1.Toolbar.Visible = "off";
+ax1.Title.Interpreter = "none";
+ax1.Title.String = 'electro_gui boolean statistics';
+hold(ax1, 'on');
+bar(propertyNames, stats, 'Parent', ax1, 'Labels', arrayfun(@num2str, stats, "UniformOutput", false));
+ax1.YLim = [0, numFiles];
+ax1.YTick(end+1) = numFiles;
+ax1.YLabel.String = 'Number of files with boolean';
+hold(ax1, 'off');
+
+units = ax2.Units;
+position = ax2.Position;
+
+[X, Y] = ndgrid(1:numProperties, 1:numProperties);
+
+stats2d(Y > X) = NaN;
+
+h = heatmap(propertyNames(2:end), propertyNames(2:end), stats2d, 'Parent', f, 'ColorLimits', [0, numFiles], 'Title', 'Pairwise combined counts');
+
+
+h.Units = units;
+h.Position = position;
