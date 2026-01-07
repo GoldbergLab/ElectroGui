@@ -4892,11 +4892,14 @@ function autoDetect = isAutoDetectEligible(obj, axnum, filenum)
     %   b) are there no pre-existing events
     eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
     eventSourceExists = ~isempty(eventSourceIdx);
-    noExistingEvents = isempty(obj.dbase.EventTimes) || all(cellfun(@isempty, obj.dbase.EventTimes{1}(:, filenum)));
-    autoDetect = ...
-        obj.menu_EventAutoDetect(axnum).Checked && ...
-        eventSourceExists && ...
-        noExistingEvents;
+    if ~eventSourceExists
+        autoDetect = false;
+    else
+        noExistingEvents = isempty(obj.dbase.EventTimes) || all(cellfun(@isempty, obj.dbase.EventTimes{eventSourceIdx}(:, filenum)));
+        autoDetect = ...
+            obj.menu_EventAutoDetect(axnum).Checked && ...
+            noExistingEvents;
+    end
 end
 
 function eventSourceIdx = DetectEventsInAxes(obj, axnum)
@@ -5249,6 +5252,7 @@ function UnselectEvents(obj, eventNums, eventSourceIdx, filenum)
 end
 
 function menu_FunctionParams(obj, axnum)
+    obj.SetActiveAxnum(axnum);
     params = obj.getSelectedFunctionParameters(axnum);
 
     if ~isfield(params,'Names') || isempty(params.Names)
@@ -5266,6 +5270,8 @@ function menu_FunctionParams(obj, axnum)
     functionName = obj.getSelectedFilter(axnum);
     obj.settings.DefaultFunctionParameters(functionName) = params;
 
+    obj.ClearEventsInAxes(axnum);
+
     obj.updateChannelAxes(axnum)
 
     eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
@@ -5276,19 +5282,16 @@ function menu_FunctionParams(obj, axnum)
 
     obj.dbase.EventFunctionParameters{eventSourceIdx} = params;
 
-    % Update events for the event source configuration of this
-    % channel axes.
-    eventSourceIdx = obj.DetectEventsInAxes(axnum);
-
-    for axn = 1:2
-        if obj.GetChannelAxesEventSourceIdx(axn)==eventSourceIdx
-            % Axes is visible and is currently showing the same
-            % event source, update the display
-            obj.updateChannelAxes(axn);
-        end
+    % Update other channel axes if necessary
+    matchingAxnum = obj.WhichChannelAxesMatchEventSource(eventSourceIdx);
+    matchingAxnum(matchingAxnum == axnum) = [];
+    for axn = matchingAxnum
+        obj.updateChannelEventDisplay(axn);
     end
 
-    obj.updateEventViewer();
+    if obj.menu_AutoDisplayEvents.Checked
+        obj.updateEventViewer();
+    end
 
 end
 function updateAmplitude(obj, options)
