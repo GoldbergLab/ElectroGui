@@ -13277,7 +13277,7 @@ end
                             else 
                                 % This plugin param is a struct - check if it has the right fields for plugin params
                                 params = settings.(pluginDefaultType).(pluginName);
-                                if ~isfield(params, 'Names') || ~isfield(params, 'Values') || length(fieldNames(params)) ~= 2
+                                if ~isfield(params, 'Names') || ~isfield(params, 'Values') || length(fieldnames(params)) ~= 2
                                     msg = sprintf('%s.%s should be a struct of the form struct(''Names'', {}, ''Values'', {}). Instead it''s a %s', pluginDefaultType, pluginName, class(settings.(pluginDefaultType).(pluginName)));
                                     electro_gui.issueWarning(msg, 'defaultsFileError');
                                     settings.(pluginDefaultType) = rmfield(settings.(pluginDefaultType), pluginName);
