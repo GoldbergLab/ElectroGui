@@ -31,6 +31,9 @@ classdef electro_gui < handle
         slackAgent SlackBot
         TooLong = false
     end
+    properties  % GUI styling
+        GUIStyle = electro_gui.getGUIStyle()
+    end
     properties  % GUI widgets
         figure_Main
         panel_Files                     % Panel for file widgets
@@ -227,6 +230,10 @@ classdef electro_gui < handle
         menu_Playback
         menu_PlaySound
         menu_PlayMix
+        menu_View
+        menu_Theme
+        menu_LightTheme
+        menu_DarkTheme
         playback_Weights
         playback_Clippers
         playback_Speed
@@ -281,6 +288,7 @@ classdef electro_gui < handle
         Sonogram_Overlays matlab.graphics.Graphics
         EventHandles = {{}, {}};
         ActiveEventCursors matlab.graphics.Graphics
+        SoundEnvelope matlab.graphics.Graphics
     end
     properties  % Graphics info
         Colormap double
@@ -600,12 +608,11 @@ classdef electro_gui < handle
         function updateSoundEnvelope(obj)
             % Redraw the sound envelope on the top navigation axes
             [numSamples, fs] = obj.eg_GetSamplingInfo();
-            h = electro_gui.eg_peak_detect(obj.axes_Sound, linspace(0, (numSamples-1)/fs, numSamples), obj.filtered_sound);
+            obj.SoundEnvelope = electro_gui.eg_peak_detect(obj.axes_Sound, linspace(0, (numSamples-1)/fs, numSamples), obj.filtered_sound);
+            [obj.SoundEnvelope.Color] = deal(obj.GUIStyle.SoundEnvelopeColor);
 
-            [h.Color] = deal('c');
             obj.axes_Sound.XTick = [];
             obj.axes_Sound.YTick = [];
-            obj.axes_Sound.Color = [0 0 0];
             axis(obj.axes_Sound, 'tight');
             yl = max(abs(obj.axes_Sound.YLim));
             ylim(obj.axes_Sound, [-yl*1.2, yl*1.2]);
@@ -1386,6 +1393,7 @@ classdef electro_gui < handle
             set(obj.axes_Channel2,'ButtonDownFcn','%','UIContextMenu','');
             cla(obj.axes_Events);
             set(obj.axes_Events,'ButtonDownFcn','%','UIContextMenu','');
+            obj.updateGUIStyle();
         end
         function updateChannelAxes(obj, axnum)
             % Load a new channel of data
@@ -1929,7 +1937,7 @@ classdef electro_gui < handle
                 % No xlimbox currently, create a new one
                 hold(obj.axes_Sound, 'on');
                 obj.xlimbox = plot(obj.axes_Sound, ...
-                    xdata, ydata, ':y', 'LineWidth', 2);
+                    xdata, ydata, ':', 'LineWidth', 2, 'Color', 'y');
                 hold(obj.axes_Sound, 'off');
             else
                 % xlimbox already exists, just update position
@@ -1939,7 +1947,14 @@ classdef electro_gui < handle
         end
 
     end
-    methods %% GUI querying - functions that get information from GUI widgets
+    methods %% GUI querying/setting - functions that get or set information from GUI widgets
+        function setEnabledState(obj, widget, enabled)
+            if enabled
+                widget.Enable = 'on';
+            else
+                widget.Enable = 'off';
+            end
+        end
         function selectedFunctionParameters = getSelectedFunctionParameters(obj, axnum)
             % Get the function parameters for the given channel axes
             eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
@@ -6125,7 +6140,7 @@ function styleAxesTitle(obj, title, options)
         obj electro_gui %#ok<INUSA>
         title
         options.Position = [0, 0, 0];
-        options.Color = [0 0 0]
+        options.Color = obj.GUIStyle.TextColor
     end
     try
         title.AffectAutoLimits = 'off';
@@ -6193,7 +6208,7 @@ function styleAxesLabel(obj, label, options)
         obj electro_gui %#ok<INUSA>
         label
         options.Position = label.Position;
-        options.Color = [0.15 0.15 0.15]
+        options.Color = obj.GUIStyle.TextColor
         options.FontSize = 10
     end
     try
@@ -6265,7 +6280,7 @@ function channel_axes = createChannelAxes(obj, position, innerPosition, tag)
         'YTickMode',get(0,'defaultaxesYTickMode'),...
         'YTickLabel',{  '0'; '0.5'; '1' },...
         'YTickLabelMode',get(0,'defaultaxesYTickLabelMode'),...
-        'Color', [1, 1, 1], ...
+        'Color', obj.GUIStyle.AxesColor, ...
         'CameraMode',get(0,'defaultaxesCameraMode'),...
         'DataSpaceMode',get(0,'defaultaxesDataSpaceMode'),...
         'ColorSpaceMode',get(0,'defaultaxesColorSpaceMode'),...
@@ -6289,6 +6304,63 @@ function channel_axes = createChannelAxes(obj, position, innerPosition, tag)
         'SortMethodMode',get(0,'defaultaxesSortMethodMode'),...
         'Visible','off',...
         'Tag',tag);
+end
+
+function setGUIStyle(obj, lightOrDark)
+    arguments
+        obj electro_gui
+        lightOrDark {mustBeMember(lightOrDark, {'light', 'dark'})}
+    end
+    style = electro_gui.getGUIStyle(lightOrDark);
+    obj.GUIStyle = style;
+    obj.updateGUIStyle();
+end
+
+function updateGUIStyle(obj)
+    % Update GUI to match obj.GUIStyle struct
+    style = obj.GUIStyle;
+
+    obj.figure_Main.Color = style.FigureColor;
+
+    ax = findobj(obj.figure_Main, 'type', 'axes');
+    set(ax, 'Color', style.AxesColor);
+    obj.axes_Sound.Color = style.AxesSoundColor;   % Normally black anyways
+    obj.axes_Segments.Color = style.AxesSegmentsColor;
+    disp('Set obj.axes_Sound.Color')
+    disp(style.AxesSoundColor);
+
+    uic = findobj(obj.figure_Main, 'type', 'uicontrol');
+
+    widgets = findobj(uic, 'Style', 'popup');
+    set(widgets, 'BackgroundColor', style.PopupColor);
+    set(widgets, 'ForegroundColor', style.TextColor);
+
+    widgets = findobj(uic, 'Style', 'edit');
+    set(widgets, 'BackgroundColor', style.EditColor);
+    set(widgets, 'ForegroundColor', style.TextColor);
+
+    widgets = findobj(uic, 'Style', 'pushbutton');
+    set(widgets, 'BackgroundColor', style.ButtonColor);
+    set(widgets, 'ForegroundColor', style.TextColor);
+
+    widgets = findobj(uic, 'Style', 'text');
+    set(widgets, 'BackgroundColor', style.FigureColor);
+    set(widgets, 'ForegroundColor', style.TextColor);
+
+
+    uip = findobj(obj.figure_Main, 'type', 'uipanel');
+    set(uip, 'BackgroundColor', style.FigureColor);
+    set(uip, 'ForegroundColor', style.TextColor);
+
+    if ~isempty(obj.xlimbox) && isgraphics(obj.xlimbox)
+        obj.xlimbox.Color = style.XLimBoxColor;
+    end
+
+    if ~isempty(obj.SoundEnvelope) && any(isgraphics(obj.SoundEnvelope))
+        [obj.SoundEnvelope.Color] = deal('c');
+    end
+
+
 end
 
 function setupGUI(obj)
@@ -6341,9 +6413,9 @@ function setupGUI(obj)
         'LooseInset',[0.142706766917293 0.435638766519824 0.104285714285714 0.297026431718062],...
         'SortMethod','childorder',...
         'Tag','axes_Sound');
-    obj.styleAxesTitle(obj.axes_Sound.Title, "Position", [0.500000502009557 1.03424657534247 0.5], "Color", [0, 0, 0]);
-    obj.styleAxesLabel(obj.axes_Sound.XLabel, "Position", [0.500000476837158 -0.0365296803652946 0], "Color", [0.15 0.15 0.15]);
-    obj.styleAxesLabel(obj.axes_Sound.YLabel, "Position", [-0.00201106083459025 0.50000047683716 0], "Color", [0.15 0.15 0.15]);
+    obj.styleAxesTitle(obj.axes_Sound.Title, "Position", [0.500000502009557 1.03424657534247 0.5]);
+    obj.styleAxesLabel(obj.axes_Sound.XLabel, "Position", [0.500000476837158 -0.0365296803652946 0]);
+    obj.styleAxesLabel(obj.axes_Sound.YLabel, "Position", [-0.00201106083459025 0.50000047683716 0]);
     obj.styleAxesLabel(obj.axes_Sound.ZLabel, "Position", [0, 0, 0]);
 
     % obj.axes_Sonogram
@@ -6355,7 +6427,7 @@ function setupGUI(obj)
         'XTickLabel',[],...
         'YTick',[],...
         'YTickLabel',[],...
-        'Color', obj.figure_Main.Color, ...
+        'Color', obj.GUIStyle.AxesColor, ...
         'BoxFrame',[],...
         'Position',[alignedAxesX 0.64265668849392 alignedAxesW 0.262862488306829],...
         'InnerPosition',[alignedAxesX 0.64265668849392 alignedAxesW 0.262862488306829],...
@@ -7594,6 +7666,32 @@ function setupGUI(obj)
         'Label','Plugins',...
         'Tag','menu_Plugins');
 
+    %% View menu
+    obj.menu_View = uimenu(...
+        'Parent',obj.figure_Main,...
+        'Callback',@obj.menu_View_Callback,...
+        'Label','View',...
+        'Tag','menu_View');
+
+    obj.menu_Theme = uimenu(...
+        'Parent',obj.menu_View,...
+        'Label','Theme...',...
+        'Tag','view_Theme');
+
+    obj.menu_LightTheme = uimenu(...
+        'Parent',obj.menu_Theme,...
+        'Enable','on',...
+        'Callback',@(varargin)obj.setGUIStyle("light"),...
+        'Label','Light',...
+        'Tag','menu_LightTheme');
+
+    obj.menu_DarkTheme = uimenu(...
+        'Parent',obj.menu_Theme,...
+        'Enable','on',...
+        'Callback',@(varargin)obj.setGUIStyle("dark"),...
+        'Label','Dark',...
+        'Tag','menu_DarkTheme');
+
     %% Playback menu
     obj.menu_Playback = uimenu(...
         'Parent',obj.figure_Main,...
@@ -7893,6 +7991,9 @@ function setupGUI(obj)
     obj.ensureExportSettingsExist();
     obj.updateExportControlGUIValues();
     obj.createExportWindow();
+
+    %% Style GUI
+    obj.updateGUIStyle();
 end
 function createExportControlPanel(obj)
     if isfield(obj.ExportControlPanel, 'fig')
@@ -9093,7 +9194,7 @@ end
 
             obj.updateFilteredSound();
 
-            cla(obj.axes_Sound);
+            delete(obj.axes_Sound.Children);
             obj.updateFilteredSound();
 
             obj.updateSoundEnvelope();
@@ -10476,6 +10577,9 @@ end
         function file_Save_Callback(obj, hObject, eventdata)
             obj.SaveCurrentDbase();
 
+
+        end
+        function menu_View_Callback(obj, hObject, eventdata)
 
         end
         function help_ControlsHelp_Callback(obj, hObject, eventdata)
@@ -11965,6 +12069,50 @@ end
         end
     end
     methods (Static)   % dbase manipulation methods
+        function style = getGUIStyle(lightOrDark)
+            arguments
+                lightOrDark {mustBeMember(lightOrDark, {'light', 'dark'})} = 'light'
+            end
+            MATLAB_grey = [0.94, 0.94, 0.94];
+            MATLAB_black = [0.15, 0.15, 0.15];
+            white = [1, 1, 1];
+            black = [0, 0, 0];
+            switch lightOrDark
+                case 'light'
+                    style.FigureColor = MATLAB_grey;
+                    style.TextColor = MATLAB_black;
+                    style.AxesColor = white;
+                    style.AmplitudePlotColor = black;
+                    style.ChannelPlotColor = [0 0 1];
+                    style.EventMarkerColor = black;
+                    style.ThresholdColor = [1 0 0];
+                    style.PopupColor = white;
+                    style.EditColor = white;
+                    style.ButtonColor = MATLAB_grey;
+                    style.AxesSoundColor = black;
+                    style.XLimBoxColor = 'y';
+                    style.SoundEnvelopeColor = 'c';
+                case 'dark'
+                    style.FigureColor = 1-MATLAB_grey;
+                    style.TextColor = 1-MATLAB_black;
+                    style.AxesColor = black;
+                    style.AmplitudePlotColor = white;
+                    style.ChannelPlotColor = 1-[0 0 1];
+                    style.EventMarkerColor = white;
+                    style.ThresholdColor = black;
+                    style.PopupColor = black;
+                    style.EditColor = black;
+                    style.ButtonColor = 1-MATLAB_grey;
+                    style.AxesSoundColor = black;
+                    style.XLimBoxColor = [0.7, 0.7, 0];
+                    style.SoundEnvelopeColor = [0, 0.7, 0.7];
+            end
+            style.AxesSegmentsColor = 'none';
+        end
+        % function setBorderColor(widget)
+        %     jwidget = findjobj(widget);
+        %     jEdit.Border
+        % end
         function annotationUnselectColor = getAnnotationUnselectColor(annotationColor)
             annotationUnselectColor = changeColorBrightness(annotationColor, 0.5);
         end
