@@ -93,38 +93,38 @@ settings.ActiveMarkerNum = [];
 
 % CHANNEL PLOT SETTINGS
 % Settings with two numbers or rows refer to the top and bottom plot respectively
-settings.PeakDetect = [0 0]; % Use peak detection for plotting?
-settings.AutoYZoom = [1 1]; % Allow user to zoom vertically by dragging a box over the plot?
-settings.AutoYLimits = [1 1]; % Choose y-limits automatically for each file, or carry over the current limits?
-settings.ChanLimits = [-1 1; -1 1]; % Initial y-limits for the channel plots, if AutoYLimits is off
-settings.ChannelColor = [0 0 1; 0 0 1]; % Colors of the channel plots
-settings.ChannelThresholdColor = [1 0 0; 1 0 0]; % Colors of the threshold lines on the channel plots
-settings.ChannelLineWidth = [1 1]; % Line widths of the channel plots
+settings.PeakDetect = [0 0];                        % Use peak detection for plotting?
+settings.AutoYZoom = [1 1];                         % Allow user to zoom vertically by dragging a box over the plot?
+settings.AutoYLimits = [1 1];                       % Choose y-limits automatically for each file, or carry over the current limits?
+settings.ChanLimits = [-1 1; -1 1];                 % Initial y-limits for the channel plots, if AutoYLimits is off
+settings.ChannelColor = [0 0 1; 0 0 1];             % Colors of the channel plots
+settings.ChannelThresholdColor = [1 0 0; 1 0 0];    % Colors of the threshold lines on the channel plots
+settings.ChannelLineWidth = [1 1];                  % Line widths of the channel plots
 settings.DefaultChannelFunction = 'FIRBandPass';
 
 % EVENT SETTINGS
 % Settings with two numbers or rows refer to the top and bottom plot respectively
-settings.EventsAutoDetect = [1 1]; % Should events be detected automatically when a file is loaded?
-settings.EventsDisplayMode = 1; % What should be displayed in the event browser? 1 - function values around each event; 2 - scatterplot of event features
-settings.EventsAutoDisplay = 1; % Should events be updated automatically in the event browser each time they are changed?
-settings.SearchBefore = [0.001 0.001]; % When selecting events by dragging a box over a channel plot, tolerance in the negative time direction (sec)
-settings.SearchAfter = [0.001 0.001];% When selecting events by dragging a box over a channel plot, tolerance in the positive time direction (sec)
-settings.DefaultEventXLims = [0.001 0.003]; % Time axes limits for the event browser
+settings.EventsAutoDetect = [1 1];              % Should events be detected automatically when a file is loaded?
+settings.EventsDisplayMode = 1;                 % What should be displayed in the event browser? 1 - function values around each event; 2 - scatterplot of event features
+settings.EventsAutoDisplay = 1;                 % Should events be updated automatically in the event browser each time they are changed?
+settings.SearchBefore = [0.001 0.001];          % When selecting events by dragging a box over a channel plot, tolerance in the negative time direction (sec)
+settings.SearchAfter = [0.001 0.001];           % When selecting events by dragging a box over a channel plot, tolerance in the positive time direction (sec)
+settings.DefaultEventXLims = [0.001 0.003];     % Time axes limits for the event browser
 settings.DefaultEventFeatureX = 'AP_amplitude'; % Event feature to plot allong the x-axis of the event browser in the Features mode.
-settings.DefaultEventFeatureY = 'AP_width'; % Event feature to plot allong the y-axis of the event browser in the Features mode.
-settings.EventThresholdDefaults = [];  % Array of default thresholds for this event source
-settings.EventXLims = [];        % Array of event source x limits
-settings.ActiveEventNum = [];        % Index of the currently active event
-settings.ActiveEventPartNum = [];    % Event part of the currently active event
-settings.ActiveEventSourceIdx = [];  % Event source index of the currently active event
+settings.DefaultEventFeatureY = 'AP_width';     % Event feature to plot allong the y-axis of the event browser in the Features mode.
+settings.EventThresholdDefaults = [];           % Array of default thresholds for this event source
+settings.EventXLims = [];                       % Array of event source x limits (numEvents x 2)
+settings.ActiveEventNum = [];                   % Index of the currently active event
+settings.ActiveEventPartNum = [];               % Event part of the currently active event
+settings.ActiveEventSourceIdx = [];             % Event source index of the currently active event
 
 % SOUND SETTINGS
-settings.SoundWeights = [2 1 1]; % Relative weights of the sound, the top plot, and the bottom plot, respectively
-settings.SoundClippers = [.25 .25]; % The absolute level below which sounds are clipped (i.e., assigned zero value)
-settings.SoundSpeed = 1; % Speed of sound playback (1 = normal speed)
-settings.DefaultMix = [0 0 0]; % Include in the sound mix? Sound, top plot, and bottom plot, respectively
-settings.FilterSound = 1; % Play filtered sound or raw sound?
-settings.PlayReverse = 0; % Play sound in reverse?
+settings.SoundWeights = [2 1 1];        % Relative weights of the sound, the top plot, and the bottom plot, respectively
+settings.SoundClippers = [.25 .25];     % The absolute level below which sounds are clipped (i.e., assigned zero value)
+settings.SoundSpeed = 1;                % Speed of sound playback (1 = normal speed)
+settings.DefaultMix = [0 0 0];          % Include in the sound mix? Sound, top plot, and bottom plot, respectively
+settings.FilterSound = 1;               % Play filtered sound or raw sound?
+settings.PlayReverse = 0;               % Play sound in reverse?
 
 % Plugin parameters
 %   Each of these structs can contain a default parameter set for each plugin within its category
