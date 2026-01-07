@@ -127,12 +127,23 @@ settings.FilterSound = 1; % Play filtered sound or raw sound?
 settings.PlayReverse = 0; % Play sound in reverse?
 
 % Plugin parameters
-blankParams = struct('Names', {{}}, 'Values', {{}});
-settings.DefaultEventParameters = containers.Map();     % dictionary mapping event detector names to default parameters.  If using R2022 or later, this can be changed to the newer dictionary()
-settings.DefaultFunctionParameters = containers.Map();  % dictionary mapping filter names to default parameters.  If using R2022 or later, this can be changed to the newer dictionary()
-settings.FilterParams = blankParams;
-settings.SegmenterParams = blankParams;
-settings.SonogramParams = blankParams;
+%   Each of these structs can contain a default parameter set for each plugin within its category
+%   The format is
+%   settings.DefaultXXXParams = struct with fields 'pluginName1', 'pluginName2', etc
+%       Each plugin field will itself contain a struct with the 
+%       field "Names" containing a cell array of parameter names, and 
+%       "Values", containing a cell array of default values.
+settings.DefaultFunctionParams = struct();   % Struct containing parameters for channel function plugins
+settings.DefaultEventParams = struct();      % Struct containing parameters for event detector plugins
+settings.DefaultFilterParams = struct();     % Struct containing parameters for audio filter plugins
+settings.DefaultSonogramParams = struct();   % Struct containing parameters for sonogram plugins
+settings.DefaultSegmenterParams = struct();  % Struct containing parameters for segmenter plugins
+% Example of how to set default parameters for a plugin. You may include a subset of the names/values if you wish, but any names you include must be exactly correctly spelled.
+% settings.DefaultSegmenterParams.DA_segmenter.Names =  {'Minimum duration (ms)'  'Minimum interval (ms)'  'Mininum duration for splitting (ms)'  'Minimum interval for splitting (ms)'};
+% settings.DefaultSegmenterParams.DA_segmenter.Values = {'7'                      '7'                      '7'                                    '0'};
+% Example of setting only some parameters:
+% settings.DefaultSegmenterParams.WhisperSeg.Names =  {'Network name'};
+% settings.DefaultSegmenterParams.WhisperSeg.Values = {'20240907_ZhileiEphysWarble20kFinetune3'};
 
 % ANIMATION SETTINGS
 settings.AnimationPlots = [0 0 0 0 0 0]; % Plot animation over sound wave, sonogram, segments, amplitude, top plot, and bottom plot, respectively

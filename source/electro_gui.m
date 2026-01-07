@@ -772,6 +772,7 @@ classdef electro_gui < handle
                 obj.axes_Sonogram.Children([barIdx, textIdx]) = obj.axes_Sonogram.Children([textIdx, barIdx]);
             end
         end
+
         function updateSonogram(obj)
             obj.updateFilteredSound();
 
@@ -785,15 +786,6 @@ classdef electro_gui < handle
                 sampleLims(2) = numSamples;
             end
 
-            % Determine current spectrogram algorithm?
-            for c = 1:length(obj.menu_Algorithm)
-                if obj.menu_Algorithm(c).Checked
-                    alg = obj.menu_Algorithm(c).Label;
-                    break;
-                end
-            end
-
-            %cla(obj.axes_Sonogram);
             delete(obj.axes_Sonogram.Children);
 
             obj.axes_Sonogram.XLim = obj.settings.TLim;
@@ -802,10 +794,16 @@ classdef electro_gui < handle
             else
                 obj.axes_Sonogram.YLim = obj.settings.FreqLim;
             end
+
+            % Determine current spectrogram algorithm
+            alg = obj.getSelectedSonogramAlgorithm();
+            % Determine current spectrogram algorithm parameters
+            params = obj.getSonogramParameters();
+
             [obj.settings.CurrentSonogramIsPower, ~, obj.SonogramHandle] = ...
                     electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, ...
                         obj.axes_Sonogram, obj.sound(sampleLims(1):sampleLims(2)), fs, ...
-                        obj.settings.SonogramParams);
+                        params);
 
             auxiliarySoundSources = obj.getAuxiliarySoundSources();
             if ~isempty(auxiliarySoundSources)
@@ -830,9 +828,10 @@ classdef electro_gui < handle
                         aux_sampleLims = sampleLims;
                         aux_fs = fs;
                     end
+                    params = obj.getSonogramParameters();
                     [obj.settings.CurrentSonogramIsPower, ~, obj.AuxiliarySonogramHandles(k)] = electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, ...
                         obj.axes_Sonogram, auxiliarySound(aux_sampleLims(1):aux_sampleLims(2)), aux_fs, ...
-                        obj.settings.SonogramParams);
+                        params);
                 end
                 nSpectrograms = 1 + length(obj.AuxiliarySonogramHandles);
                 if nSpectrograms > 1
@@ -920,8 +919,6 @@ classdef electro_gui < handle
             obj.popup_EventListAlign.UserData = eventListInfo;
         end
         function updateChannelEventDisplay(obj, axnum)
-            % Get the index of the event source (a channel, but not in numerical
-            % order, see obj.dbase.EventSources for order)
             if ~obj.axes_Channel(axnum).Visible
                 % Axes isn't visible, no point in updating it.
                 return;
@@ -1423,8 +1420,9 @@ classdef electro_gui < handle
             end
 
             % Load channel data
-            selectedFilter = obj.getSelectedFilter(axnum);
+            selectedFilter = obj.getSelectedFunction(axnum);
             selectedFilterParams = obj.getSelectedFunctionParameters(axnum);
+
             [obj.loadedChannelData{axnum}, obj.loadedChannelFs{axnum}, obj.loadedChannelLabels{axnum}] = ...
                 obj.loadChannelData(selectedChannelNum, ...
                 'FilterName', selectedFilter, ...
@@ -1955,36 +1953,96 @@ classdef electro_gui < handle
                 widget.Enable = 'off';
             end
         end
+        function sonogramParameters = getSonogramParameters(obj, sonogramName)
+            % Get the audio sonogram parameters. If they don't exist, create and store them.
+            arguments
+                obj electro_gui
+                sonogramName = obj.getSelectedSonogramAlgorithm()
+            end
+
+            if isempty(sonogramName)
+                % No sonogram selected
+                sonogramParameters = electro_gui.createEmptyPluginParams();
+                return
+            end
+            defaultSonogramParameters = electro_gui.eg_runPlugin(obj.plugins.spectrums, sonogramName, 'params');
+            if isfield(obj.settings.DefaultSonogramParams, sonogramName)
+                sonogramParameters = obj.settings.DefaultSonogramParams.(sonogramName);
+            else
+                % This sonogram does not have an assigned default parameter - get it from the plugin
+                sonogramParameters = electro_gui.createEmptyPluginParams();
+            end
+            % Merge defaults into selected parameters to make sure its a complete set of parameters
+            sonogramParameters = electro_gui.applyDefaultPluginParams(sonogramParameters, defaultSonogramParameters);
+            % Store for next time
+            obj.settings.DefaultSonogramParams.(sonogramName) = sonogramParameters;
+        end
+        function filterParameters = getFilterParameters(obj, filterName)
+            % Get the audio filter parameters. If they don't exist, create and store them.
+            % Note that this applies to the same
+            %   set of plugins as the "functions", but this is meant to be used
+            %   with the sonogram, rather than the channel axes.
+            arguments
+                obj electro_gui
+                filterName = obj.getSelectedSoundFilterAlgorithm();
+            end
+
+            if isempty(filterName)
+                % No filter selected
+                filterParameters = electro_gui.createEmptyPluginParams();
+                return
+            end
+            defaultFilterParameters = electro_gui.eg_runPlugin(obj.plugins.filters, filterName, 'params');
+            if isfield(obj.settings.DefaultFilterParams, filterName)
+                filterParameters = obj.settings.DefaultFilterParams.(filterName);
+            else
+                % This filter does not have an assigned default parameter - get it from the plugin
+                filterParameters = electro_gui.createEmptyPluginParams();
+            end
+            % Merge defaults into selected parameters to make sure its a complete set of parameters
+            filterParameters = electro_gui.applyDefaultPluginParams(filterParameters, defaultFilterParameters);
+            % Store for next time
+            obj.settings.DefaultFilterParams.(filterName) = filterParameters;
+        end
+        function functionParameters = getFunctionParameters(obj, functionName)
+            % Get the channel filter parameters. If they don't exist, create and store them.
+            arguments
+                obj electro_gui
+                functionName
+            end
+            if isempty(functionName)
+                % No filter selected
+                functionParameters = electro_gui.createEmptyPluginParams();
+                return
+            end
+            defaultFunctionParameters = electro_gui.eg_runPlugin(obj.plugins.filters, functionName, 'params');
+            if isfield(obj.settings.DefaultFunctionParams, functionName)
+                functionParameters = obj.settings.DefaultFunctionParams.(functionName);
+            else
+                % This filter does not have an assigned default parameter - get it from the plugin
+                functionParameters = electro_gui.createEmptyPluginParams();
+            end
+            % Merge defaults into selected parameters to make sure its a complete set of parameters
+            functionParameters = electro_gui.applyDefaultPluginParams(functionParameters, defaultFunctionParameters);
+            % Store for next time
+            obj.settings.DefaultFunctionParams.(functionName) = functionParameters;
+        end
         function selectedFunctionParameters = getSelectedFunctionParameters(obj, axnum)
             % Get the function parameters for the given channel axes
+            % Hierarchy is event source params > params from settings > default params
             eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
             if isempty(eventSourceIdx)
                 % Current axis configuration does not correspond to a known event source
                 % Use default params instead
-                functionName = obj.getSelectedFilter(axnum);
-                if isempty(functionName)
-                    % No filter selected
-                    selectedFunctionParameters = electro_gui.createEmptyPluginParams();
-                    return
-                end
-                defaultFunctionParameters = electro_gui.eg_runPlugin(obj.plugins.filters, functionName, 'params');
-                try
-                    selectedFunctionParameters = obj.settings.DefaultFunctionParameters(functionName);
-                catch
-                    % This filter probably does not have an assigned default parameter - get it from the plugin
-                    selectedFunctionParameters = electro_gui.createEmptyPluginParams();
-                end
-                % Merge defaults into selected parameters to make sure its a complete set of parameters
-                selectedFunctionParameters = electro_gui.applyDefaultPluginParams(selectedFunctionParameters, defaultFunctionParameters);
-                % Store for next time
-                obj.settings.DefaultFunctionParameters(functionName) = selectedFunctionParameters;
+                selectedFunction = obj.getSelectedFunction(axnum);
+                selectedFunctionParameters = obj.getFunctionParameters(selectedFunction);
             else
                 % Event source exists - get function params for that event source
                 selectedFunctionParameters = obj.dbase.EventFunctionParameters{eventSourceIdx};
             end
         end
         function selectedEventParameters = getSelectedEventParameters(obj, axnum)
-            % Get the event parameters for the given channel axes
+            % Get the event parameters for the given channel axes. If they don't exist, create and store them.
             eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
             if isempty(eventSourceIdx)
                 % Current axis configuration does not correspond to a event source (yet)
@@ -1996,19 +2054,39 @@ classdef electro_gui < handle
                     return
                 end
                 defaultEventParameters = electro_gui.eg_runPlugin(obj.plugins.eventDetectors, eventDetector, 'params');
-                try
-                    selectedEventParameters = obj.settings.DefaultEventParameters(functionName);
-                catch
-                    % This filter probably does not have an assigned default parameter - get it from the plugin
+                if isfield(obj.settings.DefaultEventParams, eventDetector)
+                    selectedEventParameters = obj.settings.DefaultEventParams.(eventDetector);
+                else
+                    % This event detector does not have an assigned default parameter - get it from the plugin
                     selectedEventParameters = electro_gui.createEmptyPluginParams();
                 end
                 % Merge defaults into selected parameters to make sure its a complete set of parameters
                 selectedEventParameters = electro_gui.applyDefaultPluginParams(selectedEventParameters, defaultEventParameters);
                 % Store for next time
-                obj.settings.DefaultEventParameters(eventDetector) = selectedEventParameters;
+                obj.settings.DefaultEventParams.(eventDetector) = selectedEventParameters;
             else
                 selectedEventParameters = obj.dbase.EventParameters{eventSourceIdx};
             end
+        end
+        function selectedSegmenterParameters = getSelectedSegmenterParameters(obj)
+            % Get default params from event detector. If they don't exist, create and store them.
+            segmenterAlgorithm = obj.getSelectedSegmenterAlgorithm();
+            if isempty(segmenterAlgorithm)
+                % No segmenter selected
+                selectedSegmenterParameters = electro_gui.createEmptyPluginParams();
+                return
+            end
+            defaultSegmenterParameters = electro_gui.eg_runPlugin(obj.plugins.segmenters, segmenterAlgorithm, 'params');
+            if isfield(obj.settings.DefaultSegmenterParams, segmenterAlgorithm)
+                selectedSegmenterParameters = obj.settings.DefaultSegmenterParams.(segmenterAlgorithm);
+            else
+                % This segmenter does not have an assigned default parameter - get it from the plugin
+                selectedSegmenterParameters = electro_gui.createEmptyPluginParams();
+            end
+            % Merge defaults into selected parameters to make sure its a complete set of parameters
+            selectedSegmenterParameters = electro_gui.applyDefaultPluginParams(selectedSegmenterParameters, defaultSegmenterParameters);
+            % Store for next time
+            obj.settings.DefaultSegmenterParams.(segmenterAlgorithm) = selectedSegmenterParameters;
         end
         function selectedEventLims = getSelectedEventLims(obj, axnum)
             eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
@@ -2051,16 +2129,16 @@ classdef electro_gui < handle
                 selectedEventDetector = eventDetectorOptionList{eventDetectorOptionListIndex};
             end
         end
-        function selectedFilter = getSelectedFilter(obj, axnum)
-            % Return the name of the selected event detector function (filter) from the
-            %   specified axis.
-            fiterOptionList = obj.popup_Functions(axnum).String;
-            filterOptionListIndex = obj.popup_Functions(axnum).Value;
-            if filterOptionListIndex == 1
-                % No filter selected
-                selectedFilter = '';
+        function selectedFunction = getSelectedFunction(obj, axnum)
+            % Return the name of the selected function (filter) from the
+            %   specified channel axis.
+            functionOptionList = obj.popup_Functions(axnum).String;
+            functionOptionListIndex = obj.popup_Functions(axnum).Value;
+            if functionOptionListIndex == 1
+                % No function selected
+                selectedFunction = '';
             else
-                selectedFilter = fiterOptionList{filterOptionListIndex};
+                selectedFunction = functionOptionList{functionOptionListIndex};
             end
         end
         function setSelectedEventDetector(obj, axnum, eventDetectorName)
@@ -2119,17 +2197,18 @@ classdef electro_gui < handle
                 threshold = obj.settings.EventThresholdDefaults(eventSourceIdx);
             end
         end
-        function algorithm = getSelectedSoundFilter(obj)
-            % Get sound filter algorithm currently selected in the GUI
-            for k = 1:length(obj.menu_Filter)
-                if obj.menu_Filter(k).Checked
-                    algorithm = obj.menu_Filter(k).Label;
-                    break;
-                end
-            end
+        function alg = getSelectedSegmenterAlgorithm(obj)
+            segmenterIdx = find([obj.menu_SegmenterList.Children.Checked], 1);
+            alg = obj.menu_SegmenterList.Children(segmenterIdx).Label;
         end
-
-
+        function alg = getSelectedSonogramAlgorithm(obj)
+            sonogramIdx = find([obj.menu_Algorithm.Checked], 1);
+            alg = obj.menu_Algorithm(sonogramIdx).Label;
+        end
+        function alg = getSelectedSoundFilterAlgorithm(obj)
+            filterIdx = find([obj.menu_Filter.Checked], 1);
+            alg = obj.menu_Filter(filterIdx).Label;
+        end
     end
     methods %% dbase methods
 
@@ -2887,8 +2966,8 @@ function [filteredSound, fs, timestamp] = getFilteredSound(obj, sound, algorithm
     arguments
         obj electro_gui
         sound = []
-        algorithm = ''
-        filterParams = obj.settings.FilterParams
+        algorithm = obj.getSelectedSoundFilterAlgorithm()
+        filterParams = obj.getFilterParameters()
         filenum = electro_gui.getCurrentFileNum(obj.settings)
     end
     if isempty(sound)
@@ -2906,15 +2985,6 @@ function [filteredSound, fs, timestamp] = getFilteredSound(obj, sound, algorithm
             % User passed in a sound time series
             fs = obj.dbase.Fs;
             timestamp = [];
-        end
-    end
-    if isempty(algorithm)
-        % Get currently selected sound filter algorithm
-        for k = 1:length(obj.menu_Filter)
-            if obj.menu_Filter(k).Checked
-                algorithm = obj.menu_Filter(k).Label;
-                break;
-            end
         end
     end
 
@@ -2986,8 +3056,8 @@ function filtered_sound = filterSound(obj, sound, fs, algorithm, filterParams)
         obj electro_gui
         sound
         fs = obj.dbase.Fs
-        algorithm = obj.getSelectedSoundFilter()
-        filterParams = obj.settings.FilterParams
+        algorithm = obj.getSelectedSoundFilterAlgorithm()
+        filterParams = obj.getFilterParameters()
     end
     % Run sound through filter algorithm
     filtered_sound = electro_gui.eg_runPlugin(obj.plugins.filters, algorithm, sound, fs, filterParams);
@@ -3049,24 +3119,20 @@ function SegmentSounds(obj, updateGUI)
         updateGUI = true
     end
 
-    for c = 1:length(obj.menu_SegmenterList.Children)
-        if obj.menu_SegmenterList.Children(c).Checked
-            segmentationAlgorithmName = obj.menu_SegmenterList.Children(c).Label;
-        end
-    end
+    segmenterAlgorithmName = obj.getSelectedSegmenterAlgorithm();
+    segmenterParams = obj.getSelectedSegmenterParameters();
 
     [sound, fs] = obj.getSound();
 
     filenum = electro_gui.getCurrentFileNum(obj.settings);
-    obj.settings.SegmenterParams.IsSplit = 0;
     [obj.dbase.SegmentTimes{filenum}, segmentTitles] = electro_gui.eg_runPlugin(obj.plugins.segmenters, ...
-        segmentationAlgorithmName, sound, obj.amplitude, fs, obj.settings.CurrentThreshold, ...
-        obj.settings.SegmenterParams);
+        segmenterAlgorithmName, sound, obj.amplitude, fs, obj.settings.CurrentThreshold, ...
+        segmenterParams);
     if isempty(segmentTitles)
         obj.dbase.SegmentTitles{filenum} = cell(1,size(obj.dbase.SegmentTimes{filenum},1));
     else
         if ~iscell(segmentTitles) || ~isvector(segmentTitles) || length(segmentTitles) ~= size(obj.dbase.SegmentTimes{filenum}, 1)
-            error('Invalid segment titles produced from segmenter algorithm: %s', segmentationAlgorithmName);
+            error('Invalid segment titles produced from segmenter algorithm: %s', segmenterAlgorithmName);
         end
         obj.dbase.SegmentTitles{filenum} = segmentTitles;
     end
@@ -3999,32 +4065,6 @@ function CreateNewDbase(obj)
     obj.push_Detect1.Enable  = 'off';
     obj.push_Detect2.Enable  = 'off';
     obj.axes_Events.Visible = 'off';
-
-    % get segmenter parameters
-    segmenterIdx = find([obj.menu_SegmenterList.Children.Checked], 1);
-    alg = obj.menu_SegmenterList.Children(segmenterIdx).Label;
-    obj.settings.SegmenterParams = electro_gui.eg_runPlugin(obj.plugins.segmenters, alg, 'params');
-
-    % get sonogram parameters
-    sonogramIdx = find([obj.menu_Algorithm.Checked], 1);
-    alg = obj.menu_Algorithm(sonogramIdx).Label;
-    obj.settings.SonogramParams = electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, 'params');
-
-    % get sound filter parameters
-    filterIdx = find([obj.menu_Filter.Checked], 1);
-    alg = obj.menu_Filter(filterIdx).Label;
-    obj.settings.FilterParams = electro_gui.eg_runPlugin(obj.plugins.filters, alg, 'params');
-
-    % get event parameters
-    for axnum = 1:2
-        obj.getSelectedEventParameters(axnum);
-    end
-
-    % get function parameters
-    for axnum = 1:2
-        obj.getSelectedFunctionParameters(axnum);
-    end
-
     obj.LoadFile();
 end
 
@@ -4189,44 +4229,6 @@ function OpenDbase(obj, filePathOrDbase, options)
     obj.UpdateFileInfoBrowser();
 
     obj.setSelectedFilenum(settings.CurrentFile);
-
-    % get segmenter parameters
-    for c = 1:length(obj.menu_SegmenterList.Children)
-        if obj.menu_SegmenterList.Children(c).Checked
-            h = obj.menu_SegmenterList.Children(c);
-            alg = obj.menu_SegmenterList.Children(c).Label;
-        end
-    end
-    if isempty(h.UserData)
-        obj.settings.SegmenterParams = electro_gui.eg_runPlugin(obj.plugins.segmenters, alg, 'params');
-        h.UserData = obj.settings.SegmenterParams;
-    else
-        obj.settings.SegmenterParams = h.UserData;
-    end
-
-    % get sonogram parameters
-    for c = 1:length(obj.menu_Algorithm)
-        if obj.menu_Algorithm(c).Checked
-            h = obj.menu_Algorithm(c);
-            alg = obj.menu_Algorithm(c).Label;
-        end
-    end
-    if isempty(h.UserData)
-        obj.settings.SonogramParams = electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, 'params');
-        h.UserData = obj.settings.SonogramParams;
-    else
-        obj.settings.SonogramParams = h.UserData;
-    end
-
-    % get event parameters
-    for axnum = 1:2
-        obj.getSelectedEventParameters(axnum);
-    end
-
-    % get function parameters
-    for axnum = 1:2
-        obj.getSelectedFunctionParameters(axnum);
-    end
 
     obj.eg_PopulateSoundSources();
 
@@ -4754,7 +4756,7 @@ function eventSourceIdx = addNewEventSourceFromChannelAxes(obj, axnum, createPse
         createPseudoChannels (1, 1) logical = true
     end
     [channelNum, channelName, ~, baseChannelIsPseudo] = obj.getSelectedChannel(axnum);
-    filterName = obj.getSelectedFilter(axnum);
+    filterName = obj.getSelectedFunction(axnum);
     filterParameters = obj.getSelectedFunctionParameters(axnum);
     eventDetectorName = obj.getSelectedEventDetector(axnum);
     defaultEventThreshold = obj.getDefaultEventThreshold(axnum);
@@ -4987,7 +4989,7 @@ end
 function [channelNum, filterName, eventDetectorName] = GetChannelAxesInfo(obj, axnum)
     % Return the current settings of specified channel axes
     channelNum = obj.getSelectedChannel(axnum);
-    filterName = obj.getSelectedFilter(axnum);
+    filterName = obj.getSelectedFunction(axnum);
     eventDetectorName = obj.getSelectedEventDetector(axnum);
 
 % function [eventSourceTexts, eventSourceIdxs, eventPartIdxs] = ParseEventSourceListText(eventSourceListText)
@@ -5255,20 +5257,20 @@ function menu_FunctionParams(obj, axnum)
     obj.SetActiveAxnum(axnum);
     params = obj.getSelectedFunctionParameters(axnum);
 
-    if ~isfield(params,'Names') || isempty(params.Names)
+    if isempty(params.Names)
         errordlg('Current function does not require parameters.','Function error');
         return
     end
 
-    answer = inputdlg(params.Names, 'Function parameters', 1, params.Values);
-    if isempty(answer)
-        return
+    params = electro_gui.getUserPluginParams(params, 'Function parameters');
+    if isempty(params)
+        % User cancelled
+        return;
     end
-    params.Values = answer';
 
     % Set default function params
-    functionName = obj.getSelectedFilter(axnum);
-    obj.settings.DefaultFunctionParameters(functionName) = params;
+    alg = obj.getSelectedFunction(axnum);
+    obj.settings.DefaultFunctionParams.(alg) = params;
 
     obj.ClearEventsInAxes(axnum);
 
@@ -5378,7 +5380,7 @@ function [amp, fs, labels] = calculateAmplitude(obj, filenum, channel)
 
         if obj.axes_Channel(axnum).Visible
             channelNum = obj.getSelectedChannel(axnum);
-            filterName = obj.getSelectedFilter(axnum);
+            filterName = obj.getSelectedFunction(axnum);
             filterParams = obj.getSelectedFunctionParameters(axnum);
             [channelData, fs] = obj.loadChannelData(...
                 channelNum, 'FilterName', filterName, ...
@@ -6329,8 +6331,6 @@ function updateGUIStyle(obj)
     set(ax, 'Color', style.AxesColor);
     obj.axes_Sound.Color = style.AxesSoundColor;   % Normally black anyways
     obj.axes_Segments.Color = style.AxesSegmentsColor;
-    disp('Set obj.axes_Sound.Color')
-    disp(style.AxesSoundColor);
 
     uic = findobj(obj.figure_Main, 'type', 'uicontrol');
 
@@ -9159,19 +9159,11 @@ end
         end
 
         function AlgorithmMenuClick(obj, hObject, event)
-
+            % Uncheck all but this algorithm entry
             for c = 1:length(obj.menu_Algorithm)
                 obj.menu_Algorithm(c).Checked = false;
             end
             hObject.Checked = 'on';
-
-            if isempty(hObject.UserData)
-                alg = hObject.Label;
-                obj.settings.SonogramParams = electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, 'params');
-                hObject.UserData = obj.settings.SonogramParams;
-            else
-                obj.settings.SonogramParams = hObject.UserData;
-            end
 
             obj.updateSonogram();
 
@@ -9182,18 +9174,12 @@ end
         function FilterMenuClick(obj, hObject, event)
             % Handle a click on the sound filter menu item
 
-            for c = 1:length(obj.menu_Filter)
-                obj.menu_Filter(c).Checked = 'off';
+            for menuItemIdx = 1:length(obj.menu_Filter)
+                obj.menu_Filter(menuItemIdx).Checked = 'off';
             end
             hObject.Checked = 'on';
 
-            if isempty(hObject.UserData)
-                alg = hObject.Label;
-                obj.settings.FilterParams = electro_gui.eg_runPlugin(obj.plugins.filters, alg, 'params');
-                hObject.UserData = obj.settings.FilterParams;
-            else
-                obj.settings.FilterParams = hObject.UserData;
-            end
+            obj.getSelectedSoundFilterAlgorithm();
 
             obj.updateFilteredSound();
 
@@ -9373,26 +9359,18 @@ end
 
         end
         function menu_SegmentParameters_Callback(obj, hObject, event)
-            if isempty(obj.settings.SegmenterParams.Names)
+            alg = obj.getSelectedSegmenterAlgorithm();
+            params = obj.getSelectedSegmenterParameters();
+            if isempty(params.Names)
                 errordlg('Current segmenter does not require parameters.','Segmenter error');
                 return
             end
 
-            answer = inputdlg(obj.settings.SegmenterParams.Names,'Segmenter parameters',1,obj.settings.SegmenterParams.Values);
-            if isempty(answer)
-                return
-            end
+            params = electro_gui.getUserPluginParams(params, 'Segmenter parameters', 'AskDefault', false);
 
             obj.SaveState();
 
-            obj.settings.SegmenterParams.Values = answer';
-
-            for c = 1:length(obj.menu_SegmenterList.Children)
-                if obj.menu_SegmenterList.Children(c).Checked
-                    h = obj.menu_SegmenterList.Children(c);
-                    h.UserData = obj.settings.SegmenterParams;
-                end
-            end
+            obj.settings.DefaultSegmenterParams.(alg) = params;
 
             if obj.isAutoSegmentEligible()
                 obj.SegmentSounds();
@@ -9407,16 +9385,9 @@ end
             end
             hObject.Checked = 'on';
 
-            if isempty(hObject.UserData)
-                alg = hObject.Label;
-                obj.settings.SegmenterParams = electro_gui.eg_runPlugin(obj.plugins.segmenters, alg, 'params');
-                hObject.UserData = obj.settings.SegmenterParams;
-            else
-                obj.settings.SegmenterParams = hObject.UserData;
-            end
+            obj.getSelectedSegmenterParameters();
 
             obj.SetSegmentThreshold();
-
         end
 
         function menu_AmplitudeAxisRange_Callback(obj, hObject, event)
@@ -9918,9 +9889,6 @@ end
                 obj.menu_PeakDetect1.Checked = 'on';
             end
             obj.updateChannelAxes(1);
-
-
-
         end
         function context_Channel2_Callback(obj, hObject, event)
 
@@ -9932,7 +9900,6 @@ end
                 obj.menu_PeakDetect2.Checked = 'on';
             end
             obj.updateChannelAxes(2);
-
         end
 
         function click_Channel(obj, hObject, event)
@@ -10238,28 +10205,21 @@ end
         end
         function menu_EventAutoDetect1_Callback(obj, hObject, event)
             obj.menu_EventAutoDetect_Callback(1);
-
-
         end
         function menu_EventAutoThreshold1_Callback(obj, hObject, event)
         end
         function menu_UpdateEventThresholdDisplay1_Callback(obj, hObject, event)
             obj.SetEventThreshold(1);
-
-
         end
         function menu_Events2_Callback(obj, hObject, event)
         end
         function menu_EventAutoDetect2_Callback(obj, hObject, event)
             obj.menu_EventAutoDetect_Callback(2);
-
-
         end
         function menu_EventAutoThreshold2_Callback(obj, hObject, event)
         end
         function menu_UpdateEventThresholdDisplay2_Callback(obj, hObject, event)
             obj.SetEventThreshold(2);
-
         end
 
         function push_ClearEvents_Callback(obj, axnum)
@@ -10491,7 +10451,6 @@ end
         end
         % --- Executes on selection change in popup_SoundSource.
         function popup_SoundSource_Callback(obj, hObject, event)
-
             % Handle a user change of the "Sound source" popup menu.
             % This menu controls the obj.settings.SoundChannel variable, which determines
             % which channel is used for displaying the spectrogram etc.
@@ -11464,24 +11423,22 @@ end
 
         end
         function menu_SonogramParameters_Callback(obj, hObject, event)
+            alg = obj.getSelectedSonogramAlgorithm();
 
-            if isempty(obj.settings.SonogramParams.Names)
+            params = electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, 'params');
+
+            if isempty(params.Names)
                 errordlg('Current sonogram algorithm does not require parameters.','Sonogram error');
                 return
             end
 
-            answer = inputdlg(obj.settings.SonogramParams.Names,'Sonogram parameters',1,obj.settings.SonogramParams.Values);
-            if isempty(answer)
-                return
-            end
-            obj.settings.SonogramParams.Values = answer;
+            % Get sonogram 
+            params = obj.getSonogramParameters();
 
-            for c = 1:length(obj.menu_Algorithm)
-                if obj.menu_Algorithm(c).Checked
-                    h = obj.menu_Algorithm(c);
-                    h.UserData = obj.settings.SonogramParams;
-                end
-            end
+            params = electro_gui.getUserPluginParams(names, params, 'Sonogram parameters', 'AskDefault', false);
+
+            % Update default parameters
+            obj.settings.DefaultSonogramParams.(alg) = params;
 
             obj.updateSonogram();
 
@@ -11513,11 +11470,7 @@ end
                 return
             end
 
-            answer = inputdlg(params.Names,'Event detector parameters',1,params.Values);
-            if isempty(answer)
-                return
-            end
-            params.Values = answer';
+            params = electro_gui.getUserPluginParams(params, 'Event detector parameters', 'AskDefault', false);
 
             % Set event params for event source
             obj.dbase.EventParameters{eventSourceIdx} = params;
@@ -11539,12 +11492,9 @@ end
         end
         function menu_FunctionParams1_Callback(obj, hObject, event)
             obj.menu_FunctionParams(1);
-
-
         end
         function menu_FunctionParams2_Callback(obj, hObject, event)
             obj.menu_FunctionParams(2);
-
         end
         function menu_Split_Callback(obj, hObject, event)
 
@@ -11569,11 +11519,7 @@ end
             rect(3) = rect(3)/pos(3)*(xl(2)-xl(1));
             rect(2) = yl(1)+(rect(2)-pos(2))/pos(4)*(yl(2)-yl(1));
 
-            for c = 1:length(obj.menu_SegmenterList.Children)
-                if obj.menu_SegmenterList.Children(c).Checked
-                    alg = obj.menu_SegmenterList.Children(c).Label;
-                end
-            end
+            alg = obj.getSelectedSegmenterAlgorithm();
 
             filenum = electro_gui.getCurrentFileNum(obj.settings);
 
@@ -11587,23 +11533,22 @@ end
 
             sound = obj.getSound();
 
-            obj.settings.SegmenterParams.IsSplit = 1;
-            sg = electro_gui.eg_runPlugin(obj.plugins.segmenters, alg, obj.amplitude, ...
-                sound, obj.dbase.Fs, rect(2), obj.settings.SegmenterParams);
+            segments = electro_gui.eg_runPlugin(obj.plugins.segmenters, alg, obj.amplitude, ...
+                sound, obj.dbase.Fs, rect(2), obj.getSelectedSegmenterParameters());
 
-            f = find(sg(:,1)>rect(1)*obj.dbase.Fs & sg(:,1)<(rect(1)+rect(3))*obj.dbase.Fs);
-            g = find(sg(:,2)>rect(1)*obj.dbase.Fs & sg(:,2)<(rect(1)+rect(3))*obj.dbase.Fs);
-            h = find(sg(:,1)<rect(1)*obj.dbase.Fs & sg(:,2)>(rect(1)+rect(3))*obj.dbase.Fs);
+            f = find(segments(:,1)>rect(1)*obj.dbase.Fs & segments(:,1)<(rect(1)+rect(3))*obj.dbase.Fs);
+            g = find(segments(:,2)>rect(1)*obj.dbase.Fs & segments(:,2)<(rect(1)+rect(3))*obj.dbase.Fs);
+            h = find(segments(:,1)<rect(1)*obj.dbase.Fs & segments(:,2)>(rect(1)+rect(3))*obj.dbase.Fs);
             nw = unique([f; g; h]);
-            sg = sg(nw,:);
+            segments = segments(nw,:);
 
-            obj.dbase.SegmentTimes{filenum} = [obj.dbase.SegmentTimes{filenum}(1:min(dl)-1,:); sg; obj.dbase.SegmentTimes{filenum}(max(dl)+1:end,:)];
+            obj.dbase.SegmentTimes{filenum} = [obj.dbase.SegmentTimes{filenum}(1:min(dl)-1,:); segments; obj.dbase.SegmentTimes{filenum}(max(dl)+1:end,:)];
             st = {};
             st = [st obj.dbase.SegmentTitles{filenum}(1:min(dl)-1)];
-            st = [st cell(1,size(sg,1))];
+            st = [st cell(1,size(segments,1))];
             st = [st obj.dbase.SegmentTitles{filenum}(max(dl)+1:end)];
             obj.dbase.SegmentTitles{filenum} = st;
-            obj.dbase.SegmentIsSelected{filenum} = [obj.dbase.SegmentIsSelected{filenum}(1:min(dl)-1) ones(1,size(sg,1)) obj.dbase.SegmentIsSelected{filenum}(max(dl)+1:end)];
+            obj.dbase.SegmentIsSelected{filenum} = [obj.dbase.SegmentIsSelected{filenum}(1:min(dl)-1) ones(1,size(segments,1)) obj.dbase.SegmentIsSelected{filenum}(max(dl)+1:end)];
             obj.updateAnnotations();
         end
         function menu_SourceSoundAmplitude_Callback(obj, hObject, event)
@@ -11674,24 +11619,23 @@ end
 
         end
         function menu_FilterParameters_Callback(obj, hObject, event)
+            % Callback from sound amplitude axes context menu
 
-            if isempty(obj.settings.FilterParams.Names)
+            filterName = obj.getSelectedSoundFilterAlgorithm();
+            params = obj.getFilterParameters(filterName);
+
+            if isempty(params)
                 errordlg('Current sound filter does not require parameters.','Filter error');
                 return
             end
 
-            answer = inputdlg(obj.settings.FilterParams.Names,'Filter parameters',1,obj.settings.FilterParams.Values);
-            if isempty(answer)
-                return
+            params = electro_gui.getUserPluginParams(params, 'Sound filter parameters');
+            if isempty(params)
+                % User cancelled
+                return;
             end
-            obj.settings.FilterParams.Values = answer;
 
-            for c = 1:length(obj.menu_Filter)
-                if obj.menu_Filter(c).Checked
-                    h = obj.menu_Filter(c);
-                    h.UserData = obj.settings.FilterParams;
-                end
-            end
+            obj.settings.DefaultFilterParams.(filterName) = params;
 
             obj.updateFilteredSound();
 
@@ -12501,6 +12445,32 @@ end
         end
     end
     methods (Static)   % Other utility functions
+        function [params, makeDefault] = getUserPluginParams(params, dialogTitle, options)
+            arguments
+                params struct
+                dialogTitle {mustBeText}
+                options.AskDefault = true
+            end
+            names = params.Names;
+            values = params.Values;
+            if options.AskDefault
+                names = [names, 'Make this new default (y/n)?'];
+                values = [values, 'y'];
+            end
+            answer = inputdlg(names, dialogTitle, 1, values)';
+            if isempty(answer)
+                params = struct.empty();
+                makeDefault = false;
+                return
+            end
+            if options.AskDefault
+                makeDefault = strcmp(answer{end}, 'y');
+                params.Values = answer(1:end-1);
+            else
+                makeDefault = false;
+                params.Values = answer;
+            end
+        end
         function user = getUser()
             % Get current logged in username
             lic = license('inuse');
@@ -12616,6 +12586,26 @@ end
             if isfield(defaults, 'DefaultChannelFunction') && any(strcmp(defaults.DefaultChannelFunction, {'Raw', 'raw'}))
                 defaults.DefaultChannelFunction = '(Raw)';
                 msgs{end+1} = 'The "raw" DefaultChannelFunction should be spelled "(Raw)".';
+            end
+            if isfield(defaults, 'FilterParams')
+                defaults = rmfield(defaults, 'FilterParams');
+                msgs{end+1} = 'FilterParams has been removed and will be ignored. A new system of per-plugin defaults has replaced it - see defaults_template.';
+            end
+            if isfield(defaults, 'SegmenterParams')
+                defaults = rmfield(defaults, 'SegmenterParams');
+                msgs{end+1} = 'SegmenterParams has been removed and will be ignored. A new system of per-plugin defaults has replaced it - see defaults_template.';
+            end
+            if isfield(defaults, 'SonogramParams')
+                defaults = rmfield(defaults, 'SonogramParams');
+                msgs{end+1} = 'SonogramParams has been removed and will be ignored. A new system of per-plugin defaults has replaced it - see defaults_template.';
+            end
+            if isfield(defaults, 'DefaultEventParameters')
+                defaults = rmfield(defaults, 'DefaultEventParameters');
+                msgs{end+1} = 'DefaultEventParameters has been removed and will be ignored. A new system of per-plugin defaults has replaced it - see defaults_template.';
+            end
+            if isfield(defaults, 'DefaultFunctionParameters')
+                defaults = rmfield(defaults, 'DefaultFunctionParameters');
+                msgs{end+1} = 'DefaultFunctionParameters has been removed and will be ignored. A new system of per-plugin defaults has replaced it - see defaults_template.';
             end
 
 %             if length(defaults.PropertyColumnVisible > defaults.)
@@ -13256,58 +13246,51 @@ end
                 dbase = rmfield(dbase, 'AnalysisState');
             end
 
-            % Check for an error in which the DefaultFunctionParameters becomes
-            %   a struct array instead of a map/dictionary
-            if ~isany(settings.DefaultFunctionParameters, {'containers.Map', 'dictionary'})
-                sprintf('Something went wrong with DefaultFunctionParameters - resetting\n')
-                settings = rmfield(settiongs, 'DefaultFunctionParameters');
-            end
-            % Do the same for DefaultEventParameters in case it can happen
-            %   to that too
-            if ~isany(settings.DefaultEventParameters, {'containers.Map', 'dictionary'})
-                sprintf('Something went wrong with DefaultEventParameters - resetting\n')
-                settings = rmfield(settiongs, 'DefaultEventParameters');
-            end
-
-            % At some point DefaultFunctionParams got added to dbases
-            if isfield(settings, 'DefaultFunctionParams') 
-                sprintf('Found invalid field - DefaultFunctionParams - removing\n')
-                settings = rmfield(settings, 'DefaultFunctionParams');
-            end
-            if isfield(settings, 'DefaultEventParams') 
-                sprintf('Found invalid field - DefaultEventParams - removing\n')
-                settings = rmfield(settings, 'DefaultEventParams');
-            end
-
-            % Add settings.DefaultEventParameters field if it doesn't already exist
-            % A mapping between event detector names and event detector parameters
-            % Whenver an event detector is used, these default parameters are loaded.
-            % When event detector parameters are changed, they are stored as the new
-            % default.
-            if ~isfield(settings, 'DefaultEventParameters')
-                try
-                    % dictionary was added in R2022
-                    settings.DefaultEventParameters = dictionary();
-                catch
-                    settings.DefaultEventParameters = containers.Map();
+            % Default plugin parameters got revamped in 1/2026. Now each relevant type of
+            %   plugin has its own Default[TYPE]Params field in settings, each
+            %   of which is a struct with fields corresponding to plugin names
+            %   Make it so!
+            pluginDefaultTypes = {'DefaultFunctionParams', 'DefaultEventParams', 'DefaultFilterParams', 'DefaultSegmenterParams', 'DefaultSonogramParams'};
+            for typeIdx = 1:length(pluginDefaultTypes)
+                pluginDefaultType = pluginDefaultTypes{typeIdx};
+                % Check if plugin default param type exists
+                if ~isfield(settings, pluginDefaultType)
+                    % It doesn't just add an empty one and move on
+                    settings.(pluginDefaultType) = struct();
+                else
+                    % It does exist - check if it's a struct
+                    if (~isstruct(settings.(pluginDefaultType)))
+                        % It isn't - make it an empty struct
+                        msg = sprintf('%s is the wrong type - should be a struct instead of %s.', pluginDefaultType, class(settings.DefaultFunctionParams));
+                        electro_gui.issueWarning(msg, 'defaultsFileError');
+                        settings.(pluginDefaultType) = struct();
+                    else
+                        % It is a struct - check if the params for each plugin are structs
+                        pluginNames = fieldnames(settings.(pluginDefaultType));
+                        for pluginIdx = 1:length(pluginNames)
+                            pluginName = pluginNames{pluginIdx};
+                            if ~isstruct(settings.(pluginDefaultType).(pluginName))
+                                % This plugin param is not a struct - remove it
+                                msg = sprintf('%s.%s should be a struct of the form struct(''Names'', {}, ''Values'', {}). Instead it''s a %s', pluginDefaultType, pluginName, class(settings.(pluginDefaultType).(pluginName)));
+                                electro_gui.issueWarning(msg, 'defaultsFileError');
+                                settings.(pluginDefaultType) = rmfield(settings.(pluginDefaultType), pluginName);
+                            else 
+                                % This plugin param is a struct - check if it has the right fields for plugin params
+                                params = settings.(pluginDefaultType).(pluginName);
+                                if ~isfield(params, 'Names') || ~isfield(params, 'Values') || length(fieldNames(params)) ~= 2
+                                    msg = sprintf('%s.%s should be a struct of the form struct(''Names'', {}, ''Values'', {}). Instead it''s a %s', pluginDefaultType, pluginName, class(settings.(pluginDefaultType).(pluginName)));
+                                    electro_gui.issueWarning(msg, 'defaultsFileError');
+                                    settings.(pluginDefaultType) = rmfield(settings.(pluginDefaultType), pluginName);
+                                end
+                            end
+                        end
+                    end
                 end
             end
+
+            % Remove legacy plugin param settings
             if isfield(settings, 'ChannelAxesEventParams')
                 settings = rmfield(settings, 'ChannelAxesEventParams');
-            end
-
-            % Add settings.DefaultFunctionParameters field if it doesn't already exist
-            % A mapping between filter (function) names and filter parameters
-            % Whenver an filter is used, these default parameters are loaded.
-            % When filter parameters are changed, they are stored as the new
-            % default.
-            if ~isfield(settings, 'DefaultFunctionParameters')
-                try
-                    % dictionary was added in R2022
-                    settings.DefaultFunctionParameters = dictionary();
-                catch
-                    settings.DefaultFunctionParameters = containers.Map();
-                end
             end
             if isfield(settings, 'ChannelAxesFunctionParams')
                 settings = rmfield(settings, 'ChannelAxesFunctionParams');
