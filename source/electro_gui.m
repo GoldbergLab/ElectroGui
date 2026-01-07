@@ -2970,6 +2970,13 @@ function [filteredSound, fs, timestamp] = getFilteredSound(obj, sound, algorithm
         filterParams = obj.getFilterParameters()
         filenum = electro_gui.getCurrentFileNum(obj.settings)
     end
+    if isempty(algorithm)
+        algorithm = obj.getSelectedSoundFilterAlgorithm();
+    end
+    if isempty(filterParams)
+        filterParams = obj.getFilterParameters();
+    end
+        
     if isempty(sound)
         [sound, fs, timestamp] = obj.getSound([], filenum);
     else
