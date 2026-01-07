@@ -6329,8 +6329,6 @@ function updateGUIStyle(obj)
     set(ax, 'Color', style.AxesColor);
     obj.axes_Sound.Color = style.AxesSoundColor;   % Normally black anyways
     obj.axes_Segments.Color = style.AxesSegmentsColor;
-    disp('Set obj.axes_Sound.Color')
-    disp(style.AxesSoundColor);
 
     uic = findobj(obj.figure_Main, 'type', 'uicontrol');
 
@@ -6349,7 +6347,6 @@ function updateGUIStyle(obj)
     widgets = findobj(uic, 'Style', 'text');
     set(widgets, 'BackgroundColor', style.FigureColor);
     set(widgets, 'ForegroundColor', style.TextColor);
-
 
     uip = findobj(obj.figure_Main, 'type', 'uipanel');
     set(uip, 'BackgroundColor', style.FigureColor);
