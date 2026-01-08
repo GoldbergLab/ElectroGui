@@ -5503,8 +5503,9 @@ function [propertyArray, propertyNames] = getProperties(obj, options)
 end
 
 function propertyExists = isProperty(obj, propertyName)
-    % This was unfinished?
-    propertyExists=[];
+    % Check if property exists
+    propertyIdx = find(strcmp(propertyName, obj.dbase.PropertyNames), 1);
+    propertyExists = ~isempty(propertyIdx);
 end
 
 function modifyProperties(obj, filenums, propertyNames, propertyValues, updateGUI)
