@@ -1,4 +1,4 @@
-function handles = egm_Template(handles)
+function obj = egm_Template(obj)
 % ElectroGui macro
 % Template for creating electro_gui macros
 %   Save this as egm_<<macro name>>.m and edit it to do whatever you want

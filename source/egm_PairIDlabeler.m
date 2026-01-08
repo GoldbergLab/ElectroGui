@@ -42,9 +42,13 @@ for fileIdx = 1:length(filenums)
         disp(seg)
         onset = segTimes(seg,1);
         offset = segTimes(seg,2);
-
-        ampsegment = amp(onset:offset);
-        auxampsegment = auxamp(onset:offset);
+        if offset>length(amp)
+            ampsegment = amp(onset:end);
+            auxampsegment = auxamp(onset:end);
+        else
+            ampsegment = amp(onset:offset);
+            auxampsegment = auxamp(onset:offset);
+        end
 
     %5. Capitalize the segment titles based on the result of that
         if mean(ampsegment) > mean(auxampsegment)
