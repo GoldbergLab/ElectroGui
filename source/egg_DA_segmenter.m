@@ -76,3 +76,5 @@ if size(f,1)>1
 end
 
 segs = f;
+% Add blank segment names
+segNames = repmat({''}, [1, size(segs, 1)]);

@@ -5512,8 +5512,9 @@ function [propertyArray, propertyNames] = getProperties(obj, options)
 end
 
 function propertyExists = isProperty(obj, propertyName)
-    % This was unfinished?
-    propertyExists=[];
+    % Check if property exists
+    propertyIdx = find(strcmp(propertyName, obj.dbase.PropertyNames), 1);
+    propertyExists = ~isempty(propertyIdx);
 end
 
 function modifyProperties(obj, filenums, propertyNames, propertyValues, updateGUI)
@@ -6356,7 +6357,6 @@ function updateGUIStyle(obj)
     widgets = findobj(uic, 'Style', 'text');
     set(widgets, 'BackgroundColor', style.FigureColor);
     set(widgets, 'ForegroundColor', style.TextColor);
-
 
     uip = findobj(obj.figure_Main, 'type', 'uipanel');
     set(uip, 'BackgroundColor', style.FigureColor);
