@@ -2088,13 +2088,13 @@ classdef electro_gui < handle
             % Store for next time
             obj.settings.DefaultSegmenterParams.(segmenterAlgorithm) = selectedSegmenterParameters;
         end
-        function selectedEventLims = getSelectedEventLims(obj, axnum)
+        function selectedEventXLims = getSelectedEventXLims(obj, axnum)
             eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
             if isempty(eventSourceIdx)
                 % Use temporary axes params instead
-                selectedEventLims = obj.settings.DefaultEventXLims;
+                selectedEventXLims = obj.settings.DefaultEventXLims;
             else
-                selectedEventLims = obj.settings.EventXLims(eventSourceIdx, :);
+                selectedEventXLims = obj.settings.EventXLims(eventSourceIdx, :);
             end
         end
 
@@ -4768,7 +4768,7 @@ function eventSourceIdx = addNewEventSourceFromChannelAxes(obj, axnum, createPse
     eventDetectorName = obj.getSelectedEventDetector(axnum);
     defaultEventThreshold = obj.getDefaultEventThreshold(axnum);
     eventParameters = obj.getSelectedEventParameters(axnum);
-    eventXLims = obj.getSelectedEventLims(axnum);
+    eventXLims = obj.getSelectedEventXLims(axnum);
     eventParts = obj.getSelectedEventParts(axnum);
     if isempty(channelNum) || isempty(eventDetectorName)
         % Can't create an event source without a channel number and an
@@ -4979,7 +4979,7 @@ function [channelNum, filterName, eventDetectorName] = GetEventViewerSourceInfo(
     end
 end
 function [channelNum, filterName, eventDetectorName, eventParameters, ...
-        filterParameters, eventLims, eventParts, defaultThreshold, ...
+        filterParameters, eventXLims, eventParts, defaultThreshold, ...
         isPseudoChannel] = GetEventSourceInfo(obj, eventSourceIdx)
     % Return the channel number, filter name, and event detector name for
     % the given event source index
@@ -4988,7 +4988,7 @@ function [channelNum, filterName, eventDetectorName, eventParameters, ...
     filterParameters = obj.dbase.EventFunctionParameters{eventSourceIdx};
     eventDetectorName = obj.dbase.EventDetectors{eventSourceIdx};
     eventParameters = obj.dbase.EventParameters{eventSourceIdx};
-    eventLims = obj.settings.EventXLims(eventSourceIdx, :);
+    eventXLims = obj.settings.EventXLims(eventSourceIdx, :);
     eventParts = obj.dbase.EventParts{eventSourceIdx};
     defaultThreshold = obj.settings.EventThresholdDefaults(eventSourceIdx);
     isPseudoChannel = obj.dbase.EventChannelIsPseudo(eventSourceIdx);
@@ -8831,7 +8831,7 @@ function eventSourceIdx = addNewEventSource(obj, channelNum, ...
         eventDetectorName (1, :) char
         EventFunctionParameters struct
         eventParameters struct
-        eventXLims (:, 2) double
+        eventXLims (1, 2) double
         eventParts (1, :) cell {mustBeText}
         defaultEventThreshold (1, 1) double
         baseChannelIsPseudo (1, 1) logical = false
@@ -12523,7 +12523,11 @@ end
             msgs = {};
             if isfield(defaults, 'EventLims')
                 msgs{end+1} = 'Replace ''EventLims'' with ''DefaultEventXLims''';
-                defaults.DefaultEventXLims = defaults.EventLims;
+                if ~isfield(defaults, 'DefaultEventXLims')
+                    if all(size(defaults.EventLims) == [1, 2])
+                        defaults.DefaultEventXLims = defaults.EventLims;
+                    end
+                end
                 defaults = rmfield(defaults, 'EventLims');
             end
             if iscell(defaults.DefaultProperties.Values)
@@ -13621,7 +13625,8 @@ end
             end
             if isfield(dbase, 'EventLims')
                 % Due to a typo some dbases may have this as EventLims
-                settings.EventXLims = dbase.EventXLims;
+                settings.EventXLims = dbase.EventLims;
+                dbase = rmfield(dbase, 'EventLims');
             end
             if ~isfield(settings, 'EventXLims') || isempty(settings.EventXLims)
                 settings.EventXLims = settings.DefaultEventXLims;
