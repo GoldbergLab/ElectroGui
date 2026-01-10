@@ -217,6 +217,7 @@ classdef electro_gui < handle
         EventViewerSourceToBottomAxes
         menu_File
         file_New
+        file_New_RHD
         file_Open
         file_Save
         menu_AlterFileList
@@ -3926,7 +3927,11 @@ function newMarkerNum = ConvertSegmentToMarker(obj, filenum, segmentNum)
     end
 end
 
-function CreateNewDbase(obj)
+function CreateNewDbase(obj, options)
+    arguments
+        obj electro_gui
+        options.RHD = false
+    end
     if ~isempty(obj.getTempSetting('lastDirectory'))
         path = obj.getTempSetting('lastDirectory');
     else
@@ -3936,8 +3941,8 @@ function CreateNewDbase(obj)
     % Load base default settings, then load user defaults on top
     obj.settings = electro_gui.createMergedSettings(obj.CurrentDefaults);
 
-    [dbase, cancel] = electro_gui.CreateDbase(obj.settings, ...
-        path, 'SavePath', '', 'GUI', true, 'Check', false);
+        [dbase, cancel] = electro_gui.CreateDbase(obj.settings, ...
+            path, 'SavePath', '', 'GUI', true, 'Check', false, 'RHD', options.RHD);
 
     if cancel
         return
@@ -7608,6 +7613,12 @@ function setupGUI(obj)
         'Label','New...',...
         'Tag','file_New');
 
+    obj.file_New_RHD = uimenu(...
+        'Parent',obj.menu_File,...
+        'Callback',@obj.file_New_RHD_Callback,...
+        'Label','New from RHD files...',...
+        'Tag','file_New');
+
     obj.file_Open = uimenu(...
         'Parent',obj.menu_File,...
         'Callback',@obj.file_Open_Callback,...
@@ -10567,18 +10578,15 @@ end
         end
         function file_New_Callback(obj, hObject, eventdata)
             obj.CreateNewDbase();
-
-
+        end
+        function file_New_RHD_Callback(obj, hObject, eventdata)
+            obj.CreateNewDbase('RHD', true);
         end
         function file_Open_Callback(obj, hObject, eventdata)
             obj.OpenDbase();
-
-
         end
         function file_Save_Callback(obj, hObject, eventdata)
             obj.SaveCurrentDbase();
-
-
         end
         function menu_View_Callback(obj, hObject, eventdata)
 
@@ -12288,16 +12296,26 @@ end
                 options.SavePath = ''
                 options.GUI = false
                 options.Check = true   % Warn and fix outdated settings
+                options.RHD = false
             end
 
             if options.Check
                 settings = electro_gui.warnAndFixLegacyDefaults(settings);
             end
 
-            [dbase, cancel] = eg_GatherFiles(rootDir, settings.FileString, ...
-                settings.DefaultFileLoader, settings.DefaultChannelNumber, ...
-                'TitleString', 'Identify files for new dbase', ...
-                'GUI', options.GUI);
+            if ~options.RHD
+                [dbase, cancel] = eg_GatherFiles(rootDir, settings.FileString, ...
+                    settings.DefaultFileLoader, settings.DefaultChannelNumber, ...
+                    'TitleString', 'Identify files for new dbase', ...
+                    'GUI', options.GUI);
+            else
+                [dbase, cancel] = eg_GatherRHDFiles(rootDir, settings.FileString, ...
+                    settings.DefaultFileLoader, settings.DefaultChannelNumber, ...
+                    'IntanRHDChannelTypes', settings.IntanRHDChannelTypes, ...
+                    'IntanRHDChannelNumbers', settings.IntanRHDChannelNumbers, ...
+                    'TitleString', 'Identify files for new dbase', ...
+                    'GUI', options.GUI);
+            end
 
             if cancel
                 return
