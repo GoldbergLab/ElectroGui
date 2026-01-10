@@ -12544,7 +12544,8 @@ end
             msgs = {};
             if isfield(defaults, 'EventLims')
                 msgs{end+1} = 'Replace ''EventLims'' with ''DefaultEventXLims''';
-                defaults.DefaultEventXLims = defaults.EventLims;
+                % This is not a good idea, settings.EventLims used to be the per-event-source nx2 EventXLims, not the 1x2 default.
+                % defaults.DefaultEventXLims = defaults.EventLims;
                 defaults = rmfield(defaults, 'EventLims');
             end
             if iscell(defaults.DefaultProperties.Values)
