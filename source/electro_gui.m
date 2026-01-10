@@ -984,7 +984,7 @@ classdef electro_gui < handle
                     % plot objects with no rendered 0-length lines
                     times = electro_gui.samplesToTimes(eventTimes{eventPartIdx}, fs)';
                     eventXs = vertcat(times, nan(1, length(eventTimes{eventPartIdx})));
-                    eventYs = vertcat(chanData(eventTimes{eventPartIdx})', nan(1, length(eventTimes{eventPartIdx})));
+                    eventYs = vertcat(chanData(eventTimes{eventPartIdx})', nan(1, length(chanData(eventTimes{eventPartIdx}))));
                     % Plot all events with black markers
                     obj.EventHandles{axnum}{eventPartIdx} = ...
                         plot(obj.axes_Channel(axnum), eventXs, eventYs, 'o', ...
