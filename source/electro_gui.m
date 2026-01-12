@@ -12249,7 +12249,7 @@ end
             dbase.MarkerTimes =         gvod(baseDbase, 'MarkerTimes', cell(1,numFiles));
             dbase.MarkerTitles =        gvod(baseDbase, 'MarkerTitles', cell(1,numFiles));
             dbase.MarkerIsSelected =    gvod(baseDbase, 'MarkerIsSelected', cell(1,numFiles));
-            dbase.MarkerTypes =          gvod(baseDbase, 'MarkerType', cell(1, numFiles));
+            dbase.MarkerTypes =         gvod(baseDbase, 'MarkerTypes', cell(1, numFiles));
             for filenum = 1:numFiles
                 % Initialize each MarkerType array as an empty categorical array with the categories as the marker types defined in settings.
                 dbase.MarkerTypes{filenum} = categorical({}, settings.MarkerTypes);
@@ -13581,8 +13581,12 @@ end
                     dbase.MarkerTypes{filenum} = categorical(defaultMarkerType, markerValueSet, settings.MarkerTypes);
                 end
             else
-                % Check that all marker types have the same categories
+                % Check that there is at least one MarkerType defined
+                if isempty(settings.MarkerTypes)
+                    settings.MarkerTypes = {'Marker'};
+                end
 
+                % Check that all marker types have the same categories
                 % First collect all existing categories
                 cats = {};
                 for filenum = 1:numFiles
@@ -13601,6 +13605,18 @@ end
                         else
                             dbase.MarkerTypes{filenum} = setcats(dbase.MarkerTypes{filenum}, settings.MarkerTypes);
                         end
+                    end
+                end
+                % Make sure there is one marker type per marker
+                for filenum = 1:numFiles
+                    numMarkers = length(dbase.MarkerTitles{filenum});
+                    numMarkerTypes = length(dbase.MarkerTypes{filenum});
+                    if numMarkerTypes > numMarkers
+                        warning('Found more marker types than markers - this should not happen...truncating marker type array');
+                        dbase.MarkerTypes{filenum} = dbase.MarkerTypes{filenum}(1:numMarkers);
+                    elseif numMarkerTypes < numMarkers 
+                        warning('Found fewer marker types than markers - populating missing marker types with the default marker type');
+                        dbase.MarkerTypes{filenum} = [dbase.MarkerTypes{filenum}, repmat(settings.MarkerTypes(1), [1, numMarkerTypes])];
                     end
                 end
             end
