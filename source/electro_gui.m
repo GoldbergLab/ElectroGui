@@ -4081,7 +4081,8 @@ function OpenDbase(obj, filePathOrDbase, options)
     elseif isstruct(filePathOrDbase)
         % We're loading a dbase from memory, not from file
         progressMsg = 'Loading state...';
-        progressBar = waitbar(0, progressMsg, 'WindowStyle', 'modal');
+        progressBar = ProgressBar(progressMsg, "WindowStyle", "modal");
+
         dbase = filePathOrDbase;
         dbaseSettings = options.Settings;
         obj.CurrentDbasePath = options.DbasePath;
