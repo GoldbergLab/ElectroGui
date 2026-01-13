@@ -876,9 +876,10 @@ classdef electro_gui < handle
                 colormap(obj.axes_Sonogram, obj.Colormap);
                 obj.axes_Sonogram.CLim = obj.settings.SonogramClim;
             else
-                ch = findobj('Parent', obj.axes_Sonogram, 'Type', 'image');
-                for c = 1:length(ch)
-                    ch(c).CData = atan(tan(ch(c).CData)/10^obj.settings.DerivativeSlope*10^obj.settings.NewDerivativeSlope);
+                allSpectrograms = [obj.AuxiliarySonogramHandles, obj.SonogramHandle];
+                for k = 1:length(allSpectrograms)
+                    sonogram = allSpectrograms(k);
+                    sonogram.CData = atan(tan(sonogram.CData)*10^(obj.settings.NewDerivativeSlope - obj.settings.DerivativeSlope));
                 end
                 obj.settings.DerivativeSlope = obj.settings.NewDerivativeSlope;
                 cl = repmat(linspace(0,1,201)',1,3);
@@ -13786,15 +13787,15 @@ end
                 logOldEstLike = logEstLike;
 
                 %Which samples are noise and which are sound.
-                nndx = find(class==1);
-                sndx = find(class==2);
+                noiseMask = class==1;
+                soundMask = class==2;
 
                 %Maximize based on this classification.
-                uNoise = mean(audioLogPow(nndx));
-                sdNoise = std(audioLogPow(nndx));
-                if ~isempty(sndx)
-                    uSound = mean(audioLogPow(sndx));
-                    sdSound = std(audioLogPow(sndx));
+                uNoise = mean(audioLogPow(noiseMask));
+                sdNoise = std(audioLogPow(noiseMask));
+                if any(soundMask)
+                    uSound = mean(audioLogPow(soundMask));
+                    sdSound = std(audioLogPow(soundMask));
                 else
                     uSound = max(audioLogPow);
                     sdSound = 0;
@@ -13806,8 +13807,13 @@ end
                 [estProb, class] = max(prob);
                 logEstLike = sum(log(estProb+eps)) * len;
             end
-
-
+        end
+        function [uNoise, uSound, sdNoise, sdSound] = eg_estimateTwoMeans2(audioLogPow)
+            idx = kmeans(audioLogPow, 2);
+            uNoise = mean(audioLogPow(idx==1));
+            uSound = mean(audioLogPow(idx==2));
+            sdNoise = std(audioLogPow(idx==1));
+            sdSound = std(audioLogPow(idx==2));
         end
         function inside = areCoordinatesIn(x, y, figureChild)
             % Check if given normalized figure coordinates are inside the borders
