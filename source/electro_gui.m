@@ -13655,7 +13655,7 @@ end
                         dbase.MarkerTypes{filenum} = dbase.MarkerTypes{filenum}(1:numMarkers);
                     elseif numMarkerTypes < numMarkers 
                         electro_gui.issueWarning('Found fewer marker types than markers - populating missing marker types with the default marker type', 'notEnoughMarkerTypes');
-                        dbase.MarkerTypes{filenum} = [dbase.MarkerTypes{filenum}, repmat(settings.MarkerTypes(1), [1, numMarkerTypes])];
+                        dbase.MarkerTypes{filenum} = [dbase.MarkerTypes{filenum}, repmat(settings.MarkerTypes(1), [1, numMarkers-numMarkerTypes])];
                     end
                 end
             end
