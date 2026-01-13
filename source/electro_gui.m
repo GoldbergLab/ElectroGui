@@ -2599,7 +2599,6 @@ function LoadFile(obj, showWaitBar)
 
     if showWaitBar
         progressBar = ProgressBar('Loading file...', "WindowStyle", "modal");
-        progressBar.WindowStyle = 'modal';
     end
 
     if obj.settings.EnableFileCaching
@@ -4046,7 +4045,6 @@ function OpenDbase(obj, filePathOrDbase, options)
         % User supplied a path name - load the dbase from that path
         progressBar = ProgressBar('Opening dbase...', "WindowStyle", "modal");
         progressBar.Progress = 0.05;
-        progressBar.WindowStyle = 'modal';
         if isempty(filePathOrDbase)
             % Prompt user to select dbase .mat file
             path = obj.getTempSetting('lastDirectory');
