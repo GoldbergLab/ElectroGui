@@ -5347,6 +5347,7 @@ function updateAmplitude(obj, options)
         end
         obj.SegmentLabelHandles = gobjects().empty;
         obj.SetSegmentThreshold();
+        obj.axes_Amplitude.Tag = tag;
     else
         % Just update y values
         obj.AmplitudePlotHandle.YData = obj.amplitude;
