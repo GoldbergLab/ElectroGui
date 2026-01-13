@@ -12,7 +12,7 @@ classdef electro_gui < handle
         OriginalDbase struct
         CurrentDbasePath char = ''   % Keep track of currently loaded dbase name
         CurrentDefaults char = ''
-        MinMATLAB_utilsCommitDate = datetime('09-Jan-2026 15:05:00')
+        MinMATLAB_utilsCommitDate = datetime('13-Jan-2026 11:34:46')
     end
     properties % Temporary/cached properties
         History StateStack
@@ -433,6 +433,17 @@ classdef electro_gui < handle
                 uimenu(obj.menu_OpenRecent, 'Text', recentFilePath, 'UserData', recentFilePath, 'MenuSelectedFcn', @obj.click_recentFile);
             end
         end
+        function ax = getAllAxes(obj)
+            ax = [...
+                  obj.axes_Channel2, ...
+                  obj.axes_Channel1, ...
+                  obj.axes_Amplitude, ...
+                  obj.axes_Segments, ...
+                  obj.axes_Sonogram, ...
+                  obj.axes_Sound, ...
+                  obj.axes_Events
+                  ];
+        end
         function updateGUIControls(obj)
             % Set values of various GUI controls based on default values
             if obj.settings.EventsDisplayMode == 1
@@ -774,6 +785,8 @@ classdef electro_gui < handle
             end
         end
         function updateSonogram(obj)
+            tag = obj.axes_Sonogram.Tag;
+
             obj.updateFilteredSound();
 
             % Ensure sample numbers are in range
@@ -870,6 +883,7 @@ classdef electro_gui < handle
             obj.setClickSoundCallback(obj.axes_Sonogram);
             obj.axes_Sonogram.XLim = obj.settings.TLim;
             obj.axes_Sonogram.Box = 'off';
+            obj.axes_Sonogram.Tag = tag;
         end
         function updateSonogramColors(obj)
             if obj.settings.CurrentSonogramIsPower == 1
@@ -5305,6 +5319,7 @@ function updateAmplitude(obj, options)
         obj electro_gui
         options.ForceRedraw logical = false
     end
+    tag = obj.axes_Amplitude.Tag;
 
     forceRedraw = options.ForceRedraw;
 
@@ -5347,6 +5362,7 @@ function updateAmplitude(obj, options)
         end
         obj.SegmentLabelHandles = gobjects().empty;
         obj.SetSegmentThreshold();
+        obj.axes_Amplitude.Tag = tag;
     else
         % Just update y values
         obj.AmplitudePlotHandle.YData = obj.amplitude;
@@ -5796,11 +5812,16 @@ function UpdateFileInfoBrowser(obj)
         data = data(obj.settings.FileSortOrder, :);
     end
 
+    % Get total width in pixels:
+    totalWidth = obj.FileInfoBrowser.getWidth();
+    % Calculate column width:
+    columnWidth = floor((totalWidth - firstColumnsWidth - 20) / length(visblePropertyNames));
+
     % Put data in table widget, assign appropriate column properties
     obj.FileInfoBrowser.Data = data;
     obj.FileInfoBrowser.ColumnName = [firstColumnsNames, visblePropertyNames];
     obj.FileInfoBrowser.ColumnEditable = [firstColumnsEditable, true(1, length(visblePropertyNames))];
-    obj.FileInfoBrowser.ColumnWidth = num2cell([firstColumnsWidth, repmat(30, 1, length(visblePropertyNames))]);
+    obj.FileInfoBrowser.ColumnWidth = num2cell([firstColumnsWidth, repmat(columnWidth, 1, length(visblePropertyNames))]);
     obj.FileInfoBrowser.ColumnSelectable = [firstColumnsSelectable, false(1, length(visblePropertyNames))];
     obj.FileInfoBrowser.ColumnFormat = [firstColumnsFormat, repmat({'logical'}, 1, length(visblePropertyNames))];
 
@@ -6206,7 +6227,6 @@ function styleAxesTitle(obj, title, options)
     title.BusyAction = 'queue';
     title.Interruptible = 'on';
     title.DeleteFcn = blanks(0);
-    title.Tag = blanks(0);
     title.HitTest = 'on';
     title.PickableParts = 'visible';
     title.PickablePartsMode = 'auto';
@@ -6266,7 +6286,6 @@ function styleAxesLabel(obj, label, options)
     label.BusyAction = 'queue';
     label.Interruptible = 'on';
     label.DeleteFcn = '';
-    label.Tag = '';
     label.HitTest = 'on';
     label.PickableParts = 'visible';
     label.PickablePartsMode = 'auto';
@@ -6331,7 +6350,7 @@ function updateGUIStyle(obj)
 
     obj.figure_Main.Color = style.FigureColor;
 
-    ax = findobj(obj.figure_Main, 'type', 'axes');
+    ax = obj.getAllAxes();
     set(ax, 'Color', style.AxesColor);
     obj.axes_Sound.Color = style.AxesSoundColor;   % Normally black anyways
     obj.axes_Segments.Color = style.AxesSegmentsColor;
@@ -13867,6 +13886,7 @@ end
         end
         function h = eg_peak_detect(ax,x,y)
             % Plot an envelope of the signal "y", downsampled to fit in the axes width
+            tag = ax.Tag;
             ax.Units = 'pixels';
             ax.Parent.Units = 'pixels';
             pos = ax.Position;
@@ -13892,6 +13912,7 @@ end
                 hold(ax, 'off');
             end
             ax.XLim = xl;
+            ax.Tag = tag;
         end
         function ind = getSortedArrayInsertion(sortedArr, value)
             [~, ind] = min(abs(sortedArr-value));
