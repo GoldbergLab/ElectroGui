@@ -1,5 +1,6 @@
 function dbase = cj_dbase_hb_accel_detect_with_curation(dbase,afs,accel_chan)
 path = dbase.PathName;
+dbase.Fs = 20000; % HARD CODED SAMPLING RATE FOR EPHYS/SOUND
 zfiles = dir([path '\' '*chan' num2str(accel_chan) '*.nc']); % change to your file type!
 zfilenames = {zfiles.name};
 numfiles = size(dbase.Properties,1);
@@ -18,8 +19,8 @@ exclude_files = unique(exclude);
 
 %% loop through all included acc files and look for potential headbobs
 count = 0; pad = 3;
-for i = 660:665%length(zfilenames)
-    disp(i)
+for i = 1:length(zfilenames)
+    displayProgress('done with headbob detect for file %d of %d\n',i,length(zfilenames),25)
     if ~ismember(i,exclude_files)
         % load the file
         movez = egl_Intan_Nc([path '\' zfilenames{i}],1); 
