@@ -5155,6 +5155,12 @@ function DeactivateActiveEvent(obj)
     % Deactivate the active event (so there will be no active event)
     obj.SetActiveEventDisplay([], [], []);
 end
+function deleteEvents(obj, eventSourceIdx, filenum, idx)
+    for eventPartNum = 1:size(obj.dbase.EventTimes{eventSourceIdx}, 1)
+        obj.dbase.EventTimes{eventSourceIdx}{eventPartNum, filenum}(idx) = [];
+        obj.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum}(idx) = [];        
+    end
+end
 function SetEventDisplayActiveState(obj, eventNum, eventPartNum, eventSourceIdx, activeState)
     % Take the given event number, event part, and event source index, and
     % set it to the given active state (either true => active or false =>
@@ -10044,7 +10050,7 @@ end
                     end
                     obj.updateTimescaleView();
                 else
-                    % Alt click (and/or drag) on channel axes
+                    % Alt click (and/or drag) on channel axes to create a "local threshold"
                     eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
                     if ~isempty(eventSourceIdx)
                         % Set local threshold
@@ -10074,10 +10080,7 @@ end
                         % not all others.
                         boxedEventMask = or(boxedEventMask{:});
                         % Delete events within box
-                        for eventPartNum = 1:size(obj.dbase.EventTimes{eventSourceIdx}, 1)
-                            obj.dbase.EventTimes{eventSourceIdx}{eventPartNum, filenum}(boxedEventMask) = [];
-                            obj.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum}(boxedEventMask) = [];
-                        end
+                        obj.deleteEvents(eventSourceIdx, filenum, boxedEventMask);
 
                         % Restrict the data we're detecting events in  to the
                         % specified time limits
