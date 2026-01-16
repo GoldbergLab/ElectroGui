@@ -2729,26 +2729,7 @@ function [channelData, channelSamplingRate, channelLabels, timestamp] = loadChan
 
     if isPseudoChannel
         % This is a pseudochannel - load it based on type
-        channelIdx = electro_gui.getChannelIdxFromPseudoChannelNumber(obj.dbase, channelNum);
-        pChannelInfo = obj.dbase.ChannelInfo(channelIdx).PseudoChannelInfo;
-        switch pChannelInfo.type
-            case 'event'
-                % This is an "event" type of pseudochannel - it will be a
-                % logical array with a "true" wherever an event in the base
-                % channel occurred.
-                eventSourceIdx = pChannelInfo.eventSourceIdx;
-                eventPartIdx = pChannelInfo.eventPartIdx;
-                [channelNum, ~, ~, ~, ~, ~, ~, ~, isSourcePseudoChannel] = obj.GetEventSourceInfo(eventSourceIdx);
-                [numSamples, channelSamplingRate] = obj.eg_GetSamplingInfo(fileNum, channelNum, isSourcePseudoChannel);
-
-                rawChannelData = zeros(numSamples, 1);
-                eventTimes = obj.dbase.EventTimes{eventSourceIdx}{eventPartIdx, fileNum};
-                rawChannelData(eventTimes) = 1;
-                channelLabels = '';
-                timestamp = '';
-            otherwise
-                error('PseudoChannel type %s not recognized', pChannelType);
-        end
+        [rawChannelData, channelSamplingRate, channelLabels, timestamp] = obj.computePseudoChannel(channelNum, 'FileNum', fileNum);
     elseif isSound
         % Sound is being loaded as a channel
         [rawChannelData, channelSamplingRate, timestamp] = obj.getSound([], fileNum, isPseudoChannel);
@@ -2798,6 +2779,36 @@ function [channelData, channelSamplingRate, channelLabels, timestamp] = loadChan
             indx = fix(linspace(1, length(channelData), length(rawChannelData)));
             channelData = channelData(indx);
         end
+    end
+end
+
+function [rawChannelData, channelSamplingRate, channelLabels, timestamp] = computePseudoChannel(obj, channelNum, options)
+    arguments
+        obj electro_gui
+        channelNum double
+        options.FileNum double = electro_gui.getCurrentFileNum(obj.settings)
+    end
+    fileNum = options.FileNum;
+    channelIdx = electro_gui.getChannelIdxFromPseudoChannelNumber(obj.dbase, channelNum);
+    pChannelInfo = obj.dbase.ChannelInfo(channelIdx).PseudoChannelInfo;
+    switch pChannelInfo.type
+        case 'event'
+            % This is an "event" type of pseudochannel - it will be a
+            % logical array with a "true" wherever an event in the base
+            % channel occurred.
+            eventSourceIdx = pChannelInfo.eventSourceIdx;
+            eventPartIdx = pChannelInfo.eventPartIdx;
+            [channelNum, ~, ~, ~, ~, ~, ~, ~, isSourcePseudoChannel] = obj.GetEventSourceInfo(eventSourceIdx);
+            [numSamples, channelSamplingRate] = obj.eg_GetSamplingInfo(fileNum, channelNum, isSourcePseudoChannel);
+
+            rawChannelData = zeros(numSamples, 1);
+            eventTimes = obj.dbase.EventTimes{eventSourceIdx}{eventPartIdx, fileNum};
+            eventIsSelected = obj.dbase.EventIsSelected{eventSourceIdx}{eventPartIdx, fileNum};
+            rawChannelData(eventTimes(eventIsSelected)) = 1;
+            channelLabels = '';
+            timestamp = '';
+        otherwise
+            error('PseudoChannel type %s not recognized', pChannelType);
     end
 end
 
@@ -4798,8 +4809,8 @@ function ClearEvents(obj, eventSourceIdx, filenum)
     numEventParts = size(obj.dbase.EventTimes{eventSourceIdx}, 1);
     % Clear event info in relevant data structures
     for eventPartNum = 1:numEventParts
-        obj.dbase.EventTimes{eventSourceIdx}{eventPartNum, filenum} = [];
-        obj.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum} = logical.empty();
+        obj.replaceEventTimes(eventSourceIdx, eventPartNum, filenum, []);
+        obj.replaceEventIsSelected(eventSourceIdx, eventPartNum, filenum, logical.empty());
     end
 end
 
@@ -4835,9 +4846,10 @@ function DetectEvents(obj, eventSourceIdx, filenum, chanData, fs)
 
     % Store event info in relevant data structures
     for eventPartNum = 1:length(eventTimes)
-        obj.dbase.EventTimes{eventSourceIdx}{eventPartNum, filenum} = eventTimes{eventPartNum};
-        obj.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum} = true(1,length(eventTimes{eventPartNum}));
+        obj.replaceEventTimes(eventSourceIdx, eventPartNum, filenum, eventTimes{eventPartNum}, 'DeferPseudoChannelUpdate', true)
+        obj.replaceEventIsSelected(eventSourceIdx, eventPartNum, filenum, true(1,length(eventTimes{eventPartNum})), 'DeferPseudoChannelUpdate', true);
     end
+    obj.updateChannelAxesThatDependOnPseudoChannelEventSource(eventSourceIdx)
 end
 
 function numEvents = CheckEventCount(obj, eventSourceIdx, filenum)
@@ -5155,10 +5167,133 @@ function DeactivateActiveEvent(obj)
     % Deactivate the active event (so there will be no active event)
     obj.SetActiveEventDisplay([], [], []);
 end
-function deleteEvents(obj, eventSourceIdx, filenum, idx)
+
+function deleteEvents(obj, eventSourceIdx, filenum, idx, options)
+    arguments
+        obj electro_gui
+        eventSourceIdx
+        filenum
+        idx
+        options.DeferPseudoChannelUpdate = false
+    end
     for eventPartNum = 1:size(obj.dbase.EventTimes{eventSourceIdx}, 1)
         obj.dbase.EventTimes{eventSourceIdx}{eventPartNum, filenum}(idx) = [];
         obj.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum}(idx) = [];        
+    end
+    if ~options.DeferPseudoChannelUpdate
+        obj.updateChannelAxesThatDependOnPseudoChannelEventSource(eventSourceIdx);
+    end
+end
+function replaceEventTimes(obj, eventSourceIdx, eventPartNum, filenum, newEventTimes, options)
+    arguments
+        obj electro_gui
+        eventSourceIdx
+        eventPartNum
+        filenum
+        newEventTimes
+        options.DeferPseudoChannelUpdate = false
+    end
+    obj.dbase.EventTimes{eventSourceIdx}{eventPartNum, filenum} = newEventTimes;
+    if ~options.DeferPseudoChannelUpdate
+        obj.updateChannelAxesThatDependOnPseudoChannelEventSource(eventSourceIdx);
+    end
+end
+function replaceEventIsSelected(obj, eventSourceIdx, eventPartNum, filenum, newEventisSelected, options)
+    arguments
+        obj electro_gui
+        eventSourceIdx
+        eventPartNum
+        filenum
+        newEventisSelected
+        options.DeferPseudoChannelUpdate = false
+    end
+    obj.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum} = newEventisSelected;
+    if ~options.DeferPseudoChannelUpdate
+        obj.updateChannelAxesThatDependOnPseudoChannelEventSource(eventSourceIdx);
+    end
+end
+function setEventTimes(obj, eventSourceIdx, eventPartNum, filenum, idx, eventTimes, options)
+    arguments
+        obj electro_gui
+        eventSourceIdx
+        eventPartNum
+        filenum
+        idx
+        eventTimes
+        options.DeferPseudoChannelUpdate = false
+    end
+    obj.dbase.EventTimes{eventSourceIdx}{eventPartNum, filenum}(idx) = eventTimes;
+    if ~options.DeferPseudoChannelUpdate
+        obj.updateChannelAxesThatDependOnPseudoChannelEventSource(eventSourceIdx);
+    end
+end
+function setEventIsSelected(obj, eventSourceIdx, eventPartNum, filenum, idx, eventIsSelected, options)
+    arguments
+        obj electro_gui
+        eventSourceIdx
+        eventPartNum
+        filenum
+        idx
+        eventIsSelected
+        options.DeferPseudoChannelUpdate = false
+    end
+    obj.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum}(idx) = eventIsSelected;
+    if ~options.DeferPseudoChannelUpdate
+        obj.updateChannelAxesThatDependOnPseudoChannelEventSource(eventSourceIdx);
+    end
+end
+function toggleEventIsSelected(obj, eventSourceIdx, eventPartNum, filenum, idx, options)
+    arguments
+        obj electro_gui
+        eventSourceIdx
+        eventPartNum
+        filenum
+        idx
+        options.DeferPseudoChannelUpdate = false
+    end
+    obj.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum}(idx) = ~obj.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum}(idx);
+    if ~options.DeferPseudoChannelUpdate
+        obj.updateChannelAxesThatDependOnPseudoChannelEventSource(eventSourceIdx);
+    end
+end
+function pseudoChannelNums = getEventPseudoChannel(obj, eventSourceIdx)
+    % Get a list of pseudo channel numbers that are "event type" (the only type at the time of this writing) and depend on this eventSourceIdx
+    pseudoChannelNums = [];
+    for idx = 1:length(obj.dbase.ChannelInfo)
+        if obj.dbase.ChannelInfo(idx).IsPseudoChannel
+            % This is a pseudochannel, check if it's an "event type" pseudochannel
+            if strcmp(obj.dbase.ChannelInfo(idx).PseudoChannelInfo.type, 'event')
+                % This is an event type pseudochannel, check if it's based on this eventSourceIdx
+                if obj.dbase.ChannelInfo(idx).PseudoChannelInfo.eventSourceIdx == eventSourceIdx
+                    pseudoChannelNums(end+1) = obj.dbase.ChannelInfo(idx).Number;
+                end
+            end
+        end
+    end
+end
+function matchingAxnum = WhichChannelAxesShowChannel(obj, channelNum, isPseudoChannel)
+    % Get a list of channel axes numbers that are currently displaying the given channel number
+    matchingAxnum = [];
+    for axnum = 1:2
+        [selectedChannelNum, ~, ~, selectedIsPseudoChannel] = obj.getSelectedChannel(axnum);
+        if selectedChannelNum == channelNum && isPseudoChannel == selectedIsPseudoChannel
+            % This axes is showing the selected channel
+            matchingAxnum(end+1) = axnum;
+        end
+    end
+end
+function updateChannelAxesThatDependOnPseudoChannel(obj, pseudoChannelNum)
+    % Update any axes channels that depend on the given pseudo channel number
+    matchingAxnum = obj.WhichChannelAxesShowChannel(pseudoChannelNum, true);
+    for axnum = matchingAxnum
+        obj.updateChannelAxes(axnum);
+    end
+end
+function updateChannelAxesThatDependOnPseudoChannelEventSource(obj, pseudoChannelEventSourceIdx)
+    % Update any axes channels that depend on a pseudo channel that's based on the given eventSourceIdx
+    pseudoChannelNums = obj.getEventPseudoChannel(pseudoChannelEventSourceIdx);
+    for pseudoChannelNum = pseudoChannelNums
+        obj.updateChannelAxesThatDependOnPseudoChannel(pseudoChannelNum);
     end
 end
 function SetEventDisplayActiveState(obj, eventNum, eventPartNum, eventSourceIdx, activeState)
@@ -5264,8 +5399,11 @@ function UnselectEvents(obj, eventNums, eventSourceIdx, filenum)
 
     % Unselect events
     for eventPartNum = 1:size(obj.dbase.EventIsSelected{eventSourceIdx}, 1)
-        obj.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum}(eventNums) = false;
+        obj.setEventIsSelected(eventSourceIdx, eventPartNum, filenum, eventNums, false, 'DeferPseudoChannelUpdate', true);
     end
+
+    % Update any channel axes data displaying a pseudo channel that depends on this event source idx
+    obj.updateChannelAxesThatDependOnPseudoChannelEventSource(eventSourceIdx);
 
     % Update GUI
     obj.updateEventViewer(true);
@@ -10105,8 +10243,8 @@ end
                             [eventTimes, sortIdx] = sort(eventTimes);
                             eventSelected = eventSelected(sortIdx);
                             % Update event times/selected
-                            obj.dbase.EventTimes{eventSourceIdx}{eventPartNum, filenum} = eventTimes;
-                            obj.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum} = eventSelected;
+                            obj.replaceEventTimes(eventSourceIdx, eventPartNum, filenum, eventTimes);
+                            obj.replaceEventIsSelected(eventSourceIdx, eventPartNum, filenum, eventSelected);
                         end
                         obj.updateChannelEventDisplay(axnum);
                         obj.updateEventViewer();
@@ -10169,7 +10307,7 @@ end
 
                     % Invert the selected status of any events that fell within box
                     for eventPartNum = 1:length(obj.EventHandles{axnum})
-                        obj.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum}(boxedEventMask) = ~obj.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum}(boxedEventMask);
+                        obj.toggleEventIsSelected(eventSourceIdx, eventPartNum, filenum, boxedEventMask);
                     end
 
                     % Update event display for any axes displaying the same event source
@@ -10421,8 +10559,11 @@ end
 
                     % Toggle whether or not the clicked event is selected
                     for eventPartNum = 1:size(obj.dbase.EventIsSelected{eventSourceIdx}, 1)
-                        obj.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum}(eventNum) = ~obj.dbase.EventIsSelected{eventSourceIdx}{eventPartNum, filenum}(eventNum);
+                        obj.toggleEventIsSelected(eventSourceIdx, eventPartNum, filenum, eventNum, 'DeferPseudoChannelUpdate', true);
                     end
+
+                    % Update axes displaying a pseudo channel that depends on this event source idx
+                    obj.updateChannelAxesThatDependOnPseudoChannelEventSource(eventSourceIdx);
 
                     % Update display
                     obj.updateAnythingShowingEventSource(eventSourceIdx);
