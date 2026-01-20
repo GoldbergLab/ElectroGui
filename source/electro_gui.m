@@ -4295,6 +4295,9 @@ function SaveCurrentDbase(obj, dbasePath)
 
     electro_gui.SaveDbase(savePath, dbase, settings);
 
+    fprintf('***********************************\n')
+    fprintf('%s - dbase saved!\n', string(datetime()));
+    fprintf('***********************************\n')
     msgbox('dbase saved!', 'dbase saved', "help", 'modal')
 
     obj.settings.DefaultDbaseFilename = savePath;
