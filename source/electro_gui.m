@@ -5279,9 +5279,11 @@ function matchingAxnum = WhichChannelAxesShowChannel(obj, channelNum, isPseudoCh
     matchingAxnum = [];
     for axnum = 1:2
         [selectedChannelNum, ~, ~, selectedIsPseudoChannel] = obj.getSelectedChannel(axnum);
-        if selectedChannelNum == channelNum && isPseudoChannel == selectedIsPseudoChannel
-            % This axes is showing the selected channel
-            matchingAxnum(end+1) = axnum;
+        if ~isempty(selectedChannelNum)
+            if selectedChannelNum == channelNum && isPseudoChannel == selectedIsPseudoChannel
+                % This axes is showing the selected channel
+                matchingAxnum(end+1) = axnum;
+            end
         end
     end
 end
