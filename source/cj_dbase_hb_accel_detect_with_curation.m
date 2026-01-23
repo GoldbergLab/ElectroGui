@@ -36,45 +36,23 @@ end
 %% exclude files by boolean property
 properties_exclude = {'selfgroom'};
 exclude = [];
-for i = 1:length(properties_exclude)
-    prop_idx = find(strcmp(dbase.PropertyNames,properties_exclude{i}));
+for propnum = 1:length(properties_exclude)
+    prop_idx = find(strcmp(dbase.PropertyNames,properties_exclude{propnum}));
     files_prop = find(dbase.Properties(:,prop_idx));
-    exclude = [exclude files_prop];
+    exclude = [exclude files_prop]; %#ok<AGROW>
 end
 exclude_files = unique(exclude);
 
 %% loop through all included acc files and look for potential headbobs
-count = 0; pad = 3;
-for i = file_range
-    displayProgress('done with headbob detect for file %d of %d\n',i,length(file_range),25)
-    if ~ismember(i,exclude_files)
-        % load the file
-        movez = egl_Intan_Nc([path '\' zfilenames{i}],1); 
-        % do the detect
-        OUT = [];
-        if length(movez)/afs<5; continue; end % skips files shorter than 5s
-        OUT = detect_headbobs_acc(movez,afs);
-        if ~isempty(OUT.onsets)
-            for j = 1:length(OUT.onsets)
-                count = count+1;
+pothb = [];
 
-                samps = [max(1,OUT.onsets(j)-pad*afs) min(OUT.offsets(j)+pad*afs,length(OUT.aa1))];
-                % get individual cycles
-                [pks,locs] = findpeaks(OUT.aa1(OUT.onsets(j):OUT.offsets(j)),'MinPeakDistance',500,'MinPeakHeight',0);
-                if locs(1)<200
-                    locs = locs(2:end);
-                end
-                pothb(count).onset = OUT.onsets(j);
-                cyc_abs = (OUT.onsets(j) - 1) + locs;  % absolute indices in full file
-                pothb(count).cyc_abs = cyc_abs;
-                pothb(count).offset = OUT.offsets(j);
-                pothb(count).aa1 = OUT.aa1(samps(1):samps(2));
-                pothb(count).cfs = OUT.cfs(:,samps(1):samps(2));
-                pothb(count).filename = zfilenames{i};
-                pothb(count).filenum = i;
-                pothb(count).samp0 = samps(1);
-            end
-        end
+for filenum = file_range
+    displayProgress('done with headbob detect for file %d of %d\n',filenum,length(file_range),25)
+    if ~ismember(filenum,exclude_files)
+        % Search for headbobs
+        new_pothb = make_headbob_struct(path, zfilenames{filenum}, filenum, afs);
+        % Accumulate newly detected potential headbobs
+        pothb = [pothb, new_pothb]; %#ok<AGROW>
     end
 end
 
@@ -84,7 +62,6 @@ end
 curated_by_k = repmat(struct('filename', "", 'onset', NaN, 'offset', NaN, ...
     'aa1', [], 'cfs', [], 'samp0', NaN, 'filenum', NaN, 'cyc_abs', []), 1, count);
 curated_keep = false(1, count);  % accepted mask
-
 
 k = 1;
 while k <= count
@@ -116,7 +93,7 @@ while k <= count
     t  = t0 + (0:Nsnip-1)/afs;                 % 1xNsnip seconds
 
     % Layout: reserve bottom strip for buttons so they don't overlap axes labels
-    axTop = axes('Parent',hFig,'Units','normalized','Position',[0.08 0.55 0.88 0.38]); %#ok<NASGU>
+    axTop = axes('Parent',hFig,'Units','normalized','Position',[0.08 0.55 0.88 0.38]);
     ax1 = axTop;
 
     % Top: scalogram (time in seconds)
@@ -292,15 +269,15 @@ curated_hbs = curated_by_k(curated_keep);
 [curated_hbs(:).cfs] = deal([]); % trim off data so dbase is reasonably sized 
 [curated_hbs(:).aa1] = deal([]);
 % store headbob stuff in the dbase
-for i = 1:size(curated_hbs,2)
+for hbnum = 1:size(curated_hbs,2)
     %make marker time and isselected and title
-    cursize = size(dbase.MarkerTimes{curated_hbs(i).filenum},1)+1;
-    dbase.MarkerTimes{curated_hbs(i).filenum}(cursize,1) = curated_hbs(i).onset*(dbase.Fs/afs);
-    dbase.MarkerTimes{curated_hbs(i).filenum}(cursize,2) = curated_hbs(i).offset*(dbase.Fs/afs);
-    cursizesel = length(dbase.MarkerIsSelected{curated_hbs(i).filenum})+1;
-    dbase.MarkerIsSelected{curated_hbs(i).filenum}(cursizesel) = 1;
-    cursizemar = length(dbase.MarkerTitles{curated_hbs(i).filenum})+1;
-    dbase.MarkerTitles{curated_hbs(i).filenum}{cursizemar} = 'h';
+    cursize = size(dbase.MarkerTimes{curated_hbs(hbnum).filenum},1)+1;
+    dbase.MarkerTimes{curated_hbs(hbnum).filenum}(cursize,1) = curated_hbs(hbnum).onset*(dbase.Fs/afs);
+    dbase.MarkerTimes{curated_hbs(hbnum).filenum}(cursize,2) = curated_hbs(hbnum).offset*(dbase.Fs/afs);
+    cursizesel = length(dbase.MarkerIsSelected{curated_hbs(hbnum).filenum})+1;
+    dbase.MarkerIsSelected{curated_hbs(hbnum).filenum}(cursizesel) = 1;
+    cursizemar = length(dbase.MarkerTitles{curated_hbs(hbnum).filenum})+1;
+    dbase.MarkerTitles{curated_hbs(hbnum).filenum}{cursizemar} = 'h';
 end
 hbfiles = unique([curated_hbs.filenum]);
 dbase.headbob_detects = curated_hbs;
@@ -313,8 +290,8 @@ if ~any(ismember(dbase.PropertyNames,'bHB'))
 else
     hbpidx = find(ismember(dbase.PropertyNames,'bHB')); % only adds property values, does not get rid of old 1's if they exist
 end
-for i = 1:length(hbfiles)
-    dbase.Properties(hbfiles(i),hbpidx) = 1;
+for filenum = 1:length(hbfiles)
+    dbase.Properties(hbfiles(filenum),hbpidx) = 1;
 end
 end
 
