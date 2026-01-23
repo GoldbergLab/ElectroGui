@@ -990,8 +990,8 @@ classdef electro_gui < handle
             % Get channel data
             chanData = obj.loadedChannelData{axnum};
 
-            chan = obj.getSelectedChannel(axnum);
-            [~, fs] = obj.eg_GetSamplingInfo([], chan);
+            [chan, ~, ~, isPseudoChannel] = obj.getSelectedChannel(axnum);
+            [~, fs] = obj.eg_GetSamplingInfo([], chan, isPseudoChannel);
 
             for eventPartIdx = 1:length(eventTimes)
                 storedInfo.eventPartIdx = eventPartIdx;
@@ -1283,8 +1283,8 @@ classdef electro_gui < handle
                         if isvalid(obj.Sonogram_Overlays(axnum))
                             obj.Sonogram_Overlays(axnum).YData = y;
                         else
-                            chan = obj.getSelectedChannel(axnum);
-                            [numSamples, fs] = obj.eg_GetSamplingInfo([], chan);
+                            [chan, ~, ~, isPseudoChannel] = obj.getSelectedChannel(axnum);
+                            [numSamples, fs] = obj.eg_GetSamplingInfo([], chan, isPseudoChannel);
                             t = linspace(0, (numSamples-1)/fs, numSamples);
                             obj.Sonogram_Overlays(axnum) = plot(obj.axes_Sonogram, t, y, 'Color', 'b', 'LineWidth', 1);
                             obj.Sonogram_Overlays(axnum).UIContextMenu = obj.axes_Sonogram.UIContextMenu;
@@ -1518,8 +1518,8 @@ classdef electro_gui < handle
             obj.push_Detects(axnum).Enable = 'on';
             obj.push_ClearEvents(axnum).Enable = 'on';
 
-            chan = obj.getSelectedChannel(axnum);
-            [numSamples, fs] = obj.eg_GetSamplingInfo([], chan);
+            [chan, ~, ~, isPseudoChannel] = obj.getSelectedChannel(axnum);
+            [numSamples, fs] = obj.eg_GetSamplingInfo([], chan, isPseudoChannel);
             t = linspace(0, (numSamples-1)/fs, numSamples);
             tlimits = ax.XLim;
             delete(obj.ChannelPlots{axnum});
@@ -4732,8 +4732,8 @@ function UpdateEventThresholdDisplay(obj, eventSourceIdx)
             isa(obj.EventThresholdHandles(axnum), 'matlab.graphics.GraphicsPlaceholder')
             % Create new threshold line
             hold(obj.axes_Channel(axnum), 'on');
-            chan = obj.getSelectedChannel(axnum);
-            [numSamples, fs] = obj.eg_GetSamplingInfo(filenum, chan);
+            [chan, ~, ~, isPseudoChannel] = obj.getSelectedChannel(axnum);
+            [numSamples, fs] = obj.eg_GetSamplingInfo(filenum, chan, isPseudoChannel);
             obj.EventThresholdHandles(axnum) = ...
                 plot(obj.axes_Channel(axnum), ...
                      [0, numSamples/fs], ...
