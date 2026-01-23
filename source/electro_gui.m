@@ -3650,22 +3650,33 @@ function JoinSegmentWithNext(obj, filenum, segmentNum)
     end
 end
 
-function CreateNewMarker(obj, x)
+function CreateNewMarker(obj, x, options)
     % Create a new marker from time x(1) to time x(2)
-    filenum = electro_gui.getCurrentFileNum(obj.settings);
+    arguments
+        obj electro_gui
+        x (1, 2) double
+        options.Filenum (1, 1) double = electro_gui.getCurrentFileNum(obj.settings)
+        options.Title {mustBeText} = ''
+        options.IsSelected logical = true
+        options.MarkerType = obj.settings.MarkerTypes{obj.settings.CurrentMarkerTypeIdx}
+        options.UpdateGUI = true
+    end
+    filenum = options.Filenum;
+
     obj.dbase.MarkerTimes{filenum}(end+1, :) = x;
-    obj.dbase.MarkerIsSelected{filenum}(end+1) = 1;
-    obj.dbase.MarkerTitles{filenum}{end+1} = '';
-    obj.dbase.MarkerTypes{filenum}(end+1) = obj.settings.MarkerTypes{obj.settings.CurrentMarkerTypeIdx};
+    obj.dbase.MarkerIsSelected{filenum}(end+1) = options.IsSelected;
+    obj.dbase.MarkerTitles{filenum}{end+1} = options.Title;
+    obj.dbase.MarkerTypes{filenum}(end+1) = options.MarkerType;
 
-    % Replot frontend annotation display
-    obj.updateAnnotations();
-
-    % Sort markers chronologically to keep things neat
-    order = obj.SortMarkers(filenum);
-    [~, mostRecentMarkerNum] = max(order);
-    % Set active marker again, so the same marker is still active
-    obj.SetActiveMarker(mostRecentMarkerNum);
+    if options.UpdateGUI
+        % Replot frontend annotation display
+        obj.updateAnnotations();
+        % Sort markers chronologically to keep things neat
+        order = obj.SortMarkers(filenum);
+        [~, mostRecentMarkerIdx] = max(order);
+        % Set active marker again, so the same marker is still active
+        obj.SetActiveMarker(mostRecentMarkerIdx);
+    end
 end
 
 function DeleteAnnotation(obj, filenum, annotationNum, annotationType)
@@ -3693,18 +3704,26 @@ function DeleteAnnotation(obj, filenum, annotationNum, annotationType)
             error('Invalid annotation type: %s', annotationType);
     end
 end
-function DeleteMarker(obj, filenum, markerNum)
-    % Delete the specified marker
-    obj.dbase.MarkerTimes{filenum}(markerNum, :) = [];
-    obj.dbase.MarkerIsSelected{filenum}(markerNum) = [];
-    obj.dbase.MarkerTitles{filenum}(markerNum) = [];
-    obj.dbase.MarkerTypes{filenum}(markerNum) = [];
+function DeleteMarker(obj, filenum, markerNums)
+    if isempty(markerNums)
+        % Nothing to delete
+        return;
+    end
+    % Delete the specified marker or markers
+    obj.dbase.MarkerTimes{filenum}(markerNums, :) = [];
+    obj.dbase.MarkerIsSelected{filenum}(markerNums) = [];
+    obj.dbase.MarkerTitles{filenum}(markerNums) = [];
+    obj.dbase.MarkerTypes{filenum}(markerNums) = [];
 end
-function DeleteSegment(obj, filenum, segmentNum)
-    % Delete the specified marker
-    obj.dbase.SegmentTimes{filenum}(segmentNum, :) = [];
-    obj.dbase.SegmentIsSelected{filenum}(segmentNum) = [];
-    obj.dbase.SegmentTitles{filenum}(segmentNum) = [];
+function DeleteSegment(obj, filenum, segmentNums)
+    if isempty(segmentNums)
+        % Nothing to delete
+        return;
+    end
+    % Delete the specified segment or segments
+    obj.dbase.SegmentTimes{filenum}(segmentNums, :) = [];
+    obj.dbase.SegmentIsSelected{filenum}(segmentNums) = [];
+    obj.dbase.SegmentTitles{filenum}(segmentNums) = [];
 end
 function order = SortMarkers(obj, filenum)
     % Sort the order of the markers. Note that this doesn't affect the marker
