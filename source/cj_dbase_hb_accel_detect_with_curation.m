@@ -1,5 +1,25 @@
 function dbase = cj_dbase_hb_accel_detect_with_curation(dbase,afs,accel_chan,file_range)
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% cj_dbase_hb_accel_detect_with_curation: Detect headbobs in accel. data
+% usage: dbase = cj_dbase_hb_accel_detect_with_curation(dbase, afs, 
+%                                                   accel_chan, file_range)
+%
+% where,
+%    dbase is an electro_gui dbase
+%    afs is the accelerometer sampling rate
+%    accel_chan is the dbase channel number of the accelerometer data
+%    file_range is an array of filenumbers to analyze
+%    dbase is the modified dbase with headbob info added
+%
+% <long description>
+%
+% See also: electro_gui
+%
+% Version: 1.0
+% Author:  Caleb Jones
+% Email:   cj397=cornell*org
+% Real_email = regexprep(Email,{'=','*'},{'@','.'})
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 path = dbase.PathName;
 dbase.Fs = 20000; % HARD CODED SAMPLING RATE FOR EPHYS/SOUND
