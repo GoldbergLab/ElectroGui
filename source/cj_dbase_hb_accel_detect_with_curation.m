@@ -56,15 +56,17 @@ for filenum = file_range
     end
 end
 
+num_pothb = length(pothb);
+
 %% the curating GUI was generated with help of ChatGPT, I validated it with testing
 % ---- now manually curate each potential HB ----
 % One slot per candidate (so BACK can't create duplicates)
 curated_by_k = repmat(struct('filename', "", 'onset', NaN, 'offset', NaN, ...
-    'aa1', [], 'cfs', [], 'samp0', NaN, 'filenum', NaN, 'cyc_abs', []), 1, count);
-curated_keep = false(1, count);  % accepted mask
+    'aa1', [], 'cfs', [], 'samp0', NaN, 'filenum', NaN, 'cyc_abs', []), 1, num_pothb);
+curated_keep = false(1, num_pothb);  % accepted mask
 
 k = 1;
-while k <= count
+while k <= num_pothb
 
     % Pull candidate
     hb = pothb(k);
@@ -81,7 +83,7 @@ while k <= count
     end
 
     % ----------- Build figure -----------
-    hFig = figure('Name', sprintf('HB %d/%d | %s', k, count, hb.filename), ...
+    hFig = figure('Name', sprintf('HB %d/%d | %s', k, num_pothb, hb.filename), ...
         'NumberTitle','off', 'Color','w', ...
         'Units','normalized', 'Position',[0.15 0.15 0.7 0.7]);
 
