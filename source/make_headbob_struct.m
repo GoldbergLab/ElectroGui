@@ -1,14 +1,20 @@
-function potential_hb_struct = make_headbob_struct(root, filename, filenum, accel_fs)
+function potential_hb_struct = make_headbob_struct(root, filename, filenum, options)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % make_headbob_struct: Create an info struct for each potential headbob
 % usage: potential_hb_struct = make_headbob_struct(root, filename, filenum,
-%                                                   accel_fs)
+%                                                   options.AccelFs)
 %
 % where,
 %    root is the folder containing the accelerometer data
 %    filename is the filename of the accelerometer data
 %    filenum is the number of the file within the electro_gui database
-%    accel_fs is the sampling rate of the accelerometer data
+%    Name/Value options can include:
+%       AccelFs: the sampling rate of the accelerometer data. Default is 
+%           5000
+%       Loader: A function handle for loading the data. Default is 
+%           @egl_Intan_Nc
+%       Data: A 1xN timeseries of accelerometer data. If this is supplied,
+%           then data is not loaded from the file
 %    potential_hb_struct is a struct containing information about potential 
 %       headbobs
 %
@@ -22,21 +28,34 @@ function potential_hb_struct = make_headbob_struct(root, filename, filenum, acce
 % Email:   cj397=cornell*org
 % Real_email = regexprep(Email,{'=','*'},{'@','.'})
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+arguments
+    root
+    filename
+    filenum
+    options.AccelFs = 5000
+    options.Loader = @egl_Intan_Nc
+    options.Data = []
+end
 
 potential_hb_struct = [];
 
 pad_seconds = 3;
-pad = pad_seconds * accel_fs;
+pad = pad_seconds * options.AccelFs;
 
-filepath = fullfile(root, filename);
-
-% load the file
-movez = egl_Intan_Nc(filepath, 1);
+if isempty(options.Data)
+    filepath = fullfile(root, filename);
+    
+    % load the file
+    movez = options.Loader(filepath, 1);
+else
+    % User passed a vector of data, just use it
+    movez = options.Data;
+end
 
 % Skip files shorter than 5s
-if length(movez)/accel_fs >= 5
+if length(movez)/options.AccelFs >= 5
     % do the detect
-    hb_detects = detect_headbobs_acc(movez, accel_fs);
+    hb_detects = detect_headbobs_acc(movez, options.AccelFs);
     if ~isempty(hb_detects.onsets)
         % Found at least one potential headbob
         for hb_num = 1:length(hb_detects.onsets)

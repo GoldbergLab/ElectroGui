@@ -1,4 +1,4 @@
-function dbase = cj_dbase_hb_accel_detect_with_curation(dbase,afs,accel_chan,file_range)
+function dbase = cj_dbase_hb_accel_detect_with_curation(dbase, afs, accel_chan, file_range, options)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % cj_dbase_hb_accel_detect_with_curation: Detect headbobs in accel. data
 % usage: dbase = cj_dbase_hb_accel_detect_with_curation(dbase, afs, 
@@ -20,6 +20,13 @@ function dbase = cj_dbase_hb_accel_detect_with_curation(dbase,afs,accel_chan,fil
 % Email:   cj397=cornell*org
 % Real_email = regexprep(Email,{'=','*'},{'@','.'})
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+arguments
+    dbase
+    afs
+    accel_chan
+    file_range
+    options.Loader = @egl_Intan_Nc
+end
 
 path = dbase.PathName;
 dbase.Fs = 20000; % HARD CODED SAMPLING RATE FOR EPHYS/SOUND
@@ -50,7 +57,7 @@ for filenum = file_range
     displayProgress('done with headbob detect for file %d of %d\n',filenum,length(file_range),25)
     if ~ismember(filenum,exclude_files)
         % Search for headbobs
-        new_pothb = make_headbob_struct(path, zfilenames{filenum}, filenum, afs);
+        new_pothb = make_headbob_struct(path, zfilenames{filenum}, filenum, "AccelFs", afs, "Loader", options.Loader);
         % Accumulate newly detected potential headbobs
         pothb = [pothb, new_pothb]; %#ok<AGROW>
     end
