@@ -2804,6 +2804,9 @@ function [rawChannelData, channelSamplingRate, channelLabels, timestamp] = compu
             rawChannelData = zeros(numSamples, 1);
             eventTimes = obj.dbase.EventTimes{eventSourceIdx}{eventPartIdx, fileNum};
             eventIsSelected = obj.dbase.EventIsSelected{eventSourceIdx}{eventPartIdx, fileNum};
+                if length(eventTimes) ~= length(eventIsSelected)
+                error('EventTimes and EventIsSelected for event soure %d, event part %d, on file number %d, have different lengths: %d vs %d', eventSourceIdx, eventPartIdx, fileNum, length(eventTimes), length(eventIsSelected))
+            end
             rawChannelData(eventTimes(eventIsSelected)) = 1;
             channelLabels = '';
             timestamp = '';
