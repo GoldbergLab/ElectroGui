@@ -4847,12 +4847,16 @@ function DetectEvents(obj, eventSourceIdx, filenum, chanData, fs)
         eventSourceIdx
         filenum = []
         chanData = []
-        fs = obj.dbase.Fs
+        fs = []
     end
 
     if isempty(filenum)
         % Use current filenum
         filenum = electro_gui.getCurrentFileNum(obj.settings);
+    end
+    if isempty(fs)
+        % Use dbase sampling rate
+        fs = obj.dbase.Fs;
     end
 
     % Get info about the specified event source
@@ -4978,11 +4982,12 @@ function eventSourceIdx = DetectEventsInAxes(obj, axnum)
 
     % Get channel data
     chanData = obj.loadedChannelData{axnum};
+    chanFs = obj.loadedChannelFs{axnum};
 
     filenum = electro_gui.getCurrentFileNum(obj.settings);
 
     % Detect events
-    obj.DetectEvents(eventSourceIdx, filenum, chanData);
+    obj.DetectEvents(eventSourceIdx, filenum, chanData, chanFs);
 
     % Remove any active event
     obj.settings.ActiveEventNum = [];
