@@ -36,8 +36,7 @@ numfiles = size(dbase.Properties,1);
 if ~isequal(numfiles,length(zfilenames))
     error('something is wrong')
 end
-
-if nargin<4 
+if isempty(file_range)
     file_range = 1:length(zfilenames);
 end
 %% exclude files by boolean property
