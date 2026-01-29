@@ -41,7 +41,7 @@ end
 
 % Duration filter 
 dur = (offsets - onsets) / fs;
-keep = (dur > 0.6 & dur < 3.5);
+keep = (dur > 0.5 & dur < 3.5); % changed from 0.6 to 0.5
 onsets  = onsets(keep);
 offsets = offsets(keep);
 
@@ -61,14 +61,14 @@ if ~isempty(onsets)
             cond2 = wavelet_f_onset <= 98;
 
             [mx, cond3] = max(wmean);  % cond3 = scale index of max
-            cond4 = mx > 0.08;
+            cond4 = mx > 0.06;% CHANGED from 0.08 to 0.06 CBJ 1/23/2026
 
             % Peaks in aa1 within the segment
             [~, p_ind] = findpeaks(aa1(onsets(m):offsets(m)), ...
                                    'MinPeakDistance', 0.1*fs, ...
-                                   'MinPeakHeight',  0.05);
+                                   'MinPeakHeight',  0.025);% CHANGED minpeak height from 0.05 to 0.025 CBJ 1/23/2026
 
-            if cond1 && cond2 && cond4 && abs(cond3 - 90) <= 2 && numel(p_ind) >= 3
+            if cond1 && cond2 && cond4 && abs(cond3 - 90) <= 3 && numel(p_ind) >= 3 % CHANGED abs(cond3-90)<=3 (was <=2) CBJ 1/23/2026
                 if any(diff(p_ind)/fs > 0.15) && any(diff(p_ind)/fs < 0.3)
                     temp_ind(end+1) = m;
                     wmean_list{end+1} = wmean; 
