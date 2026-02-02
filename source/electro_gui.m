@@ -4834,9 +4834,9 @@ function ClearEvents(obj, eventSourceIdx, filenum)
     numEventParts = size(obj.dbase.EventTimes{eventSourceIdx}, 1);
     % Clear event info in relevant data structures
     for eventPartNum = 1:numEventParts
-        obj.replaceEventTimes(eventSourceIdx, eventPartNum, filenum, []);
-        obj.replaceEventIsSelected(eventSourceIdx, eventPartNum, filenum, logical.empty());
+        obj.replaceEventInfo(eventSourceIdx, eventPartNum, filenum, [], logical.empty(), "DeferPseudoChannelUpdate", true);
     end
+    obj.updateChannelAxesThatDependOnPseudoChannelEventSource(eventSourceIdx);
 end
 
 function DetectEvents(obj, eventSourceIdx, filenum, chanData, fs)
@@ -4875,8 +4875,16 @@ function DetectEvents(obj, eventSourceIdx, filenum, chanData, fs)
 
     % Store event info in relevant data structures
     for eventPartNum = 1:length(eventTimes)
-        obj.replaceEventTimes(eventSourceIdx, eventPartNum, filenum, eventTimes{eventPartNum}, 'DeferPseudoChannelUpdate', true)
-        obj.replaceEventIsSelected(eventSourceIdx, eventPartNum, filenum, true(1,length(eventTimes{eventPartNum})), 'DeferPseudoChannelUpdate', true);
+        newEventTimes = eventTimes{eventPartNum};
+        newEventIsSelected = true(1,length(eventTimes{eventPartNum}));
+        obj.replaceEventInfo( ...
+            eventSourceIdx, ...
+            eventPartNum, ...
+            filenum, ...
+            newEventTimes, ...
+            newEventIsSelected, ...
+            'DeferPseudoChannelUpdate', true ...
+            );
     end
     obj.updateChannelAxesThatDependOnPseudoChannelEventSource(eventSourceIdx)
 end
@@ -5213,6 +5221,19 @@ function deleteEvents(obj, eventSourceIdx, filenum, idx, options)
     if ~options.DeferPseudoChannelUpdate
         obj.updateChannelAxesThatDependOnPseudoChannelEventSource(eventSourceIdx);
     end
+end
+function replaceEventInfo(obj, eventSourceIdx, eventPartNum, filenum, newEventTimes, newEventIsSelected, options)
+    arguments
+        obj electro_gui
+        eventSourceIdx
+        eventPartNum
+        filenum
+        newEventTimes
+        newEventIsSelected
+        options.DeferPseudoChannelUpdate = false
+    end
+    obj.replaceEventTimes(eventSourceIdx, eventPartNum, filenum, newEventTimes, "DeferPseudoChannelUpdate", true);
+    obj.replaceEventIsSelected(eventSourceIdx, eventPartNum, filenum, newEventIsSelected, "DeferPseudoChannelUpdate", options.DeferPseudoChannelUpdate);
 end
 function replaceEventTimes(obj, eventSourceIdx, eventPartNum, filenum, newEventTimes, options)
     arguments
@@ -10275,8 +10296,7 @@ end
                             [eventTimes, sortIdx] = sort(eventTimes);
                             eventSelected = eventSelected(sortIdx);
                             % Update event times/selected
-                            obj.replaceEventTimes(eventSourceIdx, eventPartNum, filenum, eventTimes);
-                            obj.replaceEventIsSelected(eventSourceIdx, eventPartNum, filenum, eventSelected);
+                            obj.replaceEventInfo(eventSourceIdx, eventPartNum, filenum, eventTimes, eventSelected, "DeferPseudoChannelUpdate", true);
                         end
                         obj.updateChannelEventDisplay(axnum);
                         obj.updateEventViewer();
