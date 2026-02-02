@@ -18,5 +18,5 @@ tmov= linspace(0,length(acc_signal)/afs,length(acc_signal));
 vel = filtfilt(b,1,acc_signal);
 vel = vel-mean(vel);
 vel = cumtrapz(tmov,vel);
-vel_est = vel-medfilt1(vel,afs*0.5);
+y = vel-medfilt1(vel,afs*0.5);
 end
