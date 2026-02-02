@@ -212,7 +212,7 @@ for i = 1:numel(cerefiles)
 
     
     % now make whisperseg aligned PA and ELD traces, also do inside/outisde
-    % HB
+    % HB for the pupil bird's vocalizations
     pad = 1;
     edges = -pad:binsz:pad;
     for syll = {'v','e','b','h','x'}
