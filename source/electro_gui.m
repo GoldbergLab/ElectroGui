@@ -4307,7 +4307,7 @@ function SaveCurrentDbase(obj, dbasePath)
         end
     end
 
-    [file, path] = uiputfile(dbasePath,'Save analysis');
+    [file, path] = uiputfile('*.mat','Save analysis', dbasePath);
     if ~ischar(file)
         return
     end
