@@ -361,7 +361,7 @@ classdef electro_gui < handle
 
             % Initialize blank dbase
             obj.dbase = electro_gui.InitializeDbase(obj.settings, 'BaseDbase', obj.dbase);
-
+            
             % Create the GUI widgets
             obj.setupGUI();
 
@@ -423,6 +423,9 @@ classdef electro_gui < handle
 
             % Initialize all graphics handles and GUI data
             obj.initializeGraphics();
+
+            % Style GUI
+            obj.updateGUIStyle();
 
             progressBar.Progress = 1;
             delete(progressBar);
@@ -5094,7 +5097,11 @@ function eventSourceIdx = GetEventViewerEventSourceIdx(obj)
     % Get the event source index from the currently selected item in the
     % event viewer event source list
     eventListIdx = obj.popup_EventListAlign.Value;
-    eventSourceIdx = obj.popup_EventListAlign.UserData(eventListIdx).eventSourceIdx;
+    if ~isempty(obj.popup_EventListAlign.UserData)
+        eventSourceIdx = obj.popup_EventListAlign.UserData(eventListIdx).eventSourceIdx;
+    else
+        eventSourceIdx = [];
+    end
 end
 function eventPartIdx = GetEventViewerEventPartIdx(obj)
     % Get the event part index from the currently selected item in the
@@ -6604,10 +6611,12 @@ function updateGUIStyle(obj)
         [obj.SoundEnvelope.Color] = deal('c');
     end
 
-    obj.updateEventViewer();
-    obj.updateChannelAxes(1);
-    obj.updateChannelAxes(2);
-    obj.updateAmplitude();
+    if electro_gui.isDataLoaded(obj.dbase)
+        obj.updateEventViewer();
+        obj.updateChannelAxes(1);
+        obj.updateChannelAxes(2);
+        obj.updateAmplitude();
+    end
 end
 
 function menu_ShowChannelAxes1_Callback(obj, varargin)
@@ -8260,8 +8269,7 @@ function setupGUI(obj)
     obj.updateExportControlGUIValues();
     obj.createExportWindow();
 
-    %% Style GUI
-    obj.updateGUIStyle();
+    %% Lay out GUI
     obj.updateGUILayout();
 end
 function updateGUILayout(obj)
