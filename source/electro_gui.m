@@ -425,7 +425,7 @@ classdef electro_gui < handle
             obj.initializeGraphics();
 
             % Style GUI
-            obj.updateGUIStyle();
+            obj.updateGUIStyle(false);
 
             progressBar.Progress = 1;
             delete(progressBar);
@@ -1427,7 +1427,7 @@ classdef electro_gui < handle
             set(obj.axes_Channel2,'ButtonDownFcn','%','UIContextMenu','');
             cla(obj.axes_Events);
             set(obj.axes_Events,'ButtonDownFcn','%','UIContextMenu','');
-            obj.updateGUIStyle();
+            obj.updateGUIStyle(false);
         end
         function updateChannelAxes(obj, axnum)
             % Load a new channel of data
@@ -6570,7 +6570,11 @@ function setGUIStyle(obj, lightOrDark)
     obj.updateGUIStyle();
 end
 
-function updateGUIStyle(obj)
+function updateGUIStyle(obj, updateAxes)
+    arguments
+        obj electro_gui
+        updateAxes = true
+    end
     % Update GUI to match obj.GUIStyle struct
     style = obj.GUIStyle;
 
@@ -6611,7 +6615,7 @@ function updateGUIStyle(obj)
         [obj.SoundEnvelope.Color] = deal('c');
     end
 
-    if electro_gui.isDataLoaded(obj.dbase)
+    if updateAxes && electro_gui.isDataLoaded(obj.dbase)
         obj.updateEventViewer();
         obj.updateChannelAxes(1);
         obj.updateChannelAxes(2);
@@ -9288,6 +9292,21 @@ function eventSourceIdx = addNewEventSource(obj, channelNum, ...
     end
 end
 
+function eventSourceIdx = removeEventSource(obj, eventSourceIdx, deletePseudoChannels)
+    % Remove an event source, update all event-source-indexed variables
+    arguments
+        obj electro_gui
+        eventSourceIdx (1, 1) double
+        deletePseudoChannels (1, 1) logical = true
+    end
+
+    [obj.dbase, obj.settings] = electro_gui.deleteEventSource( ...
+        obj.dbase, ...
+        obj.settings, ...
+        eventSourceIdx, ...
+        deletePseudoChannels ...
+        );
+end
 
     end
     methods            % GUI Callbacks
@@ -12889,6 +12908,38 @@ end
             sorted = ~strcmp(settings.FileSortMethod, 'File number');
         end
 
+        function [dbase, settings] = deleteEventSource(dbase, settings, eventSourceIdx, deletePseudoChannels)
+            % Remove an event source, update all event-source-indexed variables
+            arguments
+                dbase struct
+                settings struct
+                eventSourceIdx (1, 1) double
+                deletePseudoChannels (1, 1) logical = true
+            end
+            if eventSourceIdx > length(dbase.EventSources)
+                error('Cannot delete event source #%$d because there are only %d present in this dbase.', eventSourceIdx, length(obj.dbase.EventSources));
+            end
+            dbase.EventSources(eventSourceIdx) = [];
+            dbase.EventChannels(eventSourceIdx) = [];
+            dbase.EventFunctions(eventSourceIdx) = [];
+            dbase.EventFunctionParameters(eventSourceIdx) = [];
+            dbase.EventDetectors(eventSourceIdx) = [];
+            settings.EventThresholdDefaults(eventSourceIdx) = [];
+            dbase.EventParameters(eventSourceIdx) = [];
+            settings.EventXLims(eventSourceIdx, :) = [];
+            numEventParts = length(dbase.EventParts(eventSourceIdx));
+            dbase.EventParts(eventSourceIdx) = [];
+            dbase.EventChannelIsPseudo(eventSourceIdx) = [];
+            dbase.EventTimes(eventSourceIdx) = [];
+            dbase.EventIsSelected(eventSourceIdx) = [];
+        
+            if deletePseudoChannels
+                for eventPartIdx = 1:numEventParts
+                    dbase = electro_gui.deleteEventPseudoChannel(dbase, eventSourceIdx, eventPartIdx);
+                end
+            end
+        end        
+
         function dbase = createEventPseudoChannel(dbase, eventSourceIdx, eventPartIdx)
             % Create an "event" type pseudochannel
             pseudoChannelNum = electro_gui.getNumPseudoChannels(dbase) + 1;
@@ -12917,6 +12968,25 @@ end
             number = electro_gui.getNumPseudoChannels(dbase) + 1;
             type = 'PseudoChannel';
             dbase.ChannelInfo(end+1) = electro_gui.CreateChannelInfo(name, number, type, true, pseudoChannelInfo);
+        end
+        function dbase = deleteEventPseudoChannel(dbase, eventSourceIdx, eventPartIdx)
+            for channelIdx = 1:length(dbase.ChannelInfo)
+                % Loop over all channels, looking for pseudo channel with that event source and part
+                if dbase.ChannelInfo(channelIdx).IsPseudoChannel
+                    % This one is a pseudo channel
+                    if dbase.ChannelInfo(channelIdx).PseudoChannelInfo.eventSourceIdx == eventSourceIdx
+                        % Event source matches
+                        if dbase.ChannelInfo(channelIdx).PseudoChannelInfo.eventPartIdx == eventPartIdx
+                            % Event part matches
+
+                            % Found it, deleting...
+                            dbase.channelInfo(channelIdx) = [];
+                            return
+                        end
+                    end
+                end
+            end
+            error('Could not find pseudo channel to delete with event source idx %d and event part idx %d.', eventSourceIdx, eventPartIdx);
         end
         function dbase = setProperties(dbase, properties, propertyNames)
             % Set all property info
