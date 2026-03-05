@@ -1386,8 +1386,10 @@ classdef electro_gui < handle
             obj.push_Detects = [obj.push_Detect1, obj.push_Detect2];
             obj.push_ClearEvents = [obj.push_ClearEvents1, obj.push_ClearEvents2];
 
-            dr = dir(obj.SourcePath);
-            obj.figure_Main.Name = ['ElectroGui v. ', dr.date];
+            % dr = dir([obj.SourcePath, '.m']);
+            % obj.figure_Main.Name = ['ElectroGui v. ', dr.date];
+            obj.figure_Main.Name = 'ElectroGui';
+
             % Position figure
             obj.figure_Main.Position = [.025 0.075 0.95 0.85];
             % Set scroll handler
