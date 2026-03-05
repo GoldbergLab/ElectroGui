@@ -9592,20 +9592,16 @@ end
 
         end
         function scrollHandler(obj, source, event)
-
-            obj.figure_Main.Units = 'normalized';
-            xy = event.Source.CurrentPoint;
-            x = xy(1);
-            y = xy(2);
-            if electro_gui.areCoordinatesIn(x, y, [obj.axes_Sonogram, obj.axes_Sound, obj.axes_Amplitude, obj.axes_Channel])
+            [inside, t] = electro_gui.isMouseInAxes([obj.axes_Sonogram, obj.axes_Sound, obj.axes_Amplitude, obj.axes_Channel]);
+            if inside
                 % Scroll in any of the stacked axes
-                [t, ~] = electro_gui.convertFigCoordsToChildAxesCoords(x, y, obj.axes_Sonogram);
                 if obj.isShiftDown()
                     obj.shiftInTime(event.VerticalScrollCount);
                 else
                     obj.zoomInTime(t, event.VerticalScrollCount);
                 end
-            elseif electro_gui.areCoordinatesIn(x, y, obj.axes_Events) && ~isempty(obj.settings.ActiveEventNum)
+            end
+            if electro_gui.isMouseInAxes(obj.axes_Events) && ~isempty(obj.settings.ActiveEventNum)
                 % Scroll in event viewer axes
                 visibleEventMask = isgraphics(obj.EventWaveHandles);
                 newActiveEventNum = electro_gui.findNextTrueIdx(visibleEventMask, obj.settings.ActiveEventNum, event.VerticalScrollCount);
@@ -9950,14 +9946,11 @@ end
             if obj.isShiftDown()
                 % User is holding the shift key down
 
-                % Get coordinates of mouse
-                xy = obj.figure_Main.CurrentPoint;
-
                 % Define list of axes that will have cursors
                 cursor_axes = [obj.axes_Amplitude, obj.axes_Sonogram, obj.axes_Segments, obj.axes_Channel, obj.axes_Sound];
 
                 % Check if mouse is inside one of the relevant display axes
-                inside = electro_gui.areCoordinatesIn(xy(1), xy(2), cursor_axes);
+                [inside, t] = electro_gui.isMouseInAxes(cursor_axes);
 
                 if inside
                     % User is moving mouse within one of the designated cursor axes
@@ -9965,12 +9958,6 @@ end
 
                     % ax1 is the particular axes the mouse is currently inside
                     ax1 = cursor_axes(inside);
-                    % xlim will be the same for all the axes
-                    xl = ax1.XLim;
-                    % get the x position as a fraction of the axes limits
-                    x = (xy(1) - ax1.Position(1)) / ax1.Position(3);
-                    % Get the x position is a time in the axes coordinate system
-                    t = x*diff(xl)+xl(1);
                     if ax1 == obj.axes_Segments
                         % Mouse is in segment axes
                         % Snap to close by segment start/end
@@ -14289,24 +14276,30 @@ end
             sdNoise = std(audioLogPow(idx==1));
             sdSound = std(audioLogPow(idx==2));
         end
-        function inside = areCoordinatesIn(x, y, figureChild)
+        function [inside, x, y] = isMouseInAxes(ax)
             % Check if given normalized figure coordinates are inside the borders
-            % of one or more children of that figure.
-            for k = 1:length(figureChild)
-                position = getPositionWithUnits(figureChild(k), 'normalized');
-                if x < position(1)
+            % of one or more axes of that figure.
+            for k = 1:length(ax)
+                position = ax(k).CurrentPoint(1, 1:2);
+                x = position(1);
+                y = position(2);
+                xl = ax(k).XLim;
+                yl = ax(k).YLim;
+                if x < xl(1)
                     inside = false;
-                elseif x > position(1) + position(3)
+                elseif x > xl(2)
                     inside = false;
-                elseif y < position(2)
+                elseif y < yl(1)
                     inside = false;
-                elseif y > position(2) + position(4)
+                elseif y > yl(2)
                     inside = false;
                 else
                     inside = k;
                     return;
                 end
             end
+            x = [];
+            y = [];
         end
         function [x, y] = convertFigCoordsToChildAxesCoords(xFig, yFig, childAxes)
             xAx0 = childAxes.Position(1);
