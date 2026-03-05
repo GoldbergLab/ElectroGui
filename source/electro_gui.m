@@ -5596,6 +5596,8 @@ function updateAmplitude(obj, options)
     else
         obj.AmplitudePlotHandle.Color = obj.GUIStyle.AmplitudePlotColor;
     end
+
+    obj.axes_Amplitude.Color = obj.GUIStyle.AxesColor;
 end
 
 function [amp, fs, labels] = calculateAmplitude(obj, filenum, channel)
