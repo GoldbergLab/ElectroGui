@@ -31,8 +31,6 @@ settings.PropertyColumnVisible = logical.empty(); % [true, true, false, true]; %
 settings.FileSortMethod = 'File number';    % Default file sorting method - one of {'File number', 'Random', 'Property', 'Read status'}
 settings.FileSortPropertyName = '';         % Default property to sort by if FileSortMethod is 'Property'
 settings.FileSortReversed = false;
-settings.FileReadColor = [1, 1, 1];
-settings.FileUnreadColor = [1, 0.8, 0.8];
 settings.ShowFileNameColumn = false;        % Display the file name in the file info browser by default? File browser scrolls slightly faster if this is false.
 settings.FileSortCustomExpression = '';     % Custom file sorting expression
 

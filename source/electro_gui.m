@@ -5957,9 +5957,9 @@ function setFileReadState(obj, filenums, readState)
     obj.SaveState();
 
     if readState
-        color = obj.settings.FileReadColor;
+        color = obj.GUIStyle.FileInfoBrowser.FileReadColor;
     else
-        color = obj.settings.FileUnreadColor;
+        color = obj.GUIStyle.FileInfoBrowser.FileUnreadColor;
     end
 
     % Check if we need to extend obj.dbase.FileReadState
@@ -5988,8 +5988,8 @@ end
 function UpdateFileInfoBrowserReadState(obj)
     % Update background color of all filenames in FileInfoBrowser to match
     % the read/unread state of the file, as stored in obj.dbase.FileReadState
-    readColor = [1, 1, 1];
-    unreadColor = [1, 0.8, 0.8];
+    readColor = obj.GUIStyle.FileInfoBrowser.FileReadColor;
+    unreadColor = obj.GUIStyle.FileInfoBrowser.FileUnreadColor;
     readFilenums = find(obj.dbase.FileReadState);
     unreadFilenums = find(~obj.dbase.FileReadState);
     if electro_gui.areFilesSorted(obj.settings)
@@ -6605,6 +6605,10 @@ function updateGUIStyle(obj, updateAxes)
     set(widgets, 'BackgroundColor', style.FigureColor);
     set(widgets, 'ForegroundColor', style.TextColor);
 
+    widgets = findobj(uic, 'Style', 'checkbox');
+    set(widgets, 'BackgroundColor', style.FigureColor);
+    set(widgets, 'ForegroundColor', style.TextColor);
+    
     uip = findobj(obj.figure_Main, 'type', 'uipanel');
     set(uip, 'BackgroundColor', style.FigureColor);
     set(uip, 'ForegroundColor', style.TextColor);
@@ -6623,6 +6627,9 @@ function updateGUIStyle(obj, updateAxes)
         obj.updateChannelAxes(2);
         obj.updateAmplitude();
     end
+
+    obj.UpdateFileInfoBrowserReadState();
+    obj.FileInfoBrowser.ForegroundColor = style.FileInfoBrowser.TextColor;
 end
 
 function menu_ShowChannelAxes1_Callback(obj, varargin)
@@ -12517,6 +12524,7 @@ end
             arguments
                 lightOrDark {mustBeMember(lightOrDark, {'light', 'dark'})} = 'light'
             end
+
             MATLAB_grey = [0.94, 0.94, 0.94];
             MATLAB_black = [0.15, 0.15, 0.15];
             white = [1, 1, 1];
@@ -12538,6 +12546,9 @@ end
                     style.SoundEnvelopeColor = 'c';
                     style.EventPlotColor = 'k';
                     style.EventMarkerEdgeColor = 'k';
+                    style.FileInfoBrowser.FileReadColor = [1, 1, 1];
+                    style.FileInfoBrowser.FileUnreadColor = [1, 0.8, 0.8];
+                    style.FileInfoBrowser.TextColor = [0, 0, 0];
                 case 'dark'
                     style.FigureColor = 1-MATLAB_grey;
                     style.TextColor = 1-MATLAB_black;
@@ -12554,6 +12565,9 @@ end
                     style.SoundEnvelopeColor = [0, 0.7, 0.7];
                     style.EventPlotColor = 'w';
                     style.EventMarkerEdgeColor = 'w';
+                    style.FileInfoBrowser.FileReadColor = [0.2, 0.2, 0.2];
+                    style.FileInfoBrowser.FileUnreadColor = [0.2, 0.1, 0.1];
+                    style.FileInfoBrowser.TextColor = [1, 1, 1];
             end
             style.AxesSegmentsColor = 'none';
         end
@@ -13123,6 +13137,14 @@ end
             if isfield(defaults, 'DefaultChannelFunction') && any(strcmp(defaults.DefaultChannelFunction, {'Raw', 'raw'}))
                 defaults.DefaultChannelFunction = '(Raw)';
                 msgs{end+1} = 'The "raw" DefaultChannelFunction should be spelled "(Raw)".';
+            end
+            if isfield(defaults, 'FileReadColor')
+                msgs{end+1} = 'FileReadColor has been removed and will be ignored';
+                defaults = rmfield(defaults, 'FileReadColor');
+            end
+            if isfield(defaults, 'FileUnreadColor')
+                msgs{end+1} = 'FileUnreadColor has been removed and will be ignored';
+                defaults = rmfield(defaults, 'FileUnreadColor');
             end
 
 %             if length(defaults.PropertyColumnVisible > defaults.)
@@ -14181,7 +14203,7 @@ end
             end
 
             % Convert named colors to RGB triplets
-            colorFields = {'SegmentColor', 'MarkerColors', 'ProgressBarColor', 'FileReadColor', 'FileUnreadColor', 'AmplitudeColor', 'AmplitudeThresholdColor'};
+            colorFields = {'SegmentColor', 'MarkerColors', 'ProgressBarColor', 'AmplitudeColor', 'AmplitudeThresholdColor'};
             for fieldnum = 1:length(colorFields)
                 colorField = colorFields{fieldnum};
                 color = settings.(colorField);
