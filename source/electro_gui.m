@@ -8314,7 +8314,7 @@ function updateGUILayout(obj)
     %      Text   Sound  Sono   Ctrl   Seg    Amp    Ctrl   Chan1  Ctrl   Chan2
     %      1      2      3      4      5      6      7      8      9      10
     hs  = [0.018, 0.068, 0.263, 0.025, 0.056, 0.100, 0.025, 0.147, 0.025, 0.147];
-    mys = [0.000, 0.000, 0.005, 0.000, 0.000, 0.005, 0.000, 0.000, 0.000, 0.000];
+    mys = [0.000, 0.000, 0.025, 0.000, 0.000, 0.005, 0.000, 0.000, 0.000, 0.000];
 
     % Zero out any hidden components
     hs( [4, 7, 9]) =  hs([4, 7, 9]) * showAxesControls;
