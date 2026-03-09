@@ -1619,7 +1619,7 @@ classdef electro_gui < handle
                 obj.settings.SegmentColor, segmentUnselectColor, ...
                 obj.settings.AnnotationActiveColor, ...
                 obj.settings.AnnotationInactiveColor, ...
-                [-1, 1], fs, [], @obj.click_segment);
+                [-1, 1], fs, [], @obj.click_segment, obj.GUIStyle.TextColor);
 
             obj.MarkerHandles = gobjects().empty();
             obj.MarkerLabelHandles = gobjects().empty();
@@ -1642,7 +1642,7 @@ classdef electro_gui < handle
                     markerColor, markerUnselectColor, ...
                     obj.settings.AnnotationActiveColor, ...
                     obj.settings.AnnotationInactiveColor, ...
-                    [1, 3], fs, [], @obj.click_segment);
+                    [1, 3], fs, [], @obj.click_segment, obj.GUIStyle.TextColor);
             end
 
             % Warn user if annotation is out of range
@@ -6584,10 +6584,14 @@ function updateGUIStyle(obj, updateAxes)
 
     obj.figure_Main.Color = style.FigureColor;
 
-    ax = obj.getAllAxes();
-    set(ax, 'Color', style.AxesColor);
+    axs = obj.getAllAxes();
+    set(axs, 'Color', style.AxesColor);
     obj.axes_Sound.Color = style.AxesSoundColor;   % Normally black anyways
     obj.axes_Segments.Color = style.AxesSegmentsColor;
+    for ax = axs
+        ax.XAxis.Color = style.TextColor;
+        ax.YAxis.Color = style.TextColor;
+    end
 
     uic = findobj(obj.figure_Main, 'type', 'uicontrol');
 
@@ -6628,6 +6632,12 @@ function updateGUIStyle(obj, updateAxes)
         obj.updateChannelAxes(1);
         obj.updateChannelAxes(2);
         obj.updateAmplitude();
+    end
+
+    for h = [obj.SegmentLabelHandles, obj.MarkerLabelHandles]
+        if isvalid(h)
+            h.Color = style.TextColor;
+        end
     end
 
     obj.UpdateFileInfoBrowserReadState();
@@ -14489,7 +14499,7 @@ end
         function [annotationHandles, labelHandles] = CreateAnnotations(...
                 ax, times, titles, selects, selectColor, unselectColor, ...
                 activeOutlineColor, inactiveOutlineColor, yExtent, fs, activeIndex, ...
-                click_handler)
+                click_handler, textColor)
             % Create the annotations for a set of timed segments (used for plotting both
             % "segments" and "markers")
             arguments
@@ -14505,6 +14515,7 @@ end
                 fs
                 activeIndex = []
                 click_handler function_handle = @NOP
+                textColor = 'white'
             end
 
             % Convert times from samples to seconds
@@ -14530,7 +14541,12 @@ end
                 newAnnotation = patch(ax, [t1 t2 t2 t1], [y0 y0 y1 y1], faceColor, 'ContextMenu', ax.ContextMenu);
                 % Create a text graphics object right above the middle of the segment
                 % rectangle
-                newLabel = text(ax, (t1+t2)/2,y1,titles(annotationNum), 'AffectAutoLimits', 'off', 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'center', 'ContextMenu', ax.ContextMenu, 'Interpreter', 'none');
+                newLabel = text(ax, (t1+t2)/2,y1,titles(annotationNum), ...
+                    'AffectAutoLimits', 'off', ...
+                    'VerticalAlignment', 'bottom', ...
+                    'HorizontalAlignment', 'center', ...
+                    'ContextMenu', ax.ContextMenu, ...
+                    'Interpreter', 'none', 'Color', textColor);
 
                 % Set annotation style to inactive
                 if activeIndex == annotationNum
