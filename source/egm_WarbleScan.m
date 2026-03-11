@@ -58,6 +58,9 @@ for fileIdx = 1:length(filenums)
     hasAtLeastOneRequiredSegment = false;
     for k = 1:length(obj.dbase.SegmentTitles{filenum})
         segTitle = obj.dbase.SegmentTitles{filenum}{k};
+        if isempty(segTitle)
+            segTitle = '';
+        end
         if contains(warbleSegments, segTitle)
             % Found one!
             hasAtLeastOneRequiredSegment = true;

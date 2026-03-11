@@ -43,10 +43,13 @@ for fileIdx = 1:length(filenums)
         onset = segTimes(seg,1);
         offset = segTimes(seg,2);
         if offset>length(amp)
-            ampsegment = amp(onset:end);
-            auxampsegment = auxamp(onset:end);
+            ampsegment = amp(onset:end);            
         else
             ampsegment = amp(onset:offset);
+        end
+        if offset>length(auxamp)
+            auxampsegment = auxamp(onset:end);
+        else
             auxampsegment = auxamp(onset:offset);
         end
 
