@@ -126,7 +126,7 @@ settings.DefaultMix = [0 0 0];          % Include in the sound mix? Sound, top p
 settings.FilterSound = 1;               % Play filtered sound or raw sound?
 settings.PlayReverse = 0;               % Play sound in reverse?
 
-% Plugin parameters
+% PLUGIN PARAMETERS
 %   Each of these structs can contain a default parameter set for each plugin within its category
 %   The format is
 %   settings.DefaultXXXParams = struct with fields 'pluginName1', 'pluginName2', etc

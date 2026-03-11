@@ -13023,11 +13023,11 @@ end
             end
             if isfield(defaults, 'DefaultEventParameters')
                 defaults = rmfield(defaults, 'DefaultEventParameters');
-                msgs{end+1} = 'DefaultEventParameters has been removed and will be ignored. A new system of per-plugin defaults has replaced it - see defaults_template.';
+                msgs{end+1} = 'DefaultEventParameters has been renamed DefaultEventParams and changed to match the new per-plugin default system.';
             end
             if isfield(defaults, 'DefaultFunctionParameters')
                 defaults = rmfield(defaults, 'DefaultFunctionParameters');
-                msgs{end+1} = 'DefaultFunctionParameters has been removed and will be ignored. A new system of per-plugin defaults has replaced it - see defaults_template.';
+                msgs{end+1} = 'DefaultFunctionParameters has been renamed DefaultFunctionParams and changed to match the new per-plugin default system.';
             end
 
 %             if length(defaults.PropertyColumnVisible > defaults.)
