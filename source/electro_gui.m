@@ -30,6 +30,7 @@ classdef electro_gui < handle
         WarningCounts = struct()
         slackAgent SlackBot
         TooLong = false
+        transform    % Loaded transform for transformer
     end
     properties  % GUI styling
         GUIStyle = electro_gui.getGUIStyle()
@@ -266,6 +267,17 @@ classdef electro_gui < handle
         action_ClearExportTab
         menu_Help
         menu_BugReport
+        figure_Transformer
+        axes_Transformer matlab.graphics.axis.Axes
+        menu_ShowTransformer matlab.ui.container.Menu
+        panel_TransformerControls matlab.ui.container.Panel
+        popup_TransformerFunction matlab.ui.control.UIControl
+        text_TransformerFunction matlab.ui.control.UIControl
+        text_Transform matlab.ui.control.UIControl
+        push_LoadTransform matlab.ui.control.UIControl
+        popup_TransformerSpikeSource matlab.ui.control.UIControl
+        checkbox_ShowSegments matlab.ui.control.UIControl
+        checkbox_ShowMarkers matlab.ui.control.UIControl
         help_ControlsHelp
     end
     properties  % Graphics elements
@@ -544,6 +556,17 @@ classdef electro_gui < handle
             end
             obj.popup_EventDetector1.String = str;
             obj.popup_EventDetector2.String = str;
+
+            % Populate transformers menu
+            str = {'(None)'};
+            pluginNames = {obj.plugins.transformers.name};
+            for pluginIdx = 1:length(pluginNames)
+                pluginName = pluginNames{pluginIdx};
+                if ~strcmp(pluginName, 'Template')
+                    str{end+1} = pluginName;
+                end
+            end
+            obj.popup_TransformerFunction.String = str;
 
             % Populate defaults menu
             userList = cellfun(@(defaultsPath)regexp(defaultsPath, '(?<=defaults_).*(?=\.m)', 'match'), obj.defaults);
@@ -2209,6 +2232,18 @@ classdef electro_gui < handle
             filterIdx = find([obj.menu_Filter.Checked], 1);
             alg = obj.menu_Filter(filterIdx).Label;
         end
+        function selectedTransformer = getSelectedTransformer(obj)
+            % Return the name of the selected transformer
+            transformerOptionList = obj.popup_TransformerFunction.String;
+            transformerOptionListIndex = obj.popup_TransformerFunction.Value;
+            if transformerOptionListIndex == 1
+                % No transformer selected
+                selectedTransformer = '';
+            else
+                selectedTransformer = transformerOptionList{transformerOptionListIndex};
+            end
+        end
+
     end
     methods %% dbase methods
 
@@ -6146,6 +6181,7 @@ function figure_Main_Closerequest_Handler(obj, hObject, event)
         delete(obj.ExportWindow.fig);
     end
     delete(obj.figure_Main);
+    delete(obj.figure_Transformer);
 end
 
 function styleAxesTitle(obj, title, options)
@@ -6333,14 +6369,16 @@ function updateGUIStyle(obj)
     % Update GUI to match obj.GUIStyle struct
     style = obj.GUIStyle;
 
-    obj.figure_Main.Color = style.FigureColor;
+    figs = [obj.figure_Main, obj.figure_Transformer];
+
+    set(figs, 'Color', style.FigureColor);
 
     ax = findobj(obj.figure_Main, 'type', 'axes');
     set(ax, 'Color', style.AxesColor);
     obj.axes_Sound.Color = style.AxesSoundColor;   % Normally black anyways
     obj.axes_Segments.Color = style.AxesSegmentsColor;
 
-    uic = findobj(obj.figure_Main, 'type', 'uicontrol');
+    uic = findobj(figs, 'type', 'uicontrol');
 
     widgets = findobj(uic, 'Style', 'popup');
     set(widgets, 'BackgroundColor', style.PopupColor);
@@ -6358,7 +6396,11 @@ function updateGUIStyle(obj)
     set(widgets, 'BackgroundColor', style.FigureColor);
     set(widgets, 'ForegroundColor', style.TextColor);
 
-    uip = findobj(obj.figure_Main, 'type', 'uipanel');
+    widgets = findobj(uic, 'Style', 'checkbox');
+    set(widgets, 'BackgroundColor', style.FigureColor);
+    set(widgets, 'ForegroundColor', style.TextColor);
+    
+    uip = findobj(figs, 'type', 'uipanel');
     set(uip, 'BackgroundColor', style.FigureColor);
     set(uip, 'ForegroundColor', style.TextColor);
 
@@ -6371,6 +6413,31 @@ function updateGUIStyle(obj)
     end
 
 
+end
+
+function menu_ShowChannelAxes1_Callback(obj, varargin)
+  obj.menu_ShowChannelAxes1.Checked = ~obj.menu_ShowChannelAxes1.Checked;
+  obj.updateGUILayout();
+end
+function menu_ShowChannelAxes2_Callback(obj, varargin)
+  obj.menu_ShowChannelAxes2.Checked = ~obj.menu_ShowChannelAxes2.Checked;
+  obj.updateGUILayout();
+end
+function menu_ShowAxesControls_Callback(obj, varargin)
+  obj.menu_ShowAxesControls.Checked = ~obj.menu_ShowAxesControls.Checked;
+  obj.updateGUILayout();
+end
+function menu_ShowFilePanel_Callback(obj, varargin)
+  obj.menu_ShowFilePanel.Checked = ~obj.menu_ShowFilePanel.Checked;
+  obj.updateGUILayout();
+end
+function menu_ShowEventViewer_Callback(obj, varargin)
+  obj.menu_ShowEventViewer.Checked = ~obj.menu_ShowEventViewer.Checked;
+  obj.updateGUILayout();
+end
+function menu_ShowTransformer_Callback(obj, varargin)
+  obj.menu_ShowTransformer.Checked = electro_gui.isDataLoaded(obj.dbase) && ~obj.menu_ShowTransformer.Checked;
+  obj.updateGUILayout();
 end
 
 function setupGUI(obj)
@@ -6406,6 +6473,12 @@ function setupGUI(obj)
             'ScreenPixelsPerInchMode','manual',...
             'KeyPressFcn',blanks(0),...
             'KeyReleaseFcn',blanks(0));
+
+    obj.panel_TimeSeries = uipanel( ...
+        'Parent', obj.figure_Main, ...
+        'Units', 'normalized', ...
+        'BorderWidth', 0, ...
+        'Tag', 'panel_TimeSeries');
 
     obj.axes_Sound = axes(...
         'Parent',obj.figure_Main,...
@@ -7702,6 +7775,49 @@ function setupGUI(obj)
         'Label','Dark',...
         'Tag','menu_DarkTheme');
 
+    obj.menu_ShowHide = uimenu(...
+        'Parent', obj.menu_View, ...
+        'Label', "Show/Hide", ...
+        'Tag', 'menu_ShowHide'...
+        );
+        
+    obj.menu_ShowChannelAxes1 = uimenu(...
+        'Parent', obj.menu_ShowHide, ...
+        'Checked', true, ...
+        'Callback', @obj.menu_ShowChannelAxes1_Callback, ...
+        'Label', 'Show Channel Axes 1', ...
+        'Tag', 'menu_ShowChannelAxes1');
+    obj.menu_ShowChannelAxes2 = uimenu(...
+        'Parent', obj.menu_ShowHide, ...
+        'Checked', true, ...
+        'Callback', @obj.menu_ShowChannelAxes2_Callback, ...
+        'Label', 'Show Channel Axes 2', ...
+        'Tag', 'menu_ShowChannelAxes 2');
+    obj.menu_ShowAxesControls = uimenu(...
+        'Parent', obj.menu_ShowHide, ...
+        'Checked', true, ...
+        'Callback', @obj.menu_ShowAxesControls_Callback, ...
+        'Label', 'Show Axes Controls', ...
+        'Tag', 'menu_ShowAxesControls');
+    obj.menu_ShowFilePanel = uimenu(...
+        'Parent', obj.menu_ShowHide, ...
+        'Checked', true, ...
+        'Callback', @obj.menu_ShowFilePanel_Callback, ...
+        'Label', 'Show File Panel', ...
+        'Tag', 'menu_ShowFilePanel');
+    obj.menu_ShowEventViewer = uimenu(...
+        'Parent', obj.menu_ShowHide, ...
+        'Checked', true, ...
+        'Callback', @obj.menu_ShowEventViewer_Callback, ...
+        'Label', 'Show Event Viewer', ...
+        'Tag', 'menu_ShowEventViewer');
+    obj.menu_ShowTransformer = uimenu(...
+        'Parent', obj.menu_ShowHide, ...
+        'Checked', false, ...
+        'Callback', @obj.menu_ShowTransformer_Callback, ...
+        'Label', 'Show Transformer', ...
+        'Tag', 'menu_ShowTransformer');
+
     %% Playback menu
     obj.menu_Playback = uimenu(...
         'Parent',obj.figure_Main,...
@@ -8004,6 +8120,263 @@ function setupGUI(obj)
 
     %% Style GUI
     obj.updateGUIStyle();
+
+    %% Set up transformer window
+    obj.figure_Transformer = figure( ...
+        'Visible', 'off', ...
+        'IntegerHandle','off',...
+        'MenuBar','none',...
+        'ToolBar','none',...
+        'Name','Electro Gui - Transformer',...
+        'MenuBar','none',...
+        'ToolBar','none',...
+        'NumberTitle','off',...
+        'Icon',blanks(0),...
+        'CloseRequestFcn', @obj.clickTransformerXCallback);
+    obj.axes_Transformer = axes(...
+        'Parent', obj.figure_Transformer);
+    obj.panel_TransformerControls = uipanel(...
+        'Parent', obj.figure_Transformer);
+    obj.text_TransformerFunction = uicontrol(...
+        'Parent',obj.panel_TransformerControls,...
+        'Units','normalized',...
+        'HorizontalAlignment','right',...
+        'String',{'Transformer', 'function'},...
+        'Style','text',...
+        'Tag','text_TransformerFunction',...
+        'FontSize',8);
+    obj.popup_TransformerFunction = uicontrol(...
+        'Parent',obj.panel_TransformerControls,...
+        'Units','normalized',...
+        'String','(None)',...
+        'Style','popupmenu',...
+        'Value',1,...
+        'BackgroundColor',[1 1 1],...
+        'Callback',@obj.popup_TransformerFunction_Callback,...
+        'Tag','popup_TransformerFunction');
+    obj.push_LoadTransform = uicontrol(...
+        'Parent',obj.panel_TransformerControls,...
+        'Units','normalized',...
+        'String','Load transform',...
+        'Callback',@obj.push_LoadTransform_Callback,...
+        'Enable','on',...
+        'Tag','push_LoadTransform');
+    obj.text_Transform = uicontrol(...
+        'Parent',obj.panel_TransformerControls,...
+        'Units','normalized',...
+        'HorizontalAlignment','left',...
+        'String','Not loaded',...
+        'Style','text',...
+        'Tag','text_Transform',...
+        'FontSize',8);
+    obj.popup_TransformerSpikeSource = uicontrol(...
+        'Parent',obj.panel_TransformerControls,...
+        'Units','normalized',...
+        'String','(None)',...
+        'Style','popupmenu',...
+        'Value',1,...
+        'BackgroundColor',[1 1 1],...
+        'Callback',@obj.popup_TransformerSpikeSource_Callback,...
+        'Tag','popup_TransformerSpikeSource');
+    obj.checkbox_ShowSegments = uicontrol(...
+        obj.panel_TransformerControls, ...
+        "Units", 'normalized', ...
+        "Style", 'checkbox', ...
+        "Value", false, ...
+        "String", 'Plot segments', ...
+        "Callback", @obj.checkbox_ShowSegments_Callback, ...
+        'Tag', 'checkbox_ShowSegments');
+    obj.checkbox_ShowMarkers = uicontrol(...
+        obj.panel_TransformerControls, ...
+        "Units", 'normalized', ...
+        "Style", 'checkbox', ...
+        "Value", false, ...
+        "String", 'Plot markers', ...
+        "Callback", @obj.checkbox_ShowMarkers_Callback, ...
+        'Tag', 'checkbox_ShowMarkers');
+    
+    %% Lay out GUI
+    obj.updateGUILayout();
+end
+function updateGUILayout(obj)
+    showChannelAxes1 = obj.menu_ShowChannelAxes1.Checked;
+    showChannelAxes2 = obj.menu_ShowChannelAxes2.Checked;
+    showAxesControls = obj.menu_ShowAxesControls.Checked;
+    showFilePanel = obj.menu_ShowFilePanel.Checked;
+    showEventPanel = obj.menu_ShowEventViewer.Checked;
+
+    % obj.axes_Channel1.Visible = showChannelAxes1;
+    % obj.axes_Channel2.Visible = showChannelAxes1;
+    obj.panel_Channel1Controls.Visible = showAxesControls;
+    obj.panel_Channel2Controls.Visible = showAxesControls;
+    obj.panel_SoundControls.Visible = showAxesControls;
+    obj.panel_Files.Visible = showFilePanel;
+    obj.panel_Events.Visible = showEventPanel;
+
+    leftColumnX =  0.000;
+    leftColumnW =  0.725;
+    rightColumnX = 0.725;
+    rightColumnW = 0.270;
+    filesHeight =  0.549;
+    eventsHeight = 0.417;
+    filesY = 0.440;
+    eventsY = 0.011;
+    if ~showFilePanel
+        eventsHeight = eventsHeight + filesHeight;
+    end
+    if ~showEventPanel
+        filesY = eventsY;
+        filesHeight = eventsHeight + filesHeight;
+    end
+    if ~showFilePanel && ~showEventPanel
+        % Both right-hand panels hidden, expand data panel horizontally
+        leftColumnW = 1;
+    end
+
+    %      Text   Sound  Sono   Ctrl   Seg    Amp    Ctrl   Chan1  Ctrl   Chan2
+    %      1      2      3      4      5      6      7      8      9      10
+    hs  = [0.018, 0.068, 0.263, 0.025, 0.056, 0.100, 0.025, 0.147, 0.025, 0.147];
+    mys = [0.000, 0.000, 0.025, 0.000, 0.000, 0.005, 0.000, 0.000, 0.000, 0.000];
+
+    % Zero out any hidden components
+    hs( [4, 7, 9]) =  hs([4, 7, 9]) * showAxesControls;
+    mys([4, 7, 9]) = mys([4, 7, 9]) * showAxesControls;
+    hs( [7, 8]) =     hs([7, 8]) *    showChannelAxes1;
+    mys([7, 8]) =    mys([7, 8]) *    showChannelAxes1;
+    hs( [9, 10]) =    hs([9, 10]) *   showChannelAxes2;
+    mys([9, 10]) =   mys([9, 10]) *   showChannelAxes2;
+
+    % Compute initial y positions
+    ys  = 1 - cumsum([hs, 0] + [0, mys]);
+
+    % Fill whole height
+    ys = ys - ys(end);
+    totalHeight = ys(1) + hs(1);
+    hs = hs / totalHeight;
+    ys = ys / totalHeight;
+
+    alignedAxesXMargin = 0.018;
+    alignedAxesW = 1-2*alignedAxesXMargin;
+
+    controlPanelXMargin = alignedAxesXMargin;
+    controlPanelWidth = 1 - 2*controlPanelXMargin;
+
+    obj.panel_TimeSeries.Position = [leftColumnX, 0.010, leftColumnW, 0.990];
+    obj.panel_FileInfo.Position = [controlPanelXMargin, ys(1), controlPanelWidth, hs(1)];
+        obj.text_FileName.Position =            [0, 0, 0.4 1];
+        obj.text_DateAndTime.Position =         [0.6, 0, 0.4, 1];
+    obj.axes_Sound.Position =               [alignedAxesXMargin, ys(2), alignedAxesW, hs(2)];
+    obj.axes_Sound.InnerPosition = [alignedAxesXMargin, ys(2), alignedAxesW, hs(2)];
+    obj.axes_Sonogram.Position =            [alignedAxesXMargin, ys(3), alignedAxesW, hs(3)];
+    obj.axes_Sonogram.InnerPosition =       [alignedAxesXMargin, ys(3), alignedAxesW, hs(3)];
+    obj.panel_SoundControls.Position =      [controlPanelXMargin, ys(4), controlPanelWidth, hs(4)];
+
+        %      text   popup  text   edit   text   text   up     down   text   up     down   calc   seg
+        %      1      2      3      4      5      6      7      8      9      10     11     12     13
+        % Width of elements from left to right
+        ws =  [0.060, 0.150, 0.050, 0.055, 0.032, 0.029, 0.041, 0.041, 0.048, 0.041, 0.041, 0.067, 0.067];
+        % Spacing after elements
+        mxs = [0.005, 0.020, 0.005, 0.005, 0.020, 0.005, 0.000, 0.020, 0.005, 0.000, 0.020, 0.010, 0.020];
+        % X position of elements
+        xs = cumsum([0, ws + mxs]);
+        % Fill space
+        maxX = xs(end)-mxs(end);
+        ws = ws / maxX;
+        xs = xs / maxX;
+        ytext = 0.0;
+        htext = 0.8;
+
+        obj.text_SoundSource.Position =         [xs(1), ytext, ws(1), htext];
+        obj.popup_SoundSource.Position =        [xs(2), 0, ws(2), 1];
+        obj.text_TimeRange.Position =           [xs(3), ytext, ws(3), htext];
+        obj.edit_Timescale.Position =           [xs(4), 0, ws(4), 1];
+        obj.text_TimeScaleSecLabel.Position =   [xs(5), ytext, ws(5), htext];
+        obj.text_Offset.Position =              [xs(6), ytext, ws(6), htext];
+        obj.push_OffsetUp.Position =            [xs(7), 0, ws(7), 1];
+        obj.push_OffsetDown.Position =          [xs(8), 0, ws(8), 1];
+        obj.text_Brightness.Position =          [xs(9), ytext, ws(9), htext];
+        obj.push_BrightnessUp.Position =        [xs(10), 0, ws(10), 1];
+        obj.push_BrightnessDown.Position =      [xs(11), 0, ws(11), 1];
+        obj.push_Calculate.Position =           [xs(12), 0, ws(12), 1];
+        obj.push_Segment.Position =             [xs(13), 0, ws(13), 1];
+
+    obj.axes_Segments.Position =        [alignedAxesXMargin, ys(5), alignedAxesW, hs(5)];
+    obj.axes_Segments.InnerPosition =   [alignedAxesXMargin, ys(5), alignedAxesW, hs(5)];
+
+    obj.axes_Amplitude.Position =       [alignedAxesXMargin, ys(6), alignedAxesW, hs(6)];
+    obj.axes_Amplitude.InnerPosition =  [alignedAxesXMargin, ys(6), alignedAxesW, hs(6)];
+
+    obj.axes_Channel1.Position =        [alignedAxesXMargin, ys(8),  alignedAxesW, hs(8)];
+    obj.axes_Channel1.InnerPosition =   [alignedAxesXMargin, ys(8), alignedAxesW, hs(8)];
+    
+    obj.axes_Channel2.Position =        [alignedAxesXMargin ys(10), alignedAxesW, hs(10)];
+    obj.axes_Channel2.InnerPosition =   [alignedAxesXMargin ys(10) alignedAxesW, hs(10)];
+        
+    obj.panel_Channel1Controls.Position = [controlPanelXMargin, ys(7), controlPanelWidth, hs(7)];
+    obj.panel_Channel2Controls.Position = [controlPanelXMargin, ys(9), controlPanelWidth, hs(9)];
+   
+        %      Text   Chan   Text   Func   Text   Dtctr  Clear  Detect
+        %      1      2      3      4      5      6      7      8
+        ws =  [0.039, 0.169, 0.046, 0.123, 0.070, 0.108, 0.050, 0.050];
+        mxs = [0.002, 0.020, 0.002, 0.020, 0.002, 0.020, 0.002, 0.020];
+        xs = cumsum([0, ws+mxs]);
+        % Fill space
+        maxX = xs(end)-mxs(end);
+        ws = ws / maxX;
+        xs = xs / maxX;
+        obj.text_ChannelSource1.Position =      [xs(1), ytext, ws(1), htext];
+        obj.text_ChannelSource2.Position =      [xs(1), ytext, ws(1), htext];
+        obj.popup_Channel1.Position =           [xs(2), 0, ws(2), 1];    
+        obj.popup_Channel2.Position =           [xs(2), 0, ws(2), 1];
+        obj.text_ChannelFunction1.Position =    [xs(3), ytext, ws(3), htext];
+        obj.text_ChannelFunction2.Position =    [xs(3), ytext, ws(3), htext];
+        obj.popup_Function1.Position =          [xs(4), 0, ws(4), 1];
+        obj.popup_Function2.Position =          [xs(4), 0, ws(4), 1];
+        obj.text_EventDetector1.Position =      [xs(5), ytext, ws(5), htext];
+        obj.text_EventDetector2.Position =      [xs(5), 0, ws(5), htext];
+        obj.popup_EventDetector1.Position =     [xs(6), 0, ws(6), 1];
+        obj.popup_EventDetector2.Position =     [xs(6), 0, ws(6), 1];
+        obj.push_ClearEvents1.Position =        [xs(7), 0, ws(7), 1];
+        obj.push_ClearEvents2.Position =        [xs(7), 0, ws(7), 1];
+        obj.push_Detect1.Position =             [xs(8), 0, ws(8), 1];
+        obj.push_Detect2.Position =             [xs(8), 0, ws(8), 1];
+
+    obj.panel_Files.Position =              [rightColumnX, filesY, rightColumnW, filesHeight];
+        obj.push_PreviousFile.Position =        [0.025, 0.920, 0.100, 0.053];
+        obj.push_ShowFileInExplorer.Position =  [0.130, 0.920, 0.050, 0.053];
+        obj.push_NextFile.Position =            [0.185, 0.920, 0.100, 0.053];
+        obj.text_FileNumber.Position =          [0.290, 0.915, 0.062, 0.053];
+        obj.edit_FileNumber.Position =          [0.375, 0.920, 0.119, 0.053];
+        obj.text_TotalFileNumber.Position =     [0.505, 0.915, 0.136, 0.053];
+        obj.text_SortOrder.Position =           [0.609, 0.950, 0.187, 0.056];
+        obj.check_ReverseSort.Position =        [0.846, 0.920, 0.140, 0.053];
+        obj.popup_FileSortOrder.Position =      [0.613, 0.920, 0.222, 0.053];
+        obj.text_NotesLabel.Position =          [1.714, 1.471, 6.714, 1.059];
+        obj.edit_FileNotes.Position =           [0.104, 0.031, 0.865, 0.090];
+
+    obj.panel_Events.Position =             [rightColumnX, eventsY, rightColumnW, eventsHeight];
+        obj.axes_Events.Position =              [0.062, 0.063, 0.894, 0.778];
+        obj.text_AlignmentSource.Position =     [0.026, 0.955, 0.233, 0.048];
+        obj.text_WaveformSource.Position =      [0.621, 0.955, 0.233, 0.048];
+        obj.popup_EventListAlign.Position =     [0.029, 0.898, 0.553, 0.056];
+        obj.popup_EventListData.Position =      [0.626, 0.899, 0.319, 0.058];        
+
+    obj.figure_Transformer.Visible = obj.menu_ShowTransformer.Checked;
+    obj.axes_Transformer.Position =          [0.0, 0.0, 1.0, 0.9];
+    obj.panel_TransformerControls.Position = [0.0, 0.9, 1.0, 0.1];
+        ws = [0.12, 0.20, 0.20, 0.25, 0.20, 0.20];
+        ms = [0.01, 0.03, 0.03, 0.03, 0.03, 0.03];
+        xs = cumsum([0, ws + ms]);
+        maxXs = xs(end-1) + ws(end);
+        xs = xs / maxXs;
+        ws = ws / maxXs;
+        obj.text_TransformerFunction.Position =     [xs(1), 0, ws(1), 1];
+        obj.popup_TransformerFunction.Position =    [xs(2), 0, ws(2), 1];
+        obj.push_LoadTransform.Position =           [xs(3), 0, ws(3), 1];
+        obj.text_Transform.Position =               [xs(4), 0, ws(4), 1];
+        obj.popup_TransformerSpikeSource.Position = [xs(5), 0, ws(5), 1];
+        obj.checkbox_ShowSegments.Position =        [xs(6), 0.0, ws(6), 0.5];
+        obj.checkbox_ShowMarkers.Position =         [xs(6), 0.5, ws(6), 0.5];
 end
 function createExportControlPanel(obj)
     if isfield(obj.ExportControlPanel, 'fig')
@@ -10488,6 +10861,44 @@ end
 
         end
 
+        function popup_TransformerFunction_Callback(obj, varargin)
+            obj.updateTransformerDisplay();
+        end
+        function push_LoadTransform_Callback(obj, varargin)
+            transformer = obj.getSelectedTransformer();
+            if isempty(transformer)
+                warndlg('Please choose a transformer function before selecting a transform');
+                return;
+            end
+            transformPath = uigetfile('*.m', sprintf('Select a saved transform for transformer %s', transformer));
+            if isempty(transformPath)
+                return;
+            end
+            obj.transform = load(transformPath, 'transform');
+            obj.updateTransformerDisplay();
+        end
+        function popup_TransformerSpikeSource_Callback(obj, varargin)
+            obj.updateTransformerDisplay();
+        end
+        function checkbox_ShowSegments_Callback(obj, varargin)
+            obj.updateTransformerDisplay();
+        end
+        function checkbox_ShowMarkers_Callback(obj, varargin)
+            obj.updateTransformerDisplay();
+        end
+        function updateTransformerDisplay(obj)
+            transformer = obj.getSelectedTransformer();
+            electro_gui.eg_runPlugin(obj.plugins.transformers, transformer, ...
+                obj.axes_Sonogram, obj.sound(sampleLims(1):sampleLims(2)), fs, ...
+                obj.settings.TransformerParams);
+            
+        end
+
+        function clickTransformerXCallback(obj, varargin)
+            obj.menu_ShowTransformer.Checked = false;
+            obj.updateGUILayout();
+        end
+
         % --- Executes on selection change in popup_EventListData.
         function popup_EventListData_Callback(obj, hObject, event)
 
@@ -12855,7 +13266,11 @@ end
             % Find all event feature algorithms
             plugins.eventFeatures = electro_gui.findPlugins(sourceDir, 'ega');
             % Find all loaders
-            plugins.loaders= electro_gui.findPlugins(sourceDir, 'egl');
+            plugins.loaders = electro_gui.findPlugins(sourceDir, 'egl');
+            % Find all figure templates
+            plugins.templates = electro_gui.findPlugins(sourceDir, 'egt');
+            % Find all transformers
+            plugins.transformers = electro_gui.findPlugins(sourceDir, 'egx');
         end
         function createNewPlugin(pluginType)
             sourceDir = fileparts(mfilename("fullpath"));
@@ -12922,6 +13337,7 @@ end
             %   - eventDetectors
             %   - eventFeatures
             %   - loaders
+            %   - transformers
             % name: The name of the plugin, without the 'eg*_' prefix, and without the
             %   file extension.
             % varargin: Arbitrary number of input arguments for the plugin
