@@ -87,7 +87,7 @@ for r=1:1000
     ratemin=[ratemin min(fd)];ratemax=[ratemax max(fd)];
 %     fds=smooth(fd,s)';
     fds=smooth(fd,s);
-    [pks,locs,w,p] = findpeaks(fds,'MinPeakDistance',5);
+    [pks,locs,w,p] = findpeaks_alt(fds,'MinPeakDistance',5);
     fprom = [fprom;p];
     fdall = [fdall fds];
 %     if r>990
@@ -97,8 +97,8 @@ for r=1:1000
     moddepths = [moddepths (max(fds)-min(fds))/(max(fds)+min(fds))];  
 end
 % figure();plot(rds);
-[pks,indpks] = findpeaks(rds,'MinPeakDistance',5);
-[trofs,indtrofs] = findpeaks(-rds,'MinPeakDistance',5);
+[pks,indpks] = findpeaks_alt(rds,'MinPeakDistance',5);
+[trofs,indtrofs] = findpeaks_alt(-rds,'MinPeakDistance',5);
 fdmean = mean(fdall);
 fdstd = std(fdall);
 thresh = fdmean + 2*fdstd;
@@ -118,8 +118,8 @@ trigInfo.rate_trofs = -trofs((find(-trofs<prctile(ratemins,5))));
 % trigInfo.ntrofs = length(find(-trofs<threshLo));
 % trigInfo.npeakss = length(find(pks>prctile(threshs,95)));
 % trigInfo.ntrofss = length(find(-trofs<prctile(threshsLo,5)));
-% [pks,locs,w,p] = findpeaks(rds,'MinPeakDistance',5,'MinPeakProminence',prctile(fprom,95));
-[pks,locs,w,p] = findpeaks(rds,'MinPeakDistance',5);
+% [pks,locs,w,p] = findpeaks_alt(rds,'MinPeakDistance',5,'MinPeakProminence',prctile(fprom,95));
+[pks,locs,w,p] = findpeaks_alt(rds,'MinPeakDistance',5);
 trigInfo.npeaksProm = length(pks);
 trigInfo.meanProm = mean(p(pks>prctile(ratemaxs,95)));
 end

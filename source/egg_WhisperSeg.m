@@ -33,57 +33,78 @@ params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 % Extract the parameters chosen
 [host, port, min_frequency, spec_time_step, min_segment_length, tolerance, eps, time_per_frame_for_scoring, num_trials, network_name, use_labels] = params.Values{:};
 
-if ischar(data) && strcmp(data, 'list')
-    % If only one argument - 'list' - is passed, query the service for what
-    % the available models are.
-    clear segmentTimes segmentTitles
-    service_url = sprintf('http://%s:%s/models', host, port);
-    fprintf('Attempting to get a list of available trained WhisperSeg models host %s at port %s...\n\n', host, port)
-    try
-        options = weboptions('RequestMethod', 'POST', 'MediaType', 'application/json', 'Timeout', 5);
-        modelInfo = webwrite(service_url, '', options);
-        modelNames = modelInfo.model_names;
-        modelTimes = modelInfo.model_timestamps;
-        fprintf('Available models found:\n')
-        for k = 1:length(modelNames)
-            fprintf('\t%s (%s)\n', modelNames{k}, modelTimes{k});
+if ischar(data)
+    if strcmp(data, 'list')
+        % If only one argument - 'list' - is passed, query the service for what
+        % the available models are.
+        clear segmentTimes segmentTitles
+        service_url = sprintf('http://%s:%s/models', host, port);
+        fprintf('Attempting to get a list of available trained WhisperSeg models host %s at port %s...\n\n', host, port)
+        try
+            options = weboptions('RequestMethod', 'POST', 'MediaType', 'application/json', 'Timeout', 5);
+            modelInfo = webwrite(service_url, '', options);
+            modelNames = modelInfo.model_names;
+            modelTimes = modelInfo.model_timestamps;
+            fprintf('Available models found:\n')
+            for k = 1:length(modelNames)
+                fprintf('\t%s (%s)\n', modelNames{k}, modelTimes{k});
+            end
+            fprintf('\nSet your WhisperSeg parameters in electro_gui accordingly.\n')
+        catch ME
+            % Request failed
+            if strcmp(ME.identifier, 'MATLAB:webservices:UnknownHost')
+                errordlg('Whisper seg web service not available at: %s', service_url);
+                error('Whisper seg web service not available at: %s\n', service_url);
+            else
+                % Something else went wrong
+                rethrow(ME);
+            end
         end
-        fprintf('\nSet your WhisperSeg parameters in electro_gui accordingly.\n')
-    catch ME
-        % Request failed
-        if strcmp(ME.identifier, 'MATLAB:webservices:UnknownHost')
-            errordlg('Whisper seg web service not available at: %s', service_url);
-            error('Whisper seg web service not available at: %s\n', service_url);
-        else
-            % Something else went wrong
-            rethrow(ME);
+        return
+    elseif strcmp(data, 'update')
+        % If only one argument - 'list' - is passed, request that the service
+        % look for new models and update
+        clear segmentTimes segmentTitles
+        service_url = sprintf('http://%s:%s/update', host, port);
+        fprintf('Requesting that the WhisperSeg service look for new models in its model folder and load them. Host is at %s at port %s...\n\n', host, port)
+        try
+            options = weboptions('RequestMethod', 'POST', 'MediaType', 'application/json', 'Timeout', 5);
+            response = webwrite(service_url, '', options);
+            fprintf('Response from service:\n');
+            fprintf('\n\n%s\n\n', response);
+        catch ME
+            % Request failed
+            if strcmp(ME.identifier, 'MATLAB:webservices:UnknownHost')
+                errordlg('Whisper seg web service not available at: %s', service_url);
+                error('Whisper seg web service not available at: %s\n', service_url);
+            else
+                % Something else went wrong
+                rethrow(ME);
+            end
         end
+        return
+    elseif strcmp(data, 'status')
+        % If only one argument - 'status' - is passed, query the service
+        %   for the server status
+        clear segmentTimes segmentTitles
+        service_url = sprintf('http://%s:%s/status', host, port);
+        fprintf('Attempting to get WhisperSeg server status at host %s at port %s...\n\n', host, port)
+        try
+            options = weboptions('RequestMethod', 'POST', 'MediaType', 'application/json', 'Timeout', 5);
+            status = webwrite(service_url, '', options);
+            fprintf(status)
+        catch ME
+            % Request failed
+            if strcmp(ME.identifier, 'MATLAB:webservices:UnknownHost')
+                errordlg('Whisper seg web service not available at: %s', service_url);
+                error('Whisper seg web service not available at: %s\n', service_url);
+            else
+                % Something else went wrong
+                rethrow(ME);
+            end
+        end
+        return
     end
-    return
-end
-
-if ischar(data) && strcmp(data, 'update')
-    % If only one argument - 'list' - is passed, request that the service
-    % look for new models and update
-    clear segmentTimes segmentTitles
-    service_url = sprintf('http://%s:%s/update', host, port);
-    fprintf('Requesting that the WhisperSeg service look for new models in its model folder and load them. Host is at %s at port %s...\n\n', host, port)
-    try
-        options = weboptions('RequestMethod', 'POST', 'MediaType', 'application/json', 'Timeout', 5);
-        response = webwrite(service_url, '', options);
-        fprintf('Response from service:\n');
-        fprintf('\n\n%s\n\n', response);
-    catch ME
-        % Request failed
-        if strcmp(ME.identifier, 'MATLAB:webservices:UnknownHost')
-            errordlg('Whisper seg web service not available at: %s', service_url);
-            error('Whisper seg web service not available at: %s\n', service_url);
-        else
-            % Something else went wrong
-            rethrow(ME);
-        end
-    end
-    return
 end
 
 % Convert numerical parameters from strings to numbers
@@ -142,6 +163,10 @@ try
     if isfield(response, 'message') && ~isempty(response.message) && ~strcmp(response.message, 'Success')
         % If WhisperSeg sent a message, display it in alert and command window
         fprintf('\nMessage from WhisperSeg server... \n\n%s\n\n ...message end\n\n.', response.message)
+    end
+    if isempty(segmentTimes)
+        % Make sure empty array is 0x2
+        segmentTimes = zeros(0, 2);
     end
 catch ME
     % Request failed

@@ -3,14 +3,19 @@ function settings = defaults_template(settings)
 
 % GENERAL SETTINGS
 settings.TooLong = 400000000;            % Number of points for a file to be considered too long for loading automatically
-settings.FileString = '*chan%d.nc';      % File search string; must include a string formatting expression to handle an integer channel #, such as %02d for integers zero-padded to 2 digits, or %d for unpadded integers.handles.DefaultFileLoader = 'Intan_Bin'; % Default file loader. Choose from egl_* files.
-settings.DefaultFileLoader = 'Intan_Nc'; % Default file loader. Choose from egl_* files.
+settings.FileString = '*chan%d.nc';      % File search string; must include a string formatting expression to handle an integer channel #, 
+                                         %      such as %02d for integers zero-padded to 2 digits, or %d for unpadded integers
+settings.DefaultFileLoader = 'Intan_Nc'; % Default file loader. Choose from egl_* files, may also be a 1xC array of loaders, one per channel
 settings.DefaultChannelNumber = 20;      % Default number of channels
 settings.QuoteFile = 'quotes.txt';       % File to get startup quotes from
 settings.IncludeDocumentation = true;    % Include field documentation in dbase? This adds a little size to the dbase file.
 settings.CurrentFile = 1;                % File number to start at
-settings.DefaultChannelFs = NaN;         % Default sampling rate for channels. Must be either a single sampling rate which will apply to all channels, or a 1xC list of sampling rates, one per channel. 
-                                         % This will override the sampling rate loaded from files, unless a value is NaN, in which the loaded  sampling rate will be used.
+settings.DefaultChannelFs = NaN;         % Default sampling rate for channels. Must be either a single sampling rate which will apply to 
+                                         %      all channels, or a 1xC list of sampling rates, one per channel. 
+                                         %      This will override the sampling rate loaded from files, unless a value is NaN, in which 
+                                         %      the loaded  sampling rate will be used.
+settings.IntanRHDChannelTypes = {};
+settings.IntanRHDChannelNumbers = {};
 
 % UNDO/REDO SETTINGS
 settings.UndoEnabled = true;             % Enable control-z for undo and control-y or control-shift-z for redo - this adds some overhead to operations.
@@ -26,8 +31,6 @@ settings.PropertyColumnVisible = logical.empty(); % [true, true, false, true]; %
 settings.FileSortMethod = 'File number';    % Default file sorting method - one of {'File number', 'Random', 'Property', 'Read status'}
 settings.FileSortPropertyName = '';         % Default property to sort by if FileSortMethod is 'Property'
 settings.FileSortReversed = false;
-settings.FileReadColor = [1, 1, 1];
-settings.FileUnreadColor = [1, 0.8, 0.8];
 settings.ShowFileNameColumn = false;        % Display the file name in the file info browser by default? File browser scrolls slightly faster if this is false.
 settings.FileSortCustomExpression = '';     % Custom file sorting expression
 
@@ -36,6 +39,10 @@ settings.EnableFileCaching = true;      % Enable file caching - electrogui will 
 settings.BackwardFileCacheSize = 2;     % Number of files to load before the current file in case user goes backwards
 settings.ForwardFileCacheSize = 4;      % Number of files to load after the current file in case user goes forwards
 settings.ParallelPoolTimeout = 90;      % Number of minutes before parallel pool shuts itself off
+
+% BUG REPORTING
+settings.SlackAuthFile = '';                                    % Path to file containing a slack authentication token so the bug reporting function can send a message to a slack channel
+settings.SlackBugReportChannel = '#bug-reports';                % Slack channel to send bug reports to
 
 % DBASE SETTINGS
 settings.IncludeDocumentation = true;                 % Include documentation in saved dbase?
@@ -59,6 +66,7 @@ settings.OverlayTop = 0;                    % Overlay the top plot over the sono
 settings.OverlayBottom = 0;                 % Overlay the bottom plot over the sonogram?
 settings.SoundChannel = 0;                  % Channel number to use as sound
 settings.SoundExpression = '';              % An expression to use to create a derived sound channel
+settings.SoundStereoChannel = 1;            % Channel to select from the audio file to load, if there are multiple
 
 % AMPLITUDE SETTINGS
 settings.DefaultFilter = 'BandPass860to8600'; % Filter to use for calculating sound amplitudes. Choose from egf_* files.
@@ -74,14 +82,14 @@ settings.AmplitudeAutoThreshold = 1;        % Should the threshold for segmentat
 settings.DefaultSegmenter = 'fast_DA_segmenter'; % Algorithm to use for segmentation. Choose from egg_* files.
 settings.AutoSegment = 1;                   % Automatically segment when a new file is loaded or a different threshold is chosen?
 settings.ValidSegmentCharacters = num2cell('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%&*(){}[]_');  % Allowed characters for segment titles
-settings.SegmentSelectColor = 'r';
-settings.SegmentUnSelectColor = [0.7, 0.5, 0.5];
-settings.MarkerSelectColor = 'b';
-settings.MarkerUnSelectColor = [0.5, 0.5, 0.7];
-settings.SegmentActiveColor = 'y';
-settings.MarkerActiveColor = 'g';
-settings.SegmentInactiveColor = 'k';
-settings.MarkerInactiveColor = 'k';
+settings.SegmentColor = 'r';
+settings.MarkerColors = {'b'};              % A cell array of one or more marker colors
+settings.MarkerTypes = {'Marker'};          % A cell array of one or more marker types
+settings.AnnotationActiveColor = 'w';
+settings.AnnotationInactiveColor = 'k';
+settings.CurrentMarkerTypeIdx = 1;
+settings.AutoIncrementActiveAnnotation = true;
+
 settings.CurrentThreshold = inf;
 settings.ActiveSegmentNum = [];
 settings.ActiveMarkerNum = [];
@@ -123,9 +131,8 @@ settings.PlayReverse = 0; % Play sound in reverse?
 
 % Plugin parameters
 blankParams = struct('Names', {{}}, 'Values', {{}});
-settings.ChannelAxesEventParams = {blankParams, blankParams};
-settings.ChannelAxesFunctionParams = {blankParams, blankParams};
-settings.ChannelAxesEventParams = {blankParams, blankParams};
+settings.DefaultEventParameters = containers.Map();     % dictionary mapping event detector names to default parameters.  If using R2022 or later, this can be changed to the newer dictionary()
+settings.DefaultFunctionParameters = containers.Map();  % dictionary mapping filter names to default parameters.  If using R2022 or later, this can be changed to the newer dictionary()
 settings.FilterParams = blankParams;
 settings.SegmenterParams = blankParams;
 settings.SonogramParams = blankParams;

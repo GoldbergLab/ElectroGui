@@ -42,11 +42,12 @@ def readIntanNCFile(path):
         data[field] = dataset.variables[field][:]
     return data
 
-path = sys.argv[1]
-data = readIntanNCFile(path)
-html = formatHTML(resource_path('viewTemplate.html'), path=path, **data);
+if __name__ == "__main__":
+    path = sys.argv[1]
+    data = readIntanNCFile(path)
+    html = formatHTML(resource_path('viewTemplate.html'), path=path, **data);
 
-with tempfile.NamedTemporaryFile('w+', delete=False, suffix='.html') as f:
-    url = 'file://' + f.name
-    f.write(html)
-    webbrowser.open(url)
+    with tempfile.NamedTemporaryFile('w+', delete=False, suffix='.html') as f:
+        url = 'file://' + f.name
+        f.write(html)
+        webbrowser.open(url)

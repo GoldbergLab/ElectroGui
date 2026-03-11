@@ -57,3 +57,5 @@ end
 
 
 segs = round(f);
+% Add blank segment names
+segNames = repmat({''}, [1, size(segs, 1)]);
