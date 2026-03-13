@@ -8362,10 +8362,10 @@ function updateGUILayout(obj)
 
     obj.panel_TimeSeries.Position = [leftColumnX, 0.010, leftColumnW, 0.990];
     obj.panel_FileInfo.Position = [controlPanelXMargin, ys(1), controlPanelWidth, hs(1)];
-        obj.text_FileName.Position =            [0, 0, 0.4 1];
-        obj.text_DateAndTime.Position =         [0.6, 0, 0.4, 1];
+        obj.text_FileName.Position =            [0, 0, 1, 1];
+        obj.text_DateAndTime.Position =         [0.8, 0, 0.2, 1];
     obj.axes_Sound.Position =               [alignedAxesXMargin, ys(2), alignedAxesW, hs(2)];
-    obj.axes_Sound.InnerPosition = [alignedAxesXMargin, ys(2), alignedAxesW, hs(2)];
+    obj.axes_Sound.InnerPosition =          [alignedAxesXMargin, ys(2), alignedAxesW, hs(2)];
     obj.axes_Sonogram.Position =            [alignedAxesXMargin, ys(3), alignedAxesW, hs(3)];
     obj.axes_Sonogram.InnerPosition =       [alignedAxesXMargin, ys(3), alignedAxesW, hs(3)];
     obj.panel_SoundControls.Position =      [controlPanelXMargin, ys(4), controlPanelWidth, hs(4)];
