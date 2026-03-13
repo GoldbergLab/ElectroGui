@@ -1,11 +1,9 @@
-function [transformed_data, transformed_fs, labels] = egx_Template(data, fs, transform, params)
+function [transformed_data, transformed_fs, labels] = egx_Template(data, fs, params)
 % Template for creating ElectroGui transformer functions
 %
 % Arguments:
 %   data = an arbirary data type to be transformed, or the string 'params'
 %   fs = sampling rate opf the data in Hz
-%   transform = some kind of data defining the transform to be done, such
-%       as a PCA coefficients matrix, or trained ML weights.
 %   params = optionally, transform parameters in the form of a struct with 
 %       the following fields:
 %        - Name => a cell array of parameter names

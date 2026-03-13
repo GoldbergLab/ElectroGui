@@ -1,16 +1,9 @@
-function [transformed_data, transformed_fs, labels] = egx_SpectroPCA(data, fs, transform, params)
+function [transformed_data, transformed_fs, labels] = egx_SpectroPCA(data, fs, params)
 % Transform data using a spectrogram PCA
 %
 % Arguments:
 %   data = Nx1 audio data
 %   fs = sampling rate opf the audio in Hz
-%   transform = a structure representing a PCA transform with the fields
-%       coeff       (PCA coefficients)
-%       mu          (PCA means)
-%       flim        (frequency limits used when creating the spectrograms)
-%       fs          (sampling rate used when creating the spectrograms)
-%       PCA_window  (size in time of spectrogram chunk per PCA observation)
-%       PCA_step    (time slide distance of PCA chunk window)
 %   params = transform parameters in the form of a struct with 
 %       the following fields:
 %        - Name => a cell array of parameter names
@@ -30,8 +23,8 @@ labels = {'PCA axis 1', 'PCA axis 2', 'PCA axis 3'};
 
 % Define default parameter values here (you can add/change/remove 
 %   parameters depending on what your transformer needs)
-defaultParams.Names = {'NFFT', 'windowSize (must be >= NFFT)', 'Frequency limits (Hz)',  'Number of spectrogram time points', 'Number of dimensions to return'};
-defaultParams.Values = {'512', '512',                          '[50, 7500]',             '1000',                              '3'};
+defaultParams.Names = {'NFFT', 'windowSize (must be >= NFFT)', 'Frequency limits (Hz)',  'Number of spectrogram time points', 'Number of dimensions to return', 'Transform path'};
+defaultParams.Values = {'512', '512',                          '[50, 7500]',             '1000',                              '3',                              './pca_transform.mat'};
 
 % If the character array 'params' is passed instead of a data array, simply
 %   return the 
@@ -50,15 +43,19 @@ params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 % Extract the parameters provided
 % NFFT = str2double(params.Values{1});
 % spectrogram_window = str2double(params.Values{2});
-flim = str2double(params.Values{3});
+flim = eval(params.Values{3});
 nT = str2double(params.Values{4});
 nDims = str2double(params.Values{5});
+transformPath = params.Values{6};
+
+% Load transform
+load(transformPath, 'transform');
 
 % Make sure settings are compatible with loaded transform
 if transform.fs ~= fs
-    error('Sampling rate must match the sampling rate used in the original transform')
+    error('Sampling rate (%f) must match the sampling rate used in the original transform (%f)', fs, transform.fs);
 end
-if transform.flim ~= flim
+if any(transform.flim ~= flim)
     error('flim must match the frequency limits used in the original transform')
 end
 
@@ -78,4 +75,4 @@ for t = 1:transform.PCA_step:(nT-transform.PCA_window)
 end
 
 transformed_data = (vecs - transform.mu) * transform.coeff(:, 1:nDims);
-transformed_fs = fs * length(data) / (nT * PCA_step);
+transformed_fs = fs * length(data) / (nT * transform.PCA_step);

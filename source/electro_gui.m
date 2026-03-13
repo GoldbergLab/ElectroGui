@@ -30,7 +30,8 @@ classdef electro_gui < handle
         WarningCounts = struct()
         slackAgent SlackBot
         TooLong = false
-        transform    % Loaded transform for transformer
+        transform struct   % Loaded transform for transformer
+        transformed_fs double
     end
     properties  % GUI styling
         GUIStyle = electro_gui.getGUIStyle()
@@ -286,7 +287,7 @@ classdef electro_gui < handle
         popup_TransformerFunction matlab.ui.control.UIControl
         text_TransformerFunction matlab.ui.control.UIControl
         text_Transform matlab.ui.control.UIControl
-        push_LoadTransform matlab.ui.control.UIControl
+        push_TransformParams matlab.ui.control.UIControl
         popup_TransformerSpikeSource matlab.ui.control.UIControl
         checkbox_ShowSegments matlab.ui.control.UIControl
         checkbox_ShowMarkers matlab.ui.control.UIControl
@@ -313,6 +314,7 @@ classdef electro_gui < handle
         EventHandles = {{}, {}};
         ActiveEventCursors matlab.graphics.Graphics
         SoundEnvelope matlab.graphics.Graphics
+        TransformedDataHandles struct = struct('points', matlab.graphics.Graphics.empty(), 'lines', matlab.graphics.Graphics.empty())
     end
     properties  % Graphics info
         Colormap double
@@ -467,7 +469,8 @@ classdef electro_gui < handle
                   obj.axes_Segments, ...
                   obj.axes_Sonogram, ...
                   obj.axes_Sound, ...
-                  obj.axes_Events
+                  obj.axes_Events, ...
+                  obj.axes_Transformer
                   ];
         end
         function updateGUIControls(obj)
@@ -2279,7 +2282,30 @@ classdef electro_gui < handle
                 selectedTransformer = transformerOptionList{transformerOptionListIndex};
             end
         end
+        function transformerParameters = getTransformerParameters(obj, transformerName)
+            % Get transformer parameters. If they don't exist, create and store them.
+            arguments
+                obj electro_gui
+                transformerName = obj.getSelectedTransformer();
+            end
 
+            if isempty(transformerName)
+                % No transformer selected
+                transformerParameters = electro_gui.createEmptyPluginParams();
+                return
+            end
+            defaultTransformerParameters = electro_gui.eg_runPlugin(obj.plugins.transformers, transformerName, 'params');
+            if isfield(obj.settings.DefaultTransformerParams, transformerName)
+                transformerParameters = obj.settings.DefaultTransformerParams.(transformerName);
+            else
+                % This transformer  does not have an assigned default parameter - get it from the plugin
+                transformerParameters = electro_gui.createEmptyPluginParams();
+            end
+            % Merge defaults into selected parameters to make sure its a complete set of parameters
+            transformerParameters = electro_gui.applyDefaultPluginParams(transformerParameters, defaultTransformerParameters);
+            % Store for next time
+            obj.settings.DefaultTransformerParams.(transformerName) = transformerParameters;
+        end
     end
     methods %% dbase methods
 
@@ -2590,6 +2616,7 @@ function progress_play(obj, wav)
     while isplaying(ap)
         t = (slim(1) + ap.CurrentSample - 1) / obj.dbase.Fs;
         obj.setCursorPosition(t);
+        obj.updateTransformerCursor(t);
         drawnow;
     end
     stop(ap);
@@ -2827,6 +2854,8 @@ function LoadFile(obj, showWaitBar)
 
     obj.updateTimescaleView();
 
+    obj.updateTransformerDisplay();
+
     if showWaitBar
         progressBar.Progress = 1;
         delete(progressBar);
@@ -2904,7 +2933,12 @@ function [channelData, channelSamplingRate, channelLabels, timestamp] = loadChan
         channelData = rawChannelData;
     else
         % Filter data
-        [channelData, channelLabels] = electro_gui.eg_runPlugin(obj.plugins.filters, filterName, rawChannelData, channelSamplingRate, filterParams);
+        [channelData, channelLabels] = electro_gui.eg_runPlugin( ...
+            obj.plugins.filters, ...
+            filterName, ...
+            rawChannelData, ...
+            channelSamplingRate, ...
+            filterParams);
 
         % Resample data? This seems bad.
         if length(channelData) < length(rawChannelData)
@@ -6679,6 +6713,7 @@ function updateGUIStyle(obj, updateAxes)
         obj.updateChannelAxes(1);
         obj.updateChannelAxes(2);
         obj.updateAmplitude();
+        obj.updateTransformerDisplay();
     end
 
     for h = [obj.SegmentLabelHandles, obj.MarkerLabelHandles]
@@ -6714,6 +6749,7 @@ end
 function menu_ShowTransformer_Callback(obj, varargin)
   obj.menu_ShowTransformer.Checked = electro_gui.isDataLoaded(obj.dbase) && ~obj.menu_ShowTransformer.Checked;
   obj.updateGUILayout();
+  obj.updateTransformerDisplay();
 end
 
 function setupGUI(obj)
@@ -8386,13 +8422,13 @@ function setupGUI(obj)
         'BackgroundColor',[1 1 1],...
         'Callback',@obj.popup_TransformerFunction_Callback,...
         'Tag','popup_TransformerFunction');
-    obj.push_LoadTransform = uicontrol(...
+    obj.push_TransformParams = uicontrol(...
         'Parent',obj.panel_TransformerControls,...
         'Units','normalized',...
         'String','Load transform',...
-        'Callback',@obj.push_LoadTransform_Callback,...
+        'Callback',@obj.push_TransformParams_Callback,...
         'Enable','on',...
-        'Tag','push_LoadTransform');
+        'Tag','push_TransformParams');
     obj.text_Transform = uicontrol(...
         'Parent',obj.panel_TransformerControls,...
         'Units','normalized',...
@@ -8604,7 +8640,7 @@ function updateGUILayout(obj)
         ws = ws / maxXs;
         obj.text_TransformerFunction.Position =     [xs(1), 0, ws(1), 1];
         obj.popup_TransformerFunction.Position =    [xs(2), 0, ws(2), 1];
-        obj.push_LoadTransform.Position =           [xs(3), 0, ws(3), 1];
+        obj.push_TransformParams.Position =         [xs(3), 0, ws(3), 1];
         obj.text_Transform.Position =               [xs(4), 0, ws(4), 1];
         obj.popup_TransformerSpikeSource.Position = [xs(5), 0, ws(5), 1];
         obj.checkbox_ShowSegments.Position =        [xs(6), 0.0, ws(6), 0.5];
@@ -10141,6 +10177,7 @@ end
                     end
 
                     obj.setCursorPosition(t, cursor_axes);
+                    obj.updateTransformerCursor(t);
                 end
             else
                 if ~isempty(obj.Cursors)
@@ -10148,7 +10185,6 @@ end
                     obj.Cursors = gobjects().empty;
                 end
             end
-
         end
         function setCursorPosition(obj, t, cursorAxes)
             arguments
@@ -11097,7 +11133,7 @@ end
         function popup_TransformerFunction_Callback(obj, varargin)
             obj.updateTransformerDisplay();
         end
-        function push_LoadTransform_Callback(obj, varargin)
+        function push_TransformParams_Callback(obj, varargin)
             transformer = obj.getSelectedTransformer();
             if isempty(transformer)
                 warndlg('Please choose a transformer function before selecting a transform');
@@ -11120,10 +11156,44 @@ end
             obj.updateTransformerDisplay();
         end
         function updateTransformerDisplay(obj)
+            if ~obj.figure_Transformer.Visible
+                % Only bother updating if transformer is visible
+                return;
+            end
+
             transformer = obj.getSelectedTransformer();
-            electro_gui.eg_runPlugin(obj.plugins.transformers, transformer, ...
-                obj.axes_Sonogram, obj.sound(sampleLims(1):sampleLims(2)), fs, ...
-                obj.settings.TransformerParams);
+            if isempty(transformer)
+                return;
+            end
+
+            params = obj.getTransformerParameters(transformer);
+            [transformed_data, obj.transformed_fs, labels] = electro_gui.eg_runPlugin( ...
+                obj.plugins.transformers, ...
+                transformer, ...
+                obj.getSound(), ...
+                obj.dbase.Fs, params);
+            
+            delete(obj.axes_Transformer.Children);
+            hold(obj.axes_Transformer, 'on');
+            obj.axes_Transformer.XLabel.String = labels{1};
+            obj.axes_Transformer.YLabel.String = labels{2};
+            obj.TransformedDataHandles.points = scatter(obj.axes_Transformer, ...
+                transformed_data(:, 1), transformed_data(:, 2), ...
+                'Marker', 'o', ...
+                'MarkerFaceColor', obj.GUIStyle.TransformMarkerColor, ...
+                'MarkerEdgeColor', 'green');
+            obj.TransformedDataHandles.lines = plot(obj.axes_Transformer, ...
+                transformed_data(:, 1), transformed_data(:, 2), ...
+                "Marker", "none", ...
+                "LineStyle", "-", ...
+                "Color", obj.GUIStyle.TransformPlotColor);
+            hold(obj.axes_Transformer, 'off');
+        end
+        function updateTransformerCursor(obj, t)
+            if ~obj.figure_Transformer.Visible
+                % Only bother updating if transformer is visible
+                return;
+            end
             
         end
 
@@ -12680,6 +12750,8 @@ end
                     style.AxesColor = white;
                     style.AmplitudePlotColor = [];  % Issue is, there's a setting for amplitude plot color
                     style.ChannelPlotColor = [0 0 1];
+                    style.TransformPlotColor = [0 0 1];
+                    style.TransformMarkerColor = black;
                     style.EventMarkerColor = black;
                     style.ThresholdColor = [1 0 0];
                     style.PopupColor = white;
@@ -12699,6 +12771,8 @@ end
                     style.AxesColor = black;
                     style.AmplitudePlotColor = white;
                     style.ChannelPlotColor = 1-[0 0 1];
+                    style.TransformPlotColor = 1-[0 0 1];
+                    style.TransformMarkerColor = white;
                     style.EventMarkerColor = white;
                     style.ThresholdColor = black;
                     style.PopupColor = black;
@@ -13989,7 +14063,7 @@ end
             %   plugin has its own Default[TYPE]Params field in settings, each
             %   of which is a struct with fields corresponding to plugin names
             %   Make it so!
-            pluginDefaultTypes = {'DefaultFunctionParams', 'DefaultEventParams', 'DefaultFilterParams', 'DefaultSegmenterParams', 'DefaultSonogramParams'};
+            pluginDefaultTypes = {'DefaultFunctionParams', 'DefaultEventParams', 'DefaultFilterParams', 'DefaultSegmenterParams', 'DefaultSonogramParams', 'DefaultTransformerParams'};
             for typeIdx = 1:length(pluginDefaultTypes)
                 pluginDefaultType = pluginDefaultTypes{typeIdx};
                 % Check if plugin default param type exists

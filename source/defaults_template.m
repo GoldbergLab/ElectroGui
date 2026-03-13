@@ -141,6 +141,7 @@ settings.DefaultEventParams = struct();      % Struct containing parameters for 
 settings.DefaultFilterParams = struct();     % Struct containing parameters for audio filter plugins
 settings.DefaultSonogramParams = struct();   % Struct containing parameters for sonogram plugins
 settings.DefaultSegmenterParams = struct();  % Struct containing parameters for segmenter plugins
+settings.DefaultTransformerParams = struct();  % Struct containing parameters for segmenter plugins
 % Example of how to set default parameters for a plugin. You may include a subset of the names/values if you wish, but any names you include must be exactly correctly spelled.
 % settings.DefaultSegmenterParams.DA_segmenter.Names =  {'Minimum duration (ms)'  'Minimum interval (ms)'  'Mininum duration for splitting (ms)'  'Minimum interval for splitting (ms)'};
 % settings.DefaultSegmenterParams.DA_segmenter.Values = {'7'                      '7'                      '7'                                    '0'};
