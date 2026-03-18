@@ -11240,7 +11240,7 @@ end
         end
         function plotTransformerAnnotations(obj, transformed_data, nPoints, annotationTimes, color, titles)
             % Plot annotation overlays (segments or markers) on the
-            %   transformer axes as colored regions of the scatter plot.
+            %   transformer axes as colored line segments.
             %
             % Arguments:
             %   transformed_data: NxC matrix of transformed data points
@@ -11260,12 +11260,13 @@ end
                     continue
                 end
                 idx = startIdx:endIdx;
-                % Scatter overlay for this annotation
-                scatter(obj.axes_Transformer, ...
+                % Colored line overlay for this annotation
+                plot(obj.axes_Transformer, ...
                     transformed_data(idx, 1), transformed_data(idx, 2), ...
-                    'Marker', 'o', ...
-                    'MarkerFaceColor', color, ...
-                    'MarkerEdgeColor', color);
+                    'Marker', 'none', ...
+                    'LineStyle', '-', ...
+                    'LineWidth', 2.5, ...
+                    'Color', color);
                 % Place a text label at the midpoint of the annotation
                 if ~isempty(titles) && ~isempty(titles{k})
                     midIdx = round((startIdx + endIdx) / 2);
