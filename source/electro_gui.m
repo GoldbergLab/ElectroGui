@@ -11266,27 +11266,53 @@ end
 
             % Get the total number of audio samples for mapping
             numSamples = obj.eg_GetSamplingInfo();
+            tIndices = (1:nPoints)';
 
             for k = 1:size(annotationTimes, 1)
-                % Map annotation sample times to transform-space indices
-                startIdx = max(1, round(annotationTimes(k, 1) / numSamples * nPoints));
-                endIdx = min(nPoints, round(annotationTimes(k, 2) / numSamples * nPoints));
-                if endIdx < startIdx
+                % Map annotation sample times to fractional transform-space indices
+                startFrac = annotationTimes(k, 1) / numSamples * nPoints;
+                endFrac = annotationTimes(k, 2) / numSamples * nPoints;
+                startFrac = max(1, min(nPoints, startFrac));
+                endFrac = max(1, min(nPoints, endFrac));
+                if endFrac < startFrac
                     continue
                 end
-                idx = startIdx:endIdx;
+
+                % Interpolate start and end positions
+                startXY = interp1(tIndices, transformed_data(:, 1:2), startFrac, 'linear');
+                endXY = interp1(tIndices, transformed_data(:, 1:2), endFrac, 'linear');
+
+                % Build the line: interpolated start, integer-indexed interior, interpolated end
+                startIdx = max(1, ceil(startFrac));
+                endIdx = min(nPoints, floor(endFrac));
+                if startIdx <= endIdx
+                    interiorXY = transformed_data(startIdx:endIdx, 1:2);
+                    lineXY = [startXY; interiorXY; endXY];
+                else
+                    lineXY = [startXY; endXY];
+                end
+
                 % Colored line overlay for this annotation
                 plot(obj.axes_Transformer, ...
-                    transformed_data(idx, 1), transformed_data(idx, 2), ...
+                    lineXY(:, 1), lineXY(:, 2), ...
                     'Marker', 'none', ...
                     'LineStyle', '-', ...
                     'LineWidth', 2.5, ...
                     'Color', color);
-                % Place a text label at the midpoint of the annotation
+
+                % Plot filled circles at the interpolated start and end
+                scatter(obj.axes_Transformer, ...
+                    [startXY(1), endXY(1)], [startXY(2), endXY(2)], 30, ...
+                    'Marker', 'o', ...
+                    'MarkerFaceColor', color, ...
+                    'MarkerEdgeColor', color);
+
+                % Place a text label at the interpolated midpoint
                 if ~isempty(titles) && ~isempty(titles{k})
-                    midIdx = round((startIdx + endIdx) / 2);
+                    midFrac = (startFrac + endFrac) / 2;
+                    midXY = interp1(tIndices, transformed_data(:, 1:2), midFrac, 'linear');
                     text(obj.axes_Transformer, ...
-                        transformed_data(midIdx, 1), transformed_data(midIdx, 2), ...
+                        midXY(1), midXY(2), ...
                         titles{k}, ...
                         'Color', obj.GUIStyle.TextColor, ...
                         'FontSize', 8, ...
