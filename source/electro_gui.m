@@ -11403,11 +11403,16 @@ end
                 return;
             end
 
-            % Map time in seconds to a transform-space index
+            % Map time in seconds to a fractional transform-space index
             numSamples = obj.eg_GetSamplingInfo();
             totalDuration = numSamples / obj.dbase.Fs;
-            idx = round(t / totalDuration * nPoints);
-            idx = max(1, min(nPoints, idx));
+            fracIdx = t / totalDuration * nPoints;
+            fracIdx = max(1, min(nPoints, fracIdx));
+
+            % Interpolate position between transform points
+            tIndices = (1:nPoints)';
+            cursorX = interp1(tIndices, xData(:), fracIdx, 'linear');
+            cursorY = interp1(tIndices, yData(:), fracIdx, 'linear');
 
             % Create or update the cursor marker
             if isempty(obj.TransformedDataHandles.cursor) || ...
@@ -11415,15 +11420,15 @@ end
                 hold(obj.axes_Transformer, 'on');
                 obj.TransformedDataHandles.cursor = scatter( ...
                     obj.axes_Transformer, ...
-                    xData(idx), yData(idx), 100, ...
+                    cursorX, cursorY, 100, ...
                     'Marker', 'o', ...
                     'MarkerFaceColor', 'green', ...
                     'MarkerEdgeColor', 'green', ...
                     'LineWidth', 2);
                 hold(obj.axes_Transformer, 'off');
             else
-                obj.TransformedDataHandles.cursor.XData = xData(idx);
-                obj.TransformedDataHandles.cursor.YData = yData(idx);
+                obj.TransformedDataHandles.cursor.XData = cursorX;
+                obj.TransformedDataHandles.cursor.YData = cursorY;
             end
         end
 
