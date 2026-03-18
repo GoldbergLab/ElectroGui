@@ -314,7 +314,7 @@ classdef electro_gui < handle
         EventHandles = {{}, {}};
         ActiveEventCursors matlab.graphics.Graphics
         SoundEnvelope matlab.graphics.Graphics
-        TransformedDataHandles struct = struct('points', matlab.graphics.Graphics.empty(), 'lines', matlab.graphics.Graphics.empty())
+        TransformedDataHandles struct = struct('points', matlab.graphics.Graphics.empty(), 'lines', matlab.graphics.Graphics.empty(), 'cursor', matlab.graphics.Graphics.empty())
     end
     properties  % Graphics info
         Colormap double
@@ -10184,6 +10184,12 @@ end
                     delete(obj.Cursors);
                     obj.Cursors = gobjects().empty;
                 end
+                % Delete transformer cursor if it exists
+                if ~isempty(obj.TransformedDataHandles.cursor) && ...
+                        isvalid(obj.TransformedDataHandles.cursor)
+                    delete(obj.TransformedDataHandles.cursor);
+                    obj.TransformedDataHandles.cursor = matlab.graphics.Graphics.empty();
+                end
             end
         end
         function setCursorPosition(obj, t, cursorAxes)
@@ -10237,6 +10243,12 @@ end
                 % Delete cursor objects, if they exist
                 delete(obj.Cursors);
                 obj.Cursors = gobjects().empty;
+                % Delete transformer cursor if it exists
+                if ~isempty(obj.TransformedDataHandles.cursor) && ...
+                        isvalid(obj.TransformedDataHandles.cursor)
+                    delete(obj.TransformedDataHandles.cursor);
+                    obj.TransformedDataHandles.cursor = matlab.graphics.Graphics.empty();
+                end
             end
 
         end
@@ -11272,7 +11284,42 @@ end
                 % Only bother updating if transformer is visible
                 return;
             end
-            
+
+            % Get the transformed data from the existing plot
+            if isempty(obj.TransformedDataHandles.points) || ...
+                    ~isvalid(obj.TransformedDataHandles.points)
+                return;
+            end
+
+            xData = obj.TransformedDataHandles.points.XData;
+            yData = obj.TransformedDataHandles.points.YData;
+            nPoints = length(xData);
+            if nPoints == 0
+                return;
+            end
+
+            % Map time in seconds to a transform-space index
+            numSamples = obj.eg_GetSamplingInfo();
+            totalDuration = numSamples / obj.dbase.Fs;
+            idx = round(t / totalDuration * nPoints);
+            idx = max(1, min(nPoints, idx));
+
+            % Create or update the cursor marker
+            if isempty(obj.TransformedDataHandles.cursor) || ...
+                    ~isvalid(obj.TransformedDataHandles.cursor)
+                hold(obj.axes_Transformer, 'on');
+                obj.TransformedDataHandles.cursor = scatter( ...
+                    obj.axes_Transformer, ...
+                    xData(idx), yData(idx), 100, ...
+                    'Marker', 'o', ...
+                    'MarkerFaceColor', 'green', ...
+                    'MarkerEdgeColor', 'green', ...
+                    'LineWidth', 2);
+                hold(obj.axes_Transformer, 'off');
+            else
+                obj.TransformedDataHandles.cursor.XData = xData(idx);
+                obj.TransformedDataHandles.cursor.YData = yData(idx);
+            end
         end
 
         function clickTransformerXCallback(obj, varargin)
