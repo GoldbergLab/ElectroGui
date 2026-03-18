@@ -8411,7 +8411,8 @@ function setupGUI(obj)
         'Icon',blanks(0),...
         'CloseRequestFcn', @obj.clickTransformerXCallback);
     obj.axes_Transformer = axes(...
-        'Parent', obj.figure_Transformer);
+        'Parent', obj.figure_Transformer, ...
+        'ButtonDownFcn', @obj.click_TransformerAxes);
     obj.panel_TransformerControls = uipanel(...
         'Parent', obj.figure_Transformer);
     obj.text_TransformerFunction = uicontrol(...
@@ -11216,7 +11217,8 @@ end
                 obj.transformed_data(:, 1), obj.transformed_data(:, 2), ...
                 "Marker", "none", ...
                 "LineStyle", "-", ...
-                "Color", obj.GUIStyle.TransformPlotColor);
+                "Color", obj.GUIStyle.TransformPlotColor, ...
+                'PickableParts', 'none', 'HitTest', 'off');
 
             % Plot annotation and event overlays
             obj.plotTransformerAnnotationOverlays();
@@ -11227,7 +11229,8 @@ end
                 obj.transformed_data(:, 1), obj.transformed_data(:, 2), ...
                 'Marker', 's', ...
                 'MarkerFaceColor', obj.GUIStyle.TransformMarkerColor, ...
-                'MarkerEdgeColor', obj.GUIStyle.TransformMarkerColor);
+                'MarkerEdgeColor', obj.GUIStyle.TransformMarkerColor, ...
+                'PickableParts', 'none', 'HitTest', 'off');
 
             hold(obj.axes_Transformer, 'off');
         end
@@ -11353,7 +11356,8 @@ end
                     'Marker', 'none', ...
                     'LineStyle', '-', ...
                     'LineWidth', 2.5, ...
-                    'Color', color);
+                    'Color', color, ...
+                    'PickableParts', 'none', 'HitTest', 'off');
                 obj.TransformerAnnotationHandles(end+1) = h;
 
                 % Plot filled circles at the interpolated start and end
@@ -11361,7 +11365,8 @@ end
                     [startXY(1), endXY(1)], [startXY(2), endXY(2)], 30, ...
                     'Marker', 'o', ...
                     'MarkerFaceColor', color, ...
-                    'MarkerEdgeColor', color);
+                    'MarkerEdgeColor', color, ...
+                    'PickableParts', 'none', 'HitTest', 'off');
                 obj.TransformerAnnotationHandles(end+1) = h;
 
                 % Place a text label at the interpolated midpoint
@@ -11374,39 +11379,46 @@ end
                         'Color', obj.GUIStyle.TextColor, ...
                         'FontSize', 8, ...
                         'HorizontalAlignment', 'center', ...
-                        'VerticalAlignment', 'bottom');
+                        'VerticalAlignment', 'bottom', ...
+                        'PickableParts', 'none', 'HitTest', 'off');
                     obj.TransformerAnnotationHandles(end+1) = h;
                 end
             end
         end
-        function plotTransformerEvents(obj, transformed_data, nPoints)
-            % Plot events from the selected transformer event source as
-            %   diamond markers on the transformer axes, with positions
-            %   interpolated between transform time points.
+        function [eventX, eventY, eventSourceIdx, eventPartIdx, filenum] = getTransformerEventPositions(obj)
+            % Get interpolated event positions in transform space for
+            %   the currently selected transformer event source.
+            %
+            % Returns empty arrays if no valid event source is selected
+            %   or no events exist for the current file.
 
-            % Get selected event source info from popup
-            eventListIdx = obj.popup_TransformerEventSource.Value;
+            eventX = [];
+            eventY = [];
+            eventSourceIdx = [];
+            eventPartIdx = [];
+            filenum = [];
+
             if isempty(obj.popup_TransformerEventSource.UserData)
                 return;
             end
+            eventListIdx = obj.popup_TransformerEventSource.Value;
             info = obj.popup_TransformerEventSource.UserData(eventListIdx);
             if isempty(info.eventSourceIdx)
-                % "(None)" is selected
                 return;
             end
 
-            filenum = electro_gui.getCurrentFileNum(obj.settings);
             eventSourceIdx = info.eventSourceIdx;
             eventPartIdx = info.eventPartIdx;
+            filenum = electro_gui.getCurrentFileNum(obj.settings);
+            nPoints = size(obj.transformed_data, 1);
 
-            % Get event times (in audio samples) for this source/part/file
-            if eventSourceIdx > length(obj.dbase.EventTimes) || ...
+            if nPoints == 0 || ...
+                    eventSourceIdx > length(obj.dbase.EventTimes) || ...
                     eventPartIdx > size(obj.dbase.EventTimes{eventSourceIdx}, 1) || ...
                     filenum > size(obj.dbase.EventTimes{eventSourceIdx}, 2)
                 return;
             end
             eventSamples = obj.dbase.EventTimes{eventSourceIdx}{eventPartIdx, filenum};
-            eventSelected = obj.dbase.EventIsSelected{eventSourceIdx}{eventPartIdx, filenum};
             if isempty(eventSamples)
                 return;
             end
@@ -11417,8 +11429,20 @@ end
 
             % Interpolate positions in transform space
             tIndices = (1:nPoints)';
-            eventX = interp1(tIndices, transformed_data(:, 1), fractionalIndices, 'linear', NaN);
-            eventY = interp1(tIndices, transformed_data(:, 2), fractionalIndices, 'linear', NaN);
+            eventX = interp1(tIndices, obj.transformed_data(:, 1), fractionalIndices, 'linear', NaN);
+            eventY = interp1(tIndices, obj.transformed_data(:, 2), fractionalIndices, 'linear', NaN);
+        end
+        function plotTransformerEvents(obj, ~, ~)
+            % Plot events from the selected transformer event source as
+            %   circle markers on the transformer axes, with positions
+            %   interpolated between transform time points.
+
+            [eventX, eventY, eventSourceIdx, eventPartIdx, filenum] = obj.getTransformerEventPositions();
+            if isempty(eventX)
+                return;
+            end
+
+            eventSelected = obj.dbase.EventIsSelected{eventSourceIdx}{eventPartIdx, filenum};
 
             % Remove any events that fell outside the transform range
             validMask = ~isnan(eventX) & ~isnan(eventY);
@@ -11440,7 +11464,8 @@ end
             h = scatter(obj.axes_Transformer, eventX, eventY, 36, faceColors, ...
                 'Marker', 'o', ...
                 'MarkerEdgeColor', obj.GUIStyle.EventMarkerEdgeColor, ...
-                'LineWidth', 0.5);
+                'LineWidth', 0.5, ...
+                'PickableParts', 'none', 'HitTest', 'off');
             obj.TransformerEventHandles(end+1) = h;
         end
         function updateTransformerCursor(obj, t)
@@ -11489,6 +11514,49 @@ end
                 obj.TransformedDataHandles.cursor.XData = cursorX;
                 obj.TransformedDataHandles.cursor.YData = cursorY;
             end
+        end
+
+        function click_TransformerAxes(obj, ~, ~)
+            % Handle clicks on the transformer axes
+
+            if ~strcmp(obj.figure_Transformer.SelectionType, 'extend')
+                % Only handle shift-click
+                return;
+            end
+
+            [eventX, eventY, eventSourceIdx, ~, filenum] = obj.getTransformerEventPositions();
+            if isempty(eventX)
+                return;
+            end
+
+            % Use rbbox to get the selection rectangle
+            rect = rbbox();
+            rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Transformer, obj.figure_Transformer);
+
+            % Find events within the box
+            boxedMask = eventX >= rect(1) & eventX <= rect(1) + rect(3) & ...
+                        eventY >= rect(2) & eventY <= rect(2) + rect(4) & ...
+                        ~isnan(eventX) & ~isnan(eventY);
+
+            if ~any(boxedMask)
+                return;
+            end
+
+            obj.SaveState();
+
+            % Toggle selection for all event parts (matching channel axes behavior)
+            for epIdx = 1:size(obj.dbase.EventIsSelected{eventSourceIdx}, 1)
+                obj.toggleEventIsSelected(eventSourceIdx, epIdx, filenum, boxedMask, 'DeferPseudoChannelUpdate', true);
+            end
+
+            % Update pseudo channels that depend on this event source
+            obj.updateChannelAxesThatDependOnPseudoChannelEventSource(eventSourceIdx);
+
+            % Update all displays showing this event source
+            obj.updateAnythingShowingEventSource(eventSourceIdx);
+
+            % Update transformer event display
+            obj.updateTransformerEvents();
         end
 
         function clickTransformerXCallback(obj, varargin)
