@@ -288,7 +288,8 @@ classdef electro_gui < handle
         text_TransformerFunction matlab.ui.control.UIControl
         text_Transform matlab.ui.control.UIControl
         push_TransformParams matlab.ui.control.UIControl
-        popup_TransformerSpikeSource matlab.ui.control.UIControl
+        popup_TransformerEventSource matlab.ui.control.UIControl
+        text_TransformerEventSource matlab.ui.control.UIControl
         checkbox_ShowSegments matlab.ui.control.UIControl
         checkbox_ShowMarkers matlab.ui.control.UIControl
         help_ControlsHelp
@@ -959,6 +960,13 @@ classdef electro_gui < handle
             % Update list
             obj.popup_EventListAlign.String = eventListItems;
             obj.popup_EventListAlign.UserData = eventListInfo;
+
+            % Also update the transformer event source popup
+            obj.popup_TransformerEventSource.String = eventListItems;
+            obj.popup_TransformerEventSource.UserData = eventListInfo;
+            if obj.popup_TransformerEventSource.Value > length(eventListItems)
+                obj.popup_TransformerEventSource.Value = 1;
+            end
         end
         function updateChannelEventDisplay(obj, axnum)
             if ~obj.axes_Channel(axnum).Visible
@@ -8429,15 +8437,23 @@ function setupGUI(obj)
         'Style','text',...
         'Tag','text_Transform',...
         'FontSize',8);
-    obj.popup_TransformerSpikeSource = uicontrol(...
+    obj.text_TransformerEventSource = uicontrol(...
+        'Parent',obj.panel_TransformerControls,...
+        'Units','normalized',...
+        'HorizontalAlignment','right',...
+        'String',{'Event', 'source'},...
+        'Style','text',...
+        'Tag','text_TransformerEventSource',...
+        'FontSize',8);
+    obj.popup_TransformerEventSource = uicontrol(...
         'Parent',obj.panel_TransformerControls,...
         'Units','normalized',...
         'String','(None)',...
         'Style','popupmenu',...
         'Value',1,...
         'BackgroundColor',[1 1 1],...
-        'Callback',@obj.popup_TransformerSpikeSource_Callback,...
-        'Tag','popup_TransformerSpikeSource');
+        'Callback',@obj.popup_TransformerEventSource_Callback,...
+        'Tag','popup_TransformerEventSource');
     obj.checkbox_ShowSegments = uicontrol(...
         obj.panel_TransformerControls, ...
         "Units", 'normalized', ...
@@ -8624,19 +8640,20 @@ function updateGUILayout(obj)
     obj.figure_Transformer.Visible = obj.menu_ShowTransformer.Checked;
     obj.axes_Transformer.Position =          [0.0, 0.0, 1.0, 0.9];
     obj.panel_TransformerControls.Position = [0.0, 0.9, 1.0, 0.1];
-        ws = [0.12, 0.20, 0.20, 0.25, 0.20, 0.20];
-        ms = [0.01, 0.03, 0.03, 0.03, 0.03, 0.03];
+        ws = [0.12, 0.20, 0.20, 0.25, 0.10, 0.20, 0.20];
+        ms = [0.01, 0.03, 0.03, 0.03, 0.01, 0.03, 0.03];
         xs = cumsum([0, ws + ms]);
         maxXs = xs(end-1) + ws(end);
         xs = xs / maxXs;
         ws = ws / maxXs;
-        obj.text_TransformerFunction.Position =     [xs(1), 0, ws(1), 1];
-        obj.popup_TransformerFunction.Position =    [xs(2), 0, ws(2), 1];
-        obj.push_TransformParams.Position =         [xs(3), 0, ws(3), 1];
-        obj.text_Transform.Position =               [xs(4), 0, ws(4), 1];
-        obj.popup_TransformerSpikeSource.Position = [xs(5), 0, ws(5), 1];
-        obj.checkbox_ShowMarkers.Position =         [xs(6), 0.0, ws(6), 0.5];
-        obj.checkbox_ShowSegments.Position =        [xs(6), 0.5, ws(6), 0.5];
+        obj.text_TransformerFunction.Position =      [xs(1), 0, ws(1), 1];
+        obj.popup_TransformerFunction.Position =     [xs(2), 0, ws(2), 1];
+        obj.push_TransformParams.Position =          [xs(3), 0, ws(3), 1];
+        obj.text_Transform.Position =                [xs(4), 0, ws(4), 1];
+        obj.text_TransformerEventSource.Position =   [xs(5), 0, ws(5), 1];
+        obj.popup_TransformerEventSource.Position =  [xs(6), 0, ws(6), 1];
+        obj.checkbox_ShowMarkers.Position =          [xs(7), 0.0, ws(7), 0.5];
+        obj.checkbox_ShowSegments.Position =         [xs(7), 0.5, ws(7), 0.5];
 end
 function createExportControlPanel(obj)
     if isfield(obj.ExportControlPanel, 'fig')
@@ -11150,7 +11167,7 @@ end
             obj.transform = load(transformPath, 'transform');
             obj.updateTransformerDisplay();
         end
-        function popup_TransformerSpikeSource_Callback(obj, varargin)
+        function popup_TransformerEventSource_Callback(obj, varargin)
             obj.updateTransformerDisplay();
         end
         function checkbox_ShowSegments_Callback(obj, varargin)
@@ -11228,6 +11245,11 @@ end
                 'MarkerFaceColor', obj.GUIStyle.TransformMarkerColor, ...
                 'MarkerEdgeColor', obj.GUIStyle.TransformMarkerColor);
 
+            % Overlay events from the selected event source
+            if electro_gui.isDataLoaded(obj.dbase)
+                obj.plotTransformerEvents(transformed_data, nPoints);
+            end
+
             hold(obj.axes_Transformer, 'off');
         end
         function plotTransformerAnnotations(obj, transformed_data, nPoints, annotationTimes, color, titles)
@@ -11271,6 +11293,62 @@ end
                         'VerticalAlignment', 'bottom');
                 end
             end
+        end
+        function plotTransformerEvents(obj, transformed_data, nPoints)
+            % Plot events from the selected transformer event source as
+            %   diamond markers on the transformer axes, with positions
+            %   interpolated between transform time points.
+
+            % Get selected event source info from popup
+            eventListIdx = obj.popup_TransformerEventSource.Value;
+            if isempty(obj.popup_TransformerEventSource.UserData)
+                return;
+            end
+            info = obj.popup_TransformerEventSource.UserData(eventListIdx);
+            if isempty(info.eventSourceIdx)
+                % "(None)" is selected
+                return;
+            end
+
+            filenum = electro_gui.getCurrentFileNum(obj.settings);
+            eventSourceIdx = info.eventSourceIdx;
+            eventPartIdx = info.eventPartIdx;
+
+            % Get event times (in audio samples) for this source/part/file
+            if eventSourceIdx > length(obj.dbase.EventTimes) || ...
+                    eventPartIdx > size(obj.dbase.EventTimes{eventSourceIdx}, 1) || ...
+                    filenum > size(obj.dbase.EventTimes{eventSourceIdx}, 2)
+                return;
+            end
+            eventSamples = obj.dbase.EventTimes{eventSourceIdx}{eventPartIdx, filenum};
+            if isempty(eventSamples)
+                return;
+            end
+
+            % Map event sample times to fractional transform-space indices
+            numSamples = obj.eg_GetSamplingInfo();
+            fractionalIndices = eventSamples / numSamples * nPoints;
+
+            % Interpolate positions in transform space
+            tIndices = (1:nPoints)';
+            eventX = interp1(tIndices, transformed_data(:, 1), fractionalIndices, 'linear', NaN);
+            eventY = interp1(tIndices, transformed_data(:, 2), fractionalIndices, 'linear', NaN);
+
+            % Remove any events that fell outside the transform range
+            validMask = ~isnan(eventX) & ~isnan(eventY);
+            eventX = eventX(validMask);
+            eventY = eventY(validMask);
+
+            if isempty(eventX)
+                return;
+            end
+
+            % Plot events as diamond markers
+            scatter(obj.axes_Transformer, eventX, eventY, 60, ...
+                'Marker', 'd', ...
+                'MarkerFaceColor', 'red', ...
+                'MarkerEdgeColor', 'white', ...
+                'LineWidth', 1);
         end
         function updateTransformerCursor(obj, t)
             if ~obj.figure_Transformer.Visible
