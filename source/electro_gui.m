@@ -416,21 +416,7 @@ classdef electro_gui < handle
 
             obj.initializeExportOptions();
 
-            progressBar.Progress = 0.1;
-            progressBar.Message = {'Starting parallel pool for file caching...', 'This can be disabled in defaults file'};
-
-            if obj.settings.EnableFileCaching
-                try
-                    % Start up parallel pool for caching purposes
-                    p = gcp();
-                    p.IdleTimeout = obj.settings.ParallelPoolTimeout;
-                catch
-                    electro_gui.issueWarning('Failed to start parallel pool - maybe the parallel computing toolbox is not installed? Disabling file caching.', 'parallelPoolFail');
-                    obj.settings.EnableFileCaching = false;
-                end
-            end
-            progressBar.Progress = 0.8;
-            progressBar.Message = 'Initializing electro_gui...';
+            progressBar.Progress = 0.5;
 
             % Initialize event-related variables
             obj.dbase.EventParts = {};        % Array of event part options for the selected event detector
@@ -2659,9 +2645,15 @@ function addToFileCache(obj, filepath, loader)
     %   there.
     numLoaderOutputs = 5;
     if ~obj.isFileInCache(filepath, loader)
-        % Start up parallel pool if it isn't open.
-        p = gcp();
-        p.IdleTimeout = obj.settings.ParallelPoolTimeout;
+        try
+            % Start up parallel pool if it isn't open.
+            p = gcp();
+            p.IdleTimeout = obj.settings.ParallelPoolTimeout;
+        catch
+            electro_gui.issueWarning('Failed to start parallel pool - maybe the parallel computing toolbox is not installed? Disabling file caching.', 'parallelPoolFail');
+            obj.settings.EnableFileCaching = false;
+            return;
+        end
 
         next_idx = length(obj.file_cache)+1;
         obj.file_cache(next_idx).filepaths = filepath;
