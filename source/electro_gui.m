@@ -11172,22 +11172,100 @@ end
                 transformer, ...
                 obj.getSound(), ...
                 obj.dbase.Fs, params);
-            
+
+            nPoints = size(transformed_data, 1);
+
             delete(obj.axes_Transformer.Children);
             hold(obj.axes_Transformer, 'on');
             obj.axes_Transformer.XLabel.String = labels{1};
             obj.axes_Transformer.YLabel.String = labels{2};
-            obj.TransformedDataHandles.points = scatter(obj.axes_Transformer, ...
-                transformed_data(:, 1), transformed_data(:, 2), ...
-                'Marker', 'o', ...
-                'MarkerFaceColor', obj.GUIStyle.TransformMarkerColor, ...
-                'MarkerEdgeColor', 'green');
+
+            % Plot the base trajectory line
             obj.TransformedDataHandles.lines = plot(obj.axes_Transformer, ...
                 transformed_data(:, 1), transformed_data(:, 2), ...
                 "Marker", "none", ...
                 "LineStyle", "-", ...
                 "Color", obj.GUIStyle.TransformPlotColor);
+
+            % Plot base scatter points (unsegmented color)
+            obj.TransformedDataHandles.points = scatter(obj.axes_Transformer, ...
+                transformed_data(:, 1), transformed_data(:, 2), ...
+                'Marker', 'o', ...
+                'MarkerFaceColor', obj.GUIStyle.TransformMarkerColor, ...
+                'MarkerEdgeColor', obj.GUIStyle.TransformMarkerColor);
+
+            % Overlay segments if checkbox is checked and data is loaded
+            if obj.checkbox_ShowSegments.Value && electro_gui.isDataLoaded(obj.dbase)
+                filenum = electro_gui.getCurrentFileNum(obj.settings);
+                segmentTimes = obj.dbase.SegmentTimes{filenum};
+                if ~isempty(segmentTimes)
+                    obj.plotTransformerAnnotations( ...
+                        transformed_data, nPoints, segmentTimes, ...
+                        obj.settings.SegmentColor, obj.dbase.SegmentTitles{filenum});
+                end
+            end
+
+            % Overlay markers if checkbox is checked and data is loaded
+            if obj.checkbox_ShowMarkers.Value && electro_gui.isDataLoaded(obj.dbase)
+                filenum = electro_gui.getCurrentFileNum(obj.settings);
+                markerTimes = obj.dbase.MarkerTimes{filenum};
+                if ~isempty(markerTimes)
+                    for markerTypeIdx = 1:length(obj.settings.MarkerTypes)
+                        markerType = obj.settings.MarkerTypes{markerTypeIdx};
+                        markerMask = obj.dbase.MarkerTypes{filenum} == markerType;
+                        if ~any(markerMask)
+                            continue
+                        end
+                        markerColor = obj.settings.MarkerColors{markerTypeIdx};
+                        obj.plotTransformerAnnotations( ...
+                            transformed_data, nPoints, markerTimes(markerMask, :), ...
+                            markerColor, obj.dbase.MarkerTitles{filenum}(markerMask));
+                    end
+                end
+            end
+
             hold(obj.axes_Transformer, 'off');
+        end
+        function plotTransformerAnnotations(obj, transformed_data, nPoints, annotationTimes, color, titles)
+            % Plot annotation overlays (segments or markers) on the
+            %   transformer axes as colored regions of the scatter plot.
+            %
+            % Arguments:
+            %   transformed_data: NxC matrix of transformed data points
+            %   nPoints: number of transformed data points
+            %   annotationTimes: Sx2 array of [start, end] in audio samples
+            %   color: 1x3 RGB color for the annotation overlay
+            %   titles: cell array of annotation label strings
+
+            % Get the total number of audio samples for mapping
+            numSamples = obj.eg_GetSamplingInfo();
+
+            for k = 1:size(annotationTimes, 1)
+                % Map annotation sample times to transform-space indices
+                startIdx = max(1, round(annotationTimes(k, 1) / numSamples * nPoints));
+                endIdx = min(nPoints, round(annotationTimes(k, 2) / numSamples * nPoints));
+                if endIdx < startIdx
+                    continue
+                end
+                idx = startIdx:endIdx;
+                % Scatter overlay for this annotation
+                scatter(obj.axes_Transformer, ...
+                    transformed_data(idx, 1), transformed_data(idx, 2), ...
+                    'Marker', 'o', ...
+                    'MarkerFaceColor', color, ...
+                    'MarkerEdgeColor', color);
+                % Place a text label at the midpoint of the annotation
+                if ~isempty(titles) && ~isempty(titles{k})
+                    midIdx = round((startIdx + endIdx) / 2);
+                    text(obj.axes_Transformer, ...
+                        transformed_data(midIdx, 1), transformed_data(midIdx, 2), ...
+                        titles{k}, ...
+                        'Color', obj.GUIStyle.TextColor, ...
+                        'FontSize', 8, ...
+                        'HorizontalAlignment', 'center', ...
+                        'VerticalAlignment', 'bottom');
+                end
+            end
         end
         function updateTransformerCursor(obj, t)
             if ~obj.figure_Transformer.Visible
