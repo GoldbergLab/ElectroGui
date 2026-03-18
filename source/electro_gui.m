@@ -32,6 +32,7 @@ classdef electro_gui < handle
         TooLong = false
         transform struct   % Loaded transform for transformer
         transformed_fs double
+        transformed_data double  % Cached NxC matrix of transformed data points
     end
     properties  % GUI styling
         GUIStyle = electro_gui.getGUIStyle()
@@ -316,6 +317,8 @@ classdef electro_gui < handle
         ActiveEventCursors matlab.graphics.Graphics
         SoundEnvelope matlab.graphics.Graphics
         TransformedDataHandles struct = struct('points', matlab.graphics.Graphics.empty(), 'lines', matlab.graphics.Graphics.empty(), 'cursor', matlab.graphics.Graphics.empty())
+        TransformerAnnotationHandles matlab.graphics.Graphics
+        TransformerEventHandles matlab.graphics.Graphics
     end
     properties  % Graphics info
         Colormap double
@@ -1719,7 +1722,7 @@ classdef electro_gui < handle
             hold(ax, 'off');
 
             % Update transformer display to reflect annotation changes
-            obj.updateTransformerDisplay();
+            obj.updateTransformerAnnotations();
         end
         function manageMarkerTypes(obj)
             if ~electro_gui.isDataLoaded(obj.dbase)
@@ -3304,7 +3307,7 @@ function UpdateAnnotationTitleDisplay(obj, annotationNums, annotationType, filen
             error('Invalid annotation type: %s', annotationType);
     end
     % Update transformer display to reflect title changes
-    obj.updateTransformerDisplay();
+    obj.updateTransformerAnnotations();
 end
 function UpdateActiveAnnotationDisplay(obj, oldAnnotationNum, oldAnnotationType, newAnnotationNum, newAnnotationType)
     % A function for updating only the active annotation highlight
@@ -11174,15 +11177,16 @@ end
             obj.updateTransformerDisplay();
         end
         function popup_TransformerEventSource_Callback(obj, varargin)
-            obj.updateTransformerDisplay();
+            obj.updateTransformerEvents();
         end
         function checkbox_ShowSegments_Callback(obj, varargin)
-            obj.updateTransformerDisplay();
+            obj.updateTransformerAnnotations();
         end
         function checkbox_ShowMarkers_Callback(obj, varargin)
-            obj.updateTransformerDisplay();
+            obj.updateTransformerAnnotations();
         end
         function updateTransformerDisplay(obj)
+            % Full update: recompute the transform and replot everything.
             if ~obj.figure_Transformer.Visible
                 % Only bother updating if transformer is visible
                 return;
@@ -11194,38 +11198,91 @@ end
             end
 
             params = obj.getTransformerParameters(transformer);
-            [transformed_data, obj.transformed_fs, labels] = electro_gui.eg_runPlugin( ...
+            [obj.transformed_data, obj.transformed_fs, labels] = electro_gui.eg_runPlugin( ...
                 obj.plugins.transformers, ...
                 transformer, ...
                 obj.getSound(), ...
                 obj.dbase.Fs, params);
 
-            nPoints = size(transformed_data, 1);
-
             delete(obj.axes_Transformer.Children);
+            obj.TransformerAnnotationHandles = matlab.graphics.Graphics.empty();
+            obj.TransformerEventHandles = matlab.graphics.Graphics.empty();
             hold(obj.axes_Transformer, 'on');
             obj.axes_Transformer.XLabel.String = labels{1};
             obj.axes_Transformer.YLabel.String = labels{2};
 
             % Plot the base trajectory line
             obj.TransformedDataHandles.lines = plot(obj.axes_Transformer, ...
-                transformed_data(:, 1), transformed_data(:, 2), ...
+                obj.transformed_data(:, 1), obj.transformed_data(:, 2), ...
                 "Marker", "none", ...
                 "LineStyle", "-", ...
                 "Color", obj.GUIStyle.TransformPlotColor);
 
-            % Overlay segments if checkbox is checked and data is loaded
+            % Plot annotation and event overlays
+            obj.plotTransformerAnnotationOverlays();
+            obj.plotTransformerEventOverlays();
+
+            % Plot scatter points on top of overlays
+            obj.TransformedDataHandles.points = scatter(obj.axes_Transformer, ...
+                obj.transformed_data(:, 1), obj.transformed_data(:, 2), ...
+                'Marker', 's', ...
+                'MarkerFaceColor', obj.GUIStyle.TransformMarkerColor, ...
+                'MarkerEdgeColor', obj.GUIStyle.TransformMarkerColor);
+
+            hold(obj.axes_Transformer, 'off');
+        end
+        function updateTransformerAnnotations(obj)
+            % Lightweight update: only redraw annotation overlays (segments/markers).
+            if ~obj.figure_Transformer.Visible || isempty(obj.transformed_data)
+                return;
+            end
+
+            % Delete old annotation handles
+            delete(obj.TransformerAnnotationHandles);
+            obj.TransformerAnnotationHandles = matlab.graphics.Graphics.empty();
+
+            hold(obj.axes_Transformer, 'on');
+            obj.plotTransformerAnnotationOverlays();
+            hold(obj.axes_Transformer, 'off');
+
+            % Re-stack scatter points on top
+            if ~isempty(obj.TransformedDataHandles.points) && isvalid(obj.TransformedDataHandles.points)
+                uistack(obj.TransformedDataHandles.points, 'top');
+            end
+        end
+        function updateTransformerEvents(obj)
+            % Lightweight update: only redraw event overlays.
+            if ~obj.figure_Transformer.Visible || isempty(obj.transformed_data)
+                return;
+            end
+
+            % Delete old event handles
+            delete(obj.TransformerEventHandles);
+            obj.TransformerEventHandles = matlab.graphics.Graphics.empty();
+
+            hold(obj.axes_Transformer, 'on');
+            obj.plotTransformerEventOverlays();
+            hold(obj.axes_Transformer, 'off');
+
+            % Re-stack scatter points on top
+            if ~isempty(obj.TransformedDataHandles.points) && isvalid(obj.TransformedDataHandles.points)
+                uistack(obj.TransformedDataHandles.points, 'top');
+            end
+        end
+        function plotTransformerAnnotationOverlays(obj)
+            % Plot segment and marker overlays using cached transformed_data.
+            nPoints = size(obj.transformed_data, 1);
+
             if obj.checkbox_ShowSegments.Value && electro_gui.isDataLoaded(obj.dbase)
                 filenum = electro_gui.getCurrentFileNum(obj.settings);
                 segmentTimes = obj.dbase.SegmentTimes{filenum};
                 if ~isempty(segmentTimes)
                     obj.plotTransformerAnnotations( ...
-                        transformed_data, nPoints, segmentTimes, ...
+                        obj.transformed_data, nPoints, segmentTimes, ...
                         obj.settings.SegmentColor, obj.dbase.SegmentTitles{filenum});
                 end
             end
 
-            % Overlay markers if checkbox is checked and data is loaded
             if obj.checkbox_ShowMarkers.Value && electro_gui.isDataLoaded(obj.dbase)
                 filenum = electro_gui.getCurrentFileNum(obj.settings);
                 markerTimes = obj.dbase.MarkerTimes{filenum};
@@ -11238,25 +11295,18 @@ end
                         end
                         markerColor = obj.settings.MarkerColors{markerTypeIdx};
                         obj.plotTransformerAnnotations( ...
-                            transformed_data, nPoints, markerTimes(markerMask, :), ...
+                            obj.transformed_data, nPoints, markerTimes(markerMask, :), ...
                             markerColor, obj.dbase.MarkerTitles{filenum}(markerMask));
                     end
                 end
             end
-
-            % Plot scatter points on top of annotation lines
-            obj.TransformedDataHandles.points = scatter(obj.axes_Transformer, ...
-                transformed_data(:, 1), transformed_data(:, 2), ...
-                'Marker', 's', ...
-                'MarkerFaceColor', obj.GUIStyle.TransformMarkerColor, ...
-                'MarkerEdgeColor', obj.GUIStyle.TransformMarkerColor);
-
-            % Overlay events from the selected event source
+        end
+        function plotTransformerEventOverlays(obj)
+            % Plot event overlays using cached transformed_data.
             if electro_gui.isDataLoaded(obj.dbase)
-                obj.plotTransformerEvents(transformed_data, nPoints);
+                nPoints = size(obj.transformed_data, 1);
+                obj.plotTransformerEvents(obj.transformed_data, nPoints);
             end
-
-            hold(obj.axes_Transformer, 'off');
         end
         function plotTransformerAnnotations(obj, transformed_data, nPoints, annotationTimes, color, titles)
             % Plot annotation overlays (segments or markers) on the
@@ -11298,31 +11348,34 @@ end
                 end
 
                 % Colored line overlay for this annotation
-                plot(obj.axes_Transformer, ...
+                h = plot(obj.axes_Transformer, ...
                     lineXY(:, 1), lineXY(:, 2), ...
                     'Marker', 'none', ...
                     'LineStyle', '-', ...
                     'LineWidth', 2.5, ...
                     'Color', color);
+                obj.TransformerAnnotationHandles(end+1) = h;
 
                 % Plot filled circles at the interpolated start and end
-                scatter(obj.axes_Transformer, ...
+                h = scatter(obj.axes_Transformer, ...
                     [startXY(1), endXY(1)], [startXY(2), endXY(2)], 30, ...
                     'Marker', 'o', ...
                     'MarkerFaceColor', color, ...
                     'MarkerEdgeColor', color);
+                obj.TransformerAnnotationHandles(end+1) = h;
 
                 % Place a text label at the interpolated midpoint
                 if ~isempty(titles) && ~isempty(titles{k})
                     midFrac = (startFrac + endFrac) / 2;
                     midXY = interp1(tIndices, transformed_data(:, 1:2), midFrac, 'linear');
-                    text(obj.axes_Transformer, ...
+                    h = text(obj.axes_Transformer, ...
                         midXY(1), midXY(2), ...
                         titles{k}, ...
                         'Color', obj.GUIStyle.TextColor, ...
                         'FontSize', 8, ...
                         'HorizontalAlignment', 'center', ...
                         'VerticalAlignment', 'bottom');
+                    obj.TransformerAnnotationHandles(end+1) = h;
                 end
             end
         end
@@ -11384,10 +11437,11 @@ end
             faceColors(logical(eventSelected), :) = repmat(selectedColor, sum(eventSelected ~= 0), 1);
 
             % Plot events as circle markers matching channel axes style
-            scatter(obj.axes_Transformer, eventX, eventY, 36, faceColors, ...
+            h = scatter(obj.axes_Transformer, eventX, eventY, 36, faceColors, ...
                 'Marker', 'o', ...
                 'MarkerEdgeColor', obj.GUIStyle.EventMarkerEdgeColor, ...
                 'LineWidth', 0.5);
+            obj.TransformerEventHandles(end+1) = h;
         end
         function updateTransformerCursor(obj, t)
             if ~obj.figure_Transformer.Visible
