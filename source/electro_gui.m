@@ -1717,6 +1717,9 @@ classdef electro_gui < handle
                 obj.MarkerHandles(obj.settings.ActiveMarkerNum).LineStyle = '-';
             end
             hold(ax, 'off');
+
+            % Update transformer display to reflect annotation changes
+            obj.updateTransformerDisplay();
         end
         function manageMarkerTypes(obj)
             if ~electro_gui.isDataLoaded(obj.dbase)
@@ -3300,6 +3303,8 @@ function UpdateAnnotationTitleDisplay(obj, annotationNums, annotationType, filen
         otherwise
             error('Invalid annotation type: %s', annotationType);
     end
+    % Update transformer display to reflect title changes
+    obj.updateTransformerDisplay();
 end
 function UpdateActiveAnnotationDisplay(obj, oldAnnotationNum, oldAnnotationType, newAnnotationNum, newAnnotationType)
     % A function for updating only the active annotation highlight
