@@ -11241,7 +11241,7 @@ end
             % Plot scatter points on top of annotation lines
             obj.TransformedDataHandles.points = scatter(obj.axes_Transformer, ...
                 transformed_data(:, 1), transformed_data(:, 2), ...
-                'Marker', 'o', ...
+                'Marker', 's', ...
                 'MarkerFaceColor', obj.GUIStyle.TransformMarkerColor, ...
                 'MarkerEdgeColor', obj.GUIStyle.TransformMarkerColor);
 
@@ -11321,6 +11321,7 @@ end
                 return;
             end
             eventSamples = obj.dbase.EventTimes{eventSourceIdx}{eventPartIdx, filenum};
+            eventSelected = obj.dbase.EventIsSelected{eventSourceIdx}{eventPartIdx, filenum};
             if isempty(eventSamples)
                 return;
             end
@@ -11338,17 +11339,23 @@ end
             validMask = ~isnan(eventX) & ~isnan(eventY);
             eventX = eventX(validMask);
             eventY = eventY(validMask);
+            eventSelected = eventSelected(validMask);
 
             if isempty(eventX)
                 return;
             end
 
-            % Plot events as diamond markers
-            scatter(obj.axes_Transformer, eventX, eventY, 60, ...
-                'Marker', 'd', ...
-                'MarkerFaceColor', 'red', ...
-                'MarkerEdgeColor', 'white', ...
-                'LineWidth', 1);
+            % Determine selected/unselected face colors to match channel axes style
+            selectedColor = obj.GUIStyle.EventMarkerColor;
+            unselectedColor = 1 - selectedColor;  % Inverted (white in light, black in dark)
+            faceColors = repmat(unselectedColor, length(eventX), 1);
+            faceColors(logical(eventSelected), :) = repmat(selectedColor, sum(eventSelected ~= 0), 1);
+
+            % Plot events as circle markers matching channel axes style
+            scatter(obj.axes_Transformer, eventX, eventY, 36, faceColors, ...
+                'Marker', 'o', ...
+                'MarkerEdgeColor', obj.GUIStyle.EventMarkerEdgeColor, ...
+                'LineWidth', 0.5);
         end
         function updateTransformerCursor(obj, t)
             if ~obj.figure_Transformer.Visible
