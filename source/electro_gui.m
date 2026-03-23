@@ -2,7 +2,7 @@ classdef electro_gui < handle
     properties % Main properties
         dbase struct
         settings struct
-        tempSettings struct
+        tempSettsings struct
         plugins struct
         defaults cell
         SourcePath char
@@ -19,6 +19,7 @@ classdef electro_gui < handle
         LastHistoryTimestamp datetime
         tempFile char
         file_cache struct
+        EventFeatureLasso LassoSelection
         sound
         filtered_sound
         amplitude
@@ -1424,6 +1425,7 @@ classdef electro_gui < handle
             obj.figure_Main.WindowKeyPressFcn = @obj.keyPressHandler;
             obj.figure_Main.KeyReleaseFcn = @obj.keyReleaseHandler;
             obj.figure_Main.WindowButtonMotionFcn = @obj.mouseMotionHandler;
+            obj.figure_Main.WindowButtonUpFcn = @obj.mouseButtonUpHandler;
 
             obj.disableAxesPopupToolbars();
 
@@ -9828,7 +9830,7 @@ end
         function scrollHandler(obj, source, event)
             [inside, t] = electro_gui.isMouseInAxes([obj.axes_Sonogram, obj.axes_Sound, obj.axes_Amplitude, obj.axes_Channel]);
             if inside
-                % Scroll in any of the stacked axes
+                % Scroll in any of the stacked axesd
                 if obj.isShiftDown()
                     obj.shiftInTime(event.VerticalScrollCount);
                 else
@@ -10145,8 +10147,21 @@ end
 
         end
 
+        function mouseButtonUpHandler(obj, ~, ~)
+            % Callback to handle mouse button release
+            if obj.isEventFeatureLassoActive()
+                obj.finishEventFeatureLasso();
+            end
+        end
         function mouseMotionHandler(obj, hObject, event)
             % Callback to handle mouse motion
+
+            % If an event feature lasso is active, add points to it
+            if obj.isEventFeatureLassoActive()
+                point = obj.axes_Events.CurrentPoint(1, 1:2);
+                obj.EventFeatureLasso.add_point(point);
+                return;
+            end
 
             if obj.isShiftDown()
                 % User is holding the shift key down
@@ -11096,35 +11111,109 @@ end
                 % Shift-click
                 obj.SaveState();
 
-                % User defines a rectangle such that any waves that pass through
-                % the rectangle get de-selected
-                rect = rbbox;
-                rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Events);
+                if obj.menu_DisplayFeatures.Checked
+                    % Feature mode: use lasso selection for toggling events
+                    obj.startEventFeatureLasso();
+                else
+                    % User defines a rectangle such that any waves that pass through
+                    % the rectangle get de-selected
+                    rect = rbbox;
+                    rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Events);
 
-                x1 = rect(1);
-                x2 = x1 + rect(3);
-                y1 = rect(2);
-                y2 = y1 + rect(4);
+                    x1 = rect(1);
+                    x2 = x1 + rect(3);
+                    y1 = rect(2);
+                    y2 = y1 + rect(4);
 
-                % Determine which event numbers to delete
-                eventNums = [];
-                for eventNum = 1:length(obj.EventWaveHandles)
-                    if isgraphics(obj.EventWaveHandles(eventNum))
-                        xs = obj.EventWaveHandles(eventNum).XData;
-                        ys = obj.EventWaveHandles(eventNum).YData;
-                        isin = find(xs>x1 & xs<x2 & ys>y1 & ys<y2, 1);
-                        if ~isempty(isin)
-                            eventNums = [eventNums eventNum];
+                    % Determine which event numbers to delete
+                    eventNums = [];
+                    for eventNum = 1:length(obj.EventWaveHandles)
+                        if isgraphics(obj.EventWaveHandles(eventNum))
+                            xs = obj.EventWaveHandles(eventNum).XData;
+                            ys = obj.EventWaveHandles(eventNum).YData;
+                            isin = find(xs>x1 & xs<x2 & ys>y1 & ys<y2, 1);
+                            if ~isempty(isin)
+                                eventNums = [eventNums eventNum];
+                            end
                         end
                     end
-                end
 
-                if ~isempty(eventNums)
-                    % Deselect the events that pass through the rectangle
-                    obj.UnselectEvents(eventNums);
+                    if ~isempty(eventNums)
+                        % Deselect the events that pass through the rectangle
+                        obj.UnselectEvents(eventNums);
+                    end
                 end
             end
 
+        end
+
+        function active = isEventFeatureLassoActive(obj)
+            % Check if an event feature lasso selection is currently in progress.
+            active = ~isempty(obj.EventFeatureLasso) && isvalid(obj.EventFeatureLasso);
+        end
+        function startEventFeatureLasso(obj)
+            % Begin a freehand lasso selection on the event viewer in
+            % feature mode. The lasso is drawn by mouseMotionHandler and
+            % completed by mouseButtonUpHandler.
+
+            % Clean up any previous lasso
+            if obj.isEventFeatureLassoActive()
+                delete(obj.EventFeatureLasso);
+            end
+
+            obj.EventFeatureLasso = LassoSelection(obj.axes_Events, ...
+                'Color', [0.2 0.6 1.0], 'LineWidth', 1.5);
+
+            % Add the initial point
+            point = obj.axes_Events.CurrentPoint(1, 1:2);
+            obj.EventFeatureLasso.add_point(point);
+        end
+        function finishEventFeatureLasso(obj)
+            % Complete the lasso selection and toggle EventIsSelected for
+            % events inside the lasso polygon.
+
+            if ~obj.isEventFeatureLassoActive()
+                return;
+            end
+
+            % Extract feature coordinates from the plotted event handles
+            numEvents = length(obj.EventWaveHandles);
+            featureX = NaN(1, numEvents);
+            featureY = NaN(1, numEvents);
+            for eventNum = 1:numEvents
+                if isgraphics(obj.EventWaveHandles(eventNum))
+                    featureX(eventNum) = obj.EventWaveHandles(eventNum).XData;
+                    featureY(eventNum) = obj.EventWaveHandles(eventNum).YData;
+                end
+            end
+
+            % Find events inside the lasso polygon
+            mask = obj.EventFeatureLasso.get_selected(featureX, featureY);
+            selectedEventNums = find(mask);
+
+            % Clean up the lasso
+            delete(obj.EventFeatureLasso);
+            obj.EventFeatureLasso = LassoSelection.empty();
+
+            if isempty(selectedEventNums)
+                return;
+            end
+
+            % Toggle selection for the lassoed events
+            eventSourceIdx = obj.GetEventViewerEventSourceIdx();
+            filenum = electro_gui.getCurrentFileNum(obj.settings);
+            for eventPartNum = 1:size(obj.dbase.EventIsSelected{eventSourceIdx}, 1)
+                obj.toggleEventIsSelected(eventSourceIdx, eventPartNum, filenum, selectedEventNums, 'DeferPseudoChannelUpdate', true);
+            end
+
+            % Update pseudo channels that depend on this event source
+            obj.updateChannelAxesThatDependOnPseudoChannelEventSource(eventSourceIdx);
+
+            % Update all displays showing this event source
+            obj.updateAnythingShowingEventSource(eventSourceIdx);
+
+            % Update transformer event display
+            obj.updateTransformerEvents();
         end
 
         function HandleAuxiliarySoundSourceClick(obj, src, event)
