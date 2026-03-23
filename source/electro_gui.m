@@ -554,9 +554,9 @@ classdef electro_gui < handle
             obj.menu_Macros = electro_gui.populatePluginMenuList(p.macros, [], obj.menu_Macros, @obj.MacrosMenuclick);
 
             % Populate x-axis event feature algorithm plugin menu
-            obj.menu_XAxis_List = electro_gui.populatePluginMenuList(p.eventFeatures, obj.settings.DefaultEventFeatureX, obj.menu_XAxis, @XAxisMenuClick);
+            obj.menu_XAxis_List = electro_gui.populatePluginMenuList(p.eventFeatures, obj.settings.DefaultEventFeatureX, obj.menu_XAxis, @obj.XAxisMenuClick);
             % Populate y-axis event feature algorithm plugin menu
-            obj.menu_YAxis_List = electro_gui.populatePluginMenuList(p.eventFeatures, obj.settings.DefaultEventFeatureY, obj.menu_YAxis, @YAxisMenuClick);
+            obj.menu_YAxis_List = electro_gui.populatePluginMenuList(p.eventFeatures, obj.settings.DefaultEventFeatureY, obj.menu_YAxis, @obj.YAxisMenuClick);
 
             % Find all function algorithms
             pluginNames = {obj.plugins.filters.name};
@@ -1168,15 +1168,15 @@ classdef electro_gui < handle
                 obj.EventWaveHandles = gobjects().empty;
                 if ~isempty(channelData)
                     f = findobj('Parent',obj.menu_XAxis,'Checked','on');
-                    str = f.Label;
+                    alg = f.Label;
                     [feature1, name1] = electro_gui.eg_runPlugin(obj.plugins.eventFeatures, ...
-                        str, channelData, fs, allEventTimes, g, ...
-                        round(obj.settings.EventXLims(obj.popup_EventListAlign.Value,:)*fs));
+                        alg, channelData, fs, allEventTimes, eventPartIdx, ...
+                        round(obj.settings.EventXLims(eventSourceIdx,:)*fs));
                     f = findobj('Parent',obj.menu_YAxis,'Checked','on');
-                    str = f.Label;
+                    alg = f.Label;
                     [feature2, name2] = electro_gui.eg_runPlugin(obj.plugins.eventFeatures, ...
-                        str, channelData, fs, allEventTimes, g, ...
-                        round(obj.settings.EventXLims(obj.popup_EventListAlign.Value,:)*fs));
+                        alg, channelData, fs, allEventTimes, eventPartIdx, ...
+                        round(obj.settings.EventXLims(eventSourceIdx,:)*fs));
 
                     for c = 1:length(feature1)
                         if eventSelection(c)==1
@@ -12380,7 +12380,7 @@ end
 
         function XAxisMenuClick(obj, hObject, event)
 
-            obj.menu_XAxis_List.Checked = 'off';
+            set(obj.menu_XAxis_List, "Checked", "off");
             hObject.Checked = 'on';
 
             obj.updateEventViewer();
@@ -12389,7 +12389,7 @@ end
 
         function YAxisMenuClick(obj, hObject, event)
 
-            obj.menu_YAxis_List.Checked = 'off';
+            set(obj.menu_YAxis_List, "Checked", "off");
             hObject.Checked = 'on';
 
             obj.updateEventViewer();
