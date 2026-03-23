@@ -351,6 +351,9 @@ classdef electro_gui < handle
             obj.SourcePath = mfilename('fullpath');
             [obj.SourceDir, obj.SourceName, ~] = fileparts(obj.SourcePath);
 
+            % Add plugins directory to path
+            addpath(fullfile(obj.SourceDir, 'plugins'));
+
             % Set temp file location
             obj.tempFile = fullfile(obj.SourceDir, 'eg_temp.mat');
 
@@ -384,7 +387,8 @@ classdef electro_gui < handle
             obj.setupGUI();
 
             % Gather all electro_gui plugins
-            obj.plugins = electro_gui.gatherPlugins();
+            findLegacy = isfield(obj.settings, 'FindLegacyPlugins') && obj.settings.FindLegacyPlugins;
+            obj.plugins = electro_gui.gatherPlugins(obj.SourceDir, findLegacy);
 
             progressBar = ProgressBar('Initializing electro_gui...', "WindowStyle", "modal");
 
@@ -13993,35 +13997,71 @@ end
             end
             defaults = findPaths(sourceDir, 'defaults_.*\.m');
         end
-        function plugins = gatherPlugins(sourceDir)
-            % Gather all electro_gui plugins
+        function plugins = gatherPlugins(sourceDir, findLegacyPlugins)
+            % Gather all electro_gui plugins from the plugins subdirectory,
+            % and optionally from the plugins/legacy subdirectory.
             arguments
                 sourceDir char = fileparts(mfilename("fullpath"))
+                findLegacyPlugins logical = false
             end
 
-            % Find all spectrum algorithms
-            plugins.spectrums = electro_gui.findPlugins(sourceDir, 'egs');
-            % Find all segmenting algorithms
-            plugins.segmenters = electro_gui.findPlugins(sourceDir, 'egg');
-            % Find all filters
-            plugins.filters = electro_gui.findPlugins(sourceDir, 'egf');
-            % Find all colormaps
-            plugins.colorMaps = electro_gui.findPlugins(sourceDir, 'egc');
-            % Find all macros
-            plugins.macros = electro_gui.findPlugins(sourceDir, 'egm');
-            % Find all event detector algorithms
-            plugins.eventDetectors = electro_gui.findPlugins(sourceDir, 'ege');
-            % Find all event feature algorithms
-            plugins.eventFeatures = electro_gui.findPlugins(sourceDir, 'ega');
-            % Find all loaders
-            plugins.loaders = electro_gui.findPlugins(sourceDir, 'egl');
-            % Find all figure templates
-            plugins.templates = electro_gui.findPlugins(sourceDir, 'egt');
-            % Find all transformers
-            plugins.transformers = electro_gui.findPlugins(sourceDir, 'egx');
+            pluginsDir = fullfile(sourceDir, 'plugins');
+
+            % Build a list of directories to search for plugins. Always
+            % search the main plugins directory. If findLegacyPlugins is
+            % true, also search the legacy subdirectory (and add it to the
+            % MATLAB path so str2func can find the legacy plugin functions).
+            searchDirs = {pluginsDir};
+            if findLegacyPlugins
+                legacyDir = fullfile(pluginsDir, 'legacy');
+                if isfolder(legacyDir)
+                    addpath(legacyDir);
+                    searchDirs{end+1} = legacyDir;
+                end
+            end
+
+            % Define the mapping from plugin type name (used as the field
+            % name in the output struct) to file prefix (used to match
+            % plugin filenames like egs_*.m, egg_*.m, etc.)
+            prefixes = struct( ...
+                'spectrums',      'egs', ...
+                'segmenters',     'egg', ...
+                'filters',        'egf', ...
+                'colorMaps',      'egc', ...
+                'macros',         'egm', ...
+                'eventDetectors', 'ege', ...
+                'eventFeatures',  'ega', ...
+                'loaders',        'egl', ...
+                'templates',      'egt', ...
+                'transformers',   'egx');
+
+            % For each plugin type, search all directories and combine the
+            % results into a single array.
+            pluginTypes = fieldnames(prefixes);
+            for typeIdx = 1:length(pluginTypes)
+                typeName = pluginTypes{typeIdx};
+                prefix = prefixes.(typeName);
+
+                % Search each directory for plugins matching this prefix
+                allPlugins = [];
+                for dirIdx = 1:length(searchDirs)
+                    found = electro_gui.findPlugins(searchDirs{dirIdx}, prefix);
+                    if isempty(found)
+                        continue;
+                    end
+                    % Concatenate with plugins found in previous directories
+                    if isempty(allPlugins)
+                        allPlugins = found;
+                    else
+                        allPlugins = [allPlugins, found]; %#ok<AGROW>
+                    end
+                end
+                plugins.(typeName) = allPlugins;
+            end
         end
         function createNewPlugin(pluginType)
             sourceDir = fileparts(mfilename("fullpath"));
+            pluginsDir = fullfile(sourceDir, 'plugins');
             plugins = electro_gui.gatherPlugins(sourceDir);
             for pluginIdx = 1:length(plugins.(pluginType))
                 plugin = plugins.(pluginType)(pluginIdx);
@@ -14035,7 +14075,7 @@ end
                         if ~strcmp(pluginName(end-1:end), '.m')
                             pluginName = [pluginName, '.m'];
                         end
-                        newPluginPath = fullfile(sourceDir, pluginName);
+                        newPluginPath = fullfile(pluginsDir, pluginName);
                         if exist("newPluginPath", 'file')
                             errordlg('Path "%s" already exists - please use a different name.', newPluginPath);
                             return
