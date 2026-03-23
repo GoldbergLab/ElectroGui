@@ -1184,12 +1184,15 @@ classdef electro_gui < handle
 
                     for c = 1:length(feature1)
                         if eventSelection(c)==1
-                            obj.EventWaveHandles(end+1) = plot(obj.axes_Events, ...
-                                feature1(c),feature2(c), 'o', 'MarkerFaceColor', 'k', ...
-                                'MarkerEdgeColor', 'k', 'MarkerSize', 2);
+                            faceColor = obj.GUIStyle.EventMarkerColor;
                         else
-                            obj.EventWaveHandles(end+1) = gobjects();
+                            faceColor = 1 - obj.GUIStyle.EventMarkerColor;
                         end
+                        obj.EventWaveHandles(end+1) = plot(obj.axes_Events, ...
+                            feature1(c),feature2(c), 'o', ...
+                            'MarkerFaceColor', faceColor, ...
+                            'MarkerEdgeColor', obj.GUIStyle.EventMarkerEdgeColor, ...
+                            'MarkerSize', 2);
                     end
                     xlabel(obj.axes_Events, name1);
                     ylabel(obj.axes_Events, name2);
