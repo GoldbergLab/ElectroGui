@@ -6,6 +6,7 @@ function [dbase, cancel] = eg_GatherFiles(pathName, fileString, fileLoader, numC
         numChannels double = []
         options.TitleString char = 'Locate data files'
         options.GUI (1, 1) logical = true
+        options.Loaders = []  % Loader plugin struct array (from gatherPlugins). If empty, loaders are discovered from the plugins directory.
     end
 
     % Initialize the dbase
@@ -84,7 +85,7 @@ function [dbase, cancel] = eg_GatherFiles(pathName, fileString, fileLoader, numC
     cancel = false;
 
     if options.GUI
-        [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = SpecifyFilesGUI(pathName, SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, numChannels, options.TitleString);
+        [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = SpecifyFilesGUI(pathName, SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, numChannels, options.TitleString, options.Loaders);
     end
 
     % Assign fields to dbase
@@ -96,7 +97,7 @@ function [dbase, cancel] = eg_GatherFiles(pathName, fileString, fileLoader, numC
     end
     dbase.ChannelLoader = ChannelLoaders;
 
-function [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = SpecifyFilesGUI(PathName, SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, NumChannels, TitleString)
+function [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = SpecifyFilesGUI(PathName, SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, NumChannels, TitleString, loaders)
     % Create dialog figure
     figure_height = 0.9;
     figure_width = 0.4;
@@ -127,16 +128,16 @@ function [SoundPattern, SoundLoader, ChannelPatterns, ChannelLoaders, cancel] = 
         "Units", "normalized", ...
         "BorderType", "none", ...
         "Position", [margin, buttonHeight, 1-2*margin, 1-buttonHeight]);
-    sourcePath = fileparts(mfilename("fullpath"));
 
-    % Find all loader plugins
-    loader_files = dir(fullfile(sourcePath, 'egl_*.m'));
-    loader_names = cell(1, length(loader_files));
-    default_loader_indices = ones(1, NumChannels + 1);
-    for loader_idx = 1:length(loader_files)
-        [~, loader_full_name, ~] = fileparts(loader_files(loader_idx).name);
-        loader_names{loader_idx} = regexprep(loader_full_name, '^egl_', '');
+    % Get loader names from the provided loaders struct, or discover them
+    if ~isempty(loaders)
+        loader_names = {loaders.name};
+    else
+        sourcePath = fileparts(mfilename("fullpath"));
+        loaders = electro_gui.findPlugins(fullfile(sourcePath, 'plugins'), 'egl');
+        loader_names = {loaders.name};
     end
+    default_loader_indices = ones(1, NumChannels + 1);
 
     loaders = [{SoundLoader}, ChannelLoaders];
     patterns = [{SoundPattern}, ChannelPatterns];
