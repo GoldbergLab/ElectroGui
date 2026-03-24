@@ -101,6 +101,12 @@ classdef electro_gui < handle
         push_ClearEvents
         push_ClearEvents1
         push_ClearEvents2
+        push_PrevEventFile
+        push_PrevEventFile1
+        push_PrevEventFile2
+        push_NextEventFile
+        push_NextEventFile1
+        push_NextEventFile2
         menu_OpenRecent
         openRecent_None  % Placeholder menu item when there are no recently opened files
         menu_DisplayWaveform
@@ -1667,6 +1673,8 @@ classdef electro_gui < handle
                 obj.popup_EventDetectors(axnum).Enable = 'off';
                 obj.push_Detects(axnum).Enable = 'off';
                 obj.push_ClearEvents(axnum).Enable = 'off';
+                obj.push_PrevEventFile(axnum).Enable = 'off';
+                obj.push_NextEventFile(axnum).Enable = 'off';
                 obj.menu_Events(axnum).Enable = 'off';
                 obj.settings.ActiveEventNum = [];
                 obj.settings.ActiveEventPartNum = [];
@@ -1761,6 +1769,8 @@ classdef electro_gui < handle
             obj.popup_EventDetectors(axnum).Enable = 'on';
             obj.push_Detects(axnum).Enable = 'on';
             obj.push_ClearEvents(axnum).Enable = 'on';
+            obj.push_PrevEventFile(axnum).Enable = 'on';
+            obj.push_NextEventFile(axnum).Enable = 'on';
 
             [chan, ~, ~, isPseudoChannel] = obj.getSelectedChannel(axnum);
             [numSamples, fs] = obj.eg_GetSamplingInfo([], chan, isPseudoChannel);
@@ -7525,7 +7535,46 @@ function setupGUI(obj)
             'Callback',@obj.push_Detect2_Callback,...
             'Enable','off',...
             'Tag','push_Detect2');
-    
+
+        obj.push_PrevEventFile1 = uicontrol(...
+            'Parent',obj.panel_Channel1Controls,...
+            'Units','normalized',...
+            'String',char(9664),... % Left-pointing triangle
+            'Callback',@(~,~) obj.jumpToEventFile(1, -1),...
+            'Enable','off',...
+            'Tooltip','Jump to previous file with events on this channel',...
+            'Tag','push_PrevEventFile1');
+
+        obj.push_PrevEventFile2 = uicontrol(...
+            'Parent',obj.panel_Channel2Controls,...
+            'Units','normalized',...
+            'String',char(9664),...
+            'Callback',@(~,~) obj.jumpToEventFile(2, -1),...
+            'Enable','off',...
+            'Tooltip','Jump to previous file with events on this channel',...
+            'Tag','push_PrevEventFile2');
+
+        obj.push_NextEventFile1 = uicontrol(...
+            'Parent',obj.panel_Channel1Controls,...
+            'Units','normalized',...
+            'String',char(9654),... % Right-pointing triangle
+            'Callback',@(~,~) obj.jumpToEventFile(1, 1),...
+            'Enable','off',...
+            'Tooltip','Jump to next file with events on this channel',...
+            'Tag','push_NextEventFile1');
+
+        obj.push_NextEventFile2 = uicontrol(...
+            'Parent',obj.panel_Channel2Controls,...
+            'Units','normalized',...
+            'String',char(9654),...
+            'Callback',@(~,~) obj.jumpToEventFile(2, 1),...
+            'Enable','off',...
+            'Tooltip','Jump to next file with events on this channel',...
+            'Tag','push_NextEventFile2');
+
+        obj.push_PrevEventFile = [obj.push_PrevEventFile1, obj.push_PrevEventFile2];
+        obj.push_NextEventFile = [obj.push_NextEventFile1, obj.push_NextEventFile2];
+
         obj.axes_Channel1 = obj.createChannelAxes('axes_Channel1');
         obj.styleAxesTitle(obj.axes_Channel1.Title, "Position", [0.500000502009557 1.01602564102564 0.5], "Color", [0, 0, 0]);
         obj.styleAxesLabel(obj.axes_Channel1.XLabel, "Position", [0.500000476837158 -0.147970088373901 0], "Color", [0.15 0.15 0.15]);
@@ -8941,10 +8990,10 @@ function updateGUILayout(obj)
     obj.panel_Channel1Controls.Position = [controlPanelXMargin, ys(7), controlPanelWidth, hs(7)];
     obj.panel_Channel2Controls.Position = [controlPanelXMargin, ys(9), controlPanelWidth, hs(9)];
    
-        %      Text   Chan   Text   Func   Text   Dtctr  Clear  Detect
-        %      1      2      3      4      5      6      7      8
-        ws =  [0.039, 0.169, 0.046, 0.123, 0.070, 0.108, 0.050, 0.050];
-        mxs = [0.002, 0.020, 0.002, 0.020, 0.002, 0.020, 0.002, 0.020];
+        %      Text   Chan   Text   Func   Text   Dtctr  Prev   Clear  Detect Next
+        %      1      2      3      4      5      6      7      8      9      10
+        ws =  [0.039, 0.169, 0.046, 0.123, 0.070, 0.108, 0.025, 0.050, 0.050, 0.025];
+        mxs = [0.002, 0.020, 0.002, 0.020, 0.002, 0.020, 0.002, 0.002, 0.002, 0.020];
         xs = cumsum([0, ws+mxs]);
         % Fill space
         maxX = xs(end)-mxs(end);
@@ -8952,7 +9001,7 @@ function updateGUILayout(obj)
         xs = xs / maxX;
         obj.text_ChannelSource1.Position =      [xs(1), ytext, ws(1), htext];
         obj.text_ChannelSource2.Position =      [xs(1), ytext, ws(1), htext];
-        obj.popup_Channel1.Position =           [xs(2), 0, ws(2), 1];    
+        obj.popup_Channel1.Position =           [xs(2), 0, ws(2), 1];
         obj.popup_Channel2.Position =           [xs(2), 0, ws(2), 1];
         obj.text_ChannelFunction1.Position =    [xs(3), ytext, ws(3), htext];
         obj.text_ChannelFunction2.Position =    [xs(3), ytext, ws(3), htext];
@@ -8962,10 +9011,14 @@ function updateGUILayout(obj)
         obj.text_EventDetector2.Position =      [xs(5), 0, ws(5), htext];
         obj.popup_EventDetector1.Position =     [xs(6), 0, ws(6), 1];
         obj.popup_EventDetector2.Position =     [xs(6), 0, ws(6), 1];
-        obj.push_ClearEvents1.Position =        [xs(7), 0, ws(7), 1];
-        obj.push_ClearEvents2.Position =        [xs(7), 0, ws(7), 1];
-        obj.push_Detect1.Position =             [xs(8), 0, ws(8), 1];
-        obj.push_Detect2.Position =             [xs(8), 0, ws(8), 1];
+        obj.push_PrevEventFile1.Position =      [xs(7), 0, ws(7), 1];
+        obj.push_PrevEventFile2.Position =      [xs(7), 0, ws(7), 1];
+        obj.push_ClearEvents1.Position =        [xs(8), 0, ws(8), 1];
+        obj.push_ClearEvents2.Position =        [xs(8), 0, ws(8), 1];
+        obj.push_Detect1.Position =             [xs(9), 0, ws(9), 1];
+        obj.push_Detect2.Position =             [xs(9), 0, ws(9), 1];
+        obj.push_NextEventFile1.Position =      [xs(10), 0, ws(10), 1];
+        obj.push_NextEventFile2.Position =      [xs(10), 0, ws(10), 1];
 
     obj.panel_Files.Position =              [rightColumnX, filesY, rightColumnW, filesHeight];
         obj.push_PreviousFile.Position =        [0.025, 0.920, 0.100, 0.053];
@@ -11314,6 +11367,40 @@ end
 
             obj.updateEventViewer();
 
+        end
+
+        function jumpToEventFile(obj, axnum, direction)
+            % Jump to the next or previous file that has detected events
+            % for the event source displayed on the given channel axes.
+            %
+            % Arguments:
+            %   axnum - which channel axes (1 or 2)
+            %   direction - +1 for next file, -1 for previous file
+
+            eventSourceIdx = obj.GetChannelAxesEventSourceIdx(axnum);
+            if isempty(eventSourceIdx)
+                return;
+            end
+
+            currentFile = electro_gui.getCurrentFileNum(obj.settings);
+            numFiles = electro_gui.getNumFiles(obj.dbase);
+            eventPartIdx = 1;
+
+            % Search in the given direction, wrapping around
+            for offset = 1:numFiles-1
+                candidateFile = mod(currentFile - 1 + direction * offset, numFiles) + 1;
+                if eventPartIdx <= size(obj.dbase.EventTimes{eventSourceIdx}, 1) && ...
+                        candidateFile <= size(obj.dbase.EventTimes{eventSourceIdx}, 2)
+                    events = obj.dbase.EventTimes{eventSourceIdx}{eventPartIdx, candidateFile};
+                    if ~isempty(events)
+                        obj.setFilenum(candidateFile);
+                        return;
+                    end
+                end
+            end
+
+            % No files with events found
+            electro_gui.issueWarning('No other files with events found for this event source.', 'noEventFiles');
         end
 
         function ClickEventSymbol(obj, eventMarker, event)
