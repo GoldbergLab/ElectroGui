@@ -1203,6 +1203,9 @@ classdef electro_gui < handle
                     obj.axes_Events.XLim = [mean(xl)+(xl(1)-mean(xl))*1.1 mean(xl)+(xl(2)-mean(xl))*1.1];
                     yl = obj.axes_Events.YLim;
                     obj.axes_Events.YLim = [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1];
+
+                    % Draw statistical ellipses if feature stats are available
+                    obj.drawEventFeatureEllipses(eventSourceIdx);
                 else
                     xlabel('');
                     ylabel('');
@@ -1239,6 +1242,73 @@ classdef electro_gui < handle
                 obj.axes_Events.XLim = storedXLim;
                 obj.axes_Events.YLim = storedYLim;
             end
+        end
+        function drawEventFeatureEllipses(obj, eventSourceIdx)
+            % Draw median +/- MAD ellipses on the event feature scatter plot
+            % if computed statistics are available for both displayed features.
+
+            % Check if stats exist for this event source
+            if ~isfield(obj.dbase, 'EventFeatureStats') || ...
+                    eventSourceIdx > length(obj.dbase.EventFeatureStats) || ...
+                    isempty(obj.dbase.EventFeatureStats{eventSourceIdx})
+                return;
+            end
+
+            stats = obj.dbase.EventFeatureStats{eventSourceIdx};
+
+            % Get the names of the two currently displayed features
+            xFeatureMenu = findobj('Parent', obj.menu_XAxis, 'Checked', 'on');
+            yFeatureMenu = findobj('Parent', obj.menu_YAxis, 'Checked', 'on');
+            xFeatureName = xFeatureMenu.Label;
+            yFeatureName = yFeatureMenu.Label;
+
+            % Check if both features are in the computed stats
+            xIdx = find(strcmp(xFeatureName, stats.names), 1);
+            yIdx = find(strcmp(yFeatureName, stats.names), 1);
+            if isempty(xIdx) || isempty(yIdx)
+                return;
+            end
+
+            % Get median and MAD for both features
+            xMedian = stats.medians(xIdx);
+            yMedian = stats.medians(yIdx);
+            xMAD = stats.MADs(xIdx);
+            yMAD = stats.MADs(yIdx);
+
+            % Don't draw if MAD is zero (degenerate distribution)
+            if xMAD == 0 || yMAD == 0
+                return;
+            end
+
+            % Generate ellipse points
+            theta = linspace(0, 2*pi, 100);
+            cosTheta = cos(theta);
+            sinTheta = sin(theta);
+
+            % Draw 2 MAD ellipse first (dimmer, behind)
+            plot(obj.axes_Events, ...
+                xMedian + 2 * xMAD * cosTheta, ...
+                yMedian + 2 * yMAD * sinTheta, ...
+                'Color', [0.5 0.5 1.0 0.4], ...
+                'LineWidth', 1, ...
+                'LineStyle', '-', ...
+                'PickableParts', 'none', 'HitTest', 'off');
+
+            % Draw 1 MAD ellipse (brighter, in front)
+            plot(obj.axes_Events, ...
+                xMedian + 1 * xMAD * cosTheta, ...
+                yMedian + 1 * yMAD * sinTheta, ...
+                'Color', [0.3 0.3 1.0 0.7], ...
+                'LineWidth', 1.5, ...
+                'LineStyle', '-', ...
+                'PickableParts', 'none', 'HitTest', 'off');
+
+            % Draw crosshair at median
+            plot(obj.axes_Events, xMedian, yMedian, '+', ...
+                'Color', [0.3 0.3 1.0 0.7], ...
+                'MarkerSize', 8, ...
+                'LineWidth', 1.5, ...
+                'PickableParts', 'none', 'HitTest', 'off');
         end
         function updateDisplayForEventSource(obj, eventSourceIdx)
             % Update any displays (channel axes or event viewer) that are currently
