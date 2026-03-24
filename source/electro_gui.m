@@ -564,6 +564,16 @@ classdef electro_gui < handle
             % Populate y-axis event feature algorithm plugin menu
             obj.menu_YAxis_List = electro_gui.populatePluginMenuList(p.eventFeatures, obj.settings.DefaultEventFeatureY, obj.menu_YAxis, @obj.YAxisMenuClick);
 
+            % Add principal component options at the top of each axis menu
+            pcLabels = {'Principal Comp. 1', 'Principal Comp. 2'};
+            for k = length(pcLabels):-1:1
+                xMenu = uimenu(obj.menu_XAxis, 'Label', pcLabels{k}, 'Callback', @obj.XAxisMenuClick, 'Separator', (k == length(pcLabels)));
+                yMenu = uimenu(obj.menu_YAxis, 'Label', pcLabels{k}, 'Callback', @obj.YAxisMenuClick, 'Separator', (k == length(pcLabels)));
+                % Move to top of menu
+                uistack(xMenu, 'top');
+                uistack(yMenu, 'top');
+            end
+
             % Find all function algorithms
             pluginNames = {obj.plugins.filters.name};
             str = {'(Raw)'};
@@ -1173,16 +1183,46 @@ classdef electro_gui < handle
                 % "Display > Features" in Event axes context menu is selected
                 obj.EventWaveHandles = gobjects().empty;
                 if ~isempty(channelData)
-                    f = findobj('Parent',obj.menu_XAxis,'Checked','on');
-                    alg = f.Label;
-                    [feature1, name1] = electro_gui.eg_runPlugin(obj.plugins.eventFeatures, ...
-                        alg, channelData, fs, allEventTimes, eventPartIdx, ...
-                        round(obj.settings.EventXLims(eventSourceIdx,:)*fs));
-                    f = findobj('Parent',obj.menu_YAxis,'Checked','on');
-                    alg = f.Label;
-                    [feature2, name2] = electro_gui.eg_runPlugin(obj.plugins.eventFeatures, ...
-                        alg, channelData, fs, allEventTimes, eventPartIdx, ...
-                        round(obj.settings.EventXLims(eventSourceIdx,:)*fs));
+                    windowSamples = round(obj.settings.EventXLims(eventSourceIdx,:)*fs);
+
+                    xLabel = findobj('Parent',obj.menu_XAxis,'Checked','on').Label;
+                    yLabel = findobj('Parent',obj.menu_YAxis,'Checked','on').Label;
+
+                    % Compute PCA scores if either axis needs a principal component
+                    xIsPC = startsWith(xLabel, 'Principal Comp.');
+                    yIsPC = startsWith(yLabel, 'Principal Comp.');
+                    pcaScores = [];
+                    if xIsPC || yIsPC
+                        pcaScores = obj.computeEventPCAScores(eventSourceIdx, channelData, fs, allEventTimes, eventPartIdx, windowSamples);
+                    end
+
+                    % Get X feature values
+                    if xIsPC
+                        pcNum = sscanf(xLabel, 'Principal Comp. %d');
+                        if ~isempty(pcaScores) && pcNum <= size(pcaScores, 2)
+                            feature1 = pcaScores(:, pcNum);
+                        else
+                            feature1 = [];
+                        end
+                        name1 = xLabel;
+                    else
+                        [feature1, name1] = electro_gui.eg_runPlugin(obj.plugins.eventFeatures, ...
+                            xLabel, channelData, fs, allEventTimes, eventPartIdx, windowSamples);
+                    end
+
+                    % Get Y feature values
+                    if yIsPC
+                        pcNum = sscanf(yLabel, 'Principal Comp. %d');
+                        if ~isempty(pcaScores) && pcNum <= size(pcaScores, 2)
+                            feature2 = pcaScores(:, pcNum);
+                        else
+                            feature2 = [];
+                        end
+                        name2 = yLabel;
+                    else
+                        [feature2, name2] = electro_gui.eg_runPlugin(obj.plugins.eventFeatures, ...
+                            yLabel, channelData, fs, allEventTimes, eventPartIdx, windowSamples);
+                    end
 
                     for c = 1:length(feature1)
                         if eventSelection(c)==1
@@ -1251,6 +1291,55 @@ classdef electro_gui < handle
                 obj.axes_Events.YLim = storedYLim;
             end
         end
+        function pcaScores = computeEventPCAScores(obj, eventSourceIdx, channelData, fs, allEventTimes, eventPartIdx, windowSamples)
+            % Compute PCA scores for the current file's events using the
+            % stored PCA transform from EventFeatureStats. Runs all
+            % features in the stats, standardizes using stored medians/MADs,
+            % and projects through the stored PCA coefficient matrix.
+            %
+            % Returns an NxK matrix of PCA scores, or empty if stats are
+            % unavailable.
+
+            pcaScores = [];
+
+            % Check if stats exist
+            if ~isfield(obj.dbase, 'EventFeatureStats') || ...
+                    eventSourceIdx > length(obj.dbase.EventFeatureStats) || ...
+                    isempty(obj.dbase.EventFeatureStats{eventSourceIdx})
+                return;
+            end
+
+            stats = obj.dbase.EventFeatureStats{eventSourceIdx};
+            numFeatures = length(stats.names);
+
+            % Run each feature extractor from the stats
+            eventSamples = allEventTimes{eventPartIdx};
+            numEvents = length(eventSamples);
+            featureMatrix = NaN(numEvents, numFeatures);
+
+            for featureIdx = 1:numFeatures
+                featureName = stats.names{featureIdx};
+                try
+                    [featureValues, ~] = electro_gui.eg_runPlugin( ...
+                        obj.plugins.eventFeatures, featureName, ...
+                        channelData, fs, allEventTimes, eventPartIdx, windowSamples);
+                    featureMatrix(:, featureIdx) = featureValues(:);
+                catch ME
+                    electro_gui.issueWarning( ...
+                        sprintf('Feature %s failed during PCA computation: %s', featureName, ME.message), ...
+                        'pcaFeatureFail');
+                    return;
+                end
+            end
+
+            % Standardize using the stored medians and MADs
+            safeMADs = stats.MADs;
+            safeMADs(safeMADs == 0) = 1;
+            standardized = (featureMatrix - stats.medians) ./ safeMADs;
+
+            % Project through stored PCA matrix
+            pcaScores = standardized * stats.PCA;
+        end
         function drawEventFeatureEllipses(obj, eventSourceIdx)
             % Draw median +/- MAD ellipses on the event feature scatter plot
             % if computed statistics are available for both displayed features.
@@ -1270,18 +1359,13 @@ classdef electro_gui < handle
             xFeatureName = xFeatureMenu.Label;
             yFeatureName = yFeatureMenu.Label;
 
-            % Check if both features are in the computed stats
-            xIdx = find(strcmp(xFeatureName, stats.names), 1);
-            yIdx = find(strcmp(yFeatureName, stats.names), 1);
-            if isempty(xIdx) || isempty(yIdx)
+            % Look up median and MAD for each axis, handling both regular
+            % features and principal components
+            [xMedian, xMAD] = getFeatureStats(xFeatureName, stats);
+            [yMedian, yMAD] = getFeatureStats(yFeatureName, stats);
+            if isnan(xMedian) || isnan(yMedian)
                 return;
             end
-
-            % Get median and MAD for both features
-            xMedian = stats.medians(xIdx);
-            yMedian = stats.medians(yIdx);
-            xMAD = stats.MADs(xIdx);
-            yMAD = stats.MADs(yIdx);
 
             % Don't draw if MAD is zero (degenerate distribution)
             if xMAD == 0 || yMAD == 0
@@ -13453,7 +13537,7 @@ end
                 dbase.help.EventThresholds = 'An SxN array of detection thresholds, one per event source per file. Inf means the default threshold is used.';
                 dbase.help.EventTimes = 'A 1xS cell array. Each entry is a PxN cell array (P event parts, N files). Each inner cell contains a vector of event times in samples. For example, dbase.EventTimes{2}{1, 11} gives the sample indices of all "part 1" events for event source #2 in file #11.';
                 dbase.help.EventIsSelected = 'A 1xS cell array with the same structure as EventTimes. Each inner cell contains a logical vector indicating which events are selected (included) vs unselected (excluded). Used for manual and automated spike sorting.';
-                dbase.help.EventFeatureStats = 'A 1xS cell array (one per event source) of structs containing feature statistics computed by egm_Compute_event_feature_stats. Each struct has fields: names (feature names), medians, MADs, Ns (1xF arrays), PCA (FxK matrix operating on standardized features), outlierMADs, numFilesSampled, computedOn.';
+                dbase.help.EventFeatureStats = 'A 1xS cell array (one per event source) of structs containing feature statistics computed by egm_Compute_event_feature_stats. Each struct has fields: names (feature names), medians, MADs, Ns (1xF arrays), PCA (FxK matrix operating on standardized features), pcaMedians, pcaMADs (1xK arrays of PCA score statistics), outlierMADs, numFilesSampled, computedOn.';
                 dbase.help.PropertyNames = 'A 1xP cell array of property name strings. Properties are user-defined per-file metadata columns (e.g., ''bSorted'', ''bContainsStim'').';
                 dbase.help.Properties = 'A NxP array of property values, one row per file, one column per property. Column order matches PropertyNames.';
             end
@@ -13800,6 +13884,31 @@ end
         end
     end
     methods (Static)   % Other utility functions
+        function [featureMedian, featureMAD] = getFeatureStats(featureName, stats)
+            % Look up the median and MAD for a feature name, handling both
+            % regular features (looked up in stats.names) and principal
+            % components (looked up in stats.pcaMedians/pcaMADs).
+            % Returns NaN for both if the feature is not found in the stats.
+            if startsWith(featureName, 'Principal Comp.')
+                pcNum = sscanf(featureName, 'Principal Comp. %d');
+                if ~isempty(pcNum) && isfield(stats, 'pcaMADs') && pcNum <= length(stats.pcaMADs)
+                    featureMedian = stats.pcaMedians(pcNum);
+                    featureMAD = stats.pcaMADs(pcNum);
+                else
+                    featureMedian = NaN;
+                    featureMAD = NaN;
+                end
+            else
+                idx = find(strcmp(featureName, stats.names), 1);
+                if ~isempty(idx)
+                    featureMedian = stats.medians(idx);
+                    featureMAD = stats.MADs(idx);
+                else
+                    featureMedian = NaN;
+                    featureMAD = NaN;
+                end
+            end
+        end
         function [params, makeDefault] = getUserPluginParams(params, dialogTitle, options)
             arguments
                 params struct

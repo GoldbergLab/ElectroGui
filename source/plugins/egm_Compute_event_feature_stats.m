@@ -219,9 +219,14 @@ for sourceNum = 1:length(selectedSourceIndices)
     standardized = (allFeatureValues - featureMedians) ./ safeMADs;
 
     if numSelectedFeatures >= 2
-        [pcaCoeffs, ~, ~] = pca(standardized);
+        [pcaCoeffs, pcaScores, ~] = pca(standardized);
+        pcaMedians = median(pcaScores, 1);
+        pcaMADs = mad(pcaScores, 1, 1);
     else
         pcaCoeffs = 1;  % Single feature, PCA is trivial
+        pcaScores = standardized;
+        pcaMedians = median(pcaScores, 1);
+        pcaMADs = mad(pcaScores, 1, 1);
     end
 
     %% Store results
@@ -231,6 +236,8 @@ for sourceNum = 1:length(selectedSourceIndices)
     stats.MADs = featureMADs;
     stats.Ns = repmat(size(allFeatureValues, 1), 1, numSelectedFeatures);
     stats.PCA = pcaCoeffs;
+    stats.pcaMedians = pcaMedians;
+    stats.pcaMADs = pcaMADs;
     stats.outlierMADs = outlierMADs;
     stats.numFilesSampled = length(sampledFiles);
     stats.computedOn = datetime("now");
