@@ -5748,6 +5748,12 @@ function setEventFeatureStats(obj, eventSourceIdx, names, options)
     end
 
     obj.dbase.EventFeatureStats{eventSourceIdx} = stats;
+
+    % Update the event viewer if it's currently showing this event source
+    viewerEventSourceIdx = obj.GetEventViewerEventSourceIdx();
+    if eventSourceIdx == viewerEventSourceIdx
+        obj.updateEventViewer();
+    end
 end
 function pseudoChannelNums = getEventPseudoChannel(obj, eventSourceIdx)
     % Get a list of pseudo channel numbers that are "event type" (the only type at the time of this writing) and depend on this eventSourceIdx
