@@ -10,7 +10,7 @@ classdef electro_gui < handle
         SourceName char
         UserFile
         OriginalDbase struct
-        CurrentDbasePath char = ''   % Keep track of currently loaded dbase name
+        CurrentDbasePath char = ''   % Keep track elof currently loaded dbase name
         CurrentDefaults char = ''
         MinMATLAB_utilsCommitDate = datetime('13-Jan-2026 11:34:46')
     end
@@ -298,7 +298,7 @@ classdef electro_gui < handle
     end
     properties  % Graphics elements
         EventWaveHandles matlab.graphics.Graphics
-        EventFeatureEllipseHandles matlab.graphics.Graphics
+        EventFeatureDistributionHandles matlab.graphics.Graphics
         EventThresholdHandles matlab.graphics.Graphics
         menu_EventsDisplayList
         xlimbox matlab.graphics.Graphics
@@ -1252,8 +1252,8 @@ classdef electro_gui < handle
                     yl = obj.axes_Events.YLim;
                     obj.axes_Events.YLim = [mean(yl)+(yl(1)-mean(yl))*1.1 mean(yl)+(yl(2)-mean(yl))*1.1];
 
-                    % Draw statistical ellipses if feature stats are available
-                    obj.drawEventFeatureEllipses(eventSourceIdx);
+                    % Draw statistical distribution rectangles if feature stats are available
+                    obj.drawEventFeatureDistributionMarkers(eventSourceIdx);
                 else
                     xlabel('');
                     ylabel('');
@@ -1340,8 +1340,8 @@ classdef electro_gui < handle
             % Project through stored PCA matrix
             pcaScores = standardized * stats.PCA;
         end
-        function drawEventFeatureEllipses(obj, eventSourceIdx)
-            % Draw median +/- MAD ellipses on the event feature scatter plot
+        function drawEventFeatureDistributionMarkers(obj, eventSourceIdx)
+            % Draw median +/- MAD rectangles on the event feature scatter plot
             % if computed statistics are available for both displayed features.
 
             % Check if stats exist for this event source
@@ -1389,7 +1389,7 @@ classdef electro_gui < handle
                 rectX = [xMedian - nMADs*xMAD, xMedian + nMADs*xMAD, xMedian + nMADs*xMAD, xMedian - nMADs*xMAD, xMedian - nMADs*xMAD];
                 rectY = [yMedian - nMADs*yMAD, yMedian - nMADs*yMAD, yMedian + nMADs*yMAD, yMedian + nMADs*yMAD, yMedian - nMADs*yMAD];
 
-                obj.EventFeatureEllipseHandles(end+1) = plot(obj.axes_Events, ...
+                obj.EventFeatureDistributionHandles(end+1) = plot(obj.axes_Events, ...
                     rectX, rectY, ...
                     'Color', [0.3 0.3 1.0 alpha], ...
                     'LineWidth', lineWidth, ...
@@ -1402,7 +1402,7 @@ classdef electro_gui < handle
                 rectX = [xMedian - outlierMADs*xMAD, xMedian + outlierMADs*xMAD, xMedian + outlierMADs*xMAD, xMedian - outlierMADs*xMAD, xMedian - outlierMADs*xMAD];
                 rectY = [yMedian - outlierMADs*yMAD, yMedian - outlierMADs*yMAD, yMedian + outlierMADs*yMAD, yMedian + outlierMADs*yMAD, yMedian - outlierMADs*yMAD];
 
-                obj.EventFeatureEllipseHandles(end+1) = plot(obj.axes_Events, ...
+                obj.EventFeatureDistributionHandles(end+1) = plot(obj.axes_Events, ...
                     rectX, rectY, ...
                     'Color', [1.0 0.2 0.2 0.6], ...
                     'LineWidth', 1.5, ...
@@ -1411,7 +1411,7 @@ classdef electro_gui < handle
             end
 
             % Draw crosshair at median
-            obj.EventFeatureEllipseHandles(end+1) = plot(obj.axes_Events, xMedian, yMedian, '+', ...
+            obj.EventFeatureDistributionHandles(end+1) = plot(obj.axes_Events, xMedian, yMedian, '+', ...
                 'Color', [0.3 0.3 1.0 0.7], ...
                 'MarkerSize', 8, ...
                 'LineWidth', 1.5, ...
@@ -5315,8 +5315,8 @@ function clearEventWaveHandles(obj)
     % Delete all event markers and overlays in event viewer axes
     delete(obj.EventWaveHandles);
     obj.EventWaveHandles = gobjects().empty();
-    delete(obj.EventFeatureEllipseHandles);
-    obj.EventFeatureEllipseHandles = matlab.graphics.Graphics.empty();
+    delete(obj.EventFeatureDistributionHandles);
+    obj.EventFeatureDistributionHandles = matlab.graphics.Graphics.empty();
     ylabel(obj.axes_Events, '');
 end
 
