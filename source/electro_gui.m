@@ -1344,13 +1344,20 @@ classdef electro_gui < handle
                 end
             end
 
+            % Identify events with non-finite feature values (e.g., Inf
+            % from Preceding_ISI on the first event). These events cannot
+            % be projected into PCA space, so their scores will be NaN.
+            finiteRows = all(isfinite(featureMatrix), 2);
+
             % Standardize using the stored medians and MADs
             safeMADs = stats.MADs;
             safeMADs(safeMADs == 0) = 1;
             standardized = (featureMatrix - stats.medians) ./ safeMADs;
 
-            % Project through stored PCA matrix
-            pcaScores = standardized * stats.PCA;
+            % Project through stored PCA matrix, leaving non-finite
+            % events as NaN (MATLAB's plot will skip them)
+            pcaScores = NaN(numEvents, size(stats.PCA, 2));
+            pcaScores(finiteRows, :) = standardized(finiteRows, :) * stats.PCA;
         end
         function drawEventFeatureDistributionMarkers(obj, eventSourceIdx)
             % Draw median +/- MAD rectangles on the event feature scatter plot

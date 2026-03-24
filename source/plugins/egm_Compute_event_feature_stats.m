@@ -172,7 +172,8 @@ for sourceNum = 1:length(selectedSourceIndices)
         continue;
     end
 
-    % Remove rows with any NaN (from failed feature extractions)
+    % Remove rows with any NaN or Inf (from failed feature extractions
+    % or features like Preceding_ISI that return Inf for edge events)
     validRows = all(~isnan(allFeatureValues) & isfinite(allFeatureValues), 2);
     allFeatureValues = allFeatureValues(validRows, :);
 
