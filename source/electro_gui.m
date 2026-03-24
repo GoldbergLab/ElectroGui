@@ -1364,10 +1364,12 @@ classdef electro_gui < handle
             safeMADs(safeMADs == 0) = 1;
             standardized = (featureMatrix - stats.medians) ./ safeMADs;
 
-            % Project through stored PCA matrix, leaving non-finite
-            % events as NaN (MATLAB's plot will skip them)
-            pcaScores = NaN(numEvents, size(stats.PCA, 2));
-            pcaScores(finiteRows, :) = standardized(finiteRows, :) * stats.PCA;
+            % Project through the first 2 columns of the stored PCA matrix
+            % (only PC1 and PC2 are displayable in the event viewer).
+            % The full matrix is kept in the dbase for programmatic use.
+            numDisplayPCs = min(2, size(stats.PCA, 2));
+            pcaScores = NaN(numEvents, numDisplayPCs);
+            pcaScores(finiteRows, :) = standardized(finiteRows, :) * stats.PCA(:, 1:numDisplayPCs);
         end
         function waveformPcaScores = computeEventWaveformPCAScores(obj, eventSourceIdx, channelData, allEventTimes, eventPartIdx)
             % Compute waveform PCA scores for the current file's events
@@ -1399,14 +1401,17 @@ classdef electro_gui < handle
             preSamples = stats.waveformWindow(1);
             postSamples = stats.waveformWindow(2);
 
-            % Use conditionSpikeWaveforms with the stored mean and PCA
+            % Use conditionSpikeWaveforms with the stored mean and only the
+            % first 2 PCA columns (all the event viewer can display).
+            % The full matrix is kept in the dbase for programmatic use.
+            numDisplayPCs = min(2, size(stats.waveformPCA, 2));
             [pcaScoresValid, validMask] = electro_gui.conditionSpikeWaveforms( ...
                 channelData, eventSamples, preSamples, postSamples, ...
                 'MeanWaveform', stats.waveformMean, ...
-                'PCA', stats.waveformPCA);
+                'PCA', stats.waveformPCA(:, 1:numDisplayPCs));
 
             % Map valid scores back to full event array, NaN for invalid
-            numPCs = size(stats.waveformPCA, 2);
+            numPCs = numDisplayPCs;
             waveformPcaScores = NaN(numEvents, numPCs);
             waveformPcaScores(validMask, :) = pcaScoresValid;
         end
