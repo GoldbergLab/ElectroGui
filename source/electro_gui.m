@@ -128,11 +128,15 @@ classdef electro_gui < handle
         menu_Colormap
         menu_Macros
         menu_XAxis_List
-        menu_XAxis_PC1 matlab.ui.container.Menu
-        menu_XAxis_PC2 matlab.ui.container.Menu
+        menu_XAxis_FeaturePC1 matlab.ui.container.Menu
+        menu_XAxis_FeaturePC2 matlab.ui.container.Menu
+        menu_XAxis_WaveformPC1 matlab.ui.container.Menu
+        menu_XAxis_WaveformPC2 matlab.ui.container.Menu
         menu_YAxis_List
-        menu_YAxis_PC1 matlab.ui.container.Menu
-        menu_YAxis_PC2 matlab.ui.container.Menu
+        menu_YAxis_FeaturePC1 matlab.ui.container.Menu
+        menu_YAxis_FeaturePC2 matlab.ui.container.Menu
+        menu_YAxis_WaveformPC1 matlab.ui.container.Menu
+        menu_YAxis_WaveformPC2 matlab.ui.container.Menu
         menu_AlgorithmList
         menu_SegmenterList
         menu_FilterList
@@ -569,11 +573,15 @@ classdef electro_gui < handle
             % Populate macro plugin menu
             obj.menu_Macros = electro_gui.populatePluginMenuList(p.macros, [], obj.menu_Macros, @obj.MacrosMenuclick);
 
-            % Add principal component options at the top of each axis menu
-            obj.menu_XAxis_PC1 = uimenu(obj.menu_XAxis, 'Label', 'Principal Comp. 1', 'Callback', @obj.XAxisMenuClick);
-            obj.menu_XAxis_PC2 = uimenu(obj.menu_XAxis, 'Label', 'Principal Comp. 2', 'Callback', @obj.XAxisMenuClick, 'Separator', true);
-            obj.menu_YAxis_PC1 = uimenu(obj.menu_YAxis, 'Label', 'Principal Comp. 1', 'Callback', @obj.YAxisMenuClick);
-            obj.menu_YAxis_PC2 = uimenu(obj.menu_YAxis, 'Label', 'Principal Comp. 2', 'Callback', @obj.YAxisMenuClick, 'Separator', true);
+            % Add PCA options at the top of each axis menu
+            obj.menu_XAxis_WaveformPC1 = uimenu(obj.menu_XAxis, 'Label', 'Waveform PC 1', 'Callback', @obj.XAxisMenuClick);
+            obj.menu_XAxis_WaveformPC2 = uimenu(obj.menu_XAxis, 'Label', 'Waveform PC 2', 'Callback', @obj.XAxisMenuClick);
+            obj.menu_XAxis_FeaturePC1 = uimenu(obj.menu_XAxis, 'Label', 'Feature PC 1', 'Callback', @obj.XAxisMenuClick);
+            obj.menu_XAxis_FeaturePC2 = uimenu(obj.menu_XAxis, 'Label', 'Feature PC 2', 'Callback', @obj.XAxisMenuClick, 'Separator', true);
+            obj.menu_YAxis_WaveformPC1 = uimenu(obj.menu_YAxis, 'Label', 'Waveform PC 1', 'Callback', @obj.YAxisMenuClick);
+            obj.menu_YAxis_WaveformPC2 = uimenu(obj.menu_YAxis, 'Label', 'Waveform PC 2', 'Callback', @obj.YAxisMenuClick);
+            obj.menu_YAxis_FeaturePC1 = uimenu(obj.menu_YAxis, 'Label', 'Feature PC 1', 'Callback', @obj.YAxisMenuClick);
+            obj.menu_YAxis_FeaturePC2 = uimenu(obj.menu_YAxis, 'Label', 'Feature PC 2', 'Callback', @obj.YAxisMenuClick, 'Separator', true);
 
             % Populate x-axis event feature algorithm plugin menu
             obj.menu_XAxis_List = electro_gui.populatePluginMenuList(p.eventFeatures, obj.settings.DefaultEventFeatureX, obj.menu_XAxis, @obj.XAxisMenuClick);
@@ -1194,41 +1202,31 @@ classdef electro_gui < handle
                     xMenu = findobj('Parent', obj.menu_XAxis, 'Checked', 'on');
                     yMenu = findobj('Parent', obj.menu_YAxis, 'Checked', 'on');
 
-                    % Determine PC number for each axis (0 = not a PC)
-                    xPCNum = obj.getPCNumber(xMenu);
-                    yPCNum = obj.getPCNumber(yMenu);
+                    % Determine PC number and type for each axis
+                    [xPCNum, xPCType] = obj.getPCInfo(xMenu);
+                    [yPCNum, yPCType] = obj.getPCInfo(yMenu);
 
-                    % Compute PCA scores if either axis needs a principal component
-                    pcaScores = [];
-                    if xPCNum > 0 || yPCNum > 0
-                        pcaScores = obj.computeEventPCAScores(eventSourceIdx, channelData, fs, allEventTimes, eventPartIdx, windowSamples);
+                    % Compute feature PCA scores if needed
+                    featurePcaScores = [];
+                    if strcmp(xPCType, 'feature') || strcmp(yPCType, 'feature')
+                        featurePcaScores = obj.computeEventPCAScores(eventSourceIdx, channelData, fs, allEventTimes, eventPartIdx, windowSamples);
+                    end
+
+                    % Compute waveform PCA scores if needed
+                    waveformPcaScores = [];
+                    if strcmp(xPCType, 'waveform') || strcmp(yPCType, 'waveform')
+                        waveformPcaScores = obj.computeEventWaveformPCAScores(eventSourceIdx, channelData, allEventTimes, eventPartIdx);
                     end
 
                     % Get X feature values
-                    if xPCNum > 0
-                        if ~isempty(pcaScores) && xPCNum <= size(pcaScores, 2)
-                            feature1 = pcaScores(:, xPCNum);
-                        else
-                            feature1 = [];
-                        end
-                        name1 = xMenu.Label;
-                    else
-                        [feature1, name1] = electro_gui.eg_runPlugin(obj.plugins.eventFeatures, ...
-                            xMenu.Label, channelData, fs, allEventTimes, eventPartIdx, windowSamples);
-                    end
+                    [feature1, name1] = obj.getEventViewerAxisValues( ...
+                        xMenu, xPCNum, xPCType, featurePcaScores, waveformPcaScores, ...
+                        channelData, fs, allEventTimes, eventPartIdx, windowSamples);
 
                     % Get Y feature values
-                    if yPCNum > 0
-                        if ~isempty(pcaScores) && yPCNum <= size(pcaScores, 2)
-                            feature2 = pcaScores(:, yPCNum);
-                        else
-                            feature2 = [];
-                        end
-                        name2 = yMenu.Label;
-                    else
-                        [feature2, name2] = electro_gui.eg_runPlugin(obj.plugins.eventFeatures, ...
-                            yMenu.Label, channelData, fs, allEventTimes, eventPartIdx, windowSamples);
-                    end
+                    [feature2, name2] = obj.getEventViewerAxisValues( ...
+                        yMenu, yPCNum, yPCType, featurePcaScores, waveformPcaScores, ...
+                        channelData, fs, allEventTimes, eventPartIdx, windowSamples);
 
                     for c = 1:length(feature1)
                         if eventSelection(c)==1
@@ -1297,16 +1295,22 @@ classdef electro_gui < handle
                 obj.axes_Events.YLim = storedYLim;
             end
         end
-        function pcNum = getPCNumber(obj, menuItem)
-            % Return the principal component number (1 or 2) if the given
-            % menu item is one of the PC menus, or 0 if it is a regular
-            % feature menu item.
-            if menuItem == obj.menu_XAxis_PC1 || menuItem == obj.menu_YAxis_PC1
-                pcNum = 1;
-            elseif menuItem == obj.menu_XAxis_PC2 || menuItem == obj.menu_YAxis_PC2
-                pcNum = 2;
+        function [pcNum, pcType] = getPCInfo(obj, menuItem)
+            % Return the principal component number and type for a menu item.
+            %
+            % Returns:
+            %   pcNum - component number (1 or 2), or 0 for regular features
+            %   pcType - 'feature', 'waveform', or 'none'
+            if menuItem == obj.menu_XAxis_FeaturePC1 || menuItem == obj.menu_YAxis_FeaturePC1
+                pcNum = 1; pcType = 'feature';
+            elseif menuItem == obj.menu_XAxis_FeaturePC2 || menuItem == obj.menu_YAxis_FeaturePC2
+                pcNum = 2; pcType = 'feature';
+            elseif menuItem == obj.menu_XAxis_WaveformPC1 || menuItem == obj.menu_YAxis_WaveformPC1
+                pcNum = 1; pcType = 'waveform';
+            elseif menuItem == obj.menu_XAxis_WaveformPC2 || menuItem == obj.menu_YAxis_WaveformPC2
+                pcNum = 2; pcType = 'waveform';
             else
-                pcNum = 0;
+                pcNum = 0; pcType = 'none';
             end
         end
         function pcaScores = computeEventPCAScores(obj, eventSourceIdx, channelData, fs, allEventTimes, eventPartIdx, windowSamples)
@@ -1365,6 +1369,69 @@ classdef electro_gui < handle
             pcaScores = NaN(numEvents, size(stats.PCA, 2));
             pcaScores(finiteRows, :) = standardized(finiteRows, :) * stats.PCA;
         end
+        function waveformPcaScores = computeEventWaveformPCAScores(obj, eventSourceIdx, channelData, allEventTimes, eventPartIdx)
+            % Compute waveform PCA scores for the current file's events
+            % using the stored waveform PCA transform. Extracts waveform
+            % snippets, normalizes by peak-to-trough, subtracts the stored
+            % mean waveform, and projects through the stored PCA matrix
+            % via conditionSpikeWaveforms.
+            %
+            % Returns an NxK matrix of waveform PCA scores, or empty if
+            % stats are unavailable. Events with invalid waveforms get NaN.
+
+            waveformPcaScores = [];
+
+            % Check if waveform PCA stats exist
+            if ~isfield(obj.dbase, 'EventFeatureStats') || ...
+                    eventSourceIdx > length(obj.dbase.EventFeatureStats) || ...
+                    isempty(obj.dbase.EventFeatureStats{eventSourceIdx})
+                return;
+            end
+            stats = obj.dbase.EventFeatureStats{eventSourceIdx};
+            if isempty(stats.waveformPCA) || isempty(stats.waveformMean) || isempty(stats.waveformWindow)
+                return;
+            end
+
+            eventSamples = allEventTimes{eventPartIdx};
+            numEvents = length(eventSamples);
+            preSamples = stats.waveformWindow(1);
+            postSamples = stats.waveformWindow(2);
+
+            % Use conditionSpikeWaveforms with the stored mean and PCA
+            [pcaScoresValid, validMask] = electro_gui.conditionSpikeWaveforms( ...
+                channelData, eventSamples, preSamples, postSamples, ...
+                'MeanWaveform', stats.waveformMean, ...
+                'PCA', stats.waveformPCA);
+
+            % Map valid scores back to full event array, NaN for invalid
+            numPCs = size(stats.waveformPCA, 2);
+            waveformPcaScores = NaN(numEvents, numPCs);
+            waveformPcaScores(validMask, :) = pcaScoresValid;
+        end
+        function [values, name] = getEventViewerAxisValues(obj, menu, pcNum, pcType, featurePcaScores, waveformPcaScores, channelData, fs, allEventTimes, eventPartIdx, windowSamples)
+            % Get the feature values for one axis of the event viewer
+            % scatter plot, dispatching to the appropriate source based
+            % on whether it's a regular feature, feature PCA, or waveform PCA.
+            name = menu.Label;
+            switch pcType
+                case 'feature'
+                    if ~isempty(featurePcaScores) && pcNum <= size(featurePcaScores, 2)
+                        values = featurePcaScores(:, pcNum);
+                    else
+                        values = [];
+                    end
+                case 'waveform'
+                    if ~isempty(waveformPcaScores) && pcNum <= size(waveformPcaScores, 2)
+                        values = waveformPcaScores(:, pcNum);
+                    else
+                        values = [];
+                    end
+                otherwise
+                    % Regular feature plugin
+                    [values, name] = electro_gui.eg_runPlugin(obj.plugins.eventFeatures, ...
+                        menu.Label, channelData, fs, allEventTimes, eventPartIdx, windowSamples);
+            end
+        end
         function drawEventFeatureDistributionMarkers(obj, eventSourceIdx)
             % Draw median +/- MAD rectangles on the event feature scatter plot
             % if computed statistics are available for both displayed features.
@@ -1384,8 +1451,10 @@ classdef electro_gui < handle
 
             % Look up median and MAD for each axis, handling both regular
             % features and principal components
-            [xMedian, xMAD] = electro_gui.getFeatureStats(xMenu.Label, obj.getPCNumber(xMenu), stats);
-            [yMedian, yMAD] = electro_gui.getFeatureStats(yMenu.Label, obj.getPCNumber(yMenu), stats);
+            [xPCNum, xPCType] = obj.getPCInfo(xMenu);
+            [yPCNum, yPCType] = obj.getPCInfo(yMenu);
+            [xMedian, xMAD] = electro_gui.getFeatureStats(xMenu.Label, xPCNum, xPCType, stats);
+            [yMedian, yMAD] = electro_gui.getFeatureStats(yMenu.Label, yPCNum, yPCType, stats);
             if isnan(xMedian) || isnan(yMedian)
                 return;
             end
@@ -5650,6 +5719,12 @@ function setEventFeatureStats(obj, eventSourceIdx, names, options)
     %   PCA          - FxK PCA coefficient matrix (operates on standardized features)
     %   pcaMedians   - 1xK array of PCA score medians
     %   pcaMADs      - 1xK array of PCA score MADs
+    %   waveformPCA  - WxK PCA coefficient matrix for amplitude-normalized,
+    %       mean-subtracted waveforms (W = snippet length)
+    %   waveformMean - 1xW mean normalized waveform (subtracted before PCA)
+    %   waveformWindow - 1x2 [preSamples, postSamples] window used
+    %   waveformPcaMedians - 1xK array of waveform PCA score medians
+    %   waveformPcaMADs - 1xK array of waveform PCA score MADs
     %   outlierMADs  - scalar, MAD threshold used for outlier rejection (0 = none)
     %   numFilesSampled - scalar, number of files sampled
     %   computedOn   - datetime timestamp
@@ -5663,6 +5738,11 @@ function setEventFeatureStats(obj, eventSourceIdx, names, options)
         options.PCA double = []
         options.pcaMedians (1, :) double = []
         options.pcaMADs (1, :) double = []
+        options.waveformPCA double = []
+        options.waveformMean (1, :) double = []
+        options.waveformWindow (1, :) double = []
+        options.waveformPcaMedians (1, :) double = []
+        options.waveformPcaMADs (1, :) double = []
         options.outlierMADs (1, 1) double {mustBeNonnegative} = 0
         options.numFilesSampled (1, 1) double {mustBeNonnegative, mustBeInteger} = 0
         options.computedOn datetime = datetime("now")
@@ -5738,6 +5818,40 @@ function setEventFeatureStats(obj, eventSourceIdx, names, options)
         end
     end
 
+    % Validate waveform PCA fields
+    if ~isempty(options.waveformPCA)
+        if isempty(options.waveformMean)
+            error('electro_gui:setEventFeatureStats:missingWaveformMean', ...
+                'waveformPCA provided but waveformMean is empty.');
+        end
+        if isempty(options.waveformWindow) || length(options.waveformWindow) ~= 2
+            error('electro_gui:setEventFeatureStats:invalidWaveformWindow', ...
+                'waveformWindow must be a 1x2 array [preSamples, postSamples].');
+        end
+        expectedSnippetLength = options.waveformWindow(1) + options.waveformWindow(2) + 1;
+        if length(options.waveformMean) ~= expectedSnippetLength
+            error('electro_gui:setEventFeatureStats:sizeMismatch', ...
+                'waveformMean length (%d) must match snippet length from waveformWindow (%d).', ...
+                length(options.waveformMean), expectedSnippetLength);
+        end
+        if size(options.waveformPCA, 1) ~= expectedSnippetLength
+            error('electro_gui:setEventFeatureStats:sizeMismatch', ...
+                'waveformPCA row count (%d) must match snippet length from waveformWindow (%d).', ...
+                size(options.waveformPCA, 1), expectedSnippetLength);
+        end
+        numWaveformPCs = size(options.waveformPCA, 2);
+        if ~isempty(options.waveformPcaMedians) && length(options.waveformPcaMedians) ~= numWaveformPCs
+            error('electro_gui:setEventFeatureStats:sizeMismatch', ...
+                'Length of waveformPcaMedians (%d) must match waveformPCA columns (%d).', ...
+                length(options.waveformPcaMedians), numWaveformPCs);
+        end
+        if ~isempty(options.waveformPcaMADs) && length(options.waveformPcaMADs) ~= numWaveformPCs
+            error('electro_gui:setEventFeatureStats:sizeMismatch', ...
+                'Length of waveformPcaMADs (%d) must match waveformPCA columns (%d).', ...
+                length(options.waveformPcaMADs), numWaveformPCs);
+        end
+    end
+
     % Build and store the stats struct
     stats = struct();
     stats.names = names;
@@ -5747,6 +5861,11 @@ function setEventFeatureStats(obj, eventSourceIdx, names, options)
     stats.PCA = options.PCA;
     stats.pcaMedians = options.pcaMedians;
     stats.pcaMADs = options.pcaMADs;
+    stats.waveformPCA = options.waveformPCA;
+    stats.waveformMean = options.waveformMean;
+    stats.waveformWindow = options.waveformWindow;
+    stats.waveformPcaMedians = options.waveformPcaMedians;
+    stats.waveformPcaMADs = options.waveformPcaMADs;
     stats.outlierMADs = options.outlierMADs;
     stats.numFilesSampled = options.numFilesSampled;
     stats.computedOn = options.computedOn;
@@ -13887,6 +14006,109 @@ end
             % Check if data is loaded yet
             isLoaded = (electro_gui.getNumFiles(dbase) > 0);
         end
+        function [conditioned, validMask] = conditionSpikeWaveforms(channelData, eventSamples, preSamples, postSamples, options)
+            % Extract spike waveform snippets from channel data, normalize
+            % each to unit peak-to-trough amplitude, optionally subtract a
+            % mean waveform, and optionally project through a PCA matrix.
+            %
+            % Arguments:
+            %   channelData - full channel signal (1D array)
+            %   eventSamples - vector of event times in samples
+            %   preSamples - number of samples before each event to include
+            %   postSamples - number of samples after each event to include
+            %
+            % Optional name-value arguments:
+            %   MinPeakToTrough - minimum peak-to-trough amplitude for a
+            %       waveform to be valid. Below this, the event is discarded.
+            %       Default: 0 (no minimum).
+            %   MeanWaveform - 1xW mean normalized waveform to subtract
+            %       after amplitude normalization. Default: [] (no subtraction).
+            %   PCA - WxK PCA coefficient matrix to project through after
+            %       conditioning. Default: [] (return waveforms directly).
+            %
+            % Returns:
+            %   conditioned - NxW matrix of conditioned waveforms (or NxK
+            %       PCA scores if PCA is provided), where N is the number
+            %       of valid events and W = preSamples + postSamples + 1.
+            %   validMask - logical vector the same length as eventSamples,
+            %       true for events that produced valid waveforms.
+            %
+            % Conditioning pipeline per waveform:
+            %   1. Extract snippet from channelData
+            %   2. Discard if window extends beyond channel data
+            %   3. Compute peak-to-trough amplitude
+            %   4. Discard if below MinPeakToTrough
+            %   5. Normalize by dividing by peak-to-trough amplitude
+            %   6. Subtract MeanWaveform (if provided)
+            %   7. Project through PCA matrix (if provided)
+            arguments
+                channelData (:, 1) double
+                eventSamples (:, 1) double
+                preSamples (1, 1) double {mustBeNonnegative, mustBeInteger}
+                postSamples (1, 1) double {mustBeNonnegative, mustBeInteger}
+                options.MinPeakToTrough (1, 1) double {mustBeNonnegative} = 0
+                options.MeanWaveform (1, :) double = []
+                options.PCA double = []
+            end
+
+            numEvents = length(eventSamples);
+            snippetLength = preSamples + postSamples + 1;
+            numChannelSamples = length(channelData);
+
+            % Validate MeanWaveform length if provided
+            if ~isempty(options.MeanWaveform) && length(options.MeanWaveform) ~= snippetLength
+                error('electro_gui:conditionSpikeWaveforms:sizeMismatch', ...
+                    'MeanWaveform length (%d) must match snippet length (%d = %d + %d + 1).', ...
+                    length(options.MeanWaveform), snippetLength, preSamples, postSamples);
+            end
+
+            % Validate PCA row count if provided
+            if ~isempty(options.PCA) && size(options.PCA, 1) ~= snippetLength
+                error('electro_gui:conditionSpikeWaveforms:sizeMismatch', ...
+                    'PCA matrix row count (%d) must match snippet length (%d).', ...
+                    size(options.PCA, 1), snippetLength);
+            end
+
+            % Extract and normalize waveform snippets
+            validMask = true(numEvents, 1);
+            normalizedWaveforms = NaN(numEvents, snippetLength);
+
+            for eventIdx = 1:numEvents
+                windowStart = eventSamples(eventIdx) - preSamples;
+                windowEnd = eventSamples(eventIdx) + postSamples;
+
+                % Discard events whose window extends beyond the channel data
+                if windowStart < 1 || windowEnd > numChannelSamples
+                    validMask(eventIdx) = false;
+                    continue;
+                end
+
+                snippet = channelData(windowStart:windowEnd)';
+                peakToTrough = max(snippet) - min(snippet);
+
+                % Discard events with negligible peak-to-trough amplitude
+                if peakToTrough < options.MinPeakToTrough
+                    validMask(eventIdx) = false;
+                    continue;
+                end
+
+                % Normalize to unit peak-to-trough amplitude
+                normalizedWaveforms(eventIdx, :) = snippet / peakToTrough;
+            end
+
+            % Keep only valid waveforms
+            conditioned = normalizedWaveforms(validMask, :);
+
+            % Subtract mean waveform if provided
+            if ~isempty(options.MeanWaveform)
+                conditioned = conditioned - options.MeanWaveform;
+            end
+
+            % Project through PCA if provided
+            if ~isempty(options.PCA)
+                conditioned = conditioned * options.PCA;
+            end
+        end
         function dbase = UpdateChannelInfo(dbase, options)
             % Update the dbase channel info structure based on the files in the
             % dbase
@@ -14122,35 +14344,44 @@ end
         end
     end
     methods (Static)   % Other utility functions
-        function [featureMedian, featureMAD] = getFeatureStats(featureName, pcNum, stats)
-            % Look up the median and MAD for a feature, handling both
-            % regular features (looked up in stats.names) and principal
-            % components (looked up in stats.pcaMedians/pcaMADs).
+        function [featureMedian, featureMAD] = getFeatureStats(featureName, pcNum, pcType, stats)
+            % Look up the median and MAD for a feature, handling regular
+            % features, feature PCA components, and waveform PCA components.
             %
             % Arguments:
             %   featureName - the feature plugin name (used for regular features)
             %   pcNum - principal component number (1, 2, ...) or 0 for
             %       regular features
+            %   pcType - 'feature', 'waveform', or 'none'
             %   stats - the EventFeatureStats struct for an event source
             %
             % Returns NaN for both if the feature is not found in the stats.
-            if pcNum > 0
-                if isfield(stats, 'pcaMADs') && pcNum <= length(stats.pcaMADs)
-                    featureMedian = stats.pcaMedians(pcNum);
-                    featureMAD = stats.pcaMADs(pcNum);
-                else
-                    featureMedian = NaN;
-                    featureMAD = NaN;
-                end
-            else
-                idx = find(strcmp(featureName, stats.names), 1);
-                if ~isempty(idx)
-                    featureMedian = stats.medians(idx);
-                    featureMAD = stats.MADs(idx);
-                else
-                    featureMedian = NaN;
-                    featureMAD = NaN;
-                end
+            switch pcType
+                case 'feature'
+                    if isfield(stats, 'pcaMADs') && ~isempty(stats.pcaMADs) && pcNum <= length(stats.pcaMADs)
+                        featureMedian = stats.pcaMedians(pcNum);
+                        featureMAD = stats.pcaMADs(pcNum);
+                    else
+                        featureMedian = NaN;
+                        featureMAD = NaN;
+                    end
+                case 'waveform'
+                    if isfield(stats, 'waveformPcaMADs') && ~isempty(stats.waveformPcaMADs) && pcNum <= length(stats.waveformPcaMADs)
+                        featureMedian = stats.waveformPcaMedians(pcNum);
+                        featureMAD = stats.waveformPcaMADs(pcNum);
+                    else
+                        featureMedian = NaN;
+                        featureMAD = NaN;
+                    end
+                otherwise
+                    idx = find(strcmp(featureName, stats.names), 1);
+                    if ~isempty(idx)
+                        featureMedian = stats.medians(idx);
+                        featureMAD = stats.MADs(idx);
+                    else
+                        featureMedian = NaN;
+                        featureMAD = NaN;
+                    end
             end
         end
         function [params, makeDefault] = getUserPluginParams(params, dialogTitle, options)

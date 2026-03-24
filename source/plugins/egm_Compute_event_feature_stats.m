@@ -63,6 +63,9 @@ selectedSourceIndices = selections.eventSources;
 selectedFeatureIndices = selections.features;
 numFilesToSample = selections.numFiles;
 outlierMADs = selections.outlierMADs;
+computeFeatureStats = selections.computeFeatureStats;
+computeWaveformPCA = selections.computeWaveformPCA;
+minPeakToTrough = selections.minPeakToTrough;
 
 selectedFeatureNames = featureNames(selectedFeatureIndices);
 numSelectedFeatures = length(selectedFeatureIndices);
@@ -102,8 +105,9 @@ for sourceNum = 1:length(selectedSourceIndices)
         sampledFiles = filesWithEvents;
     end
 
-    % Collect feature values across all sampled files
+    % Collect feature values and waveforms across all sampled files
     allFeatureValues = [];  % Will become NxF matrix (N events, F features)
+    allWaveforms = [];      % Will become NxW matrix (N events, W snippet samples)
 
     for fileIdx = 1:length(sampledFiles)
         filenum = sampledFiles(fileIdx);
@@ -111,11 +115,12 @@ for sourceNum = 1:length(selectedSourceIndices)
         if ~isvalid(progressBar)
             return;
         end
+        totalEvents = size(allFeatureValues, 1) + size(allWaveforms, 1);
         overallProgress = ((sourceNum - 1) + fileIdx / length(sampledFiles)) / length(selectedSourceIndices);
         waitbar(overallProgress, progressBar, ...
             sprintf('Source %d/%d, file %d/%d (%d events so far)', ...
             sourceNum, length(selectedSourceIndices), ...
-            fileIdx, length(sampledFiles), size(allFeatureValues, 1)));
+            fileIdx, length(sampledFiles), totalEvents));
 
         % Load channel data for this file
         try
@@ -140,98 +145,121 @@ for sourceNum = 1:length(selectedSourceIndices)
         numEventsThisFile = length(eventSamples);
 
         % Run each selected feature extractor
-        fileFeatures = NaN(numEventsThisFile, numSelectedFeatures);
-        for featureIdx = 1:numSelectedFeatures
-            pluginIdx = selectedFeatureIndices(featureIdx);
-            try
-                [featureValues, ~] = electro_gui.eg_runPlugin( ...
-                    featurePlugins, featureNames{pluginIdx}, ...
-                    channelData, fs, allEventTimes, eventPartIdx, windowSamples);
-                fileFeatures(:, featureIdx) = featureValues(:);
-            catch ME
-                electro_gui.issueWarning( ...
-                    sprintf('Feature %s failed on file %d: %s', ...
-                    featureNames{pluginIdx}, filenum, ME.message), ...
-                    'featureExtractFail');
+        if computeFeatureStats && numSelectedFeatures > 0
+            fileFeatures = NaN(numEventsThisFile, numSelectedFeatures);
+            for featureIdx = 1:numSelectedFeatures
+                pluginIdx = selectedFeatureIndices(featureIdx);
+                try
+                    [featureValues, ~] = electro_gui.eg_runPlugin( ...
+                        featurePlugins, featureNames{pluginIdx}, ...
+                        channelData, fs, allEventTimes, eventPartIdx, windowSamples);
+                    fileFeatures(:, featureIdx) = featureValues(:);
+                catch ME
+                    electro_gui.issueWarning( ...
+                        sprintf('Feature %s failed on file %d: %s', ...
+                        featureNames{pluginIdx}, filenum, ME.message), ...
+                        'featureExtractFail');
+                end
+            end
+            allFeatureValues = [allFeatureValues; fileFeatures]; %#ok<AGROW>
+        end
+
+        % Extract amplitude-normalized waveform snippets
+        if computeWaveformPCA
+            [normalizedWaveforms, ~] = electro_gui.conditionSpikeWaveforms( ...
+                channelData, eventSamples, windowSamples(1), windowSamples(2), ...
+                'MinPeakToTrough', minPeakToTrough);
+            allWaveforms = [allWaveforms; normalizedWaveforms]; %#ok<AGROW>
+        end
+    end
+
+    %% Compute feature statistics and feature PCA
+    featureMedians = [];
+    featureMADs = [];
+    pcaCoeffs = [];
+    pcaMedians = [];
+    pcaMADs = [];
+    featureNs = [];
+
+    if computeFeatureStats && ~isempty(allFeatureValues) && size(allFeatureValues, 1) >= 2
+        % Remove rows with any NaN or Inf (from failed feature extractions
+        % or features like Preceding_ISI that return Inf for edge events)
+        validRows = all(isfinite(allFeatureValues), 2);
+        allFeatureValues = allFeatureValues(validRows, :);
+
+        if size(allFeatureValues, 1) >= 2
+            % Compute robust statistics (first pass)
+            featureMedians = median(allFeatureValues, 1);
+            featureMADs = mad(allFeatureValues, 1, 1);
+
+            % Optional outlier rejection pass
+            if outlierMADs > 0 && ~isinf(outlierMADs)
+                safeMADs = featureMADs;
+                safeMADs(safeMADs == 0) = Inf;
+                zScores = abs(allFeatureValues - featureMedians) ./ safeMADs;
+                inlierMask = all(zScores <= outlierMADs, 2);
+                allFeatureValues = allFeatureValues(inlierMask, :);
+
+                if size(allFeatureValues, 1) >= 2
+                    featureMedians = median(allFeatureValues, 1);
+                    featureMADs = mad(allFeatureValues, 1, 1);
+                end
+            end
+
+            featureNs = repmat(size(allFeatureValues, 1), 1, numSelectedFeatures);
+
+            if size(allFeatureValues, 1) >= 2 && numSelectedFeatures >= 2
+                % Compute PCA on standardized features
+                safeMADs = featureMADs;
+                safeMADs(safeMADs == 0) = 1;
+                standardized = (allFeatureValues - featureMedians) ./ safeMADs;
+                [pcaCoeffs, pcaScores, ~] = pca(standardized);
+                pcaMedians = median(pcaScores, 1);
+                pcaMADs = mad(pcaScores, 1, 1);
             end
         end
-
-        allFeatureValues = [allFeatureValues; fileFeatures]; %#ok<AGROW>
-    end
-
-    if isempty(allFeatureValues) || size(allFeatureValues, 1) < 2
+    elseif computeFeatureStats
         electro_gui.issueWarning( ...
-            sprintf('Not enough events for event source %d to compute statistics.', eventSourceIdx), ...
+            sprintf('Not enough events for event source %d to compute feature statistics.', eventSourceIdx), ...
             'tooFewEvents');
-        continue;
     end
 
-    % Remove rows with any NaN or Inf (from failed feature extractions
-    % or features like Preceding_ISI that return Inf for edge events)
-    validRows = all(~isnan(allFeatureValues) & isfinite(allFeatureValues), 2);
-    allFeatureValues = allFeatureValues(validRows, :);
+    %% Compute waveform PCA
+    waveformPCACoeffs = [];
+    waveformMean = [];
+    waveformPcaMedians = [];
+    waveformPcaMADs = [];
 
-    if size(allFeatureValues, 1) < 2
+    if computeWaveformPCA && ~isempty(allWaveforms) && size(allWaveforms, 1) >= 2
+        % Compute the mean normalized waveform and subtract it
+        waveformMean = mean(allWaveforms, 1);
+        centeredWaveforms = allWaveforms - waveformMean;
+
+        % Compute PCA on the centered, amplitude-normalized waveforms
+        snippetLength = size(centeredWaveforms, 2);
+        numComponents = min(size(centeredWaveforms, 1) - 1, snippetLength);
+        [waveformPCACoeffs, waveformPcaScores, ~] = pca(centeredWaveforms, 'NumComponents', numComponents);
+        waveformPcaMedians = median(waveformPcaScores, 1);
+        waveformPcaMADs = mad(waveformPcaScores, 1, 1);
+    elseif computeWaveformPCA
         electro_gui.issueWarning( ...
-            sprintf('Not enough valid events for event source %d after removing NaN/Inf.', eventSourceIdx), ...
-            'tooFewValidEvents');
-        continue;
-    end
-
-    %% Compute robust statistics (first pass)
-    featureMedians = median(allFeatureValues, 1);
-    featureMADs = mad(allFeatureValues, 1, 1);
-
-    %% Optional outlier rejection pass
-    if outlierMADs > 0 && ~isinf(outlierMADs)
-        % Compute z-scores using median/MAD
-        % Avoid division by zero for features with zero MAD
-        safeMADs = featureMADs;
-        safeMADs(safeMADs == 0) = Inf;
-        zScores = abs(allFeatureValues - featureMedians) ./ safeMADs;
-
-        % Keep events where no feature exceeds the threshold
-        inlierMask = all(zScores <= outlierMADs, 2);
-        allFeatureValues = allFeatureValues(inlierMask, :);
-
-        if size(allFeatureValues, 1) < 2
-            electro_gui.issueWarning( ...
-                sprintf('Not enough events remaining after outlier rejection for event source %d.', eventSourceIdx), ...
-                'tooFewAfterOutlierRejection');
-            continue;
-        end
-
-        % Recompute statistics on cleaned data
-        featureMedians = median(allFeatureValues, 1);
-        featureMADs = mad(allFeatureValues, 1, 1);
-    end
-
-    %% Compute PCA on standardized features
-    % Standardize using the stored medians/MADs so the PCA matrix is
-    % usable after the fact with the same normalization
-    safeMADs = featureMADs;
-    safeMADs(safeMADs == 0) = 1;  % Avoid division by zero; zero-MAD features pass through unchanged
-    standardized = (allFeatureValues - featureMedians) ./ safeMADs;
-
-    if numSelectedFeatures >= 2
-        [pcaCoeffs, pcaScores, ~] = pca(standardized);
-        pcaMedians = median(pcaScores, 1);
-        pcaMADs = mad(pcaScores, 1, 1);
-    else
-        pcaCoeffs = 1;  % Single feature, PCA is trivial
-        pcaScores = standardized;
-        pcaMedians = median(pcaScores, 1);
-        pcaMADs = mad(pcaScores, 1, 1);
+            sprintf('Not enough valid waveforms for event source %d to compute waveform PCA.', eventSourceIdx), ...
+            'tooFewWaveforms');
     end
 
     %% Store results via the validated setter
     obj.setEventFeatureStats(eventSourceIdx, selectedFeatureNames, ...
         'medians', featureMedians, ...
         'MADs', featureMADs, ...
-        'Ns', repmat(size(allFeatureValues, 1), 1, numSelectedFeatures), ...
+        'Ns', featureNs, ...
         'PCA', pcaCoeffs, ...
         'pcaMedians', pcaMedians, ...
         'pcaMADs', pcaMADs, ...
+        'waveformPCA', waveformPCACoeffs, ...
+        'waveformMean', waveformMean, ...
+        'waveformWindow', windowSamples, ...
+        'waveformPcaMedians', waveformPcaMedians, ...
+        'waveformPcaMADs', waveformPcaMADs, ...
         'outlierMADs', outlierMADs, ...
         'numFilesSampled', length(sampledFiles));
 end
@@ -277,7 +305,7 @@ function [selections, ok] = configDialog(eventSourceNames, featureNames, numFile
     % Sections: event sources, features, settings, buttons
     sourceSectionHeight = numSources * rowHeight + 30;
     featureSectionHeight = numFeatures * rowHeight + 30;
-    settingsSectionHeight = 2 * rowHeight + 20;
+    settingsSectionHeight = 5 * rowHeight + 20;
     buttonHeight = 35;
 
     figHeight = margin + sourceSectionHeight + sectionGap + featureSectionHeight + ...
@@ -334,6 +362,16 @@ function [selections, ok] = configDialog(eventSourceNames, featureNames, numFile
         'HorizontalAlignment', 'left', 'FontWeight', 'bold');
 
     yPos = yPos - rowHeight;
+    computeFeatureStatsCheckbox = uicontrol(fig, 'Style', 'checkbox', ...
+        'String', 'Compute feature statistics and feature PCA', 'Value', 1, ...
+        'Position', [margin + 10, yPos, figWidth - 2*margin - 10, rowHeight]);
+
+    yPos = yPos - rowHeight;
+    computeWaveformPCACheckbox = uicontrol(fig, 'Style', 'checkbox', ...
+        'String', 'Compute waveform PCA', 'Value', 1, ...
+        'Position', [margin + 10, yPos, figWidth - 2*margin - 10, rowHeight]);
+
+    yPos = yPos - rowHeight;
     uicontrol(fig, 'Style', 'text', 'String', 'Files to sample (0 = all):', ...
         'Position', [margin + 10, yPos, 180, rowHeight], ...
         'HorizontalAlignment', 'left');
@@ -349,6 +387,14 @@ function [selections, ok] = configDialog(eventSourceNames, featureNames, numFile
         'String', '3', ...
         'Position', [200, yPos + 2, 80, rowHeight - 4]);
 
+    yPos = yPos - rowHeight;
+    uicontrol(fig, 'Style', 'text', 'String', 'Min peak-to-trough for waveform PCA:', ...
+        'Position', [margin + 10, yPos, 230, rowHeight], ...
+        'HorizontalAlignment', 'left');
+    minPTTEdit = uicontrol(fig, 'Style', 'edit', ...
+        'String', '0', ...
+        'Position', [250, yPos + 2, 80, rowHeight - 4]);
+
     % Buttons
     yPos = yPos - sectionGap - buttonHeight;
     uicontrol(fig, 'Style', 'pushbutton', 'String', 'Run', ...
@@ -363,6 +409,8 @@ function [selections, ok] = configDialog(eventSourceNames, featureNames, numFile
     function onOK()
         selections.eventSources = find(arrayfun(@(cb) cb.Value, sourceCheckboxes));
         selections.features = find(arrayfun(@(cb) cb.Value, featureCheckboxes));
+        selections.computeFeatureStats = logical(computeFeatureStatsCheckbox.Value);
+        selections.computeWaveformPCA = logical(computeWaveformPCACheckbox.Value);
 
         numFilesVal = str2double(numFilesEdit.String);
         if isnan(numFilesVal) || numFilesVal <= 0
@@ -376,12 +424,18 @@ function [selections, ok] = configDialog(eventSourceNames, featureNames, numFile
         end
         selections.outlierMADs = outlierVal;
 
+        minPTTVal = str2double(minPTTEdit.String);
+        if isnan(minPTTVal) || minPTTVal < 0
+            minPTTVal = 0;
+        end
+        selections.minPeakToTrough = minPTTVal;
+
         if isempty(selections.eventSources)
             warndlg('Please select at least one event source.');
             return;
         end
-        if isempty(selections.features)
-            warndlg('Please select at least one feature.');
+        if ~selections.computeFeatureStats && ~selections.computeWaveformPCA
+            warndlg('Please select at least one computation (feature stats or waveform PCA).');
             return;
         end
 
