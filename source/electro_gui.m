@@ -103,7 +103,7 @@ classdef electro_gui < handle
         push_ClearEvents2
         menu_OpenRecent
         openRecent_None  % Placeholder menu item when there are no recently opened files
-        menu_DisplayValues
+        menu_DisplayWaveform
         menu_DisplayFeatures
         menu_AutoDisplayEvents
         menu_SoundStereoChannel
@@ -476,7 +476,7 @@ classdef electro_gui < handle
         function updateGUIControls(obj)
             % Set values of various GUI controls based on default values
             if obj.settings.EventsDisplayMode == 1
-                obj.menu_DisplayValues.Checked = 'on';
+                obj.menu_DisplayWaveform.Checked = 'on';
             else
                 obj.menu_DisplayFeatures.Checked = 'on';
             end
@@ -1140,7 +1140,7 @@ classdef electro_gui < handle
             eventTimes = obj.dbase.EventTimes{eventSourceIdx}{eventPartIdx,filenum};
             eventSelection = obj.dbase.EventIsSelected{eventSourceIdx}{eventPartIdx,filenum};
 
-            if obj.menu_DisplayValues.Checked
+            if obj.menu_DisplayWaveform.Checked
                 % "Display > Values" in Event axes context menu is selected
                 obj.EventWaveHandles = gobjects().empty;
                 % Check if there is channel data
@@ -1276,7 +1276,7 @@ classdef electro_gui < handle
             obj.SetActiveEventDisplay(obj.settings.ActiveEventNum, obj.settings.ActiveEventPartNum, obj.settings.ActiveEventSourceIdx);
 
             if obj.menu_AutoApplyYLim.Checked && ~isempty(obj.EventWaveHandles)
-                if obj.menu_DisplayValues.Checked
+                if obj.menu_DisplayWaveform.Checked
                     % Update this
         %             if obj.menu_AnalyzeTop.Checked && obj.menu_AutoLimits1.Checked
         %                 obj.axes_Channel1.YLim = obj.axes_Events.YLim;
@@ -8087,11 +8087,11 @@ function setupGUI(obj)
         'Label','Display',...
         'Tag','menu_ViewerDisplay');
 
-    obj.menu_DisplayValues = uimenu(...
+    obj.menu_DisplayWaveform = uimenu(...
         'Parent',obj.menu_ViewerDisplay,...
-        'Callback',@obj.menu_DisplayValues_Callback,...
-        'Label','Values',...
-        'Tag','menu_DisplayValues');
+        'Callback',@obj.menu_DisplayWaveform_Callback,...
+        'Label','Waveforms',...
+        'Tag','menu_DisplayWaveform');
 
     obj.menu_DisplayFeatures = uimenu(...
         'Parent',obj.menu_ViewerDisplay,...
@@ -11293,7 +11293,7 @@ end
                     obj.axes_Events.XLim = [mean(xl)+(xl(1)-mean(xl))*1.1 mean(xl)+(xl(2)-mean(xl))*1.1];
                 end
                 if obj.menu_AutoApplyYLim.Checked
-                    if obj.menu_DisplayValues.Checked
+                    if obj.menu_DisplayWaveform.Checked
                         % UPDATE THIS
         %                 if obj.menu_AnalyzeTop.Checked && obj.menu_AutoLimits1.Checked
         %                     obj.axes_Channel1.YLim = obj.axes_Events.YLim;
@@ -12616,8 +12616,8 @@ end
         end
         function menu_ViewerDisplay_Callback(obj, hObject, event)
         end
-        function menu_DisplayValues_Callback(obj, hObject, event)
-            obj.menu_DisplayValues.Checked = 'on';
+        function menu_DisplayWaveform_Callback(obj, hObject, event)
+            obj.menu_DisplayWaveform.Checked = 'on';
             obj.menu_DisplayFeatures.Checked = 'off';
 
             obj.menu_XAxis.Enable = 'off';
@@ -12628,7 +12628,7 @@ end
 
         end
         function menu_DisplayFeatures_Callback(obj, hObject, event)
-            obj.menu_DisplayValues.Checked = 'off';
+            obj.menu_DisplayWaveform.Checked = 'off';
             obj.menu_DisplayFeatures.Checked = 'on';
 
             obj.menu_XAxis.Enable = 'on';
@@ -13347,7 +13347,7 @@ end
             else
                 obj.menu_AutoApplyYLim.Checked = 'on';
                 if obj.menu_AutoApplyYLim.Checked
-                    if obj.menu_DisplayValues.Checked
+                    if obj.menu_DisplayWaveform.Checked
                         % UPDATE THIS
 
         %                 if obj.menu_AnalyzeTop.Checked && obj.menu_AutoLimits1.Checked
