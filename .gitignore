@@ -9,3 +9,4 @@ egsr_preset_*.mat
 # Ignore electro_gui temp settings file
 eg_temp.mat
 /extra
+.claude/
