@@ -13356,6 +13356,7 @@ end
                 dbase.help.EventTimes = '';
                 dbase.help.EventIsSelected = '';
                 dbase.help.EventParts = '';
+                dbase.help.EventFeatureStats = 'A 1xS cell array (one per event source) of structs containing feature statistics computed by egm_Compute_event_feature_stats. Each struct has fields: names (feature names), medians, MADs, Ns (1xF arrays), PCA (FxK matrix operating on standardized features), outlierMADs, numFilesSampled, computedOn.';
                 dbase.help.Properties = '';
                 dbase.help.PropertyNames = '';
             end
@@ -13407,6 +13408,7 @@ end
             dbase.EventParts =              gvod(baseDbase, 'EventParts', {});        % Array of event parts
             dbase.EventTimes =              gvod(baseDbase, 'EventTimes', {});
             dbase.EventIsSelected =         gvod(baseDbase, 'EventIsSelected', {});
+            dbase.EventFeatureStats =       gvod(baseDbase, 'EventFeatureStats', {});  % Per-event-source feature statistics computed by egm_Compute_event_feature_stats
             for eventSourceIdx = 1:length(dbase.EventSources)
                 gvod(dbase, 'EventTimes', cell(0, numFiles), 'Index', eventSourceIdx, 'IndexType', 'cell');
                 gvod(dbase, 'EventIsSelected', cell(0, numFiles), 'Index', eventSourceIdx, 'IndexType', 'cell');
@@ -14149,7 +14151,7 @@ end
                     if isempty(allPlugins)
                         allPlugins = found;
                     else
-                        allPlugins = [allPlugins, found]; %#ok<AGROW>
+                        allPlugins = [allPlugins, found];
                     end
                 end
                 plugins.(typeName) = allPlugins;
