@@ -122,7 +122,11 @@ classdef electro_gui < handle
         menu_Colormap
         menu_Macros
         menu_XAxis_List
+        menu_XAxis_PC1 matlab.ui.container.Menu
+        menu_XAxis_PC2 matlab.ui.container.Menu
         menu_YAxis_List
+        menu_YAxis_PC1 matlab.ui.container.Menu
+        menu_YAxis_PC2 matlab.ui.container.Menu
         menu_AlgorithmList
         menu_SegmenterList
         menu_FilterList
@@ -559,20 +563,16 @@ classdef electro_gui < handle
             % Populate macro plugin menu
             obj.menu_Macros = electro_gui.populatePluginMenuList(p.macros, [], obj.menu_Macros, @obj.MacrosMenuclick);
 
+            % Add principal component options at the top of each axis menu
+            obj.menu_XAxis_PC1 = uimenu(obj.menu_XAxis, 'Label', 'Principal Comp. 1', 'Callback', @obj.XAxisMenuClick);
+            obj.menu_XAxis_PC2 = uimenu(obj.menu_XAxis, 'Label', 'Principal Comp. 2', 'Callback', @obj.XAxisMenuClick, 'Separator', true);
+            obj.menu_YAxis_PC1 = uimenu(obj.menu_YAxis, 'Label', 'Principal Comp. 1', 'Callback', @obj.YAxisMenuClick);
+            obj.menu_YAxis_PC2 = uimenu(obj.menu_YAxis, 'Label', 'Principal Comp. 2', 'Callback', @obj.YAxisMenuClick, 'Separator', true);
+
             % Populate x-axis event feature algorithm plugin menu
             obj.menu_XAxis_List = electro_gui.populatePluginMenuList(p.eventFeatures, obj.settings.DefaultEventFeatureX, obj.menu_XAxis, @obj.XAxisMenuClick);
             % Populate y-axis event feature algorithm plugin menu
             obj.menu_YAxis_List = electro_gui.populatePluginMenuList(p.eventFeatures, obj.settings.DefaultEventFeatureY, obj.menu_YAxis, @obj.YAxisMenuClick);
-
-            % Add principal component options at the top of each axis menu
-            pcLabels = {'Principal Comp. 1', 'Principal Comp. 2'};
-            for k = length(pcLabels):-1:1
-                xMenu = uimenu(obj.menu_XAxis, 'Label', pcLabels{k}, 'Callback', @obj.XAxisMenuClick, 'Separator', (k == length(pcLabels)));
-                yMenu = uimenu(obj.menu_YAxis, 'Label', pcLabels{k}, 'Callback', @obj.YAxisMenuClick, 'Separator', (k == length(pcLabels)));
-                % Move to top of menu
-                uistack(xMenu, 'top');
-                uistack(yMenu, 'top');
-            end
 
             % Find all function algorithms
             pluginNames = {obj.plugins.filters.name};
@@ -1185,43 +1185,43 @@ classdef electro_gui < handle
                 if ~isempty(channelData)
                     windowSamples = round(obj.settings.EventXLims(eventSourceIdx,:)*fs);
 
-                    xLabel = findobj('Parent',obj.menu_XAxis,'Checked','on').Label;
-                    yLabel = findobj('Parent',obj.menu_YAxis,'Checked','on').Label;
+                    xMenu = findobj('Parent', obj.menu_XAxis, 'Checked', 'on');
+                    yMenu = findobj('Parent', obj.menu_YAxis, 'Checked', 'on');
+
+                    % Determine PC number for each axis (0 = not a PC)
+                    xPCNum = obj.getPCNumber(xMenu);
+                    yPCNum = obj.getPCNumber(yMenu);
 
                     % Compute PCA scores if either axis needs a principal component
-                    xIsPC = startsWith(xLabel, 'Principal Comp.');
-                    yIsPC = startsWith(yLabel, 'Principal Comp.');
                     pcaScores = [];
-                    if xIsPC || yIsPC
+                    if xPCNum > 0 || yPCNum > 0
                         pcaScores = obj.computeEventPCAScores(eventSourceIdx, channelData, fs, allEventTimes, eventPartIdx, windowSamples);
                     end
 
                     % Get X feature values
-                    if xIsPC
-                        pcNum = sscanf(xLabel, 'Principal Comp. %d');
-                        if ~isempty(pcaScores) && pcNum <= size(pcaScores, 2)
-                            feature1 = pcaScores(:, pcNum);
+                    if xPCNum > 0
+                        if ~isempty(pcaScores) && xPCNum <= size(pcaScores, 2)
+                            feature1 = pcaScores(:, xPCNum);
                         else
                             feature1 = [];
                         end
-                        name1 = xLabel;
+                        name1 = xMenu.Label;
                     else
                         [feature1, name1] = electro_gui.eg_runPlugin(obj.plugins.eventFeatures, ...
-                            xLabel, channelData, fs, allEventTimes, eventPartIdx, windowSamples);
+                            xMenu.Label, channelData, fs, allEventTimes, eventPartIdx, windowSamples);
                     end
 
                     % Get Y feature values
-                    if yIsPC
-                        pcNum = sscanf(yLabel, 'Principal Comp. %d');
-                        if ~isempty(pcaScores) && pcNum <= size(pcaScores, 2)
-                            feature2 = pcaScores(:, pcNum);
+                    if yPCNum > 0
+                        if ~isempty(pcaScores) && yPCNum <= size(pcaScores, 2)
+                            feature2 = pcaScores(:, yPCNum);
                         else
                             feature2 = [];
                         end
-                        name2 = yLabel;
+                        name2 = yMenu.Label;
                     else
                         [feature2, name2] = electro_gui.eg_runPlugin(obj.plugins.eventFeatures, ...
-                            yLabel, channelData, fs, allEventTimes, eventPartIdx, windowSamples);
+                            yMenu.Label, channelData, fs, allEventTimes, eventPartIdx, windowSamples);
                     end
 
                     for c = 1:length(feature1)
@@ -1291,6 +1291,18 @@ classdef electro_gui < handle
                 obj.axes_Events.YLim = storedYLim;
             end
         end
+        function pcNum = getPCNumber(obj, menuItem)
+            % Return the principal component number (1 or 2) if the given
+            % menu item is one of the PC menus, or 0 if it is a regular
+            % feature menu item.
+            if menuItem == obj.menu_XAxis_PC1 || menuItem == obj.menu_YAxis_PC1
+                pcNum = 1;
+            elseif menuItem == obj.menu_XAxis_PC2 || menuItem == obj.menu_YAxis_PC2
+                pcNum = 2;
+            else
+                pcNum = 0;
+            end
+        end
         function pcaScores = computeEventPCAScores(obj, eventSourceIdx, channelData, fs, allEventTimes, eventPartIdx, windowSamples)
             % Compute PCA scores for the current file's events using the
             % stored PCA transform from EventFeatureStats. Runs all
@@ -1353,16 +1365,14 @@ classdef electro_gui < handle
 
             stats = obj.dbase.EventFeatureStats{eventSourceIdx};
 
-            % Get the names of the two currently displayed features
-            xFeatureMenu = findobj('Parent', obj.menu_XAxis, 'Checked', 'on');
-            yFeatureMenu = findobj('Parent', obj.menu_YAxis, 'Checked', 'on');
-            xFeatureName = xFeatureMenu.Label;
-            yFeatureName = yFeatureMenu.Label;
+            % Get the currently selected axis menus
+            xMenu = findobj('Parent', obj.menu_XAxis, 'Checked', 'on');
+            yMenu = findobj('Parent', obj.menu_YAxis, 'Checked', 'on');
 
             % Look up median and MAD for each axis, handling both regular
             % features and principal components
-            [xMedian, xMAD] = electro_gui.getFeatureStats(xFeatureName, stats);
-            [yMedian, yMAD] = electro_gui.getFeatureStats(yFeatureName, stats);
+            [xMedian, xMAD] = electro_gui.getFeatureStats(xMenu.Label, obj.getPCNumber(xMenu), stats);
+            [yMedian, yMAD] = electro_gui.getFeatureStats(yMenu.Label, obj.getPCNumber(yMenu), stats);
             if isnan(xMedian) || isnan(yMedian)
                 return;
             end
@@ -13884,14 +13894,20 @@ end
         end
     end
     methods (Static)   % Other utility functions
-        function [featureMedian, featureMAD] = getFeatureStats(featureName, stats)
-            % Look up the median and MAD for a feature name, handling both
+        function [featureMedian, featureMAD] = getFeatureStats(featureName, pcNum, stats)
+            % Look up the median and MAD for a feature, handling both
             % regular features (looked up in stats.names) and principal
             % components (looked up in stats.pcaMedians/pcaMADs).
+            %
+            % Arguments:
+            %   featureName - the feature plugin name (used for regular features)
+            %   pcNum - principal component number (1, 2, ...) or 0 for
+            %       regular features
+            %   stats - the EventFeatureStats struct for an event source
+            %
             % Returns NaN for both if the feature is not found in the stats.
-            if startsWith(featureName, 'Principal Comp.')
-                pcNum = sscanf(featureName, 'Principal Comp. %d');
-                if ~isempty(pcNum) && isfield(stats, 'pcaMADs') && pcNum <= length(stats.pcaMADs)
+            if pcNum > 0
+                if isfield(stats, 'pcaMADs') && pcNum <= length(stats.pcaMADs)
                     featureMedian = stats.pcaMedians(pcNum);
                     featureMAD = stats.pcaMADs(pcNum);
                 else
