@@ -1388,7 +1388,9 @@ classdef electro_gui < handle
                 return;
             end
             stats = obj.dbase.EventFeatureStats{eventSourceIdx};
-            if isempty(stats.waveformPCA) || isempty(stats.waveformMean) || isempty(stats.waveformWindow)
+            if ~isfield(stats, 'waveformPCA') || isempty(stats.waveformPCA) || ...
+                    ~isfield(stats, 'waveformMean') || isempty(stats.waveformMean) || ...
+                    ~isfield(stats, 'waveformWindow') || isempty(stats.waveformWindow)
                 return;
             end
 
@@ -1418,12 +1420,14 @@ classdef electro_gui < handle
                     if ~isempty(featurePcaScores) && pcNum <= size(featurePcaScores, 2)
                         values = featurePcaScores(:, pcNum);
                     else
+                        warndlg('Feature PCA has not been computed yet. Please run Macros > Compute_event_feature_stats with "Compute feature statistics" enabled.', 'Feature PCA not available');
                         values = [];
                     end
                 case 'waveform'
                     if ~isempty(waveformPcaScores) && pcNum <= size(waveformPcaScores, 2)
                         values = waveformPcaScores(:, pcNum);
                     else
+                        warndlg('Waveform PCA has not been computed yet. Please run Macros > Compute_event_feature_stats with "Compute waveform PCA" enabled.', 'Waveform PCA not available');
                         values = [];
                     end
                 otherwise
