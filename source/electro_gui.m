@@ -5684,10 +5684,12 @@ function SetEventDisplayActiveState(obj, eventNum, eventPartNum, eventSourceIdx,
         if activeState
             obj.EventWaveHandles(eventNum).LineWidth = 2;
             obj.EventWaveHandles(eventNum).Color = 'r';
+            obj.EventWaveHandles(eventNum).MarkerEdgeColor = 'r';
             uistack(obj.EventWaveHandles(eventNum), 'top');
         else
             obj.EventWaveHandles(eventNum).LineWidth = 1;
             obj.EventWaveHandles(eventNum).Color = 'k';
+            obj.EventWaveHandles(eventNum).MarkerEdgeColor = 'k';
         end
     end
 
