@@ -1196,8 +1196,15 @@ classdef electro_gui < handle
                             'MarkerEdgeColor', obj.GUIStyle.EventMarkerEdgeColor, ...
                             'MarkerSize', 3);
                     end
-                    xlabel(obj.axes_Events, name1);
-                    ylabel(obj.axes_Events, name2);
+                    % Reset label positioning to defaults (waveform mode
+                    % overrides these to manual positions that don't apply
+                    % in feature space)
+                    obj.axes_Events.XLabel.String = name1;
+                    obj.axes_Events.XLabel.PositionMode = 'auto';
+                    obj.axes_Events.XLabel.HorizontalAlignment = 'center';
+                    obj.axes_Events.XLabel.VerticalAlignment = 'top';
+                    obj.axes_Events.YLabel.String = name2;
+                    obj.axes_Events.YLabel.PositionMode = 'auto';
 
                     axis(obj.axes_Events, 'tight');
                     xl = obj.axes_Events.XLim;
