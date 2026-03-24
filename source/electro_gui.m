@@ -1361,8 +1361,8 @@ classdef electro_gui < handle
 
             % Look up median and MAD for each axis, handling both regular
             % features and principal components
-            [xMedian, xMAD] = getFeatureStats(xFeatureName, stats);
-            [yMedian, yMAD] = getFeatureStats(yFeatureName, stats);
+            [xMedian, xMAD] = electro_gui.getFeatureStats(xFeatureName, stats);
+            [yMedian, yMAD] = electro_gui.getFeatureStats(yFeatureName, stats);
             if isnan(xMedian) || isnan(yMedian)
                 return;
             end
