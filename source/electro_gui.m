@@ -1288,39 +1288,38 @@ classdef electro_gui < handle
                 return;
             end
 
-            % Determine how many integer-MAD ellipses to draw, plus a red
-            % ellipse at the exact outlier rejection cutoff
+            % Determine how many integer-MAD rectangles to draw, plus a red
+            % rectangle at the exact outlier rejection cutoff
             outlierMADs = stats.outlierMADs;
-            numIntegerEllipses = floor(outlierMADs);
-            if numIntegerEllipses == 0
-                % Outlier rejection was disabled — default to 3 blue ellipses
-                numIntegerEllipses = 3;
+            numIntegerRects = floor(outlierMADs);
+            if numIntegerRects == 0
+                % Outlier rejection was disabled — default to 3 blue rectangles
+                numIntegerRects = 3;
             end
 
-            % Generate ellipse points
-            theta = linspace(0, 2*pi, 100);
-            cosTheta = cos(theta);
-            sinTheta = sin(theta);
+            % Draw integer-MAD rectangles from outermost (dimmest) to innermost (brightest)
+            for nMADs = numIntegerRects:-1:1
+                alpha = 0.2 + 0.5 * (1 - (nMADs - 1) / numIntegerRects);
+                lineWidth = 0.5 + 1.5 * (1 - (nMADs - 1) / numIntegerRects);
 
-            % Draw integer-MAD ellipses from outermost (dimmest) to innermost (brightest)
-            for nMADs = numIntegerEllipses:-1:1
-                alpha = 0.2 + 0.5 * (1 - (nMADs - 1) / numIntegerEllipses);
-                lineWidth = 0.5 + 1.5 * (1 - (nMADs - 1) / numIntegerEllipses);
+                rectX = [xMedian - nMADs*xMAD, xMedian + nMADs*xMAD, xMedian + nMADs*xMAD, xMedian - nMADs*xMAD, xMedian - nMADs*xMAD];
+                rectY = [yMedian - nMADs*yMAD, yMedian - nMADs*yMAD, yMedian + nMADs*yMAD, yMedian + nMADs*yMAD, yMedian - nMADs*yMAD];
 
                 obj.EventFeatureEllipseHandles(end+1) = plot(obj.axes_Events, ...
-                    xMedian + nMADs * xMAD * cosTheta, ...
-                    yMedian + nMADs * yMAD * sinTheta, ...
+                    rectX, rectY, ...
                     'Color', [0.3 0.3 1.0 alpha], ...
                     'LineWidth', lineWidth, ...
                     'LineStyle', '-', ...
                     'PickableParts', 'none', 'HitTest', 'off');
             end
 
-            % Draw a red ellipse at the exact outlier rejection cutoff
+            % Draw a red rectangle at the exact outlier rejection cutoff
             if outlierMADs > 0
+                rectX = [xMedian - outlierMADs*xMAD, xMedian + outlierMADs*xMAD, xMedian + outlierMADs*xMAD, xMedian - outlierMADs*xMAD, xMedian - outlierMADs*xMAD];
+                rectY = [yMedian - outlierMADs*yMAD, yMedian - outlierMADs*yMAD, yMedian + outlierMADs*yMAD, yMedian + outlierMADs*yMAD, yMedian - outlierMADs*yMAD];
+
                 obj.EventFeatureEllipseHandles(end+1) = plot(obj.axes_Events, ...
-                    xMedian + outlierMADs * xMAD * cosTheta, ...
-                    yMedian + outlierMADs * yMAD * sinTheta, ...
+                    rectX, rectY, ...
                     'Color', [1.0 0.2 0.2 0.6], ...
                     'LineWidth', 1.5, ...
                     'LineStyle', '--', ...
