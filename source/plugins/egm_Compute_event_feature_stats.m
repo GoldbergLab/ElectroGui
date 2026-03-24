@@ -66,6 +66,7 @@ outlierMADs = selections.outlierMADs;
 computeFeatureStats = selections.computeFeatureStats;
 computeWaveformPCA = selections.computeWaveformPCA;
 minPeakToTrough = selections.minPeakToTrough;
+waveformSmoothWidth = selections.waveformSmoothWidth;
 
 selectedFeatureNames = featureNames(selectedFeatureIndices);
 numSelectedFeatures = length(selectedFeatureIndices);
@@ -168,7 +169,8 @@ for sourceNum = 1:length(selectedSourceIndices)
         if computeWaveformPCA
             [normalizedWaveforms, ~] = electro_gui.conditionSpikeWaveforms( ...
                 channelData, eventSamples, windowSamples(1), windowSamples(2), ...
-                'MinPeakToTrough', minPeakToTrough);
+                'MinPeakToTrough', minPeakToTrough, ...
+                'SmoothWidth', waveformSmoothWidth);
             allWaveforms = [allWaveforms; normalizedWaveforms]; %#ok<AGROW>
         end
     end
@@ -258,6 +260,7 @@ for sourceNum = 1:length(selectedSourceIndices)
         'waveformPCA', waveformPCACoeffs, ...
         'waveformMean', waveformMean, ...
         'waveformWindow', windowSamples, ...
+        'waveformSmoothWidth', waveformSmoothWidth, ...
         'waveformPcaMedians', waveformPcaMedians, ...
         'waveformPcaMADs', waveformPcaMADs, ...
         'outlierMADs', outlierMADs, ...
@@ -305,7 +308,7 @@ function [selections, ok] = configDialog(eventSourceNames, featureNames, numFile
     % Sections: event sources, features, settings, buttons
     sourceSectionHeight = numSources * rowHeight + 30;
     featureSectionHeight = numFeatures * rowHeight + 30;
-    settingsSectionHeight = 5 * rowHeight + 20;
+    settingsSectionHeight = 6 * rowHeight + 20;
     buttonHeight = 35;
 
     figHeight = margin + sourceSectionHeight + sectionGap + featureSectionHeight + ...
@@ -395,6 +398,14 @@ function [selections, ok] = configDialog(eventSourceNames, featureNames, numFile
         'String', '0', ...
         'Position', [250, yPos + 2, 80, rowHeight - 4]);
 
+    yPos = yPos - rowHeight;
+    uicontrol(fig, 'Style', 'text', 'String', 'Waveform smooth width (samples, 0 = off):', ...
+        'Position', [margin + 10, yPos, 230, rowHeight], ...
+        'HorizontalAlignment', 'left');
+    smoothWidthEdit = uicontrol(fig, 'Style', 'edit', ...
+        'String', '3', ...
+        'Position', [250, yPos + 2, 80, rowHeight - 4]);
+
     % Buttons
     yPos = yPos - sectionGap - buttonHeight;
     uicontrol(fig, 'Style', 'pushbutton', 'String', 'Run', ...
@@ -429,6 +440,12 @@ function [selections, ok] = configDialog(eventSourceNames, featureNames, numFile
             minPTTVal = 0;
         end
         selections.minPeakToTrough = minPTTVal;
+
+        smoothWidthVal = str2double(smoothWidthEdit.String);
+        if isnan(smoothWidthVal) || smoothWidthVal < 0
+            smoothWidthVal = 0;
+        end
+        selections.waveformSmoothWidth = round(smoothWidthVal);
 
         if isempty(selections.eventSources)
             warndlg('Please select at least one event source.');

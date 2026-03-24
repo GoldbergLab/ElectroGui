@@ -1404,9 +1404,17 @@ classdef electro_gui < handle
             % Use conditionSpikeWaveforms with the stored mean and only the
             % first 2 PCA columns (all the event viewer can display).
             % The full matrix is kept in the dbase for programmatic use.
+            % Get the smooth width used when computing the PCA (default 0)
+            if isfield(stats, 'waveformSmoothWidth')
+                smoothWidth = stats.waveformSmoothWidth;
+            else
+                smoothWidth = 0;
+            end
+
             numDisplayPCs = min(2, size(stats.waveformPCA, 2));
             [pcaScoresValid, validMask] = electro_gui.conditionSpikeWaveforms( ...
                 channelData, eventSamples, preSamples, postSamples, ...
+                'SmoothWidth', smoothWidth, ...
                 'MeanWaveform', stats.waveformMean, ...
                 'PCA', stats.waveformPCA(:, 1:numDisplayPCs));
 
@@ -5750,6 +5758,7 @@ function setEventFeatureStats(obj, eventSourceIdx, names, options)
         options.waveformPCA double = []
         options.waveformMean (1, :) double = []
         options.waveformWindow (1, :) double = []
+        options.waveformSmoothWidth (1, 1) double {mustBeNonnegative, mustBeInteger} = 0
         options.waveformPcaMedians (1, :) double = []
         options.waveformPcaMADs (1, :) double = []
         options.outlierMADs (1, 1) double {mustBeNonnegative} = 0
@@ -5873,6 +5882,7 @@ function setEventFeatureStats(obj, eventSourceIdx, names, options)
     stats.waveformPCA = options.waveformPCA;
     stats.waveformMean = options.waveformMean;
     stats.waveformWindow = options.waveformWindow;
+    stats.waveformSmoothWidth = options.waveformSmoothWidth;
     stats.waveformPcaMedians = options.waveformPcaMedians;
     stats.waveformPcaMADs = options.waveformPcaMADs;
     stats.outlierMADs = options.outlierMADs;
@@ -14030,8 +14040,15 @@ end
             %   MinPeakToTrough - minimum peak-to-trough amplitude for a
             %       waveform to be valid. Below this, the event is discarded.
             %       Default: 0 (no minimum).
+            %   SmoothWidth - number of samples for moving average smoothing
+            %       of each waveform snippet. Applied after amplitude
+            %       normalization, before mean subtraction and PCA. Reduces
+            %       high-frequency noise while preserving shape structure.
+            %       0 or 1 means no smoothing. Default: 0.
             %   MeanWaveform - 1xW mean normalized waveform to subtract
-            %       after amplitude normalization. Default: [] (no subtraction).
+            %       after amplitude normalization and smoothing. Should be
+            %       computed from similarly smoothed waveforms. Default: []
+            %       (no subtraction).
             %   PCA - WxK PCA coefficient matrix to project through after
             %       conditioning. Default: [] (return waveforms directly).
             %
@@ -14048,14 +14065,16 @@ end
             %   3. Compute peak-to-trough amplitude
             %   4. Discard if below MinPeakToTrough
             %   5. Normalize by dividing by peak-to-trough amplitude
-            %   6. Subtract MeanWaveform (if provided)
-            %   7. Project through PCA matrix (if provided)
+            %   6. Smooth with moving average (if SmoothWidth > 1)
+            %   7. Subtract MeanWaveform (if provided)
+            %   8. Project through PCA matrix (if provided)
             arguments
                 channelData (:, 1) double
                 eventSamples (:, 1) double
                 preSamples (1, 1) double {mustBeNonnegative, mustBeInteger}
                 postSamples (1, 1) double {mustBeNonnegative, mustBeInteger}
                 options.MinPeakToTrough (1, 1) double {mustBeNonnegative} = 0
+                options.SmoothWidth (1, 1) double {mustBeNonnegative, mustBeInteger} = 0
                 options.MeanWaveform (1, :) double = []
                 options.PCA double = []
             end
@@ -14107,6 +14126,13 @@ end
 
             % Keep only valid waveforms
             conditioned = normalizedWaveforms(validMask, :);
+
+            % Smooth each waveform with a moving average
+            if options.SmoothWidth > 1
+                for rowIdx = 1:size(conditioned, 1)
+                    conditioned(rowIdx, :) = movmean(conditioned(rowIdx, :), options.SmoothWidth);
+                end
+            end
 
             % Subtract mean waveform if provided
             if ~isempty(options.MeanWaveform)
