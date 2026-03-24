@@ -5623,6 +5623,132 @@ function toggleEventIsSelected(obj, eventSourceIdx, eventPartNum, filenum, idx, 
         obj.updateChannelAxesThatDependOnPseudoChannelEventSource(eventSourceIdx);
     end
 end
+function setEventFeatureStats(obj, eventSourceIdx, names, options)
+    % Set the event feature statistics for a given event source, with
+    % validation of all inputs. This is the interface through which
+    % macros and other code should store feature statistics, rather
+    % than writing to dbase.EventFeatureStats directly.
+    %
+    % Arguments:
+    %   eventSourceIdx - index of the event source
+    %   names - cell array of feature name strings (required)
+    %
+    % Optional name-value arguments:
+    %   medians      - 1xF array of feature medians
+    %   MADs         - 1xF array of feature MADs
+    %   Ns           - 1xF array of sample counts per feature
+    %   PCA          - FxK PCA coefficient matrix (operates on standardized features)
+    %   pcaMedians   - 1xK array of PCA score medians
+    %   pcaMADs      - 1xK array of PCA score MADs
+    %   outlierMADs  - scalar, MAD threshold used for outlier rejection (0 = none)
+    %   numFilesSampled - scalar, number of files sampled
+    %   computedOn   - datetime timestamp
+    arguments
+        obj electro_gui
+        eventSourceIdx (1, 1) double {mustBePositive, mustBeInteger}
+        names (1, :) cell
+        options.medians (1, :) double = []
+        options.MADs (1, :) double = []
+        options.Ns (1, :) double = []
+        options.PCA double = []
+        options.pcaMedians (1, :) double = []
+        options.pcaMADs (1, :) double = []
+        options.outlierMADs (1, 1) double {mustBeNonnegative} = 0
+        options.numFilesSampled (1, 1) double {mustBeNonnegative, mustBeInteger} = 0
+        options.computedOn datetime = datetime("now")
+    end
+
+    numFeatures = length(names);
+
+    % Validate that all names are text
+    for k = 1:numFeatures
+        if ~ischar(names{k}) && ~isstring(names{k})
+            error('electro_gui:setEventFeatureStats:invalidName', ...
+                'Feature name at index %d must be a character array or string.', k);
+        end
+    end
+
+    % Validate eventSourceIdx is in range
+    if eventSourceIdx > length(obj.dbase.EventSources)
+        error('electro_gui:setEventFeatureStats:invalidEventSource', ...
+            'Event source index %d is out of range (max %d).', ...
+            eventSourceIdx, length(obj.dbase.EventSources));
+    end
+
+    % Validate array lengths match numFeatures
+    if ~isempty(options.medians) && length(options.medians) ~= numFeatures
+        error('electro_gui:setEventFeatureStats:sizeMismatch', ...
+            'Length of medians (%d) must match number of feature names (%d).', ...
+            length(options.medians), numFeatures);
+    end
+    if ~isempty(options.MADs) && length(options.MADs) ~= numFeatures
+        error('electro_gui:setEventFeatureStats:sizeMismatch', ...
+            'Length of MADs (%d) must match number of feature names (%d).', ...
+            length(options.MADs), numFeatures);
+    end
+    if ~isempty(options.Ns) && length(options.Ns) ~= numFeatures
+        error('electro_gui:setEventFeatureStats:sizeMismatch', ...
+            'Length of Ns (%d) must match number of feature names (%d).', ...
+            length(options.Ns), numFeatures);
+    end
+
+    % Validate PCA matrix dimensions
+    if ~isempty(options.PCA)
+        if size(options.PCA, 1) ~= numFeatures
+            error('electro_gui:setEventFeatureStats:sizeMismatch', ...
+                'PCA matrix row count (%d) must match number of feature names (%d).', ...
+                size(options.PCA, 1), numFeatures);
+        end
+        numPCs = size(options.PCA, 2);
+    else
+        numPCs = 0;
+    end
+
+    % Validate PCA score stats match PCA column count
+    if ~isempty(options.pcaMedians)
+        if numPCs == 0
+            error('electro_gui:setEventFeatureStats:missingPCA', ...
+                'pcaMedians provided but PCA matrix is empty.');
+        end
+        if length(options.pcaMedians) ~= numPCs
+            error('electro_gui:setEventFeatureStats:sizeMismatch', ...
+                'Length of pcaMedians (%d) must match number of PCA columns (%d).', ...
+                length(options.pcaMedians), numPCs);
+        end
+    end
+    if ~isempty(options.pcaMADs)
+        if numPCs == 0
+            error('electro_gui:setEventFeatureStats:missingPCA', ...
+                'pcaMADs provided but PCA matrix is empty.');
+        end
+        if length(options.pcaMADs) ~= numPCs
+            error('electro_gui:setEventFeatureStats:sizeMismatch', ...
+                'Length of pcaMADs (%d) must match number of PCA columns (%d).', ...
+                length(options.pcaMADs), numPCs);
+        end
+    end
+
+    % Build and store the stats struct
+    stats = struct();
+    stats.names = names;
+    stats.medians = options.medians;
+    stats.MADs = options.MADs;
+    stats.Ns = options.Ns;
+    stats.PCA = options.PCA;
+    stats.pcaMedians = options.pcaMedians;
+    stats.pcaMADs = options.pcaMADs;
+    stats.outlierMADs = options.outlierMADs;
+    stats.numFilesSampled = options.numFilesSampled;
+    stats.computedOn = options.computedOn;
+
+    % Initialize EventFeatureStats cell array if needed
+    if ~isfield(obj.dbase, 'EventFeatureStats') || ...
+            length(obj.dbase.EventFeatureStats) < length(obj.dbase.EventSources)
+        obj.dbase.EventFeatureStats = cell(1, length(obj.dbase.EventSources));
+    end
+
+    obj.dbase.EventFeatureStats{eventSourceIdx} = stats;
+end
 function pseudoChannelNums = getEventPseudoChannel(obj, eventSourceIdx)
     % Get a list of pseudo channel numbers that are "event type" (the only type at the time of this writing) and depend on this eventSourceIdx
     pseudoChannelNums = [];

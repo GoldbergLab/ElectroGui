@@ -67,12 +67,6 @@ outlierMADs = selections.outlierMADs;
 selectedFeatureNames = featureNames(selectedFeatureIndices);
 numSelectedFeatures = length(selectedFeatureIndices);
 
-%% Initialize EventFeatureStats field if needed
-if ~isfield(obj.dbase, 'EventFeatureStats') || ...
-        length(obj.dbase.EventFeatureStats) < numEventSources
-    obj.dbase.EventFeatureStats = cell(1, numEventSources);
-end
-
 %% Process each selected event source
 progressBar = waitbar(0, 'Computing event feature statistics...');
 
@@ -230,20 +224,16 @@ for sourceNum = 1:length(selectedSourceIndices)
         pcaMADs = mad(pcaScores, 1, 1);
     end
 
-    %% Store results
-    stats = struct();
-    stats.names = selectedFeatureNames;
-    stats.medians = featureMedians;
-    stats.MADs = featureMADs;
-    stats.Ns = repmat(size(allFeatureValues, 1), 1, numSelectedFeatures);
-    stats.PCA = pcaCoeffs;
-    stats.pcaMedians = pcaMedians;
-    stats.pcaMADs = pcaMADs;
-    stats.outlierMADs = outlierMADs;
-    stats.numFilesSampled = length(sampledFiles);
-    stats.computedOn = datetime("now");
-
-    obj.dbase.EventFeatureStats{eventSourceIdx} = stats;
+    %% Store results via the validated setter
+    obj.setEventFeatureStats(eventSourceIdx, selectedFeatureNames, ...
+        'medians', featureMedians, ...
+        'MADs', featureMADs, ...
+        'Ns', repmat(size(allFeatureValues, 1), 1, numSelectedFeatures), ...
+        'PCA', pcaCoeffs, ...
+        'pcaMedians', pcaMedians, ...
+        'pcaMADs', pcaMADs, ...
+        'outlierMADs', outlierMADs, ...
+        'numFilesSampled', length(sampledFiles));
 end
 
 if isvalid(progressBar)
