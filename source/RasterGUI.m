@@ -89,6 +89,16 @@ classdef RasterGUI < handle
         push_LoadPreset
         push_SavePreset
         push_DeletePreset
+
+        % Export tab
+        push_ExportFigure
+        push_ExportPNG
+        push_ExportPDF
+        push_ExportJPG
+        push_ExportSVG
+
+        % Axes panel
+        panel_Axes
     end
 
     %% Properties - state
@@ -311,19 +321,22 @@ classdef RasterGUI < handle
             tabGroupY = buttonY + buttonH + 0.01;  % Tab group starts above buttons
             tabGroupH = 0.97 - tabGroupY;   % Tab group fills to top
 
-            % Main axes
-            axesX = leftX + leftW + 0.01;   % Axes start right of control panel
-            rasterY = 0.30;                 % Raster axes bottom
-            rasterH = 0.47;                 % Raster axes height
-            psthY = 0.05;                   % PSTH axes bottom
-            psthH = rasterY - psthY - 0.05; % PSTH fills gap below raster
-            axesW = 0.41;                   % Width of raster and PSTH axes
-            histX = axesX + axesW + 0.03;   % Histogram axes start right of main axes
-            histW = 0.10;                   % Histogram axes width
+            % Axes panel (contains raster, PSTH, and histogram axes)
+            axesPanelX = leftX + leftW + 0.005;
+            axesPanelW = 1 - axesPanelX - 0.005;
+            axesPanelY = 0.005;
+            axesPanelH = 0.99;
 
-            % Right side controls
-            rightX = 0.80;
-            rightW = 0.19;
+            % Axes positions relative to the panel
+            axesMargin = 0.02;
+            rasterX = 0.08;                 % Left edge within panel
+            rasterY = 0.35;                 % Raster bottom within panel
+            rasterH = 0.58;                 % Raster height
+            psthY = 0.10;                   % PSTH bottom within panel
+            psthH = rasterY - psthY - 0.04; % PSTH fills gap below raster
+            axesW = 0.58;                   % Width of raster and PSTH
+            histX = rasterX + axesW + 0.03; % Histogram x within panel
+            histW = 0.14;                   % Histogram width
 
             % Tab content layout (shared across all tabs)
             tabMargin = 0.02;              % Left/right margin inside tabs
@@ -360,14 +373,19 @@ classdef RasterGUI < handle
                 'Visible', 'off', ...
                 'CloseRequestFcn', @(~,~) obj.hide());
 
-            % --- Main axes ---
-            obj.axes_Raster = axes(obj.figure_Main, ...
-                'Position', [axesX, rasterY, axesW, rasterH], ...
+            % --- Axes panel ---
+            obj.panel_Axes = uipanel(obj.figure_Main, ...
+                'Units', 'normalized', ...
+                'Position', [axesPanelX, axesPanelY, axesPanelW, axesPanelH], ...
+                'BorderType', 'none');
+
+            obj.axes_Raster = axes(obj.panel_Axes, ...
+                'Position', [rasterX, rasterY, axesW, rasterH], ...
                 'Box', 'on');
-            obj.axes_PSTH = axes(obj.figure_Main, ...
-                'Position', [axesX, psthY, axesW, psthH], ...
+            obj.axes_PSTH = axes(obj.panel_Axes, ...
+                'Position', [rasterX, psthY, axesW, psthH], ...
                 'Box', 'on');
-            obj.axes_Hist = axes(obj.figure_Main, ...
+            obj.axes_Hist = axes(obj.panel_Axes, ...
                 'Position', [histX, rasterY, histW, rasterH], ...
                 'Box', 'on');
 
@@ -527,6 +545,35 @@ classdef RasterGUI < handle
                 'Units', 'normalized', 'Position', [0.68, row2Y, 0.30, rowH], ...
                 'String', 'Delete', 'Enable', 'off', ...
                 'Callback', @(~,~) obj.deletePresetCallback());
+
+            % --- Export tab ---
+            exportTab = uitab(tabGroup, 'Title', 'Export');
+            obj.push_ExportFigure = uicontrol(exportTab, 'Style', 'pushbutton', ...
+                'Units', 'normalized', 'Position', [tabMargin, row1Y, tabFullW, rowH], ...
+                'String', 'Export to new figure', ...
+                'Callback', @(~,~) obj.exportToFigure());
+            uicontrol(exportTab, 'Style', 'text', ...
+                'Units', 'normalized', 'Position', [tabMargin, row2Y + rowH + 0.01, tabFullW, rowH * 0.6], ...
+                'String', 'Export to file:', ...
+                'HorizontalAlignment', 'left', 'FontWeight', 'bold');
+            exportBtnW = 0.23;
+            exportBtnGap = 0.02;
+            obj.push_ExportPNG = uicontrol(exportTab, 'Style', 'pushbutton', ...
+                'Units', 'normalized', 'Position', [tabMargin, row2Y, exportBtnW, rowH], ...
+                'String', 'PNG', ...
+                'Callback', @(~,~) obj.exportToFile('png'));
+            obj.push_ExportPDF = uicontrol(exportTab, 'Style', 'pushbutton', ...
+                'Units', 'normalized', 'Position', [tabMargin + exportBtnW + exportBtnGap, row2Y, exportBtnW, rowH], ...
+                'String', 'PDF', ...
+                'Callback', @(~,~) obj.exportToFile('pdf'));
+            obj.push_ExportJPG = uicontrol(exportTab, 'Style', 'pushbutton', ...
+                'Units', 'normalized', 'Position', [tabMargin + 2*(exportBtnW + exportBtnGap), row2Y, exportBtnW, rowH], ...
+                'String', 'JPG', ...
+                'Callback', @(~,~) obj.exportToFile('jpg'));
+            obj.push_ExportSVG = uicontrol(exportTab, 'Style', 'pushbutton', ...
+                'Units', 'normalized', 'Position', [tabMargin + 3*(exportBtnW + exportBtnGap), row2Y, exportBtnW, rowH], ...
+                'String', 'SVG', ...
+                'Callback', @(~,~) obj.exportToFile('svg'));
 
             % --- Generate / Hold buttons below the tab group ---
             obj.push_GenerateRaster = uicontrol(obj.figure_Main, 'Style', 'pushbutton', ...
@@ -916,6 +963,85 @@ classdef RasterGUI < handle
             if isfield(preset, fieldName)
                 checkbox.Value = preset.(fieldName);
             end
+        end
+    end
+
+    %% Export
+    methods (Access = private)
+        function exportToFigure(obj)
+            % Copy the axes panel contents to a new standalone figure.
+            newFig = figure('Name', 'Raster Export', ...
+                'NumberTitle', 'off', ...
+                'MenuBar', 'figure', ...
+                'Units', 'normalized', ...
+                'Position', [0.1, 0.1, 0.7, 0.8]);
+
+            % Copy each axes into the new figure, preserving positions
+            axesToCopy = [obj.axes_Raster, obj.axes_PSTH, obj.axes_Hist];
+            for k = 1:length(axesToCopy)
+                srcAx = axesToCopy(k);
+                if ~isempty(srcAx.Children)
+                    newAx = copyobj(srcAx, newFig);
+                    newAx.Position = srcAx.Position;
+                end
+            end
+        end
+
+        function exportToFile(obj, format)
+            % Export the axes panel to an image file.
+            %
+            % Arguments:
+            %   format - one of 'png', 'pdf', 'jpg', 'svg'
+
+            % Build file filter for the dialog
+            switch format
+                case 'png'
+                    filter = {'*.png', 'PNG Image (*.png)'};
+                case 'pdf'
+                    filter = {'*.pdf', 'PDF Document (*.pdf)'};
+                case 'jpg'
+                    filter = {'*.jpg', 'JPEG Image (*.jpg)'};
+                case 'svg'
+                    filter = {'*.svg', 'SVG Vector Image (*.svg)'};
+                otherwise
+                    filter = {'*.*', 'All Files (*.*)'};
+            end
+
+            [fileName, filePath] = uiputfile(filter, 'Export raster plot');
+            if isequal(fileName, 0)
+                return;  % User cancelled
+            end
+            fullPath = fullfile(filePath, fileName);
+
+            % Create a temporary invisible figure with the axes
+            tempFig = figure('Visible', 'off', ...
+                'Units', 'normalized', ...
+                'Position', [0, 0, 0.7, 0.8], ...
+                'Color', 'w');
+
+            axesToCopy = [obj.axes_Raster, obj.axes_PSTH, obj.axes_Hist];
+            for k = 1:length(axesToCopy)
+                srcAx = axesToCopy(k);
+                if ~isempty(srcAx.Children)
+                    newAx = copyobj(srcAx, tempFig);
+                    newAx.Position = srcAx.Position;
+                end
+            end
+
+            % Export based on format
+            switch format
+                case 'png'
+                    exportgraphics(tempFig, fullPath, 'Resolution', 300);
+                case 'pdf'
+                    exportgraphics(tempFig, fullPath, 'ContentType', 'vector');
+                case 'jpg'
+                    exportgraphics(tempFig, fullPath, 'Resolution', 300);
+                case 'svg'
+                    saveas(tempFig, fullPath, 'svg');
+            end
+
+            close(tempFig);
+            fprintf('Exported to: %s\n', fullPath);
         end
     end
 
