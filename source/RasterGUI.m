@@ -909,7 +909,7 @@ classdef RasterGUI < handle
                 warndlg(sprintf('Preset name can only contain: %s', allowedChars), 'Invalid name');
                 return;
             end
-            preset = obj.getPreset(); %#ok<NASGU>
+            preset = obj.getPreset();
             presetPath = fullfile(obj.getPresetDir(), [presetName, '.mat']);
             save(presetPath, 'preset');
             fprintf('Saved preset: %s\n', presetName);
@@ -1311,8 +1311,8 @@ classdef RasterGUI < handle
                                         matchEnds(matchIdx) = [];
                                     end
                                 end
-                                ons{fileListIdx} = [ons{fileListIdx}; syllOnsets(matchStarts)]; %#ok<AGROW>
-                                offs{fileListIdx} = [offs{fileListIdx}; syllOffsets(matchEnds)]; %#ok<AGROW>
+                                ons{fileListIdx} = [ons{fileListIdx}; syllOnsets(matchStarts)];
+                                offs{fileListIdx} = [offs{fileListIdx}; syllOffsets(matchEnds)];
                                 inform.label{fileListIdx} = [inform.label{fileListIdx}; motifIdx * ones(length(matchStarts), 1)]; %#ok<AGROW>
                             end
                             inform.label{fileListIdx} = 1000 + inform.label{fileListIdx};

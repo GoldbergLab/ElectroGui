@@ -2431,7 +2431,7 @@ classdef electro_gui < handle
             end
         end
         function selectedSegmenterParameters = getSelectedSegmenterParameters(obj)
-            % Get default params from event detector. If they don't exist, create and store them.
+            % Get default params from segmenter. If they don't exist, create and store them.
             segmenterAlgorithm = obj.getSelectedSegmenterAlgorithm();
             if isempty(segmenterAlgorithm)
                 % No segmenter selected
