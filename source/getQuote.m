@@ -6,7 +6,9 @@ while ischar(fline)
     quotes{end+1} = fline;
     fline = fgetl(f);
 end
-idx = ceil(rand()*length(quotes));
+fclose(f);
+rng('shuffle');
+idx = randi(length(quotes));
 quote = wraptext(quotes{idx});
 
 function strw = wraptext(str,width)
