@@ -30,6 +30,7 @@ classdef electro_gui < handle
         ActiveAxnum = 1   % Which of the two channel axes was last interacted with?
         WarningCounts = struct()
         slackAgent SlackBot
+        rasterGUI RasterGUI
         TooLong = false
         transform struct   % Loaded transform for transformer
         transformed_fs double
@@ -7248,6 +7249,14 @@ function menu_ShowTransformer_Callback(obj, varargin)
   obj.updateTransformerDisplay();
 end
 
+function showRasterGUI(obj)
+    % Show the sorted raster GUI. Creates it on first use.
+    if isempty(obj.rasterGUI) || ~isvalid(obj.rasterGUI)
+        obj.rasterGUI = RasterGUI(obj);
+    end
+    obj.rasterGUI.show();
+end
+
 function setupGUI(obj)
 
     obj.figure_Main = figure(...
@@ -8621,6 +8630,13 @@ function setupGUI(obj)
         'Label', 'Show Transformer', ...
         'Accelerator', 't', ...
         'Tag', 'menu_ShowTransformer');
+
+    uimenu(...
+        'Parent', obj.menu_ShowHide, ...
+        'Callback', @(~,~) obj.showRasterGUI(), ...
+        'Label', 'Show Sorted Rasters', ...
+        'Accelerator', 'r', ...
+        'Tag', 'menu_ShowRasterGUI');
 
     %% Playback menu
     obj.menu_Playback = uimenu(...
