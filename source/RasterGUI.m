@@ -83,6 +83,12 @@ classdef RasterGUI < handle
         check_PlotShow
         push_PlotXLim
         push_PlotTickSize
+
+        % Presets tab
+        popup_Presets
+        push_LoadPreset
+        push_SavePreset
+        push_DeletePreset
     end
 
     %% Properties - state
@@ -174,6 +180,7 @@ classdef RasterGUI < handle
             if isempty(obj.figure_Main) || ~isvalid(obj.figure_Main)
                 obj.buildGUI();
                 obj.populateSourceMenus();
+                obj.refreshPresetList();
             end
             obj.figure_Main.Visible = 'on';
             figure(obj.figure_Main);  % Bring to front
@@ -503,6 +510,24 @@ classdef RasterGUI < handle
                 'String', 'Tick size', ...
                 'Callback', @(~,~) obj.plotTickSizeCallback());
 
+            % --- Presets tab ---
+            presetsTab = uitab(tabGroup, 'Title', 'Presets');
+            obj.popup_Presets = uicontrol(presetsTab, 'Style', 'popupmenu', ...
+                'Units', 'normalized', 'Position', [tabMargin, row1Y, tabFullW, rowH], ...
+                'String', {'(No presets found)'}, 'Enable', 'off');
+            obj.push_LoadPreset = uicontrol(presetsTab, 'Style', 'pushbutton', ...
+                'Units', 'normalized', 'Position', [tabMargin, row2Y, 0.30, rowH], ...
+                'String', 'Load', 'Enable', 'off', ...
+                'Callback', @(~,~) obj.loadPresetCallback());
+            obj.push_SavePreset = uicontrol(presetsTab, 'Style', 'pushbutton', ...
+                'Units', 'normalized', 'Position', [0.35, row2Y, 0.30, rowH], ...
+                'String', 'Save', ...
+                'Callback', @(~,~) obj.savePresetCallback());
+            obj.push_DeletePreset = uicontrol(presetsTab, 'Style', 'pushbutton', ...
+                'Units', 'normalized', 'Position', [0.68, row2Y, 0.30, rowH], ...
+                'String', 'Delete', 'Enable', 'off', ...
+                'Callback', @(~,~) obj.deletePresetCallback());
+
             % --- Generate / Hold buttons below the tab group ---
             obj.push_GenerateRaster = uicontrol(obj.figure_Main, 'Style', 'pushbutton', ...
                 'Units', 'normalized', 'Position', [leftX, buttonY, leftW * 0.48, buttonH], ...
@@ -669,6 +694,228 @@ classdef RasterGUI < handle
             ax.XLabel.String = 'Time (s)';
             ax.Box = 'on';
             hold(ax, 'off');
+        end
+    end
+
+    %% Presets
+    methods (Access = private)
+        function presetDir = getPresetDir(obj)
+            % Return the path to the presets directory, creating it if needed.
+            presetDir = fullfile(obj.eg.SourceDir, 'raster_presets');
+            if ~isfolder(presetDir)
+                mkdir(presetDir);
+            end
+        end
+
+        function refreshPresetList(obj)
+            % Refresh the presets popup with available preset files.
+            presetDir = obj.getPresetDir();
+            files = dir(fullfile(presetDir, '*.mat'));
+            if isempty(files)
+                obj.popup_Presets.Value = 1;
+                obj.popup_Presets.String = {'(No presets found)'};
+                obj.popup_Presets.Enable = 'off';
+                obj.push_LoadPreset.Enable = 'off';
+                obj.push_DeletePreset.Enable = 'off';
+            else
+                names = cell(1, length(files));
+                for k = 1:length(files)
+                    [~, names{k}, ~] = fileparts(files(k).name);
+                end
+                if obj.popup_Presets.Value > length(names)
+                    obj.popup_Presets.Value = length(names);
+                end
+                obj.popup_Presets.String = names;
+                obj.popup_Presets.Enable = 'on';
+                obj.push_LoadPreset.Enable = 'on';
+                obj.push_DeletePreset.Enable = 'on';
+            end
+        end
+
+        function preset = getPreset(obj)
+            % Capture the current GUI state as a preset struct.
+            % Saves semantic names (not popup indices) so presets are
+            % portable across different dbases.
+
+            % Trigger settings
+            trigSourceStrs = obj.popup_TriggerSource.String;
+            preset.triggerSource = trigSourceStrs{obj.popup_TriggerSource.Value};
+            trigTypeStrs = obj.popup_TriggerType.String;
+            preset.triggerType = trigTypeStrs{obj.popup_TriggerType.Value};
+            alignStrs = obj.popup_TriggerAlignment.String;
+            preset.triggerAlignment = alignStrs{obj.popup_TriggerAlignment.Value};
+            preset.copyEvents = obj.check_CopyEvents.Value;
+
+            % Event settings
+            eventSourceStrs = obj.popup_EventSource.String;
+            preset.eventSource = eventSourceStrs{obj.popup_EventSource.Value};
+            eventTypeStrs = obj.popup_EventType.String;
+            preset.eventType = eventTypeStrs{obj.popup_EventType.Value};
+            preset.copyTrigger = obj.check_CopyTrigger.Value;
+
+            % Window settings
+            startRefStrs = obj.popup_StartReference.String;
+            preset.startReference = startRefStrs{obj.popup_StartReference.Value};
+            stopRefStrs = obj.popup_StopReference.String;
+            preset.stopReference = stopRefStrs{obj.popup_StopReference.Value};
+            preset.excludeIncomplete = obj.check_ExcludeIncomplete.Value;
+            preset.excludePartialEvents = obj.check_ExcludePartialEvents.Value;
+
+            % Sort settings
+            primarySortStrs = obj.popup_PrimarySort.String;
+            preset.primarySort = primarySortStrs{obj.popup_PrimarySort.Value};
+            secondarySortStrs = obj.popup_SecondarySort.String;
+            preset.secondarySort = secondarySortStrs{obj.popup_SecondarySort.Value};
+            preset.ascending = obj.radio_Ascending.Value;
+            preset.groupLabels = obj.check_GroupLabels.Value;
+
+            % File settings
+            fileStrs = obj.popup_Files.String;
+            preset.fileFilter = fileStrs{obj.popup_Files.Value};
+
+            % PSTH settings
+            psthUnitStrs = obj.popup_PSTHUnits.String;
+            preset.psthUnits = psthUnitStrs{obj.popup_PSTHUnits.Value};
+            psthCountStrs = obj.popup_PSTHCount.String;
+            preset.psthCount = psthCountStrs{obj.popup_PSTHCount.Value};
+
+            % Plot settings
+            preset.plotXLim = obj.PlotXLim;
+            preset.plotTickSize = obj.PlotTickSize;
+            preset.plotOverlap = obj.PlotOverlap;
+            preset.psthBinSize = obj.PSTHBinSize;
+            preset.psthSmoothingWindow = obj.PSTHSmoothingWindow;
+
+            % Parameters
+            preset.P = obj.P;
+
+            % File range
+            preset.fileRange = obj.FileRange;
+        end
+
+        function applyPreset(obj, preset)
+            % Apply a preset struct to the GUI, matching names to current
+            % popup contents. Warns if a saved selection isn't available.
+
+            obj.setPopupByName(obj.popup_TriggerSource, preset, 'triggerSource');
+            obj.setPopupByName(obj.popup_TriggerType, preset, 'triggerType');
+            obj.setPopupByName(obj.popup_TriggerAlignment, preset, 'triggerAlignment');
+            obj.setCheckbox(obj.check_CopyEvents, preset, 'copyEvents');
+
+            obj.setPopupByName(obj.popup_EventSource, preset, 'eventSource');
+            obj.setPopupByName(obj.popup_EventType, preset, 'eventType');
+            obj.setCheckbox(obj.check_CopyTrigger, preset, 'copyTrigger');
+
+            obj.setPopupByName(obj.popup_StartReference, preset, 'startReference');
+            obj.setPopupByName(obj.popup_StopReference, preset, 'stopReference');
+            obj.setCheckbox(obj.check_ExcludeIncomplete, preset, 'excludeIncomplete');
+            obj.setCheckbox(obj.check_ExcludePartialEvents, preset, 'excludePartialEvents');
+
+            obj.setPopupByName(obj.popup_PrimarySort, preset, 'primarySort');
+            obj.setPopupByName(obj.popup_SecondarySort, preset, 'secondarySort');
+            if isfield(preset, 'ascending')
+                obj.radio_Ascending.Value = preset.ascending;
+                obj.radio_Descending.Value = ~preset.ascending;
+            end
+            obj.setCheckbox(obj.check_GroupLabels, preset, 'groupLabels');
+
+            obj.setPopupByName(obj.popup_Files, preset, 'fileFilter');
+            obj.setPopupByName(obj.popup_PSTHUnits, preset, 'psthUnits');
+            obj.setPopupByName(obj.popup_PSTHCount, preset, 'psthCount');
+
+            if isfield(preset, 'plotXLim'), obj.PlotXLim = preset.plotXLim; end
+            if isfield(preset, 'plotTickSize'), obj.PlotTickSize = preset.plotTickSize; end
+            if isfield(preset, 'plotOverlap'), obj.PlotOverlap = preset.plotOverlap; end
+            if isfield(preset, 'psthBinSize'), obj.PSTHBinSize = preset.psthBinSize; end
+            if isfield(preset, 'psthSmoothingWindow'), obj.PSTHSmoothingWindow = preset.psthSmoothingWindow; end
+            if isfield(preset, 'P'), obj.P = preset.P; end
+            if isfield(preset, 'fileRange'), obj.FileRange = preset.fileRange; end
+        end
+
+        function loadPresetCallback(obj)
+            presetNames = obj.popup_Presets.String;
+            selectedName = presetNames{obj.popup_Presets.Value};
+            presetPath = fullfile(obj.getPresetDir(), [selectedName, '.mat']);
+            if ~isfile(presetPath)
+                warndlg(sprintf('Preset file not found: %s', presetPath), 'Preset not found');
+                obj.refreshPresetList();
+                return;
+            end
+            loaded = load(presetPath, 'preset');
+            if ~isfield(loaded, 'preset')
+                warndlg('Invalid preset file.', 'Error');
+                return;
+            end
+            obj.applyPreset(loaded.preset);
+            fprintf('Loaded preset: %s\n', selectedName);
+        end
+
+        function savePresetCallback(obj)
+            answer = inputdlg({'Preset name:'}, 'Save Preset', 1, {'untitled'});
+            if isempty(answer) || isempty(answer{1})
+                return;
+            end
+            presetName = answer{1};
+            % Validate name
+            allowedChars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_';
+            if any(~ismember(presetName, allowedChars))
+                warndlg(sprintf('Preset name can only contain: %s', allowedChars), 'Invalid name');
+                return;
+            end
+            preset = obj.getPreset(); %#ok<NASGU>
+            presetPath = fullfile(obj.getPresetDir(), [presetName, '.mat']);
+            save(presetPath, 'preset');
+            fprintf('Saved preset: %s\n', presetName);
+            obj.refreshPresetList();
+            % Select the newly saved preset
+            names = obj.popup_Presets.String;
+            idx = find(strcmp(names, presetName), 1);
+            if ~isempty(idx)
+                obj.popup_Presets.Value = idx;
+            end
+        end
+
+        function deletePresetCallback(obj)
+            presetNames = obj.popup_Presets.String;
+            selectedName = presetNames{obj.popup_Presets.Value};
+            answer = questdlg(sprintf('Delete preset "%s"?', selectedName), ...
+                'Delete Preset', 'Delete', 'Cancel', 'Cancel');
+            if ~strcmp(answer, 'Delete')
+                return;
+            end
+            presetPath = fullfile(obj.getPresetDir(), [selectedName, '.mat']);
+            if isfile(presetPath)
+                delete(presetPath);
+                fprintf('Deleted preset: %s\n', selectedName);
+            end
+            obj.refreshPresetList();
+        end
+    end
+
+    methods (Access = private, Static)
+        function setPopupByName(popup, preset, fieldName)
+            % Set a popup's value by matching a name string from the preset
+            % to the popup's current String list. Warns if not found.
+            if ~isfield(preset, fieldName)
+                return;
+            end
+            targetName = preset.(fieldName);
+            strs = popup.String;
+            idx = find(strcmp(strs, targetName), 1);
+            if ~isempty(idx)
+                popup.Value = idx;
+            else
+                warning('RasterGUI:presetMismatch', ...
+                    'Preset value "%s" for %s not found in current options. Keeping current selection.', ...
+                    targetName, fieldName);
+            end
+        end
+
+        function setCheckbox(checkbox, preset, fieldName)
+            % Set a checkbox value from a preset field if it exists.
+            if isfield(preset, fieldName)
+                checkbox.Value = preset.(fieldName);
+            end
         end
     end
 

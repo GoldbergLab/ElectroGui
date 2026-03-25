@@ -4,8 +4,9 @@
 defaults_*.m
 # ...except don't ignore the template defaults file.
 !defaults_template.m
-# Ignore sorted raster preset files
+# Ignore sorted raster preset files (legacy and new)
 egsr_preset_*.mat
+source/raster_presets/
 # Ignore electro_gui temp settings file
 eg_temp.mat
 /extra
