@@ -444,7 +444,7 @@ classdef RasterGUI < handle
             answer = inputdlg({'File range'}, 'File range', 1, ...
                 {['1:', num2str(numFiles)]});
             if ~isempty(answer)
-                obj.FileRange = eval(answer{1}); %#ok<EVLC>
+                obj.FileRange = eval(answer{1});
             end
         end
         function openCallback(obj)
@@ -513,8 +513,8 @@ classdef RasterGUI < handle
             inform.label = cell(1, numLstFiles);
             inform.filenum = zeros(1, numLstFiles);
 
-            for c = 1:numLstFiles
-                filenum = lst(c);
+            for fileListIdx = 1:numLstFiles
+                filenum = lst(fileListIdx);
 
                 switch eventTypeStr
                     case 'Events'
@@ -524,13 +524,13 @@ classdef RasterGUI < handle
                             selectedMask = selectedMask & (dbase.EventIsSelected{eventSourceIdx}{partIdx, filenum} == 1);
                         end
                         selectedIndices = find(selectedMask);
-                        ev = dbase.EventTimes{eventSourceIdx}{1, filenum}(selectedIndices);
+                        allPartTimes = dbase.EventTimes{eventSourceIdx}{1, filenum}(selectedIndices);
                         for partIdx = 2:size(dbase.EventTimes{eventSourceIdx}, 1)
-                            ev = [ev, dbase.EventTimes{eventSourceIdx}{partIdx, filenum}(selectedIndices)]; %#ok<AGROW>
+                            allPartTimes = [allPartTimes, dbase.EventTimes{eventSourceIdx}{partIdx, filenum}(selectedIndices)]; %#ok<AGROW>
                         end
-                        ons{c} = min(ev, [], 2);
-                        offs{c} = max(ev, [], 2);
-                        inform.label{c} = zeros(size(ev, 1), 1);
+                        ons{fileListIdx} = min(allPartTimes, [], 2);
+                        offs{fileListIdx} = max(allPartTimes, [], 2);
+                        inform.label{fileListIdx} = zeros(size(allPartTimes, 1), 1);
 
                     case 'Bursts'
                         % Find bursts based on inter-event frequency
@@ -539,19 +539,19 @@ classdef RasterGUI < handle
                             selectedMask = selectedMask & (dbase.EventIsSelected{eventSourceIdx}{partIdx, filenum} == 1);
                         end
                         selectedIndices = find(selectedMask);
-                        ev = dbase.EventTimes{eventSourceIdx}{1, filenum}(selectedIndices);
+                        allPartTimes = dbase.EventTimes{eventSourceIdx}{1, filenum}(selectedIndices);
                         for partIdx = 2:size(dbase.EventTimes{eventSourceIdx}, 1)
-                            ev = [ev, dbase.EventTimes{eventSourceIdx}{partIdx, filenum}(selectedIndices)]; %#ok<AGROW>
+                            allPartTimes = [allPartTimes, dbase.EventTimes{eventSourceIdx}{partIdx, filenum}(selectedIndices)]; %#ok<AGROW>
                         end
-                        ev = min(ev, [], 2);
-                        burstOnsets = find(fs ./ (ev(1:end-1) - [-inf; ev(1:end-2)]) <= P.burstFrequency & ...
-                            fs ./ (ev(2:end) - ev(1:end-1)) > (P.burstFrequency + eps));
-                        burstOffsets = find(fs ./ (ev(2:end) - ev(1:end-1)) > P.burstFrequency & ...
-                            fs ./ ([ev(3:end); inf] - ev(2:end)) <= P.burstFrequency) + 1;
+                        eventSamples = min(allPartTimes, [], 2);
+                        burstOnsets = find(fs ./ (eventSamples(1:end-1) - [-inf; eventSamples(1:end-2)]) <= P.burstFrequency & ...
+                            fs ./ (eventSamples(2:end) - eventSamples(1:end-1)) > (P.burstFrequency + eps));
+                        burstOffsets = find(fs ./ (eventSamples(2:end) - eventSamples(1:end-1)) > P.burstFrequency & ...
+                            fs ./ ([eventSamples(3:end); inf] - eventSamples(2:end)) <= P.burstFrequency) + 1;
                         validBursts = find(burstOffsets - burstOnsets >= P.burstMinSpikes - 1);
-                        ons{c} = ev(burstOnsets(validBursts));
-                        offs{c} = ev(burstOffsets(validBursts));
-                        inform.label{c} = 1000 + burstOffsets(validBursts) - burstOnsets(validBursts) + 1;
+                        ons{fileListIdx} = eventSamples(burstOnsets(validBursts));
+                        offs{fileListIdx} = eventSamples(burstOffsets(validBursts));
+                        inform.label{fileListIdx} = 1000 + burstOffsets(validBursts) - burstOnsets(validBursts) + 1;
 
                     case {'Burst events', 'Single events'}
                         % Categorize individual spikes by burst membership
@@ -560,12 +560,12 @@ classdef RasterGUI < handle
                             selectedMask = selectedMask & (dbase.EventIsSelected{eventSourceIdx}{partIdx, filenum} == 1);
                         end
                         selectedIndices = find(selectedMask);
-                        ev = dbase.EventTimes{eventSourceIdx}{1, filenum}(selectedIndices);
+                        allPartTimes = dbase.EventTimes{eventSourceIdx}{1, filenum}(selectedIndices);
                         for partIdx = 2:size(dbase.EventTimes{eventSourceIdx}, 1)
-                            ev = [ev, dbase.EventTimes{eventSourceIdx}{partIdx, filenum}(selectedIndices)]; %#ok<AGROW>
+                            allPartTimes = [allPartTimes, dbase.EventTimes{eventSourceIdx}{partIdx, filenum}(selectedIndices)]; %#ok<AGROW>
                         end
-                        evOn = min(ev, [], 2);
-                        evOff = max(ev, [], 2);
+                        evOn = min(allPartTimes, [], 2);
+                        evOff = max(allPartTimes, [], 2);
                         burstOnsets = find(fs ./ (evOn(1:end-1) - [-inf; evOn(1:end-2)]) <= P.burstFrequency & ...
                             fs ./ (evOn(2:end) - evOn(1:end-1)) > (P.burstFrequency + eps));
                         burstOffsets = find(fs ./ (evOn(2:end) - evOn(1:end-1)) > P.burstFrequency & ...
@@ -576,14 +576,14 @@ classdef RasterGUI < handle
                             burstSpikeIndices = [burstSpikeIndices, burstOnsets(validBursts(burstNum)):burstOffsets(validBursts(burstNum))]; %#ok<AGROW>
                         end
                         if strcmp(eventTypeStr, 'Burst events')
-                            ons{c} = evOn(burstSpikeIndices);
-                            offs{c} = evOff(burstSpikeIndices);
+                            ons{fileListIdx} = evOn(burstSpikeIndices);
+                            offs{fileListIdx} = evOff(burstSpikeIndices);
                         else % 'Single events'
                             nonBurstIndices = setdiff(1:length(evOn), burstSpikeIndices);
-                            ons{c} = evOn(nonBurstIndices);
-                            offs{c} = evOff(nonBurstIndices);
+                            ons{fileListIdx} = evOn(nonBurstIndices);
+                            offs{fileListIdx} = evOff(nonBurstIndices);
                         end
-                        inform.label{c} = zeros(length(ons{c}), 1);
+                        inform.label{fileListIdx} = zeros(length(ons{fileListIdx}), 1);
 
                     case 'Pauses'
                         % Find gaps between events
@@ -592,16 +592,16 @@ classdef RasterGUI < handle
                             selectedMask = selectedMask & (dbase.EventIsSelected{eventSourceIdx}{partIdx, filenum} == 1);
                         end
                         selectedIndices = find(selectedMask);
-                        ev = dbase.EventTimes{eventSourceIdx}{1, filenum}(selectedIndices);
+                        allPartTimes = dbase.EventTimes{eventSourceIdx}{1, filenum}(selectedIndices);
                         for partIdx = 2:size(dbase.EventTimes{eventSourceIdx}, 1)
-                            ev = [ev, dbase.EventTimes{eventSourceIdx}{partIdx, filenum}(selectedIndices)]; %#ok<AGROW>
+                            allPartTimes = [allPartTimes, dbase.EventTimes{eventSourceIdx}{partIdx, filenum}(selectedIndices)]; %#ok<AGROW>
                         end
-                        eventOnsets = [min(ev, [], 2); dbase.FileLength(filenum) + fs * P.pauseMinDuration];
-                        eventOffsets = [-fs * P.pauseMinDuration; max(ev, [], 2)];
-                        pauseIndices = find(eventOnsets - eventOffsets > fs * P.pauseMinDuration);
-                        ons{c} = eventOffsets(pauseIndices);
-                        offs{c} = eventOnsets(pauseIndices);
-                        inform.label{c} = zeros(length(pauseIndices), 1);
+                        gapOnsets = [min(allPartTimes, [], 2); dbase.FileLength(filenum) + fs * P.pauseMinDuration];
+                        gapOffsets = [-fs * P.pauseMinDuration; max(allPartTimes, [], 2)];
+                        pauseIndices = find(gapOnsets - gapOffsets > fs * P.pauseMinDuration);
+                        ons{fileListIdx} = gapOffsets(pauseIndices);
+                        offs{fileListIdx} = gapOnsets(pauseIndices);
+                        inform.label{fileListIdx} = zeros(length(pauseIndices), 1);
 
                     case {'Syllables', 'Markers'}
                         switch eventTypeStr
@@ -616,15 +616,15 @@ classdef RasterGUI < handle
                         end
                         if ~isempty(times)
                             selectedIndices = find(selection == 1);
-                            ons{c} = times(selectedIndices, 1);
-                            offs{c} = times(selectedIndices, 2);
-                            labels = zeros(size(ons{c}));
-                            for d = 1:length(labels)
-                                if ~isempty(titles{selectedIndices(d)})
-                                    labels(d) = double(titles{selectedIndices(d)});
+                            ons{fileListIdx} = times(selectedIndices, 1);
+                            offs{fileListIdx} = times(selectedIndices, 2);
+                            labels = zeros(size(ons{fileListIdx}));
+                            for labelIdx = 1:length(labels)
+                                if ~isempty(titles{selectedIndices(labelIdx)})
+                                    labels(labelIdx) = double(titles{selectedIndices(labelIdx)});
                                 end
                             end
-                            inform.label{c} = labels;
+                            inform.label{fileListIdx} = labels;
 
                             % Apply include list
                             includeList = P.includeSyllList;
@@ -636,12 +636,12 @@ classdef RasterGUI < handle
                             end
                             if ~isempty(includeList)
                                 keepIdx = [];
-                                for lb = 1:length(includeList)
-                                    keepIdx = union(keepIdx, find(labels == includeList(lb)));
+                                for k = 1:length(includeList)
+                                    keepIdx = union(keepIdx, find(labels == includeList(k)));
                                 end
-                                ons{c} = ons{c}(keepIdx);
-                                offs{c} = offs{c}(keepIdx);
-                                inform.label{c} = inform.label{c}(keepIdx);
+                                ons{fileListIdx} = ons{fileListIdx}(keepIdx);
+                                offs{fileListIdx} = offs{fileListIdx}(keepIdx);
+                                inform.label{fileListIdx} = inform.label{fileListIdx}(keepIdx);
                             end
 
                             % Apply ignore list
@@ -654,12 +654,12 @@ classdef RasterGUI < handle
                             end
                             if ~isempty(ignoreList)
                                 removeIdx = [];
-                                for lb = 1:length(ignoreList)
-                                    removeIdx = union(removeIdx, find(inform.label{c} == ignoreList(lb)));
+                                for k = 1:length(ignoreList)
+                                    removeIdx = union(removeIdx, find(inform.label{fileListIdx} == ignoreList(k)));
                                 end
-                                ons{c}(removeIdx) = [];
-                                offs{c}(removeIdx) = [];
-                                inform.label{c}(removeIdx) = [];
+                                ons{fileListIdx}(removeIdx) = [];
+                                offs{fileListIdx}(removeIdx) = [];
+                                inform.label{fileListIdx}(removeIdx) = [];
                             end
                         end
 
@@ -670,30 +670,30 @@ classdef RasterGUI < handle
                             syllOffsets = dbase.SegmentTimes{filenum}(selectedIndices, 2);
                             syllTitles = dbase.SegmentTitles{filenum}(selectedIndices);
                             titleStr = '';
-                            for j = 1:length(syllTitles)
-                                if isempty(syllTitles{j}) || strcmp(syllTitles{j}, '')
+                            for syllIdx = 1:length(syllTitles)
+                                if isempty(syllTitles{syllIdx}) || strcmp(syllTitles{syllIdx}, '')
                                     titleStr = [titleStr, char(1)]; %#ok<AGROW>
                                 else
-                                    titleStr = [titleStr, syllTitles{j}]; %#ok<AGROW>
+                                    titleStr = [titleStr, syllTitles{syllIdx}]; %#ok<AGROW>
                                 end
                             end
-                            ons{c} = [];
-                            offs{c} = [];
-                            inform.label{c} = [];
+                            ons{fileListIdx} = [];
+                            offs{fileListIdx} = [];
+                            inform.label{fileListIdx} = [];
                             for motifIdx = 1:length(P.motifSequences)
                                 [matchStarts, matchEnds] = regexp(titleStr, P.motifSequences{motifIdx}, 'start', 'end');
                                 % Validate motif continuity
-                                for j = length(matchStarts):-1:1
-                                    if max(syllOnsets(matchStarts(j)+1:matchEnds(j)) - syllOffsets(matchStarts(j):matchEnds(j)-1)) > fs * P.motifInterval
-                                        matchStarts(j) = [];
-                                        matchEnds(j) = [];
+                                for matchIdx = length(matchStarts):-1:1
+                                    if max(syllOnsets(matchStarts(matchIdx)+1:matchEnds(matchIdx)) - syllOffsets(matchStarts(matchIdx):matchEnds(matchIdx)-1)) > fs * P.motifInterval
+                                        matchStarts(matchIdx) = [];
+                                        matchEnds(matchIdx) = [];
                                     end
                                 end
-                                ons{c} = [ons{c}; syllOnsets(matchStarts)]; %#ok<AGROW>
-                                offs{c} = [offs{c}; syllOffsets(matchEnds)]; %#ok<AGROW>
-                                inform.label{c} = [inform.label{c}; motifIdx * ones(length(matchStarts), 1)]; %#ok<AGROW>
+                                ons{fileListIdx} = [ons{fileListIdx}; syllOnsets(matchStarts)]; %#ok<AGROW>
+                                offs{fileListIdx} = [offs{fileListIdx}; syllOffsets(matchEnds)]; %#ok<AGROW>
+                                inform.label{fileListIdx} = [inform.label{fileListIdx}; motifIdx * ones(length(matchStarts), 1)]; %#ok<AGROW>
                             end
-                            inform.label{c} = 1000 + inform.label{c};
+                            inform.label{fileListIdx} = 1000 + inform.label{fileListIdx};
                         end
 
                     case 'Bouts'
@@ -702,9 +702,9 @@ classdef RasterGUI < handle
 
                             % Apply include/ignore lists to filter syllables
                             labels = zeros(1, length(selectedIndices));
-                            for d = 1:length(labels)
-                                if ~isempty(dbase.SegmentTitles{filenum}{selectedIndices(d)})
-                                    labels(d) = double(dbase.SegmentTitles{filenum}{selectedIndices(d)});
+                            for labelIdx = 1:length(labels)
+                                if ~isempty(dbase.SegmentTitles{filenum}{selectedIndices(labelIdx)})
+                                    labels(labelIdx) = double(dbase.SegmentTitles{filenum}{selectedIndices(labelIdx)});
                                 end
                             end
                             includeList = P.includeSyllList;
@@ -716,8 +716,8 @@ classdef RasterGUI < handle
                             end
                             if ~isempty(includeList)
                                 keepIdx = [];
-                                for lb = 1:length(includeList)
-                                    keepIdx = union(keepIdx, find(labels == includeList(lb)));
+                                for k = 1:length(includeList)
+                                    keepIdx = union(keepIdx, find(labels == includeList(k)));
                                 end
                                 selectedIndices = selectedIndices(keepIdx);
                             end
@@ -730,8 +730,8 @@ classdef RasterGUI < handle
                             end
                             if ~isempty(ignoreList)
                                 removeIdx = [];
-                                for lb = 1:length(ignoreList)
-                                    removeIdx = union(removeIdx, find(labels == ignoreList(lb)));
+                                for k = 1:length(ignoreList)
+                                    removeIdx = union(removeIdx, find(labels == ignoreList(k)));
                                 end
                                 selectedIndices(removeIdx) = [];
                             end
@@ -745,22 +745,22 @@ classdef RasterGUI < handle
                             durationOK = find(syllOffsets(boutEnds + 1) - syllOnsets(boutStarts) > fs * P.boutMinDuration);
                             syllCountOK = find(boutEnds - boutStarts >= P.boutMinSyllables - 1);
                             validBouts = intersect(durationOK, syllCountOK);
-                            ons{c} = syllOnsets(boutStarts(validBouts));
-                            offs{c} = syllOffsets(boutEnds(validBouts) + 1);
-                            inform.label{c} = 1000 + boutEnds(validBouts) - boutStarts(validBouts) + 1;
+                            ons{fileListIdx} = syllOnsets(boutStarts(validBouts));
+                            offs{fileListIdx} = syllOffsets(boutEnds(validBouts) + 1);
+                            inform.label{fileListIdx} = 1000 + boutEnds(validBouts) - boutStarts(validBouts) + 1;
                         end
 
                     case 'Continuous function'
-                        ons{c} = [];
-                        offs{c} = [];
-                        inform.label{c} = [];
+                        ons{fileListIdx} = [];
+                        offs{fileListIdx} = [];
+                        inform.label{fileListIdx} = [];
                 end
 
-                inform.filenum(c) = filenum;
-                if size(ons{c}, 2) == 0
-                    ons{c} = [];
-                    offs{c} = [];
-                    inform.label{c} = [];
+                inform.filenum(fileListIdx) = filenum;
+                if size(ons{fileListIdx}, 2) == 0
+                    ons{fileListIdx} = [];
+                    offs{fileListIdx} = [];
+                    inform.label{fileListIdx} = [];
                 end
             end
         end
@@ -785,58 +785,58 @@ classdef RasterGUI < handle
             count = 0;
             triggerInfo = struct();
 
-            for c = 1:length(trig.on)
-                for d = 1:length(trig.on{c})
+            for fileIdx = 1:length(trig.on)
+                for trigIdx = 1:length(trig.on{fileIdx})
                     % Determine alignment point
                     switch alignmentType
                         case 'Onset'
-                            alignSample = trig.on{c}(d);
+                            alignSample = trig.on{fileIdx}(trigIdx);
                         case 'Midpoint'
-                            alignSample = round((trig.on{c}(d) + trig.off{c}(d)) / 2);
+                            alignSample = round((trig.on{fileIdx}(trigIdx) + trig.off{fileIdx}(trigIdx)) / 2);
                         case 'Offset'
-                            alignSample = trig.off{c}(d);
+                            alignSample = trig.off{fileIdx}(trigIdx);
                     end
 
-                    filenum = trig.info.filenum(c);
+                    filenum = trig.info.filenum(fileIdx);
                     absTime = dbase.Times(filenum) + alignSample / (fs * 24 * 60 * 60);
 
                     % Determine window start (in samples)
                     switch startRefType
                         case 'Trigger onset'
-                            windowStart = trig.on{c}(d);
+                            windowStart = trig.on{fileIdx}(trigIdx);
                         case 'Trigger offset'
-                            windowStart = trig.off{c}(d);
+                            windowStart = trig.off{fileIdx}(trigIdx);
                         case 'Prev trigger onset'
-                            if d == 1
+                            if trigIdx == 1
                                 windowStart = -inf;
                             else
-                                windowStart = trig.on{c}(d - 1);
+                                windowStart = trig.on{fileIdx}(trigIdx - 1);
                             end
                         case 'Prev trigger offset'
-                            if d == 1
+                            if trigIdx == 1
                                 windowStart = -inf;
                             else
-                                windowStart = trig.off{c}(d - 1);
+                                windowStart = trig.off{fileIdx}(trigIdx - 1);
                             end
                     end
 
                     % Determine window end (in samples)
                     switch stopRefType
                         case 'Trigger onset'
-                            windowEnd = trig.on{c}(d);
+                            windowEnd = trig.on{fileIdx}(trigIdx);
                         case 'Trigger offset'
-                            windowEnd = trig.off{c}(d);
+                            windowEnd = trig.off{fileIdx}(trigIdx);
                         case 'Next trigger onset'
-                            if d == length(trig.on{c})
+                            if trigIdx == length(trig.on{fileIdx})
                                 windowEnd = inf;
                             else
-                                windowEnd = trig.on{c}(d + 1);
+                                windowEnd = trig.on{fileIdx}(trigIdx + 1);
                             end
                         case 'Next trigger offset'
-                            if d == length(trig.on{c})
+                            if trigIdx == length(trig.on{fileIdx})
                                 windowEnd = inf;
                             else
-                                windowEnd = trig.off{c}(d + 1);
+                                windowEnd = trig.off{fileIdx}(trigIdx + 1);
                             end
                     end
 
@@ -859,44 +859,44 @@ classdef RasterGUI < handle
                     count = count + 1;
 
                     % Store trigger metadata
-                    triggerInfo.fileNum(count) = c;
+                    triggerInfo.fileNum(count) = fileIdx;
                     triggerInfo.isComplete(count) = isComplete;
                     triggerInfo.absTime(count) = absTime;
-                    triggerInfo.label(count) = trig.info.label{c}(d);
+                    triggerInfo.label(count) = trig.info.label{fileIdx}(trigIdx);
                     triggerInfo.corrShift(count) = 0;
                     triggerInfo.dataStart{count} = (windowStart - alignSample) / fs + eps;
                     triggerInfo.dataStop{count} = (windowEnd - alignSample) / fs - eps;
 
                     % Previous/current/next trigger positions relative to alignment
-                    triggerInfo.currTrigOnset(count) = (trig.on{c}(d) - alignSample) / fs;
-                    triggerInfo.currTrigOffset(count) = (trig.off{c}(d) - alignSample) / fs;
-                    if d == 1
+                    triggerInfo.currTrigOnset(count) = (trig.on{fileIdx}(trigIdx) - alignSample) / fs;
+                    triggerInfo.currTrigOffset(count) = (trig.off{fileIdx}(trigIdx) - alignSample) / fs;
+                    if trigIdx == 1
                         triggerInfo.prevTrigOnset(count) = -inf;
                         triggerInfo.prevTrigOffset(count) = -inf;
                     else
-                        triggerInfo.prevTrigOnset(count) = (trig.on{c}(d-1) - alignSample) / fs;
-                        triggerInfo.prevTrigOffset(count) = (trig.off{c}(d-1) - alignSample) / fs;
+                        triggerInfo.prevTrigOnset(count) = (trig.on{fileIdx}(trigIdx-1) - alignSample) / fs;
+                        triggerInfo.prevTrigOffset(count) = (trig.off{fileIdx}(trigIdx-1) - alignSample) / fs;
                     end
-                    if d == length(trig.on{c})
+                    if trigIdx == length(trig.on{fileIdx})
                         triggerInfo.nextTrigOnset(count) = inf;
                         triggerInfo.nextTrigOffset(count) = inf;
                     else
-                        triggerInfo.nextTrigOnset(count) = (trig.on{c}(d+1) - alignSample) / fs;
-                        triggerInfo.nextTrigOffset(count) = (trig.off{c}(d+1) - alignSample) / fs;
+                        triggerInfo.nextTrigOnset(count) = (trig.on{fileIdx}(trigIdx+1) - alignSample) / fs;
+                        triggerInfo.nextTrigOffset(count) = (trig.off{fileIdx}(trigIdx+1) - alignSample) / fs;
                     end
 
                     % Find events within the window
                     if excludePartial
-                        eventIdx = find(event.on{c} > windowStart & event.off{c} < windowEnd);
+                        eventIdx = find(event.on{fileIdx} > windowStart & event.off{fileIdx} < windowEnd);
                     else
-                        onInWindow = find(event.on{c} > windowStart & event.on{c} < windowEnd);
-                        offInWindow = find(event.off{c} > windowStart & event.off{c} < windowEnd);
-                        spanning = find(event.on{c} < windowStart & event.off{c} > windowEnd);
+                        onInWindow = find(event.on{fileIdx} > windowStart & event.on{fileIdx} < windowEnd);
+                        offInWindow = find(event.off{fileIdx} > windowStart & event.off{fileIdx} < windowEnd);
+                        spanning = find(event.on{fileIdx} < windowStart & event.off{fileIdx} > windowEnd);
                         eventIdx = union(union(onInWindow, offInWindow), spanning);
                     end
-                    triggerInfo.eventOnsets{count} = (event.on{c}(eventIdx) - alignSample) / fs;
-                    triggerInfo.eventOffsets{count} = (event.off{c}(eventIdx) - alignSample) / fs;
-                    triggerInfo.eventLabels{count} = event.info.label{c}(eventIdx) / fs;
+                    triggerInfo.eventOnsets{count} = (event.on{fileIdx}(eventIdx) - alignSample) / fs;
+                    triggerInfo.eventOffsets{count} = (event.off{fileIdx}(eventIdx) - alignSample) / fs;
+                    triggerInfo.eventLabels{count} = event.info.label{fileIdx}(eventIdx) / fs;
                 end
             end
         end
