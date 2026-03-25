@@ -196,10 +196,72 @@ classdef RasterGUI < handle
                 return;
             end
 
-            % TODO: Port the full GenerateRaster pipeline from
-            % push_GenerateRaster_Callback in the original code.
-            % For now this is a stub.
-            disp('RasterGUI.generate() - not yet implemented');
+            obj.push_GenerateRaster.ForegroundColor = 'r';
+            drawnow;
+
+            try
+                % --- Step 1: Get trigger times ---
+                trigSourceIdx = obj.popup_TriggerSource.Value - 1;  % 0 = Sound
+                trigTypeStrs = obj.popup_TriggerType.String;
+                trigTypeStr = trigTypeStrs{obj.popup_TriggerType.Value};
+                [trig.on, trig.off, trig.info, ~] = obj.getEventStructure( ...
+                    trigSourceIdx, trigTypeStr, obj.P.trig);
+
+                % --- Step 2: Get event times ---
+                eventSourceIdx = obj.popup_EventSource.Value - 1;
+                eventTypeStrs = obj.popup_EventType.String;
+                eventTypeStr = eventTypeStrs{obj.popup_EventType.Value};
+                [event.on, event.off, event.info, ~] = obj.getEventStructure( ...
+                    eventSourceIdx, eventTypeStr, obj.P.event);
+
+                % --- Step 3: Align events to triggers ---
+                ti = obj.alignEventsToTriggers(trig, event);
+
+                if isempty(ti) || ~isfield(ti, 'absTime') || isempty(ti.absTime)
+                    warndlg('No triggers found!', 'Error');
+                    obj.push_GenerateRaster.ForegroundColor = 'k';
+                    return;
+                end
+
+                % --- Step 4: Sort triggers ---
+                primarySortStrs = obj.popup_PrimarySort.String;
+                primarySortType = primarySortStrs{obj.popup_PrimarySort.Value};
+                descending = obj.radio_Descending.Value;
+                groupLabels = obj.check_GroupLabels.Value;
+
+                if ~strcmp(primarySortType, '(None)')
+                    ti = RasterGUI.sortTriggers(ti, primarySortType, descending, ...
+                        obj.P.event.includeSyllList, groupLabels);
+                end
+
+                % Secondary sort (applied first so primary sort is dominant)
+                secondarySortStrs = obj.popup_SecondarySort.String;
+                secondarySortType = secondarySortStrs{obj.popup_SecondarySort.Value};
+                if ~strcmp(secondarySortType, '(None)')
+                    % Re-sort: secondary first, then primary
+                    [event.on, event.off, event.info, ~] = obj.getEventStructure( ...
+                        eventSourceIdx, eventTypeStr, obj.P.event);
+                    ti = obj.alignEventsToTriggers(trig, event);
+                    ti = RasterGUI.sortTriggers(ti, secondarySortType, descending, ...
+                        obj.P.event.includeSyllList, false);
+                    if ~strcmp(primarySortType, '(None)')
+                        ti = RasterGUI.sortTriggers(ti, primarySortType, descending, ...
+                            obj.P.event.includeSyllList, groupLabels);
+                    end
+                end
+
+                obj.triggerInfo = ti;
+
+                % --- Step 5: Plot ---
+                obj.plotRaster();
+                obj.plotPSTH();
+
+            catch ME
+                warndlg(sprintf('Error generating raster: %s', ME.message), 'Error');
+                rethrow(ME);
+            end
+
+            obj.push_GenerateRaster.ForegroundColor = 'k';
         end
     end
 
@@ -461,6 +523,146 @@ classdef RasterGUI < handle
             obj.popup_EventSource.String = sourceStrings;
 
             obj.FileRange = 1:electro_gui.getNumFiles(obj.eg.dbase);
+        end
+    end
+
+    %% Plotting
+    methods (Access = private)
+        function plotRaster(obj)
+            % Render the raster plot from the current triggerInfo.
+            ti = obj.triggerInfo;
+            numTrials = length(ti.absTime);
+            if numTrials == 0
+                return;
+            end
+
+            ax = obj.axes_Raster;
+            cla(ax);
+            hold(ax, 'on');
+
+            % Trial y-positions (trial 1 at top)
+            trialY = 1:numTrials;
+
+            % Tick height: each trial spans 1 unit, ticks fill most of it
+            tickHalfHeight = 0.4;
+
+            % --- Plot trigger boxes (current trigger onset-offset) ---
+            trigColor = [1.0, 0.85, 0.85];  % Light red
+            for trialIdx = 1:numTrials
+                trigOn = ti.currTrigOnset(trialIdx);
+                trigOff = ti.currTrigOffset(trialIdx);
+                if isfinite(trigOn) && isfinite(trigOff)
+                    patch(ax, ...
+                        [trigOn, trigOff, trigOff, trigOn], ...
+                        [trialY(trialIdx) - tickHalfHeight, trialY(trialIdx) - tickHalfHeight, ...
+                         trialY(trialIdx) + tickHalfHeight, trialY(trialIdx) + tickHalfHeight], ...
+                        trigColor, 'EdgeColor', 'none', ...
+                        'PickableParts', 'none', 'HitTest', 'off');
+                end
+            end
+
+            % --- Plot event ticks ---
+            eventColor = [0, 0, 0];  % Black
+            for trialIdx = 1:numTrials
+                eventTimes = ti.eventOnsets{trialIdx};
+                if ~isempty(eventTimes)
+                    yBottom = trialY(trialIdx) - tickHalfHeight;
+                    yTop = trialY(trialIdx) + tickHalfHeight;
+                    % Vectorized line drawing: NaN-separated segments
+                    xCoords = [eventTimes(:)'; eventTimes(:)'; NaN(1, length(eventTimes))];
+                    yCoords = [repmat(yBottom, 1, length(eventTimes)); ...
+                               repmat(yTop, 1, length(eventTimes)); ...
+                               NaN(1, length(eventTimes))];
+                    plot(ax, xCoords(:), yCoords(:), 'Color', eventColor, 'LineWidth', 0.5);
+                end
+            end
+
+            % --- Plot zero line (trigger alignment point) ---
+            plot(ax, [0, 0], [0.5, numTrials + 0.5], '--', ...
+                'Color', [0.5, 0.5, 0.5], 'LineWidth', 0.5, ...
+                'PickableParts', 'none', 'HitTest', 'off');
+
+            % --- Axes formatting ---
+            ax.YDir = 'reverse';
+            ax.YLim = [0.5, numTrials + 0.5];
+            ax.XLim = obj.PlotXLim;
+            ax.YLabel.String = 'Trial';
+            ax.XLabel.String = 'Time (s)';
+            ax.Box = 'on';
+            title(ax, sprintf('%d trials', numTrials));
+            hold(ax, 'off');
+        end
+
+        function plotPSTH(obj)
+            % Render the peri-stimulus time histogram from triggerInfo.
+            ti = obj.triggerInfo;
+            numTrials = length(ti.absTime);
+            if numTrials == 0
+                return;
+            end
+
+            ax = obj.axes_PSTH;
+            cla(ax);
+            hold(ax, 'on');
+
+            % Collect all event times across trials
+            allEventTimes = cat(1, ti.eventOnsets{:});
+
+            if isempty(allEventTimes)
+                hold(ax, 'off');
+                return;
+            end
+
+            % Bin edges
+            binSize = obj.PSTHBinSize;
+            binEdges = obj.PlotXLim(1):binSize:obj.PlotXLim(2);
+            if isempty(binEdges) || length(binEdges) < 2
+                hold(ax, 'off');
+                return;
+            end
+
+            % Compute histogram
+            counts = histcounts(allEventTimes, binEdges);
+            binCenters = (binEdges(1:end-1) + binEdges(2:end)) / 2;
+
+            % Convert to the selected units
+            psthUnitStrs = obj.popup_PSTHUnits.String;
+            psthUnit = psthUnitStrs{obj.popup_PSTHUnits.Value};
+            switch psthUnit
+                case 'Rate (Hz)'
+                    psthValues = counts / (numTrials * binSize);
+                    yLabel = 'Firing rate (Hz)';
+                case 'Count/trial'
+                    psthValues = counts / numTrials;
+                    yLabel = 'Count/trial';
+                case 'Total count'
+                    psthValues = counts;
+                    yLabel = 'Total count';
+                otherwise
+                    psthValues = counts / (numTrials * binSize);
+                    yLabel = 'Rate (Hz)';
+            end
+
+            % Smooth if requested
+            if obj.PSTHSmoothingWindow > 1
+                psthValues = movmean(psthValues, obj.PSTHSmoothingWindow);
+            end
+
+            % Plot as bar chart
+            bar(ax, binCenters, psthValues, 1, ...
+                'FaceColor', [0.3, 0.3, 0.3], 'EdgeColor', 'none');
+
+            % Zero line
+            plot(ax, [0, 0], ax.YLim, '--', ...
+                'Color', [0.5, 0.5, 0.5], 'LineWidth', 0.5, ...
+                'PickableParts', 'none', 'HitTest', 'off');
+
+            % Formatting
+            ax.XLim = obj.PlotXLim;
+            ax.YLabel.String = yLabel;
+            ax.XLabel.String = 'Time (s)';
+            ax.Box = 'on';
+            hold(ax, 'off');
         end
     end
 
