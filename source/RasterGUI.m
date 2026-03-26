@@ -365,10 +365,8 @@ classdef RasterGUI < handle
             rowH = 22;                     % Row height (px)
             rowSpacing = 28;               % Vertical spacing between row tops (px)
             numRows = 8;
-            % rowY(1) is the top row, positioned near the top of the tab.
-            % We'll compute from a starting Y and go downward.
-            topRowY = 400;                 % Starting Y for top row (px from bottom of tab)
-            rowY = topRowY - (0:numRows-1) * rowSpacing;
+            % rowY positions computed after tab group creation (see below)
+            % Placeholder — will be set once we know the tab interior height
 
             tabMargin = m;
             fullW = 270;                   % Approximate usable width inside tab (px)
@@ -434,8 +432,18 @@ classdef RasterGUI < handle
 
             % --- Left side: tab group + generate buttons ---
             tabGroup = uitabgroup(obj.figure_Main, ...
-                'Units', 'pixels', ...
+                'Units', 'normalized', ...
                 'Position', [leftX, tabGroupY, leftW, tabGroupH]);
+
+            % Compute row Y positions based on actual tab group height
+            drawnow;  % Ensure layout is computed
+            oldUnits = tabGroup.Units;
+            tabGroup.Units = 'pixels';
+            tabGroupPixelH = tabGroup.Position(4);
+            tabGroup.Units = oldUnits;
+            tabHeaderH = 30;  % Approximate height of tab headers (px)
+            topRowY = tabGroupPixelH - tabHeaderH - m;
+            rowY = topRowY - (0:numRows-1) * rowSpacing;
 
             % --- Trigger tab ---
             trigTab = uitab(tabGroup, 'Title', 'Trigger');
