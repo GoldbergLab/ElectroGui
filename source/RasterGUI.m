@@ -44,7 +44,6 @@ classdef RasterGUI < handle
         % Window panel
         popup_StartReference
         popup_StopReference
-        push_WindowLimits
         check_ExcludeIncomplete
         check_ExcludePartialEvents
 
@@ -64,7 +63,6 @@ classdef RasterGUI < handle
 
         % File panel
         popup_Files
-        push_FileRange
         push_Open
 
         % Control buttons
@@ -75,12 +73,20 @@ classdef RasterGUI < handle
         popup_PSTHUnits
         popup_PSTHCount
 
-        % Plot options
-        list_PlotOptions
-        push_PlotColor
-        check_PlotShow
-        push_PlotXLim
-        push_PlotTickSize
+        % Window inline edits
+        edit_PreStart
+        edit_PostStop
+
+        % Files inline edit
+        edit_FileRange
+
+        % Plot inline edits
+        edit_XMin
+        edit_XMax
+        edit_TickHeight
+        edit_BinSize
+        edit_TickLineWidth
+        edit_Overlap
 
         % Trigger options (inline in tab)
         edit_TrigIncludeList
@@ -484,6 +490,7 @@ classdef RasterGUI < handle
 
             % --- Window tab ---
             windowTab = uitab(tabGroup, 'Title', 'Window');
+            editW = 0.30;  % Width for short numeric edit boxes
             uicontrol(windowTab, 'Style', 'text', ...
                 'Units', 'normalized', 'Position', [tabMargin, row1Y, winLabelW, rowH], ...
                 'String', 'Start:', 'HorizontalAlignment', 'right');
@@ -496,9 +503,20 @@ classdef RasterGUI < handle
             obj.popup_StopReference = uicontrol(windowTab, 'Style', 'popupmenu', ...
                 'Units', 'normalized', 'Position', [winPopupX, row2Y, winPopupW, rowH], ...
                 'String', {'Trigger onset', 'Trigger offset', 'Next trigger onset', 'Next trigger offset'});
-            obj.push_WindowLimits = uicontrol(windowTab, 'Style', 'pushbutton', ...
-                'Units', 'normalized', 'Position', [tabMargin, row3Y, 0.30, rowH], ...
-                'String', 'Limits', 'Callback', @(~,~) obj.windowLimitsCallback());
+            uicontrol(windowTab, 'Style', 'text', ...
+                'Units', 'normalized', 'Position', [tabMargin, row3Y, winLabelW, rowH], ...
+                'String', 'Pre (s):', 'HorizontalAlignment', 'right');
+            obj.edit_PreStart = uicontrol(windowTab, 'Style', 'edit', ...
+                'Units', 'normalized', 'Position', [winPopupX, row3Y, editW, rowH], ...
+                'String', num2str(obj.P.preStartRef), ...
+                'Tooltip', 'Time before start reference to include (seconds)');
+            uicontrol(windowTab, 'Style', 'text', ...
+                'Units', 'normalized', 'Position', [winPopupX + editW + 0.02, row3Y, winLabelW, rowH], ...
+                'String', 'Post (s):', 'HorizontalAlignment', 'right');
+            obj.edit_PostStop = uicontrol(windowTab, 'Style', 'edit', ...
+                'Units', 'normalized', 'Position', [winPopupX + editW + winLabelW + 0.04, row3Y, editW, rowH], ...
+                'String', num2str(obj.P.postStopRef), ...
+                'Tooltip', 'Time after stop reference to include (seconds)');
             obj.check_ExcludeIncomplete = uicontrol(windowTab, 'Style', 'checkbox', ...
                 'Units', 'normalized', 'Position', [tabMargin, row4Y, tabFullW, rowH], ...
                 'String', 'Exclude incomplete', 'Value', 1);
@@ -537,11 +555,16 @@ classdef RasterGUI < handle
             obj.popup_Files = uicontrol(filesTab, 'Style', 'popupmenu', ...
                 'Units', 'normalized', 'Position', [tabMargin, row1Y, tabFullW, rowH], ...
                 'String', {'All files in range', 'Only selected by search', 'Only unselected'});
-            obj.push_FileRange = uicontrol(filesTab, 'Style', 'pushbutton', ...
-                'Units', 'normalized', 'Position', [tabMargin, row2Y, 0.48, rowH], ...
-                'String', 'File range', 'Callback', @(~,~) obj.fileRangeCallback());
+            uicontrol(filesTab, 'Style', 'text', ...
+                'Units', 'normalized', 'Position', [tabMargin, row2Y, labelW, rowH], ...
+                'String', 'Range:', 'HorizontalAlignment', 'right');
+            numFiles = electro_gui.getNumFiles(obj.eg.dbase);
+            obj.edit_FileRange = uicontrol(filesTab, 'Style', 'edit', ...
+                'Units', 'normalized', 'Position', [popupAfterLabelX, row2Y, popupAfterLabelW + optionsBtnW + 0.02, rowH], ...
+                'String', ['1:', num2str(numFiles)], ...
+                'Tooltip', 'MATLAB expression for file range (e.g., 1:100 or [1 5 10])');
             obj.push_Open = uicontrol(filesTab, 'Style', 'pushbutton', ...
-                'Units', 'normalized', 'Position', [0.52, row2Y, 0.46, rowH], ...
+                'Units', 'normalized', 'Position', [tabMargin, row3Y, 0.48, rowH], ...
                 'String', 'Open dbase', 'Callback', @(~,~) obj.openCallback());
 
             % --- PSTH tab ---
@@ -559,16 +582,50 @@ classdef RasterGUI < handle
                 'Units', 'normalized', 'Position', [popupAfterLabelX, row2Y, popupAfterLabelW, rowH], ...
                 'String', {'All events', 'Selected only', 'Unselected only'});
 
-            % --- Plot tab (X limits, tick size, etc.) ---
+            % --- Plot tab ---
             plotTab = uitab(tabGroup, 'Title', 'Plot');
-            obj.push_PlotXLim = uicontrol(plotTab, 'Style', 'pushbutton', ...
-                'Units', 'normalized', 'Position', [tabMargin, row1Y, 0.48, rowH], ...
-                'String', 'X Limits', ...
-                'Callback', @(~,~) obj.plotXLimCallback());
-            obj.push_PlotTickSize = uicontrol(plotTab, 'Style', 'pushbutton', ...
-                'Units', 'normalized', 'Position', [0.52, row1Y, 0.46, rowH], ...
-                'String', 'Tick size', ...
-                'Callback', @(~,~) obj.plotTickSizeCallback());
+            plotEditW = 0.25;
+            plotLabelW = 0.22;
+            col2X = 0.52;  % Second column x
+
+            uicontrol(plotTab, 'Style', 'text', ...
+                'Units', 'normalized', 'Position', [tabMargin, row1Y, plotLabelW, rowH], ...
+                'String', 'X min (s):', 'HorizontalAlignment', 'right');
+            obj.edit_XMin = uicontrol(plotTab, 'Style', 'edit', ...
+                'Units', 'normalized', 'Position', [tabMargin + plotLabelW + 0.01, row1Y, plotEditW, rowH], ...
+                'String', num2str(obj.PlotXLim(1)));
+            uicontrol(plotTab, 'Style', 'text', ...
+                'Units', 'normalized', 'Position', [col2X, row1Y, plotLabelW, rowH], ...
+                'String', 'X max (s):', 'HorizontalAlignment', 'right');
+            obj.edit_XMax = uicontrol(plotTab, 'Style', 'edit', ...
+                'Units', 'normalized', 'Position', [col2X + plotLabelW + 0.01, row1Y, plotEditW, rowH], ...
+                'String', num2str(obj.PlotXLim(2)));
+
+            uicontrol(plotTab, 'Style', 'text', ...
+                'Units', 'normalized', 'Position', [tabMargin, row2Y, plotLabelW, rowH], ...
+                'String', 'Tick height:', 'HorizontalAlignment', 'right');
+            obj.edit_TickHeight = uicontrol(plotTab, 'Style', 'edit', ...
+                'Units', 'normalized', 'Position', [tabMargin + plotLabelW + 0.01, row2Y, plotEditW, rowH], ...
+                'String', num2str(obj.PlotTickSize(1)));
+            uicontrol(plotTab, 'Style', 'text', ...
+                'Units', 'normalized', 'Position', [col2X, row2Y, plotLabelW, rowH], ...
+                'String', 'Bin size (s):', 'HorizontalAlignment', 'right');
+            obj.edit_BinSize = uicontrol(plotTab, 'Style', 'edit', ...
+                'Units', 'normalized', 'Position', [col2X + plotLabelW + 0.01, row2Y, plotEditW, rowH], ...
+                'String', num2str(obj.PSTHBinSize));
+
+            uicontrol(plotTab, 'Style', 'text', ...
+                'Units', 'normalized', 'Position', [tabMargin, row3Y, plotLabelW, rowH], ...
+                'String', 'Line width:', 'HorizontalAlignment', 'right');
+            obj.edit_TickLineWidth = uicontrol(plotTab, 'Style', 'edit', ...
+                'Units', 'normalized', 'Position', [tabMargin + plotLabelW + 0.01, row3Y, plotEditW, rowH], ...
+                'String', num2str(obj.PlotTickSize(3)));
+            uicontrol(plotTab, 'Style', 'text', ...
+                'Units', 'normalized', 'Position', [col2X, row3Y, plotLabelW, rowH], ...
+                'String', 'Overlap %:', 'HorizontalAlignment', 'right');
+            obj.edit_Overlap = uicontrol(plotTab, 'Style', 'edit', ...
+                'Units', 'normalized', 'Position', [col2X + plotLabelW + 0.01, row3Y, plotEditW, rowH], ...
+                'String', num2str(obj.PlotOverlap));
 
             % --- Presets tab ---
             presetsTab = uitab(tabGroup, 'Title', 'Presets');
@@ -1114,7 +1171,9 @@ classdef RasterGUI < handle
             obj.edit_EventIgnoreList.Visible = vis;
         end
         function syncOptionsFromGUI(obj)
-            % Read inline option controls into the P struct before generating.
+            % Read all inline option controls into properties before generating.
+
+            % Trigger/Event include/ignore lists
             obj.P.trig.includeSyllList = obj.edit_TrigIncludeList.String;
             obj.P.trig.ignoreSyllList = obj.edit_TrigIgnoreList.String;
             obj.P.event.includeSyllList = obj.edit_EventIncludeList.String;
@@ -1127,22 +1186,26 @@ classdef RasterGUI < handle
             if obj.check_CopyEvents.Value
                 obj.P.event = obj.P.trig;
             end
-        end
-        function windowLimitsCallback(obj)
-            answer = inputdlg({'Pre-start (s)', 'Post-stop (s)'}, 'Window limits', 1, ...
-                {num2str(obj.P.preStartRef), num2str(obj.P.postStopRef)});
-            if ~isempty(answer)
-                obj.P.preStartRef = str2double(answer{1});
-                obj.P.postStopRef = str2double(answer{2});
+
+            % Window limits
+            obj.P.preStartRef = str2double(obj.edit_PreStart.String);
+            obj.P.postStopRef = str2double(obj.edit_PostStop.String);
+
+            % File range
+            try
+                obj.FileRange = eval(obj.edit_FileRange.String); %#ok<EVLC>
+            catch
+                electro_gui.issueWarning('Invalid file range expression, using all files.', 'badFileRange');
+                numFiles = electro_gui.getNumFiles(obj.eg.dbase);
+                obj.FileRange = 1:numFiles;
             end
-        end
-        function fileRangeCallback(obj)
-            numFiles = electro_gui.getNumFiles(obj.eg.dbase);
-            answer = inputdlg({'File range'}, 'File range', 1, ...
-                {['1:', num2str(numFiles)]});
-            if ~isempty(answer)
-                obj.FileRange = eval(answer{1});
-            end
+
+            % Plot settings
+            obj.PlotXLim = [str2double(obj.edit_XMin.String), str2double(obj.edit_XMax.String)];
+            obj.PlotTickSize(1) = str2double(obj.edit_TickHeight.String);
+            obj.PlotTickSize(3) = str2double(obj.edit_TickLineWidth.String);
+            obj.PSTHBinSize = str2double(obj.edit_BinSize.String);
+            obj.PlotOverlap = str2double(obj.edit_Overlap.String);
         end
         function openCallback(obj)
             % TODO: Port open dbase functionality
@@ -1152,26 +1215,6 @@ classdef RasterGUI < handle
                 obj.push_Hold.String = 'Hold off';
             else
                 obj.push_Hold.String = 'Hold on';
-            end
-        end
-        function plotXLimCallback(obj)
-            answer = inputdlg({'X min (s)', 'X max (s)'}, 'Plot X limits', 1, ...
-                {num2str(obj.PlotXLim(1)), num2str(obj.PlotXLim(2))});
-            if ~isempty(answer)
-                obj.PlotXLim = [str2double(answer{1}), str2double(answer{2})];
-            end
-        end
-        function plotTickSizeCallback(obj)
-            answer = inputdlg( ...
-                {'Raster tick height', 'PSTH bin size (s)', 'Tick line width', 'Overlap %'}, ...
-                'Tick size', 1, ...
-                {num2str(obj.PlotTickSize(1)), num2str(obj.PSTHBinSize), ...
-                 num2str(obj.PlotTickSize(3)), num2str(obj.PlotOverlap)});
-            if ~isempty(answer)
-                obj.PlotTickSize(1) = str2double(answer{1});
-                obj.PSTHBinSize = str2double(answer{2});
-                obj.PlotTickSize(3) = str2double(answer{3});
-                obj.PlotOverlap = str2double(answer{4});
             end
         end
     end
