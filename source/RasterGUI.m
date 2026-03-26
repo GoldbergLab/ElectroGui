@@ -34,13 +34,11 @@ classdef RasterGUI < handle
         popup_TriggerSource
         popup_TriggerType
         popup_TriggerAlignment
-        push_TriggerOptions
         check_CopyEvents
 
         % Event panel
         popup_EventSource
         popup_EventType
-        push_EventOptions
         check_CopyTrigger
 
         % Window panel
@@ -83,6 +81,18 @@ classdef RasterGUI < handle
         check_PlotShow
         push_PlotXLim
         push_PlotTickSize
+
+        % Trigger options (inline in tab)
+        edit_TrigIncludeList
+        edit_TrigIgnoreList
+        text_TrigIncludeLabel
+        text_TrigIgnoreLabel
+
+        % Event options (inline in tab)
+        edit_EventIncludeList
+        edit_EventIgnoreList
+        text_EventIncludeLabel
+        text_EventIgnoreLabel
 
         % Presets tab
         popup_Presets
@@ -191,6 +201,8 @@ classdef RasterGUI < handle
                 obj.buildGUI();
                 obj.populateSourceMenus();
                 obj.refreshPresetList();
+                obj.updateTriggerOptionsVisibility();
+                obj.updateEventOptionsVisibility();
             end
             obj.figure_Main.Visible = 'on';
             figure(obj.figure_Main);  % Bring to front
@@ -215,6 +227,9 @@ classdef RasterGUI < handle
 
             obj.push_GenerateRaster.ForegroundColor = 'r';
             drawnow;
+
+            % Read inline options into P struct
+            obj.syncOptionsFromGUI();
 
             try
                 % --- Step 1: Get trigger times ---
@@ -408,10 +423,8 @@ classdef RasterGUI < handle
                 'String', 'Type:', 'HorizontalAlignment', 'right');
             obj.popup_TriggerType = uicontrol(trigTab, 'Style', 'popupmenu', ...
                 'Units', 'normalized', 'Position', [popupAfterLabelX, row2Y, popupAfterLabelW, rowH], ...
-                'String', {'Syllables', 'Markers', 'Motifs', 'Bouts'});
-            obj.push_TriggerOptions = uicontrol(trigTab, 'Style', 'pushbutton', ...
-                'Units', 'normalized', 'Position', [optionsBtnX, row2Y, optionsBtnW, rowH], ...
-                'String', 'Options', 'Callback', @(~,~) obj.triggerOptionsCallback());
+                'String', {'Syllables', 'Markers', 'Motifs', 'Bouts'}, ...
+                'Callback', @(~,~) obj.updateTriggerOptionsVisibility());
             uicontrol(trigTab, 'Style', 'text', ...
                 'Units', 'normalized', 'Position', [tabMargin, row3Y, labelW, rowH], ...
                 'String', 'Align:', 'HorizontalAlignment', 'right');
@@ -421,6 +434,22 @@ classdef RasterGUI < handle
             obj.check_CopyEvents = uicontrol(trigTab, 'Style', 'checkbox', ...
                 'Units', 'normalized', 'Position', [tabMargin, row4Y, tabFullW, rowH], ...
                 'String', 'Copy events from trigger');
+            % Inline trigger options (visible depending on type)
+            obj.text_TrigIncludeLabel = uicontrol(trigTab, 'Style', 'text', ...
+                'Units', 'normalized', 'Position', [tabMargin, row5Y, labelW, rowH], ...
+                'String', 'Include:', 'HorizontalAlignment', 'right');
+            obj.edit_TrigIncludeList = uicontrol(trigTab, 'Style', 'edit', ...
+                'Units', 'normalized', 'Position', [popupAfterLabelX, row5Y, popupAfterLabelW + optionsBtnW + 0.02, rowH], ...
+                'String', '', 'HorizontalAlignment', 'left', ...
+                'Tooltip', 'Syllable/marker labels to include (leave empty for all)');
+            row6Y = row5Y - 0.08;
+            obj.text_TrigIgnoreLabel = uicontrol(trigTab, 'Style', 'text', ...
+                'Units', 'normalized', 'Position', [tabMargin, row6Y, labelW, rowH], ...
+                'String', 'Ignore:', 'HorizontalAlignment', 'right');
+            obj.edit_TrigIgnoreList = uicontrol(trigTab, 'Style', 'edit', ...
+                'Units', 'normalized', 'Position', [popupAfterLabelX, row6Y, popupAfterLabelW + optionsBtnW + 0.02, rowH], ...
+                'String', '', 'HorizontalAlignment', 'left', ...
+                'Tooltip', 'Syllable/marker labels to exclude');
 
             % --- Events tab ---
             eventTab = uitab(tabGroup, 'Title', 'Events');
@@ -432,13 +461,26 @@ classdef RasterGUI < handle
                 'String', 'Type:', 'HorizontalAlignment', 'right');
             obj.popup_EventType = uicontrol(eventTab, 'Style', 'popupmenu', ...
                 'Units', 'normalized', 'Position', [popupAfterLabelX, row2Y, popupAfterLabelW, rowH], ...
-                'String', {'Syllables', 'Markers', 'Events', 'Bursts', 'Continuous'});
-            obj.push_EventOptions = uicontrol(eventTab, 'Style', 'pushbutton', ...
-                'Units', 'normalized', 'Position', [optionsBtnX, row2Y, optionsBtnW, rowH], ...
-                'String', 'Options', 'Callback', @(~,~) obj.eventOptionsCallback());
+                'String', {'Syllables', 'Markers', 'Events', 'Bursts', 'Continuous'}, ...
+                'Callback', @(~,~) obj.updateEventOptionsVisibility());
             obj.check_CopyTrigger = uicontrol(eventTab, 'Style', 'checkbox', ...
                 'Units', 'normalized', 'Position', [tabMargin, row3Y, tabFullW, rowH], ...
                 'String', 'Copy trigger to events');
+            % Inline event options (visible depending on type)
+            obj.text_EventIncludeLabel = uicontrol(eventTab, 'Style', 'text', ...
+                'Units', 'normalized', 'Position', [tabMargin, row4Y, labelW, rowH], ...
+                'String', 'Include:', 'HorizontalAlignment', 'right');
+            obj.edit_EventIncludeList = uicontrol(eventTab, 'Style', 'edit', ...
+                'Units', 'normalized', 'Position', [popupAfterLabelX, row4Y, popupAfterLabelW + optionsBtnW + 0.02, rowH], ...
+                'String', '', 'HorizontalAlignment', 'left', ...
+                'Tooltip', 'Syllable/marker labels to include (leave empty for all)');
+            obj.text_EventIgnoreLabel = uicontrol(eventTab, 'Style', 'text', ...
+                'Units', 'normalized', 'Position', [tabMargin, row5Y, labelW, rowH], ...
+                'String', 'Ignore:', 'HorizontalAlignment', 'right');
+            obj.edit_EventIgnoreList = uicontrol(eventTab, 'Style', 'edit', ...
+                'Units', 'normalized', 'Position', [popupAfterLabelX, row5Y, popupAfterLabelW + optionsBtnW + 0.02, rowH], ...
+                'String', '', 'HorizontalAlignment', 'left', ...
+                'Tooltip', 'Syllable/marker labels to exclude');
 
             % --- Window tab ---
             windowTab = uitab(tabGroup, 'Title', 'Window');
@@ -1047,11 +1089,44 @@ classdef RasterGUI < handle
 
     %% Callback stubs
     methods (Access = private)
-        function triggerOptionsCallback(obj)
-            % TODO: Port edit_Options dialog for trigger parameters
+        function updateTriggerOptionsVisibility(obj)
+            % Show/hide trigger option controls based on the selected type.
+            trigTypeStrs = obj.popup_TriggerType.String;
+            trigType = trigTypeStrs{obj.popup_TriggerType.Value};
+            showIncludeIgnore = ismember(trigType, {'Syllables', 'Markers', 'Bouts'});
+            onOff = {'off', 'on'};
+            vis = onOff{showIncludeIgnore + 1};
+            obj.text_TrigIncludeLabel.Visible = vis;
+            obj.edit_TrigIncludeList.Visible = vis;
+            obj.text_TrigIgnoreLabel.Visible = vis;
+            obj.edit_TrigIgnoreList.Visible = vis;
         end
-        function eventOptionsCallback(obj)
-            % TODO: Port edit_Options dialog for event parameters
+        function updateEventOptionsVisibility(obj)
+            % Show/hide event option controls based on the selected type.
+            eventTypeStrs = obj.popup_EventType.String;
+            eventType = eventTypeStrs{obj.popup_EventType.Value};
+            showIncludeIgnore = ismember(eventType, {'Syllables', 'Markers', 'Bouts'});
+            onOff = {'off', 'on'};
+            vis = onOff{showIncludeIgnore + 1};
+            obj.text_EventIncludeLabel.Visible = vis;
+            obj.edit_EventIncludeList.Visible = vis;
+            obj.text_EventIgnoreLabel.Visible = vis;
+            obj.edit_EventIgnoreList.Visible = vis;
+        end
+        function syncOptionsFromGUI(obj)
+            % Read inline option controls into the P struct before generating.
+            obj.P.trig.includeSyllList = obj.edit_TrigIncludeList.String;
+            obj.P.trig.ignoreSyllList = obj.edit_TrigIgnoreList.String;
+            obj.P.event.includeSyllList = obj.edit_EventIncludeList.String;
+            obj.P.event.ignoreSyllList = obj.edit_EventIgnoreList.String;
+
+            % Copy if linked
+            if obj.check_CopyTrigger.Value
+                obj.P.trig = obj.P.event;
+            end
+            if obj.check_CopyEvents.Value
+                obj.P.event = obj.P.trig;
+            end
         end
         function windowLimitsCallback(obj)
             answer = inputdlg({'Pre-start (s)', 'Post-stop (s)'}, 'Window limits', 1, ...
