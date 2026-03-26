@@ -120,7 +120,7 @@ classdef RasterGUI < handle
         panel_Axes
 
         % Static text widgets
-        text_popup_TriggerType
+        text__TriggerType
         text_TriggerAlignment
         text_EventType
         text_StartReference
@@ -461,8 +461,8 @@ classdef RasterGUI < handle
             % --- Trigger tab ---
             obj.popup_TriggerSource.Units = 'pixels';
             obj.popup_TriggerSource.Position = [tabMargin, rowY(1), tabFullW, rowH];
-            obj.text_popup_TriggerType.Units = 'pixels';
-            obj.text_popup_TriggerType.Position = [tabMargin, rowY(2), labelW, rowH];
+            obj.text__TriggerType.Units = 'pixels';
+            obj.text__TriggerType.Position = [tabMargin, rowY(2), labelW, rowH];
             obj.popup_TriggerType.Units = 'pixels';
             obj.popup_TriggerType.Position = [popupAfterLabelX, rowY(2), popupAfterLabelW, rowH];
             obj.text_TriggerAlignment.Units = 'pixels';
@@ -637,9 +637,9 @@ classdef RasterGUI < handle
             trigTab = uitab(obj.tab_group, 'Title', 'Trigger');
             obj.popup_TriggerSource = uicontrol(trigTab, 'Style', 'popupmenu', ...
                 'String', {'Sound'});
-            obj.text_popup_TriggerType = uicontrol(trigTab, 'Style', 'text', ...
+            obj.text__TriggerType = uicontrol(trigTab, 'Style', 'text', ...
                 'String', 'Type:', ...
-                'Tag', 'text_popup_TriggerType', ...
+                'Tag', 'text__TriggerType', ...
                 'HorizontalAlignment', 'right');
             obj.popup_TriggerType = uicontrol(trigTab, 'Style', 'popupmenu', ...
                 'String', {'Syllables', 'Markers', 'Motifs', 'Bouts'}, ...
