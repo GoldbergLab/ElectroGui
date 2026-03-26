@@ -435,14 +435,18 @@ classdef RasterGUI < handle
                 'Units', 'normalized', ...
                 'Position', [leftX, tabGroupY, leftW, tabGroupH]);
 
-            % Compute row Y positions based on actual tab group height
+            % Compute row Y positions based on actual tab content area height.
+            % Use a temporary panel to measure the inner area, since child
+            % positions are relative to the content area, not the tab group.
             drawnow;  % Ensure layout is computed
-            oldUnits = tabGroup.Units;
-            tabGroup.Units = 'pixels';
-            tabGroupPixelH = tabGroup.Position(4);
-            tabGroup.Units = oldUnits;
-            tabHeaderH = 30;  % Approximate height of tab headers (px)
-            topRowY = tabGroupPixelH - tabHeaderH - m;
+            tempTab = uitab(tabGroup, 'Title', '');
+            tempPanel = uipanel(tempTab, 'Units', 'normalized', ...
+                'Position', [0 0 1 1], 'BorderType', 'none');
+            drawnow;
+            tempPanel.Units = 'pixels';
+            tabContentH = tempPanel.Position(4);
+            delete(tempTab);
+            topRowY = tabContentH - rowH - m;
             rowY = topRowY - (0:numRows-1) * rowSpacing;
 
             % --- Trigger tab ---
