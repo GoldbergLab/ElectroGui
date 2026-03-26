@@ -384,6 +384,7 @@ classdef RasterGUI < handle
 
             % Tab content layout in pixels (controls stay compact regardless
             % of window size; tab group itself uses normalized units)
+            textHeight = 28;
             m = 5;                         % Margin (px)
             rowH = 22;                     % Row height (px)
             rowSpacing = 28;               % Vertical spacing between row tops (px)
@@ -445,17 +446,10 @@ classdef RasterGUI < handle
             obj.tab_group.Position = [leftX, tabGroupY, leftW, tabGroupH];
 
             % Compute row Y positions based on actual tab content area height.
-            % Use a temporary panel to measure the inner area, since child
-            % positions are relative to the content area, not the tab group.
-            drawnow;  % Ensure layout is computed
-            tempTab = uitab(obj.tab_group, 'Title', '');
-            tempPanel = uipanel(tempTab, 'Units', 'normalized', 'Position', [0 0 1 1], 'BorderType', 'none');
+            tabGroupSize = getpixelposition(obj.tab_group);
+            tabContentH = tabGroupSize(4);
 
-            drawnow;
-            tempPanel.Units = 'pixels';
-            tabContentH = tempPanel.Position(4);
-            delete(tempTab);
-            topRowY = tabContentH - rowH - m;
+            topRowY = tabContentH - rowH - m - textHeight;
             rowY = topRowY - (0:numRows-1) * rowSpacing;
 
             % --- Trigger tab ---
