@@ -87,6 +87,8 @@ classdef RasterGUI < handle
 
         % Plot inline edits
         check_AutoXLim
+        check_PlotAutoUpdate
+        push_PlotUpdate
         edit_XMin
         edit_XMax
         edit_TickHeight
@@ -657,6 +659,10 @@ classdef RasterGUI < handle
             obj.text_Overlap.Position = [col2X, rowY(4), plotLabelW, rowH];
             obj.edit_Overlap.Units = 'pixels';
             obj.edit_Overlap.Position = [col2X + plotLabelW + 2, rowY(4), plotEditW, rowH];
+            obj.check_PlotAutoUpdate.Units = 'pixels';
+            obj.check_PlotAutoUpdate.Position = [tabMargin, rowY(5), halfW, rowH];
+            obj.push_PlotUpdate.Units = 'pixels';
+            obj.push_PlotUpdate.Position = [tabMargin + halfW + halfGap, rowY(5), halfW, rowH];
             % --- Presets tab ---
             obj.popup_Presets.Units = 'pixels';
             obj.popup_Presets.Position = [tabMargin, rowY(1), tabFullW, rowH];
@@ -910,26 +916,35 @@ classdef RasterGUI < handle
                 'Tag', 'text_TickHeight', ...
                 'HorizontalAlignment', 'right');
             obj.edit_TickHeight = uicontrol(plotTab, 'Style', 'edit', ...
-                'String', num2str(obj.PlotTickSize(1)));
+                'String', num2str(obj.PlotTickSize(1)), ...
+                'Callback', @(~,~) obj.plotSettingChanged());
             obj.text_BinSize = uicontrol(plotTab, 'Style', 'text', ...
                 'String', 'Bin size (s):', ...
                 'Tag', 'text_BinSize', ...
                 'HorizontalAlignment', 'right');
             obj.edit_BinSize = uicontrol(plotTab, 'Style', 'edit', ...
-                'String', num2str(obj.PSTHBinSize));
+                'String', num2str(obj.PSTHBinSize), ...
+                'Callback', @(~,~) obj.plotSettingChanged());
 
             obj.text_TickLineWidth = uicontrol(plotTab, 'Style', 'text', ...
                 'String', 'Line width:', ...
                 'Tag', 'text_TickLineWidth', ...
                 'HorizontalAlignment', 'right');
             obj.edit_TickLineWidth = uicontrol(plotTab, 'Style', 'edit', ...
-                'String', num2str(obj.PlotTickSize(3)));
+                'String', num2str(obj.PlotTickSize(3)), ...
+                'Callback', @(~,~) obj.plotSettingChanged());
             obj.text_Overlap = uicontrol(plotTab, 'Style', 'text', ...
                 'String', 'Overlap %:', ...
                 'Tag', 'text_Overlap', ...
                 'HorizontalAlignment', 'right');
             obj.edit_Overlap = uicontrol(plotTab, 'Style', 'edit', ...
-                'String', num2str(obj.PlotOverlap));
+                'String', num2str(obj.PlotOverlap), ...
+                'Callback', @(~,~) obj.plotSettingChanged());
+            obj.check_PlotAutoUpdate = uicontrol(plotTab, 'Style', 'checkbox', ...
+                'String', 'Auto-update', 'Value', 1);
+            obj.push_PlotUpdate = uicontrol(plotTab, 'Style', 'pushbutton', ...
+                'String', 'Update', ...
+                'Callback', @(~,~) obj.replotFromCache());
 
             % --- Presets tab ---
             presetsTab = uitab(obj.tab_group, 'Title', 'Presets');
@@ -1693,6 +1708,8 @@ classdef RasterGUI < handle
                 obj.popup_PSTHUnits, ...
                 obj.popup_PSTHCount, ...
                 obj.check_AutoXLim, ...
+                obj.check_PlotAutoUpdate, ...
+                obj.push_PlotUpdate, ...
                 obj.edit_XMin, ...
                 obj.edit_XMax, ...
                 obj.edit_TickHeight, ...
@@ -1868,6 +1885,30 @@ classdef RasterGUI < handle
                 obj.axes_Raster.XLim = obj.PlotXLim;  % PSTH follows via linkaxes
             end
             % Replot PSTH and histogram since their bin range depends on X limits
+            obj.plotPSTH();
+            obj.plotHist();
+        end
+        function plotSettingChanged(obj)
+            % Called when a plot display setting changes (tick height,
+            % bin size, line width, overlap). Replots if auto-update is on.
+            arguments
+                obj RasterGUI
+            end
+            obj.syncOptionsFromGUI();
+            if obj.check_PlotAutoUpdate.Value
+                obj.replotFromCache();
+            end
+        end
+        function replotFromCache(obj)
+            % Replot from the current triggerInfo without regenerating data.
+            arguments
+                obj RasterGUI
+            end
+            if isempty(fieldnames(obj.triggerInfo))
+                return;
+            end
+            obj.syncOptionsFromGUI();
+            obj.plotRaster();
             obj.plotPSTH();
             obj.plotHist();
         end
