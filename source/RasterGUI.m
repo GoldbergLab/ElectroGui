@@ -87,6 +87,8 @@ classdef RasterGUI < handle
         popup_PropertyFilterMode   % (None), Single, Expression
         popup_PropertyName         % Property name dropdown (for Single mode)
         edit_PropertyExpression    % Expression edit (for Expression mode)
+        check_FilesAutoUpdate
+        push_FilesUpdate
 
         % Plot inline edits
         check_AutoXLim
@@ -633,6 +635,10 @@ classdef RasterGUI < handle
             obj.popup_PropertyName.Position = [tabMargin, rowY(5), tabFullW, rowH];
             obj.edit_PropertyExpression.Units = 'pixels';
             obj.edit_PropertyExpression.Position = [tabMargin, rowY(5), tabFullW, rowH];
+            obj.check_FilesAutoUpdate.Units = 'pixels';
+            obj.check_FilesAutoUpdate.Position = [tabMargin, rowY(6), halfW, rowH];
+            obj.push_FilesUpdate.Units = 'pixels';
+            obj.push_FilesUpdate.Position = [tabMargin + halfW + halfGap, rowY(6), halfW, rowH];
             % --- PSTH tab ---
             obj.text_PSTHUnits.Units = 'pixels';
             obj.text_PSTHUnits.Position = [tabMargin, rowY(1), labelW, rowH];
@@ -871,7 +877,7 @@ classdef RasterGUI < handle
             filesTab = uitab(obj.tab_group, 'Title', 'Files');
             obj.popup_Files = uicontrol(filesTab, 'Style', 'popupmenu', ...
                 'String', {'All files in range', 'Only read files', 'Only unread files'}, ...
-                'Callback', @(~,~) obj.clearCache());
+                'Callback', @(~,~) obj.filesSettingChanged());
             obj.text_FileRange = uicontrol(filesTab, 'Style', 'text', ...
                 'String', 'Range:', ...
                 'Tag', 'text_FileRange', ...
@@ -879,19 +885,25 @@ classdef RasterGUI < handle
             numFiles = electro_gui.getNumFiles(obj.eg.dbase);
             obj.edit_FileRange = uicontrol(filesTab, 'Style', 'edit', ...
                 'String', ['1:', num2str(numFiles)], ...
-                'HorizontalAlignment', 'left');
+                'HorizontalAlignment', 'left', ...
+                'Callback', @(~,~) obj.filesSettingChanged());
             obj.push_Open = uicontrol(filesTab, 'Style', 'pushbutton', ...
                 'String', 'Open dbase', 'Callback', @(~,~) obj.openCallback());
             obj.popup_PropertyFilterMode = uicontrol(filesTab, 'Style', 'popupmenu', ...
                 'String', {'(No property filter)', 'Single', 'Expression'}, ...
-                'Callback', @(~,~) obj.propertyFilterModeChanged());
+                'Callback', @(~,~) obj.filesSettingChanged());
             obj.popup_PropertyName = uicontrol(filesTab, 'Style', 'popupmenu', ...
                 'String', {'(None)'}, 'Visible', 'off', ...
-                'Callback', @(~,~) obj.clearCache());
+                'Callback', @(~,~) obj.filesSettingChanged());
             obj.edit_PropertyExpression = uicontrol(filesTab, 'Style', 'edit', ...
                 'String', '', 'HorizontalAlignment', 'left', ...
                 'Visible', 'off', ...
-                'Callback', @(~,~) obj.clearCache());
+                'Callback', @(~,~) obj.filesSettingChanged());
+            obj.check_FilesAutoUpdate = uicontrol(filesTab, 'Style', 'checkbox', ...
+                'String', 'Auto-update', 'Value', 1);
+            obj.push_FilesUpdate = uicontrol(filesTab, 'Style', 'pushbutton', ...
+                'String', 'Update', ...
+                'Callback', @(~,~) obj.generate());
 
             % --- PSTH tab ---
             psthTab = uitab(obj.tab_group, 'Title', 'PSTH');
@@ -1056,6 +1068,8 @@ classdef RasterGUI < handle
             obj.popup_PropertyFilterMode.Tooltip = 'Filter files by property: None, Single property, or Boolean expression';
             obj.popup_PropertyName.Tooltip = 'Include only files where this property is true';
             obj.edit_PropertyExpression.Tooltip = 'Boolean expression using property names (e.g., "bSorted & ~bUnusable")';
+            obj.check_FilesAutoUpdate.Tooltip = 'Automatically regenerate when file settings change';
+            obj.push_FilesUpdate.Tooltip = 'Regenerate raster with current file settings';
 
             % PSTH tab
             obj.popup_PSTHUnits.Tooltip = 'Units for the PSTH Y axis';
@@ -1806,6 +1820,8 @@ classdef RasterGUI < handle
                 obj.popup_PropertyFilterMode, ...
                 obj.popup_PropertyName, ...
                 obj.edit_PropertyExpression, ...
+                obj.check_FilesAutoUpdate, ...
+                obj.push_FilesUpdate, ...
                 obj.popup_PSTHUnits, ...
                 obj.popup_PSTHCount, ...
                 obj.check_AutoXLim, ...
@@ -2119,6 +2135,19 @@ classdef RasterGUI < handle
             end
             filteredRange = fileRange(mask);
         end
+        function filesSettingChanged(obj)
+            % Called when any Files tab setting changes. Clears cache
+            % and regenerates if auto-update is on.
+            arguments
+                obj RasterGUI
+            end
+            % Update property filter visibility first
+            obj.propertyFilterModeChanged();
+            obj.clearCache();
+            if obj.check_FilesAutoUpdate.Value
+                obj.generate();
+            end
+        end
         function propertyFilterModeChanged(obj)
             arguments
                 obj RasterGUI
@@ -2142,7 +2171,6 @@ classdef RasterGUI < handle
                     obj.popup_PropertyName.Visible = 'off';
                     obj.edit_PropertyExpression.Visible = 'on';
             end
-            obj.clearCache();
         end
         function openCallback(obj) %#ok<MANU>
             % TODO: Port open dbase functionality
