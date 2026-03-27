@@ -237,9 +237,7 @@ classdef RasterGUI < handle
                 obj.buildGUI();
                 obj.layoutGUI();
                 obj.populateSourceMenus();
-                obj.refreshPresetList();
-                obj.updateTriggerOptionsVisibility();
-                obj.updateEventOptionsVisibility();
+                obj.refreshPresetList();  % Also calls updateControlStates
             end
             obj.figure_Main.Visible = 'on';
             figure(obj.figure_Main);  % Bring to front
@@ -268,6 +266,7 @@ classdef RasterGUI < handle
                 return;
             end
 
+            obj.disableAllControls();
             obj.push_GenerateRaster.ForegroundColor = 'r';
             obj.statusBar.Status = 'Generating raster...';
             obj.statusBar.Progress = 0;
@@ -304,10 +303,11 @@ classdef RasterGUI < handle
                 ti = obj.alignEventsToTriggers(trig, event);
 
                 if isempty(ti) || ~isfield(ti, 'absTime') || isempty(ti.absTime)
-                    warndlg('No triggers found!', 'Error');
-                    obj.push_GenerateRaster.ForegroundColor = 'k';
                     obj.statusBar.Status = 'No triggers found';
                     obj.statusBar.Progress = [];
+                    obj.updateControlStates();
+                    obj.push_GenerateRaster.ForegroundColor = 'k';
+                    warndlg('No triggers found!', 'Error');
                     return;
                 end
 
@@ -358,12 +358,15 @@ classdef RasterGUI < handle
             catch ME
                 obj.statusBar.Status = sprintf('Error: %s', ME.message);
                 obj.statusBar.Progress = [];
+                obj.updateControlStates();
+                obj.push_GenerateRaster.ForegroundColor = 'k';
                 warndlg(sprintf('Error generating raster: %s', ME.message), 'Error');
                 rethrow(ME);
             end
 
             obj.statusBar.Status = sprintf('Done — %d trials', length(obj.triggerInfo.absTime));
             obj.statusBar.Progress = 1;
+            obj.updateControlStates();
             obj.push_GenerateRaster.ForegroundColor = 'k';
         end
     end
@@ -696,7 +699,7 @@ classdef RasterGUI < handle
                 'HorizontalAlignment', 'right');
             obj.popup_TriggerType = uicontrol(trigTab, 'Style', 'popupmenu', ...
                 'String', {'Syllables', 'Markers', 'Motifs', 'Bouts'}, ...
-                'Callback', @(~,~) obj.updateTriggerOptionsVisibility());
+                'Callback', @(~,~) obj.updateControlStates());
             obj.text_TriggerAlignment = uicontrol(trigTab, 'Style', 'text', ...
                 'String', 'Align:', ...
                 'Tag', 'text_TriggerAlignment', ...
@@ -730,7 +733,7 @@ classdef RasterGUI < handle
                 'HorizontalAlignment', 'right');
             obj.popup_EventType = uicontrol(eventTab, 'Style', 'popupmenu', ...
                 'String', {'Syllables', 'Markers', 'Events', 'Bursts', 'Continuous'}, ...
-                'Callback', @(~,~) obj.updateEventOptionsVisibility());
+                'Callback', @(~,~) obj.updateControlStates());
             obj.check_CopyTrigger = uicontrol(eventTab, 'Style', 'checkbox', ...
                 'String', 'Copy trigger to events');
             % Inline event options (visible depending on type)
@@ -1175,9 +1178,6 @@ classdef RasterGUI < handle
             if isempty(files)
                 obj.popup_Presets.Value = 1;
                 obj.popup_Presets.String = {'(No presets found)'};
-                obj.popup_Presets.Enable = 'off';
-                obj.push_LoadPreset.Enable = 'off';
-                obj.push_DeletePreset.Enable = 'off';
             else
                 names = cell(1, length(files));
                 for k = 1:length(files)
@@ -1187,10 +1187,8 @@ classdef RasterGUI < handle
                     obj.popup_Presets.Value = length(names);
                 end
                 obj.popup_Presets.String = names;
-                obj.popup_Presets.Enable = 'on';
-                obj.push_LoadPreset.Enable = 'on';
-                obj.push_DeletePreset.Enable = 'on';
             end
+            obj.updateControlStates();
         end
 
         function preset = getPreset(obj)
@@ -1318,6 +1316,7 @@ classdef RasterGUI < handle
                 return;
             end
             obj.applyPreset(loaded.preset);
+            obj.updateControlStates();
             fprintf('Loaded preset: %s\n', selectedName);
         end
 
@@ -1489,6 +1488,102 @@ classdef RasterGUI < handle
 
             close(tempFig);
             fprintf('Exported to: %s\n', fullPath);
+        end
+    end
+
+    %% Widget enable/disable management
+    methods (Access = private)
+        function controls = getAllInteractiveControls(obj)
+            % Return a list of all interactive controls that should be
+            % disabled during long operations.
+            arguments
+                obj RasterGUI
+            end
+            controls = [ ...
+                obj.popup_TriggerSource, ...
+                obj.popup_TriggerType, ...
+                obj.popup_TriggerAlignment, ...
+                obj.check_CopyEvents, ...
+                obj.edit_TrigIncludeList, ...
+                obj.edit_TrigIgnoreList, ...
+                obj.popup_EventSource, ...
+                obj.popup_EventType, ...
+                obj.check_CopyTrigger, ...
+                obj.edit_EventIncludeList, ...
+                obj.edit_EventIgnoreList, ...
+                obj.popup_StartReference, ...
+                obj.popup_StopReference, ...
+                obj.edit_PreStart, ...
+                obj.edit_PostStop, ...
+                obj.check_ExcludeIncomplete, ...
+                obj.check_ExcludePartialEvents, ...
+                obj.popup_PrimarySort, ...
+                obj.popup_SecondarySort, ...
+                obj.radio_Ascending, ...
+                obj.radio_Descending, ...
+                obj.check_GroupLabels, ...
+                obj.popup_Files, ...
+                obj.edit_FileRange, ...
+                obj.push_Open, ...
+                obj.popup_PSTHUnits, ...
+                obj.popup_PSTHCount, ...
+                obj.edit_XMin, ...
+                obj.edit_XMax, ...
+                obj.edit_TickHeight, ...
+                obj.edit_BinSize, ...
+                obj.edit_TickLineWidth, ...
+                obj.edit_Overlap, ...
+                obj.popup_Presets, ...
+                obj.push_LoadPreset, ...
+                obj.push_SavePreset, ...
+                obj.push_DeletePreset, ...
+                obj.push_ExportFigure, ...
+                obj.push_ExportPNG, ...
+                obj.push_ExportPDF, ...
+                obj.push_ExportJPG, ...
+                obj.push_ExportSVG, ...
+                obj.push_GenerateRaster, ...
+                obj.push_Hold];
+        end
+
+        function disableAllControls(obj)
+            % Disable all interactive controls (e.g., during generation).
+            arguments
+                obj RasterGUI
+            end
+            controls = obj.getAllInteractiveControls();
+            for k = 1:length(controls)
+                controls(k).Enable = 'off';
+            end
+        end
+
+        function updateControlStates(obj)
+            % Set each control to its correct enabled/disabled state based
+            % on current context. Call this after an operation completes.
+            arguments
+                obj RasterGUI
+            end
+
+            % Default: enable everything
+            controls = obj.getAllInteractiveControls();
+            for k = 1:length(controls)
+                controls(k).Enable = 'on';
+            end
+
+            % Trigger include/ignore: only when type needs them
+            obj.updateTriggerOptionsVisibility();
+
+            % Event include/ignore: only when type needs them
+            obj.updateEventOptionsVisibility();
+
+            % Preset Load/Delete: only when presets exist
+            presetNames = obj.popup_Presets.String;
+            hasPresets = ~isempty(presetNames) && ~strcmp(presetNames{1}, '(No presets found)');
+            if ~hasPresets
+                obj.popup_Presets.Enable = 'off';
+                obj.push_LoadPreset.Enable = 'off';
+                obj.push_DeletePreset.Enable = 'off';
+            end
         end
     end
 
