@@ -908,8 +908,8 @@ classdef RasterGUI < handle
             arguments
                 obj RasterGUI
             end
-            ti = obj.triggerInfo;
-            numTrials = length(ti.absTime);
+
+            numTrials = length(obj.triggerInfo.absTime);
             if numTrials == 0
                 return;
             end
@@ -927,8 +927,8 @@ classdef RasterGUI < handle
             % --- Plot trigger boxes (current trigger onset-offset) ---
             trigColor = [1.0, 0.85, 0.85];  % Light red
             for trialIdx = 1:numTrials
-                trigOn = ti.currTrigOnset(trialIdx);
-                trigOff = ti.currTrigOffset(trialIdx);
+                trigOn = obj.triggerInfo.currTrigOnset(trialIdx);
+                trigOff = obj.triggerInfo.currTrigOffset(trialIdx);
                 if isfinite(trigOn) && isfinite(trigOff)
                     patch(ax, ...
                         [trigOn, trigOff, trigOff, trigOn], ...
@@ -942,7 +942,7 @@ classdef RasterGUI < handle
             % --- Plot event ticks ---
             eventColor = [0, 0, 0];  % Black
             for trialIdx = 1:numTrials
-                eventTimes = ti.eventOnsets{trialIdx};
+                eventTimes = obj.triggerInfo.eventOnsets{trialIdx};
                 if ~isempty(eventTimes)
                     yBottom = trialY(trialIdx) - tickHalfHeight;
                     yTop = trialY(trialIdx) + tickHalfHeight;
@@ -1664,7 +1664,7 @@ classdef RasterGUI < handle
                         for partIdx = 2:size(dbase.EventTimes{eventSourceIdx}, 1)
                             allPartTimes = [allPartTimes, dbase.EventTimes{eventSourceIdx}{partIdx, filenum}(selectedIndices)]; %#ok<AGROW>
                         end
-                        gapOnsets = [min(allPartTimes, [], 2); dbase.FileLength(filenum) + fs * P.pauseMinDuration];
+                        gapOnsets = [min(allPartTimes, [], 2); obj.eg.getFileLength(filenum) + fs * P.pauseMinDuration];
                         gapOffsets = [-fs * P.pauseMinDuration; max(allPartTimes, [], 2)];
                         pauseIndices = find(gapOnsets - gapOffsets > fs * P.pauseMinDuration);
                         ons{fileListIdx} = gapOffsets(pauseIndices);
@@ -1871,7 +1871,8 @@ classdef RasterGUI < handle
                     end
 
                     filenum = trig.info.filenum(fileIdx);
-                    absTime = dbase.Times(filenum) + alignSample / (fs * 24 * 60 * 60);
+                    timestamp = obj.eg.getFileTime(filenum);
+                    absTime = timestamp + alignSample / (fs * 24 * 60 * 60);
 
                     % Determine window start (in samples)
                     switch startRefType
@@ -1918,7 +1919,7 @@ classdef RasterGUI < handle
                     windowEnd = round(windowEnd + obj.P.postStopRef * fs);
 
                     % Check completeness
-                    if windowStart < 1 || windowEnd > dbase.FileLength(filenum)
+                    if windowStart < 1 || windowEnd > obj.eg.getFileLength(filenum)
                         if excludeIncomplete
                             continue;
                         end
@@ -1927,7 +1928,7 @@ classdef RasterGUI < handle
                         isComplete = 1;
                     end
                     windowStart = max(windowStart, 1);
-                    windowEnd = min(windowEnd, dbase.FileLength(filenum));
+                    windowEnd = min(windowEnd, obj.eg.getFileLength(filenum));
 
                     count = count + 1;
 
