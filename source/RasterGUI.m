@@ -373,12 +373,12 @@ classdef RasterGUI < handle
                 obj RasterGUI
             end
             % Left control panel
-            leftX = 0.005;                  % Left edge of control panel
-            leftW = 0.215;                  % Width of control panel
-            buttonY = 0.02;                 % Y position of Generate/Hold buttons
-            buttonH = 0.08;                 % Height of Generate/Hold buttons
-            tabGroupY = buttonY + buttonH + 0.01;  % Tab group starts above buttons
-            tabGroupH = 0.97 - tabGroupY;   % Tab group fills to top
+            leftX = 0.005;                          % Left edge of control panel
+            leftW = 0.250;                          % Width of control panel
+            buttonY = 0.02;                         % Y position of Generate/Hold buttons
+            buttonH = 0.08;                         % Height of Generate/Hold buttons
+            tabGroupY = buttonY + buttonH + 0.01;   % Tab group starts above buttons
+            tabGroupH = 0.97 - tabGroupY;           % Tab group fills to top
 
             % Axes panel (contains raster, PSTH, and histogram axes)
             axesPanelX = leftX + leftW + 0.005;
@@ -387,15 +387,15 @@ classdef RasterGUI < handle
             axesPanelH = 0.99;
 
             % Axes positions relative to the panel
-            axesMargin = 0.02;
-            rasterX = 0.08;                 % Left edge within panel
-            rasterY = 0.35;                 % Raster bottom within panel
-            rasterH = 0.58;                 % Raster height
-            psthY = 0.10;                   % PSTH bottom within panel
-            psthH = rasterY - psthY - 0.04; % PSTH fills gap below raster
-            axesW = 0.58;                   % Width of raster and PSTH
-            histX = rasterX + axesW + 0.03; % Histogram x within panel
-            histW = 0.14;                   % Histogram width
+            axesMargin = 0.035;
+            rasterX = 0.08;                       % Left edge within panel
+            rasterY = 0.35;                       % Raster bottom within panel
+            rasterH = 0.58;                       % Raster height
+            psthY = 0.10;                         % PSTH bottom within panel
+            psthH = rasterY - psthY - axesMargin; % PSTH fills gap below raster
+            axesW = 0.58;                         % Width of raster and PSTH
+            histX = rasterX + axesW + axesMargin; % Histogram x within panel
+            histW = 0.14;                         % Histogram width
 
             % Tab content layout in pixels (controls stay compact regardless
             % of window size; tab group itself uses normalized units)
@@ -599,15 +599,15 @@ classdef RasterGUI < handle
             obj.push_ExportFigure.Units = 'pixels';
             obj.push_ExportFigure.Position = [tabMargin, rowY(1), tabFullW, rowH];
             obj.text_ExportToFile.Units = 'pixels';
-            obj.text_ExportToFile.Position = [tabMargin, rowY(2) + rowH + 2, tabFullW, rowH * 0.7];
+            obj.text_ExportToFile.Position = [tabMargin, rowY(2), tabFullW, rowH * 0.7];
             obj.push_ExportPNG.Units = 'pixels';
-            obj.push_ExportPNG.Position = [tabMargin, rowY(2), exportBtnW, rowH];
+            obj.push_ExportPNG.Position = [tabMargin, rowY(3), exportBtnW, rowH];
             obj.push_ExportPDF.Units = 'pixels';
-            obj.push_ExportPDF.Position = [tabMargin + exportBtnW + exportBtnGap, rowY(2), exportBtnW, rowH];
+            obj.push_ExportPDF.Position = [tabMargin + exportBtnW + exportBtnGap, rowY(3), exportBtnW, rowH];
             obj.push_ExportJPG.Units = 'pixels';
-            obj.push_ExportJPG.Position = [tabMargin + 2*(exportBtnW + exportBtnGap), rowY(2), exportBtnW, rowH];
+            obj.push_ExportJPG.Position = [tabMargin + 2*(exportBtnW + exportBtnGap), rowY(3), exportBtnW, rowH];
             obj.push_ExportSVG.Units = 'pixels';
-            obj.push_ExportSVG.Position = [tabMargin + 3*(exportBtnW + exportBtnGap), rowY(2), exportBtnW, rowH];
+            obj.push_ExportSVG.Position = [tabMargin + 3*(exportBtnW + exportBtnGap), rowY(3), exportBtnW, rowH];
             % --- Generate / Hold buttons below the tab group ---
             obj.push_GenerateRaster.Units = 'normalized';
             obj.push_GenerateRaster.Position = [leftX, buttonY, leftW * 0.48, buttonH];
