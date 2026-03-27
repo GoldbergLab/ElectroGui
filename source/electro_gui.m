@@ -3178,6 +3178,36 @@ function setSelectedEventFunction(obj, axnum, eventFunction)
     obj.popup_Functions(axnum).Value = newIndex;
 end
 
+function updateFileTime(obj, filenum)
+    arguments
+        obj electro_gui
+        filenum double
+    end
+    filePath = fullfile(obj.dbase.PathName, obj.dbase.SoundFiles(filenum).name);
+    loader = obj.dbase.SoundLoader;
+
+    if obj.settings.EnableFileCaching
+        data = obj.retrieveFileFromCache(filePath, loader);
+        [~, ~, timestamp] = data{:};
+    else
+        [~, ~, timestamp] = electro_gui.eg_runPlugin(obj.plugins.loaders, loader, filePath, true);
+    end
+    obj.recordFileTime(filenum, timestamp);
+end
+
+function recordFileTime(obj, fileNum, timestamp)
+    arguments
+        obj electro_gui
+        fileNum double
+        timestamp = 0
+    end
+
+    % If data is loaded, timestamp is nonzero, save it in dbase.Times
+    if obj.isDataLoaded() && timestamp ~= 0
+        obj.dbase.Times(fileNum) = timestamp;
+    end
+end
+
 function [channelData, channelSamplingRate, channelLabels, timestamp] = loadChannelData(...
         obj, channelNum, options)
     arguments
@@ -3254,6 +3284,8 @@ function [channelData, channelSamplingRate, channelLabels, timestamp] = loadChan
             channelData = channelData(indx);
         end
     end
+
+    obj.recordFileTime(fileNum, timestamp);
 end
 
 function [rawChannelData, channelSamplingRate, channelLabels, timestamp] = computePseudoChannel(obj, channelNum, options)
