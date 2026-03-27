@@ -3188,8 +3188,8 @@ function timestamp = getFileTime(obj, filenum, forceRead)
     if ~electro_gui.isDataLoaded(obj.dbase)
         error('No data loaded');
     end
-    if ~forceRead && obj.dbase.Time ~= 0
-        timestamp = obj.dbase.Time;
+    if ~forceRead && obj.dbase.Times ~= 0
+        timestamp = obj.dbase.Times;
     else
         filePath = fullfile(obj.dbase.PathName, obj.dbase.SoundFiles(filenum).name);
         loader = obj.dbase.SoundLoader;
