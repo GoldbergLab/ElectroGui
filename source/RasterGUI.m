@@ -227,6 +227,9 @@ classdef RasterGUI < handle
     methods
         function show(obj)
             % Show the raster GUI window. Creates it if it doesn't exist.
+            arguments
+                obj RasterGUI
+            end
             if isempty(obj.figure_Main) || ~isvalid(obj.figure_Main)
                 obj.buildGUI();
                 obj.layoutGUI();
@@ -241,6 +244,9 @@ classdef RasterGUI < handle
 
         function hide(obj)
             % Hide the raster GUI window without destroying it.
+            arguments
+                obj RasterGUI
+            end
             if ~isempty(obj.figure_Main) && isvalid(obj.figure_Main)
                 obj.figure_Main.Visible = 'off';
             end
@@ -250,6 +256,9 @@ classdef RasterGUI < handle
             % Generate the raster plot with current settings.
             % This is the main entry point that runs the full pipeline:
             % extract triggers -> align events -> filter -> sort -> warp -> plot
+            arguments
+                obj RasterGUI
+            end
 
             if ~electro_gui.isDataLoaded(obj.eg.dbase)
                 warndlg('No data loaded in electro_gui.');
@@ -332,6 +341,9 @@ classdef RasterGUI < handle
     methods (Access = private)
         function initializeParameters(obj)
             % Initialize the default parameter structure
+            arguments
+                obj RasterGUI
+            end
             obj.P.trig.includeSyllList = '';
             obj.P.trig.ignoreSyllList = '';
             obj.P.trig.motifSequences = {};
@@ -357,6 +369,9 @@ classdef RasterGUI < handle
 
         function layoutGUI(obj)
             % --- Layout constants ---
+            arguments
+                obj RasterGUI
+            end
             % Left control panel
             leftX = 0.005;                  % Left edge of control panel
             leftW = 0.215;                  % Width of control panel
@@ -604,6 +619,9 @@ classdef RasterGUI < handle
 
         function buildGUI(obj)
             % Programmatically create the raster GUI figure and all widgets.
+            arguments
+                obj RasterGUI
+            end
 
             % --- Figure ---
             obj.figure_Main = figure( ...
@@ -866,6 +884,9 @@ classdef RasterGUI < handle
 
         function populateSourceMenus(obj)
             % Populate the trigger and event source dropdown menus from
+            arguments
+                obj RasterGUI
+            end
             % the current electro_gui dbase.
             sourceStrings = {'Sound'};
             for sourceIdx = 1:length(obj.eg.dbase.EventSources)
@@ -885,6 +906,9 @@ classdef RasterGUI < handle
     methods (Access = private)
         function plotRaster(obj)
             % Render the raster plot from the current triggerInfo.
+            arguments
+                obj RasterGUI
+            end
             ti = obj.triggerInfo;
             numTrials = length(ti.absTime);
             if numTrials == 0
@@ -950,6 +974,9 @@ classdef RasterGUI < handle
 
         function plotPSTH(obj)
             % Render the peri-stimulus time histogram from triggerInfo.
+            arguments
+                obj RasterGUI
+            end
             ti = obj.triggerInfo;
             numTrials = length(ti.absTime);
             if numTrials == 0
@@ -1025,6 +1052,9 @@ classdef RasterGUI < handle
     methods (Access = private)
         function presetDir = getPresetDir(obj)
             % Return the path to the presets directory, creating it if needed.
+            arguments
+                obj RasterGUI
+            end
             presetDir = fullfile(obj.eg.SourceDir, 'raster_presets');
             if ~isfolder(presetDir)
                 mkdir(presetDir);
@@ -1033,6 +1063,9 @@ classdef RasterGUI < handle
 
         function refreshPresetList(obj)
             % Refresh the presets popup with available preset files.
+            arguments
+                obj RasterGUI
+            end
             presetDir = obj.getPresetDir();
             files = dir(fullfile(presetDir, '*.mat'));
             if isempty(files)
@@ -1058,6 +1091,9 @@ classdef RasterGUI < handle
 
         function preset = getPreset(obj)
             % Capture the current GUI state as a preset struct.
+            arguments
+                obj RasterGUI
+            end
             % Saves semantic names (not popup indices) so presets are
             % portable across different dbases.
 
@@ -1120,6 +1156,10 @@ classdef RasterGUI < handle
         function applyPreset(obj, preset)
             % Apply a preset struct to the GUI, matching names to current
             % popup contents. Warns if a saved selection isn't available.
+            arguments
+                obj RasterGUI
+                preset (1, 1) struct
+            end
 
             obj.setPopupByName(obj.popup_TriggerSource, preset, 'triggerSource');
             obj.setPopupByName(obj.popup_TriggerType, preset, 'triggerType');
@@ -1157,6 +1197,9 @@ classdef RasterGUI < handle
         end
 
         function loadPresetCallback(obj)
+            arguments
+                obj RasterGUI
+            end
             presetNames = obj.popup_Presets.String;
             selectedName = presetNames{obj.popup_Presets.Value};
             presetPath = fullfile(obj.getPresetDir(), [selectedName, '.mat']);
@@ -1175,6 +1218,9 @@ classdef RasterGUI < handle
         end
 
         function savePresetCallback(obj)
+            arguments
+                obj RasterGUI
+            end
             answer = inputdlg({'Preset name:'}, 'Save Preset', 1, {'untitled'});
             if isempty(answer) || isempty(answer{1})
                 return;
@@ -1200,6 +1246,9 @@ classdef RasterGUI < handle
         end
 
         function deletePresetCallback(obj)
+            arguments
+                obj RasterGUI
+            end
             presetNames = obj.popup_Presets.String;
             selectedName = presetNames{obj.popup_Presets.Value};
             answer = questdlg(sprintf('Delete preset "%s"?', selectedName), ...
@@ -1220,6 +1269,11 @@ classdef RasterGUI < handle
         function setPopupByName(popup, preset, fieldName)
             % Set a popup's value by matching a name string from the preset
             % to the popup's current String list. Warns if not found.
+            arguments
+                popup (1, 1) matlab.ui.control.UIControl
+                preset (1, 1) struct
+                fieldName (1, :) char
+            end
             if ~isfield(preset, fieldName)
                 return;
             end
@@ -1237,6 +1291,11 @@ classdef RasterGUI < handle
 
         function setCheckbox(checkbox, preset, fieldName)
             % Set a checkbox value from a preset field if it exists.
+            arguments
+                checkbox (1, 1) matlab.ui.control.UIControl
+                preset (1, 1) struct
+                fieldName (1, :) char
+            end
             if isfield(preset, fieldName)
                 checkbox.Value = preset.(fieldName);
             end
@@ -1247,6 +1306,9 @@ classdef RasterGUI < handle
     methods (Access = private)
         function exportToFigure(obj)
             % Copy the axes panel contents to a new standalone figure.
+            arguments
+                obj RasterGUI
+            end
             newFig = figure('Name', 'Raster Export', ...
                 'NumberTitle', 'off', ...
                 'MenuBar', 'figure', ...
@@ -1269,6 +1331,10 @@ classdef RasterGUI < handle
             %
             % Arguments:
             %   format - one of 'png', 'pdf', 'jpg', 'svg'
+            arguments
+                obj RasterGUI
+                format (1, :) char {mustBeMember(format, {'png', 'pdf', 'jpg', 'svg'})}
+            end
 
             % Build file filter for the dialog
             switch format
@@ -1326,6 +1392,9 @@ classdef RasterGUI < handle
     methods (Access = private)
         function updateTriggerOptionsVisibility(obj)
             % Show/hide trigger option controls based on the selected type.
+            arguments
+                obj RasterGUI
+            end
             trigTypeStrs = obj.popup_TriggerType.String;
             trigType = trigTypeStrs{obj.popup_TriggerType.Value};
             showIncludeIgnore = ismember(trigType, {'Syllables', 'Markers', 'Bouts'});
@@ -1338,6 +1407,9 @@ classdef RasterGUI < handle
         end
         function updateEventOptionsVisibility(obj)
             % Show/hide event option controls based on the selected type.
+            arguments
+                obj RasterGUI
+            end
             eventTypeStrs = obj.popup_EventType.String;
             eventType = eventTypeStrs{obj.popup_EventType.Value};
             showIncludeIgnore = ismember(eventType, {'Syllables', 'Markers', 'Bouts'});
@@ -1350,6 +1422,9 @@ classdef RasterGUI < handle
         end
         function syncOptionsFromGUI(obj)
             % Read all inline option controls into properties before generating.
+            arguments
+                obj RasterGUI
+            end
 
             % Trigger/Event include/ignore lists
             obj.P.trig.includeSyllList = obj.edit_TrigIncludeList.String;
@@ -1387,8 +1462,14 @@ classdef RasterGUI < handle
         end
         function openCallback(obj)
             % TODO: Port open dbase functionality
+            arguments
+                obj RasterGUI
+            end
         end
         function holdCallback(obj)
+            arguments
+                obj RasterGUI
+            end
             if strcmp(obj.push_Hold.String, 'Hold on')
                 obj.push_Hold.String = 'Hold off';
             else
@@ -1401,6 +1482,12 @@ classdef RasterGUI < handle
     methods (Access = private)
         function [ons, offs, inform, lst] = getEventStructure(obj, eventSourceIdx, eventTypeStr, P)
             % Extract triggers or events from the dbase across files.
+            arguments
+                obj RasterGUI
+                eventSourceIdx (1, 1) double {mustBeInteger, mustBeNonnegative}
+                eventTypeStr (1, :) char {mustBeMember(eventTypeStr, {'Events', 'Bursts', 'Burst events', 'Single events', 'Pauses', 'Syllables', 'Markers', 'Motifs', 'Bouts', 'Continuous function'})}
+                P (1, 1) struct
+            end
             %
             % Arguments:
             %   eventSourceIdx - index into EventTimes (0 = sound/segments)
@@ -1686,6 +1773,11 @@ classdef RasterGUI < handle
         function [triggerInfo] = alignEventsToTriggers(obj, trig, event)
             % Align events to triggers within a time window and compute
             % per-trial metadata.
+            arguments
+                obj RasterGUI
+                trig (1, 1) struct  % Struct with .on, .off (cell arrays), .info
+                event (1, 1) struct % Struct with .on, .off (cell arrays), .info
+            end
             %
             % This is a simplified version of GetTriggerAlignedEvents that
             % handles the core alignment without correlation or warp points.
@@ -1823,6 +1915,13 @@ classdef RasterGUI < handle
     methods (Static, Access = private)
         function [triggerInfo, ord] = sortTriggers(triggerInfo, sortType, descending, includeList, groupLabels)
             % Sort triggers according to the specified criterion.
+            arguments
+                triggerInfo (1, 1) struct
+                sortType (1, :) char
+                descending (1, 1) logical
+                includeList (1, :) char = ''
+                groupLabels (1, 1) logical = false
+            end
             %
             % Arguments:
             %   triggerInfo - struct from alignEventsToTriggers
@@ -1995,6 +2094,9 @@ classdef RasterGUI < handle
     %% Destructor
     methods
         function delete(obj)
+            arguments
+                obj RasterGUI
+            end
             if ~isempty(obj.figure_Main) && isvalid(obj.figure_Main)
                 delete(obj.figure_Main);
             end
