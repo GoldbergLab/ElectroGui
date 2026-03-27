@@ -327,6 +327,7 @@ classdef RasterGUI < handle
                 % --- Step 5: Plot ---
                 obj.plotRaster();
                 obj.plotPSTH();
+                obj.plotHist();
 
             catch ME
                 warndlg(sprintf('Error generating raster: %s', ME.message), 'Error');
@@ -1044,6 +1045,69 @@ classdef RasterGUI < handle
             ax.YLabel.String = yLabel;
             ax.XLabel.String = 'Time (s)';
             ax.Box = 'on';
+            hold(ax, 'off');
+        end
+
+        function plotHist(obj)
+            % Render the vertical histogram showing event counts per trial,
+            % displayed as horizontal bars aligned with the raster Y axis.
+            arguments
+                obj RasterGUI
+            end
+
+            ti = obj.triggerInfo;
+            numTrials = length(ti.absTime);
+            if numTrials == 0
+                return;
+            end
+
+            ax = obj.axes_Hist;
+            cla(ax);
+            hold(ax, 'on');
+
+            % Count events per trial within the visible X range
+            xLim = obj.PlotXLim;
+            countsPerTrial = zeros(numTrials, 1);
+            for trialIdx = 1:numTrials
+                eventTimes = ti.eventOnsets{trialIdx};
+                if ~isempty(eventTimes)
+                    countsPerTrial(trialIdx) = sum(eventTimes >= xLim(1) & eventTimes <= xLim(2));
+                end
+            end
+
+            % Bin counts by groups of trials for smoother display
+            binSize = max(1, round(obj.HistBinSize(1)));
+            numBins = ceil(numTrials / binSize);
+            binnedCounts = zeros(numBins, 1);
+            binCenters = zeros(numBins, 1);
+            for binIdx = 1:numBins
+                trialStart = (binIdx - 1) * binSize + 1;
+                trialEnd = min(binIdx * binSize, numTrials);
+                binnedCounts(binIdx) = mean(countsPerTrial(trialStart:trialEnd));
+                binCenters(binIdx) = (trialStart + trialEnd) / 2;
+            end
+
+            % Smooth if requested
+            if obj.HistSmoothingWindow > 1 && length(binnedCounts) > 1
+                binnedCounts = movmean(binnedCounts, obj.HistSmoothingWindow);
+            end
+
+            % Plot as horizontal bars (Y = trial, X = count)
+            barh(ax, binCenters, binnedCounts, 1, ...
+                'FaceColor', [0.5, 0.5, 0.5], 'EdgeColor', 'none');
+
+            % Match Y axis to raster
+            ax.YDir = 'reverse';
+            ax.YLim = [0.5, numTrials + 0.5];
+            ax.YTickLabel = {};  % Hide Y tick labels (shared with raster)
+            ax.XLabel.String = 'Events';
+            ax.Box = 'on';
+
+            % Auto-scale X
+            if max(binnedCounts) > 0
+                ax.XLim = [0, max(binnedCounts) * 1.1];
+            end
+
             hold(ax, 'off');
         end
     end
