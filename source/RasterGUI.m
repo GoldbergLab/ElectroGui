@@ -984,13 +984,12 @@ classdef RasterGUI < handle
                 tOn = trigOn(validTrig);
                 tOff = trigOff(validTrig);
                 tY = trialY(validTrig)';
-                % Build NaN-separated patch vertices: each box is 5 points
-                % (4 corners + NaN separator)
-                nBoxes = length(tOn);
-                patchX = [tOn, tOff, tOff, tOn, NaN(nBoxes, 1)]';
+                % Build patch with matrix inputs: each column is one face
+                % (4 vertices per face)
+                patchX = [tOn, tOff, tOff, tOn]';   % 4 x nBoxes
                 patchY = [tY - tickHalfHeight, tY - tickHalfHeight, ...
-                          tY + tickHalfHeight, tY + tickHalfHeight, NaN(nBoxes, 1)]';
-                patch(ax, patchX(:), patchY(:), trigColor, ...
+                          tY + tickHalfHeight, tY + tickHalfHeight]';  % 4 x nBoxes
+                patch(ax, patchX, patchY, trigColor, ...
                     'EdgeColor', 'none', ...
                     'PickableParts', 'none', 'HitTest', 'off');
             end
