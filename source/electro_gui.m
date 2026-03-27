@@ -6212,7 +6212,6 @@ function updateAmplitude(obj, options)
         else
             obj.settings.CurrentThreshold = obj.dbase.SegmentThresholds(filenum);
         end
-        obj.SegmentLabelHandles = gobjects().empty;
         obj.SetSegmentThreshold();
         obj.axes_Amplitude.Tag = tag;
     else
