@@ -127,8 +127,10 @@ classdef RasterGUI < handle
         text_EventType
         text_StartReference
         text_StopReference
-        text_PreStart
-        text_PostStop
+        text_PreMinus
+        text_PreUnit
+        text_PostPlus
+        text_PostUnit
         text_PrimarySort
         text_SecondarySort
         text_FileRange
@@ -555,30 +557,48 @@ classdef RasterGUI < handle
             obj.edit_EventFilterList.Units = 'pixels';
             obj.edit_EventFilterList.Position = [filterListX, rowY(4), filterListW, rowH];
             % --- Window tab ---
+            % Row 1: Start: [popup] — [edit] s
+            % Row 2: Stop:  [popup] + [edit] s
+            winRefLabelW = 30;
+            winRefPopupX = tabMargin + winRefLabelW + 2;
+            winRefPopupW = 110;
+            winOpX = winRefPopupX + winRefPopupW + 2;
+            winOpW = 16;
+            winEditX = winOpX + winOpW + 2;
+            winEditW = 40;
+            winUnitX = winEditX + winEditW + 2;
+            winUnitW = 12;
+
             obj.text_StartReference.Units = 'pixels';
-            obj.text_StartReference.Position = [tabMargin, rowY(1), winLabelW, rowH];
+            obj.text_StartReference.Position = [tabMargin, rowY(1), winRefLabelW, rowH];
             obj.popup_StartReference.Units = 'pixels';
-            obj.popup_StartReference.Position = [winPopupX, rowY(1), winPopupW, rowH];
-            obj.text_StopReference.Units = 'pixels';
-            obj.text_StopReference.Position = [tabMargin, rowY(2), winLabelW, rowH];
-            obj.popup_StopReference.Units = 'pixels';
-            obj.popup_StopReference.Position = [winPopupX, rowY(2), winPopupW, rowH];
-            obj.text_PreStart.Units = 'pixels';
-            obj.text_PreStart.Position = [tabMargin, rowY(3), winLabelW, rowH];
+            obj.popup_StartReference.Position = [winRefPopupX, rowY(1), winRefPopupW, rowH];
+            obj.text_PreMinus.Units = 'pixels';
+            obj.text_PreMinus.Position = [winOpX, rowY(1), winOpW, rowH];
             obj.edit_PreStart.Units = 'pixels';
-            obj.edit_PreStart.Position = [winPopupX, rowY(3), editW, rowH];
-            obj.text_PostStop.Units = 'pixels';
-            obj.text_PostStop.Position = [winPopupX + editW + 4, rowY(3), winLabelW, rowH];
+            obj.edit_PreStart.Position = [winEditX, rowY(1), winEditW, rowH];
+            obj.text_PreUnit.Units = 'pixels';
+            obj.text_PreUnit.Position = [winUnitX, rowY(1), winUnitW, rowH];
+
+            obj.text_StopReference.Units = 'pixels';
+            obj.text_StopReference.Position = [tabMargin, rowY(2), winRefLabelW, rowH];
+            obj.popup_StopReference.Units = 'pixels';
+            obj.popup_StopReference.Position = [winRefPopupX, rowY(2), winRefPopupW, rowH];
+            obj.text_PostPlus.Units = 'pixels';
+            obj.text_PostPlus.Position = [winOpX, rowY(2), winOpW, rowH];
             obj.edit_PostStop.Units = 'pixels';
-            obj.edit_PostStop.Position = [winPopupX + editW + winLabelW + 8, rowY(3), editW, rowH];
+            obj.edit_PostStop.Position = [winEditX, rowY(2), winEditW, rowH];
+            obj.text_PostUnit.Units = 'pixels';
+            obj.text_PostUnit.Position = [winUnitX, rowY(2), winUnitW, rowH];
+
             obj.check_ExcludeIncomplete.Units = 'pixels';
-            obj.check_ExcludeIncomplete.Position = [tabMargin, rowY(4), tabFullW, rowH];
+            obj.check_ExcludeIncomplete.Position = [tabMargin, rowY(3), tabFullW, rowH];
             obj.check_ExcludePartialEvents.Units = 'pixels';
-            obj.check_ExcludePartialEvents.Position = [tabMargin, rowY(5), tabFullW, rowH];
+            obj.check_ExcludePartialEvents.Position = [tabMargin, rowY(4), tabFullW, rowH];
             obj.check_WindowAutoUpdate.Units = 'pixels';
-            obj.check_WindowAutoUpdate.Position = [tabMargin, rowY(6), halfW, rowH];
+            obj.check_WindowAutoUpdate.Position = [tabMargin, rowY(5), halfW, rowH];
             obj.push_WindowUpdate.Units = 'pixels';
-            obj.push_WindowUpdate.Position = [tabMargin + halfW + halfGap, rowY(6), halfW, rowH];
+            obj.push_WindowUpdate.Position = [tabMargin + halfW + halfGap, rowY(5), halfW, rowH];
             % --- Sort tab ---
             obj.text_PrimarySort.Units = 'pixels';
             obj.text_PrimarySort.Position = [tabMargin, rowY(1), sortLabelW, rowH];
@@ -756,37 +776,42 @@ classdef RasterGUI < handle
 
             % --- Window tab ---
             windowTab = uitab(obj.tab_group, 'Title', 'Window');
-            % editW defined in layout constants above
+            % Row 1:  Start: [Trigger onset ▾] — [0.4] s
             obj.text_StartReference = uicontrol(windowTab, 'Style', 'text', ...
                 'String', 'Start:', ...
-                'Tag', 'text_StartReference', ...
                 'HorizontalAlignment', 'right');
             obj.popup_StartReference = uicontrol(windowTab, 'Style', 'popupmenu', ...
                 'String', {'Trigger onset', 'Trigger offset', 'Prev trigger onset', 'Prev trigger offset'}, ...
                 'Callback', @(~,~) obj.windowSettingChanged());
+            obj.text_PreMinus = uicontrol(windowTab, 'Style', 'text', ...
+                'String', char(8212), ...
+                'FontSize', 14, 'FontWeight', 'bold', ...
+                'HorizontalAlignment', 'center');
+            obj.edit_PreStart = uicontrol(windowTab, 'Style', 'edit', ...
+                'String', num2str(obj.P.preStartRef), ...
+                'Tooltip', 'Time before start reference (seconds)', ...
+                'Callback', @(~,~) obj.windowSettingChanged());
+            obj.text_PreUnit = uicontrol(windowTab, 'Style', 'text', ...
+                'String', 's', ...
+                'HorizontalAlignment', 'left');
+            % Row 2:  Stop: [Trigger offset ▾] + [0.4] s
             obj.text_StopReference = uicontrol(windowTab, 'Style', 'text', ...
                 'String', 'Stop:', ...
-                'Tag', 'text_StopReference', ...
                 'HorizontalAlignment', 'right');
             obj.popup_StopReference = uicontrol(windowTab, 'Style', 'popupmenu', ...
                 'String', {'Trigger onset', 'Trigger offset', 'Next trigger onset', 'Next trigger offset'}, ...
                 'Callback', @(~,~) obj.windowSettingChanged());
-            obj.text_PreStart = uicontrol(windowTab, 'Style', 'text', ...
-                'String', 'Pre (s):', ...
-                'Tag', 'text_PreStart', ...
-                'HorizontalAlignment', 'right');
-            obj.edit_PreStart = uicontrol(windowTab, 'Style', 'edit', ...
-                'String', num2str(obj.P.preStartRef), ...
-                'Tooltip', 'Time before start reference to include (seconds)', ...
-                'Callback', @(~,~) obj.windowSettingChanged());
-            obj.text_PostStop = uicontrol(windowTab, 'Style', 'text', ...
-                'String', 'Post (s):', ...
-                'Tag', 'text_PostStop', ...
-                'HorizontalAlignment', 'right');
+            obj.text_PostPlus = uicontrol(windowTab, 'Style', 'text', ...
+                'String', '+', ...
+                'FontSize', 14, 'FontWeight', 'bold', ...
+                'HorizontalAlignment', 'center');
             obj.edit_PostStop = uicontrol(windowTab, 'Style', 'edit', ...
                 'String', num2str(obj.P.postStopRef), ...
-                'Tooltip', 'Time after stop reference to include (seconds)', ...
+                'Tooltip', 'Time after stop reference (seconds)', ...
                 'Callback', @(~,~) obj.windowSettingChanged());
+            obj.text_PostUnit = uicontrol(windowTab, 'Style', 'text', ...
+                'String', 's', ...
+                'HorizontalAlignment', 'left');
             obj.check_ExcludeIncomplete = uicontrol(windowTab, 'Style', 'checkbox', ...
                 'String', 'Exclude incomplete', 'Value', 1, ...
                 'Callback', @(~,~) obj.windowSettingChanged());
