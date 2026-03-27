@@ -84,6 +84,9 @@ classdef RasterGUI < handle
 
         % Files inline edit
         edit_FileRange
+        popup_PropertyFilterMode   % (None), Single, Expression
+        popup_PropertyName         % Property name dropdown (for Single mode)
+        edit_PropertyExpression    % Expression edit (for Expression mode)
 
         % Plot inline edits
         check_AutoXLim
@@ -624,6 +627,12 @@ classdef RasterGUI < handle
             obj.edit_FileRange.Position = [popupAfterLabelX, rowY(2), fullW - popupAfterLabelX, rowH];
             obj.push_Open.Units = 'pixels';
             obj.push_Open.Position = [tabMargin, rowY(3), halfW, rowH];
+            obj.popup_PropertyFilterMode.Units = 'pixels';
+            obj.popup_PropertyFilterMode.Position = [tabMargin, rowY(4), tabFullW, rowH];
+            obj.popup_PropertyName.Units = 'pixels';
+            obj.popup_PropertyName.Position = [tabMargin, rowY(5), tabFullW, rowH];
+            obj.edit_PropertyExpression.Units = 'pixels';
+            obj.edit_PropertyExpression.Position = [tabMargin, rowY(5), tabFullW, rowH];
             % --- PSTH tab ---
             obj.text_PSTHUnits.Units = 'pixels';
             obj.text_PSTHUnits.Position = [tabMargin, rowY(1), labelW, rowH];
@@ -861,7 +870,7 @@ classdef RasterGUI < handle
             % --- Files tab ---
             filesTab = uitab(obj.tab_group, 'Title', 'Files');
             obj.popup_Files = uicontrol(filesTab, 'Style', 'popupmenu', ...
-                'String', {'All files in range', 'Only selected by search', 'Only unselected'}, ...
+                'String', {'All files in range', 'Only read files', 'Only unread files'}, ...
                 'Callback', @(~,~) obj.clearCache());
             obj.text_FileRange = uicontrol(filesTab, 'Style', 'text', ...
                 'String', 'Range:', ...
@@ -873,6 +882,16 @@ classdef RasterGUI < handle
                 'HorizontalAlignment', 'left');
             obj.push_Open = uicontrol(filesTab, 'Style', 'pushbutton', ...
                 'String', 'Open dbase', 'Callback', @(~,~) obj.openCallback());
+            obj.popup_PropertyFilterMode = uicontrol(filesTab, 'Style', 'popupmenu', ...
+                'String', {'(No property filter)', 'Single', 'Expression'}, ...
+                'Callback', @(~,~) obj.propertyFilterModeChanged());
+            obj.popup_PropertyName = uicontrol(filesTab, 'Style', 'popupmenu', ...
+                'String', {'(None)'}, 'Visible', 'off', ...
+                'Callback', @(~,~) obj.clearCache());
+            obj.edit_PropertyExpression = uicontrol(filesTab, 'Style', 'edit', ...
+                'String', '', 'HorizontalAlignment', 'left', ...
+                'Visible', 'off', ...
+                'Callback', @(~,~) obj.clearCache());
 
             % --- PSTH tab ---
             psthTab = uitab(obj.tab_group, 'Title', 'PSTH');
@@ -1034,6 +1053,9 @@ classdef RasterGUI < handle
             % Files tab
             obj.popup_Files.Tooltip = 'Which files to include from the file range';
             obj.push_Open.Tooltip = 'Open a different dbase file';
+            obj.popup_PropertyFilterMode.Tooltip = 'Filter files by property: None, Single property, or Boolean expression';
+            obj.popup_PropertyName.Tooltip = 'Include only files where this property is true';
+            obj.edit_PropertyExpression.Tooltip = 'Boolean expression using property names (e.g., "bSorted & ~bUnusable")';
 
             % PSTH tab
             obj.popup_PSTHUnits.Tooltip = 'Units for the PSTH Y axis';
@@ -1781,6 +1803,9 @@ classdef RasterGUI < handle
                 obj.popup_Files, ...
                 obj.edit_FileRange, ...
                 obj.push_Open, ...
+                obj.popup_PropertyFilterMode, ...
+                obj.popup_PropertyName, ...
+                obj.edit_PropertyExpression, ...
                 obj.popup_PSTHUnits, ...
                 obj.popup_PSTHCount, ...
                 obj.check_AutoXLim, ...
@@ -1917,11 +1942,45 @@ classdef RasterGUI < handle
 
             % File range
             try
-                obj.FileRange = eval(obj.edit_FileRange.String);
+                obj.FileRange = eval(obj.edit_FileRange.String); %#ok<EVLC>
             catch
                 electro_gui.issueWarning('Invalid file range expression, using all files.', 'badFileRange');
                 numFiles = electro_gui.getNumFiles(obj.eg.dbase);
                 obj.FileRange = 1:numFiles;
+            end
+
+            % Apply file read state filter
+            fileFilterStrs = obj.popup_Files.String;
+            fileFilter = fileFilterStrs{obj.popup_Files.Value};
+            switch fileFilter
+                case 'Only read files'
+                    readMask = obj.eg.dbase.FileReadState(obj.FileRange);
+                    obj.FileRange = obj.FileRange(readMask);
+                case 'Only unread files'
+                    readMask = obj.eg.dbase.FileReadState(obj.FileRange);
+                    obj.FileRange = obj.FileRange(~readMask);
+            end
+
+            % Apply property filter
+            propModes = obj.popup_PropertyFilterMode.String;
+            propMode = propModes{obj.popup_PropertyFilterMode.Value};
+            switch propMode
+                case 'Single'
+                    propNames = obj.popup_PropertyName.String;
+                    propName = propNames{obj.popup_PropertyName.Value};
+                    if ~strcmp(propName, '(No properties)')
+                        propValues = obj.eg.getPropertyValue(propName, obj.FileRange);
+                        obj.FileRange = obj.FileRange(logical(propValues));
+                    end
+                case 'Expression'
+                    expr = obj.edit_PropertyExpression.String;
+                    if ~isempty(strtrim(expr))
+                        try
+                            obj.FileRange = obj.evaluatePropertyExpression(expr, obj.FileRange);
+                        catch ME
+                            warndlg(sprintf('Property expression error: %s', ME.message), 'Expression error');
+                        end
+                    end
             end
 
             % Plot settings
@@ -2035,6 +2094,55 @@ classdef RasterGUI < handle
                 obj RasterGUI
             end
             obj.resortAndPlot();
+        end
+        function filteredRange = evaluatePropertyExpression(obj, expr, fileRange)
+            % Evaluate a boolean property expression to filter files.
+            % Creates a temporary workspace with each property name as a
+            % logical vector, then evaluates the expression.
+            arguments
+                obj RasterGUI
+                expr (1, :) char
+                fileRange (1, :) double
+            end
+            % Build a struct with property values for the given file range
+            propVars = struct();
+            for k = 1:length(obj.eg.dbase.PropertyNames)
+                propName = obj.eg.dbase.PropertyNames{k};
+                % Make sure name is a valid variable name
+                safeName = matlab.lang.makeValidName(propName);
+                propVars.(safeName) = logical(obj.eg.getPropertyValue(propName, fileRange));
+            end
+            % Evaluate the expression in the context of these variables
+            mask = evalInStruct(propVars, expr);
+            if ~islogical(mask) || length(mask) ~= length(fileRange)
+                error('Expression must produce a logical vector with one element per file.');
+            end
+            filteredRange = fileRange(mask);
+        end
+        function propertyFilterModeChanged(obj)
+            arguments
+                obj RasterGUI
+            end
+            modes = obj.popup_PropertyFilterMode.String;
+            mode = modes{obj.popup_PropertyFilterMode.Value};
+            switch mode
+                case '(No property filter)'
+                    obj.popup_PropertyName.Visible = 'off';
+                    obj.edit_PropertyExpression.Visible = 'off';
+                case 'Single'
+                    % Populate property names from dbase
+                    if ~isempty(obj.eg.dbase.PropertyNames)
+                        obj.popup_PropertyName.String = obj.eg.dbase.PropertyNames;
+                    else
+                        obj.popup_PropertyName.String = {'(No properties)'};
+                    end
+                    obj.popup_PropertyName.Visible = 'on';
+                    obj.edit_PropertyExpression.Visible = 'off';
+                case 'Expression'
+                    obj.popup_PropertyName.Visible = 'off';
+                    obj.edit_PropertyExpression.Visible = 'on';
+            end
+            obj.clearCache();
         end
         function openCallback(obj) %#ok<MANU>
             % TODO: Port open dbase functionality
