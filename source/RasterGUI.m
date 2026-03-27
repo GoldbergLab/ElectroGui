@@ -756,7 +756,6 @@ classdef RasterGUI < handle
                 'Callback', @(~,~) obj.upstreamSettingChanged());
             obj.edit_TrigFilterList = uicontrol(trigTab, 'Style', 'edit', ...
                 'String', '', 'HorizontalAlignment', 'left', ...
-                'Tooltip', 'Syllable/marker labels to include or exclude', ...
                 'Callback', @(~,~) obj.clearCache());
 
             % --- Events tab ---
@@ -779,7 +778,6 @@ classdef RasterGUI < handle
                 'Callback', @(~,~) obj.upstreamSettingChanged());
             obj.edit_EventFilterList = uicontrol(eventTab, 'Style', 'edit', ...
                 'String', '', 'HorizontalAlignment', 'left', ...
-                'Tooltip', 'Syllable/marker labels to include or exclude', ...
                 'Callback', @(~,~) obj.clearCache());
 
             % Window controls (in Events tab)
@@ -796,7 +794,6 @@ classdef RasterGUI < handle
                 'HorizontalAlignment', 'center');
             obj.edit_PreStart = uicontrol(eventTab, 'Style', 'edit', ...
                 'String', num2str(obj.P.preStartRef), ...
-                'Tooltip', 'Time before start reference (seconds)', ...
                 'Callback', @(~,~) obj.windowSettingChanged());
             obj.text_PreUnit = uicontrol(eventTab, 'Style', 'text', ...
                 'String', 's', ...
@@ -814,7 +811,6 @@ classdef RasterGUI < handle
                 'HorizontalAlignment', 'center');
             obj.edit_PostStop = uicontrol(eventTab, 'Style', 'edit', ...
                 'String', num2str(obj.P.postStopRef), ...
-                'Tooltip', 'Time after stop reference (seconds)', ...
                 'Callback', @(~,~) obj.windowSettingChanged());
             obj.text_PostUnit = uicontrol(eventTab, 'Style', 'text', ...
                 'String', 's', ...
@@ -869,7 +865,7 @@ classdef RasterGUI < handle
             numFiles = electro_gui.getNumFiles(obj.eg.dbase);
             obj.edit_FileRange = uicontrol(filesTab, 'Style', 'edit', ...
                 'String', ['1:', num2str(numFiles)], ...
-                'Tooltip', 'MATLAB expression for file range (e.g., 1:100 or [1 5 10])');
+                'HorizontalAlignment', 'left');
             obj.push_Open = uicontrol(filesTab, 'Style', 'pushbutton', ...
                 'String', 'Open dbase', 'Callback', @(~,~) obj.openCallback());
 
@@ -991,6 +987,77 @@ classdef RasterGUI < handle
             obj.push_Hold = uicontrol(obj.figure_Main, 'Style', 'pushbutton', ...
                 'String', 'Hold on', ...
                 'Callback', @(~,~) obj.holdCallback());
+
+            % Set tooltips on all controls
+            obj.setTooltips();
+        end
+
+        function setTooltips(obj)
+            % Set tooltips on all interactive controls.
+            arguments
+                obj RasterGUI
+            end
+            % Trigger tab
+            obj.popup_TriggerSource.Tooltip = 'Data source for triggers (Sound = syllables/markers)';
+            obj.popup_TriggerType.Tooltip = 'Type of trigger events to extract';
+            obj.popup_TriggerAlignment.Tooltip = 'Which part of the trigger to align to (time zero)';
+            obj.check_CopyEvents.Tooltip = 'Use the same settings for events as for triggers';
+            obj.popup_TrigFilterMode.Tooltip = 'All: use all labels; Include: only listed; Exclude: all except listed';
+
+            % Events tab
+            obj.popup_EventSource.Tooltip = 'Data source for events to plot on the raster';
+            obj.popup_EventType.Tooltip = 'Type of events to extract';
+            obj.check_CopyTrigger.Tooltip = 'Use the same settings for triggers as for events';
+            obj.popup_EventFilterMode.Tooltip = 'All: use all labels; Include: only listed; Exclude: all except listed';
+            obj.popup_StartReference.Tooltip = 'Reference point for the start of the event window';
+            obj.popup_StopReference.Tooltip = 'Reference point for the end of the event window';
+            obj.check_ExcludeIncomplete.Tooltip = 'Exclude triggers whose window extends beyond file boundaries';
+            obj.check_ExcludePartialEvents.Tooltip = 'Exclude events not fully contained within the window';
+            obj.check_WindowAutoUpdate.Tooltip = 'Automatically regenerate when window settings change';
+            obj.push_WindowUpdate.Tooltip = 'Regenerate raster with current settings';
+
+            % Sort tab
+            obj.popup_PrimarySort.Tooltip = 'Primary criterion for ordering trials';
+            obj.popup_SecondarySort.Tooltip = 'Secondary criterion (applied within primary groups)';
+            obj.radio_Ascending.Tooltip = 'Sort in ascending order';
+            obj.radio_Descending.Tooltip = 'Sort in descending order';
+            obj.check_GroupLabels.Tooltip = 'Group trials with the same label together';
+
+            % Files tab
+            obj.popup_Files.Tooltip = 'Which files to include from the file range';
+            obj.push_Open.Tooltip = 'Open a different dbase file';
+
+            % PSTH tab
+            obj.popup_PSTHUnits.Tooltip = 'Units for the PSTH Y axis';
+            obj.popup_PSTHCount.Tooltip = 'Which events to count in the PSTH';
+
+            % Plot tab
+            obj.check_AutoXLim.Tooltip = 'Automatically fit X limits to the data';
+            obj.edit_XMin.Tooltip = 'Minimum X axis value (seconds)';
+            obj.edit_XMax.Tooltip = 'Maximum X axis value (seconds)';
+            obj.edit_TickHeight.Tooltip = 'Height of event ticks and trigger boxes (1 = full row)';
+            obj.edit_BinSize.Tooltip = 'PSTH histogram bin width (seconds)';
+            obj.edit_TickLineWidth.Tooltip = 'Line width for event ticks';
+            obj.edit_Overlap.Tooltip = 'Vertical overlap between adjacent trials (percent)';
+            obj.check_PlotAutoUpdate.Tooltip = 'Automatically replot when plot settings change';
+            obj.push_PlotUpdate.Tooltip = 'Replot with current settings';
+
+            % Presets tab
+            obj.popup_Presets.Tooltip = 'Select a saved preset';
+            obj.push_LoadPreset.Tooltip = 'Load the selected preset';
+            obj.push_SavePreset.Tooltip = 'Save current settings as a new preset';
+            obj.push_DeletePreset.Tooltip = 'Delete the selected preset';
+
+            % Export tab
+            obj.push_ExportFigure.Tooltip = 'Copy the plots to a new standalone figure';
+            obj.push_ExportPNG.Tooltip = 'Save as PNG image (300 DPI)';
+            obj.push_ExportPDF.Tooltip = 'Save as PDF (vector)';
+            obj.push_ExportJPG.Tooltip = 'Save as JPEG image (300 DPI)';
+            obj.push_ExportSVG.Tooltip = 'Save as SVG vector image';
+
+            % Main buttons
+            obj.push_GenerateRaster.Tooltip = 'Extract triggers and events, sort, and plot';
+            obj.push_Hold.Tooltip = 'Overlay next generation on top of current plot';
         end
 
         function populateSourceMenus(obj)
