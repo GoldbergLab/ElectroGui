@@ -422,8 +422,6 @@ classdef RasterGUI < handle
             labelPopupGap = 4;
             popupAfterLabelX = tabMargin + labelW + labelPopupGap;
             popupAfterLabelW = 120;        % Popup width after standard label (px)
-            optionsBtnX = popupAfterLabelX + popupAfterLabelW + 4;
-            optionsBtnW = 60;
 
             % Sort tab label column (wider labels)
             sortLabelW = 80;
@@ -1510,7 +1508,7 @@ classdef RasterGUI < handle
 
             % File range
             try
-                obj.FileRange = eval(obj.edit_FileRange.String); %#ok<EVLC>
+                obj.FileRange = eval(obj.edit_FileRange.String);
             catch
                 electro_gui.issueWarning('Invalid file range expression, using all files.', 'badFileRange');
                 numFiles = electro_gui.getNumFiles(obj.eg.dbase);
@@ -1524,11 +1522,12 @@ classdef RasterGUI < handle
             obj.PSTHBinSize = str2double(obj.edit_BinSize.String);
             obj.PlotOverlap = str2double(obj.edit_Overlap.String);
         end
-        function openCallback(obj)
+        function openCallback(obj) %#ok<MANU>
             % TODO: Port open dbase functionality
             arguments
                 obj RasterGUI
             end
+
         end
         function holdCallback(obj)
             arguments
@@ -1760,7 +1759,7 @@ classdef RasterGUI < handle
                                 end
                                 ons{fileListIdx} = [ons{fileListIdx}; syllOnsets(matchStarts)];
                                 offs{fileListIdx} = [offs{fileListIdx}; syllOffsets(matchEnds)];
-                                inform.label{fileListIdx} = [inform.label{fileListIdx}; motifIdx * ones(length(matchStarts), 1)]; %#ok<AGROW>
+                                inform.label{fileListIdx} = [inform.label{fileListIdx}; motifIdx * ones(length(matchStarts), 1)];
                             end
                             inform.label{fileListIdx} = 1000 + inform.label{fileListIdx};
                         end
@@ -2020,7 +2019,6 @@ classdef RasterGUI < handle
                             includeList(escapeIdx + 1) = [];
                             includeList(escapeIdx) = 0;
                         end
-                        [~, labelOrder] = sort(includeList);
                         for k = 1:length(includeList)
                             sortValues(sortValues == includeList(k)) = 1000 + k;
                         end
