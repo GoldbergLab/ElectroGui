@@ -971,36 +971,54 @@ classdef RasterGUI < handle
 
             % Tick height: each trial spans 1 unit, ticks fill most of it
             tickHalfHeight = 0.4;
+            ti = obj.triggerInfo;
 
-            % --- Plot trigger boxes (current trigger onset-offset) ---
+            % --- Plot trigger boxes (vectorized as a single patch) ---
+            obj.statusBar.Status = 'Plotting trigger boxes...';
+            drawnow;
             trigColor = [1.0, 0.85, 0.85];  % Light red
-            for trialIdx = 1:numTrials
-                trigOn = obj.triggerInfo.currTrigOnset(trialIdx);
-                trigOff = obj.triggerInfo.currTrigOffset(trialIdx);
-                if isfinite(trigOn) && isfinite(trigOff)
-                    patch(ax, ...
-                        [trigOn, trigOff, trigOff, trigOn], ...
-                        [trialY(trialIdx) - tickHalfHeight, trialY(trialIdx) - tickHalfHeight, ...
-                         trialY(trialIdx) + tickHalfHeight, trialY(trialIdx) + tickHalfHeight], ...
-                        trigColor, 'EdgeColor', 'none', ...
-                        'PickableParts', 'none', 'HitTest', 'off');
-                end
+            trigOn = ti.currTrigOnset(:);
+            trigOff = ti.currTrigOffset(:);
+            validTrig = isfinite(trigOn) & isfinite(trigOff);
+            if any(validTrig)
+                tOn = trigOn(validTrig);
+                tOff = trigOff(validTrig);
+                tY = trialY(validTrig)';
+                % Build NaN-separated patch vertices: each box is 5 points
+                % (4 corners + NaN separator)
+                nBoxes = length(tOn);
+                patchX = [tOn, tOff, tOff, tOn, NaN(nBoxes, 1)]';
+                patchY = [tY - tickHalfHeight, tY - tickHalfHeight, ...
+                          tY + tickHalfHeight, tY + tickHalfHeight, NaN(nBoxes, 1)]';
+                patch(ax, patchX(:), patchY(:), trigColor, ...
+                    'EdgeColor', 'none', ...
+                    'PickableParts', 'none', 'HitTest', 'off');
             end
 
-            % --- Plot event ticks ---
+            % --- Plot event ticks (vectorized as a single plot call) ---
+            obj.statusBar.Status = 'Plotting event ticks...';
+            obj.statusBar.Progress = 0.85;
+            drawnow;
             eventColor = [0, 0, 0];  % Black
-            for trialIdx = 1:numTrials
-                eventTimes = obj.triggerInfo.eventOnsets{trialIdx};
-                if ~isempty(eventTimes)
-                    yBottom = trialY(trialIdx) - tickHalfHeight;
-                    yTop = trialY(trialIdx) + tickHalfHeight;
-                    % Vectorized line drawing: NaN-separated segments
-                    xCoords = [eventTimes(:)'; eventTimes(:)'; NaN(1, length(eventTimes))];
-                    yCoords = [repmat(yBottom, 1, length(eventTimes)); ...
-                               repmat(yTop, 1, length(eventTimes)); ...
-                               NaN(1, length(eventTimes))];
-                    plot(ax, xCoords(:), yCoords(:), 'Color', eventColor, 'LineWidth', 0.5);
+            % Pre-allocate: count total events across all trials
+            totalEvents = sum(cellfun(@length, ti.eventOnsets));
+            if totalEvents > 0
+                allX = NaN(3 * totalEvents, 1);
+                allY = NaN(3 * totalEvents, 1);
+                idx = 0;
+                for trialIdx = 1:numTrials
+                    eventTimes = ti.eventOnsets{trialIdx};
+                    nEvents = length(eventTimes);
+                    if nEvents > 0
+                        yBottom = trialY(trialIdx) - tickHalfHeight;
+                        yTop = trialY(trialIdx) + tickHalfHeight;
+                        range = idx + (1:3*nEvents);
+                        allX(range) = reshape([eventTimes(:)'; eventTimes(:)'; NaN(1, nEvents)], [], 1);
+                        allY(range) = reshape([repmat(yBottom, 1, nEvents); repmat(yTop, 1, nEvents); NaN(1, nEvents)], [], 1);
+                        idx = idx + 3 * nEvents;
+                    end
                 end
+                plot(ax, allX, allY, 'Color', eventColor, 'LineWidth', 0.5);
             end
 
             % --- Plot zero line (trigger alignment point) ---
