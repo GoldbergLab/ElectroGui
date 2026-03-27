@@ -119,6 +119,9 @@ classdef RasterGUI < handle
         % Axes panel
         panel_Axes
 
+        % Status bar
+        statusBar StatusBar
+
         % Static text widgets
         text__TriggerType
         text_TriggerAlignment
@@ -266,6 +269,8 @@ classdef RasterGUI < handle
             end
 
             obj.push_GenerateRaster.ForegroundColor = 'r';
+            obj.statusBar.Status = 'Generating raster...';
+            obj.statusBar.Progress = 0;
             drawnow;
 
             % Read inline options into P struct
@@ -273,6 +278,9 @@ classdef RasterGUI < handle
 
             try
                 % --- Step 1: Get trigger times ---
+                obj.statusBar.Status = 'Extracting triggers...';
+                obj.statusBar.Progress = 0.1;
+                drawnow;
                 trigSourceIdx = obj.popup_TriggerSource.Value - 1;  % 0 = Sound
                 trigTypeStrs = obj.popup_TriggerType.String;
                 trigTypeStr = trigTypeStrs{obj.popup_TriggerType.Value};
@@ -280,6 +288,9 @@ classdef RasterGUI < handle
                     trigSourceIdx, trigTypeStr, obj.P.trig);
 
                 % --- Step 2: Get event times ---
+                obj.statusBar.Status = 'Extracting events...';
+                obj.statusBar.Progress = 0.25;
+                drawnow;
                 eventSourceIdx = obj.popup_EventSource.Value - 1;
                 eventTypeStrs = obj.popup_EventType.String;
                 eventTypeStr = eventTypeStrs{obj.popup_EventType.Value};
@@ -287,15 +298,23 @@ classdef RasterGUI < handle
                     eventSourceIdx, eventTypeStr, obj.P.event);
 
                 % --- Step 3: Align events to triggers ---
+                obj.statusBar.Status = 'Aligning events to triggers...';
+                obj.statusBar.Progress = 0.45;
+                drawnow;
                 ti = obj.alignEventsToTriggers(trig, event);
 
                 if isempty(ti) || ~isfield(ti, 'absTime') || isempty(ti.absTime)
                     warndlg('No triggers found!', 'Error');
                     obj.push_GenerateRaster.ForegroundColor = 'k';
+                    obj.statusBar.Status = 'No triggers found';
+                    obj.statusBar.Progress = [];
                     return;
                 end
 
                 % --- Step 4: Sort triggers ---
+                obj.statusBar.Status = sprintf('Sorting %d triggers...', length(ti.absTime));
+                obj.statusBar.Progress = 0.6;
+                drawnow;
                 primarySortStrs = obj.popup_PrimarySort.String;
                 primarySortType = primarySortStrs{obj.popup_PrimarySort.Value};
                 descending = obj.radio_Descending.Value;
@@ -325,15 +344,26 @@ classdef RasterGUI < handle
                 obj.triggerInfo = ti;
 
                 % --- Step 5: Plot ---
+                obj.statusBar.Status = sprintf('Plotting %d trials...', length(ti.absTime));
+                obj.statusBar.Progress = 0.75;
+                drawnow;
                 obj.plotRaster();
+                obj.statusBar.Progress = 0.85;
+                drawnow;
                 obj.plotPSTH();
+                obj.statusBar.Progress = 0.95;
+                drawnow;
                 obj.plotHist();
 
             catch ME
+                obj.statusBar.Status = sprintf('Error: %s', ME.message);
+                obj.statusBar.Progress = [];
                 warndlg(sprintf('Error generating raster: %s', ME.message), 'Error');
                 rethrow(ME);
             end
 
+            obj.statusBar.Status = sprintf('Done — %d trials', length(obj.triggerInfo.absTime));
+            obj.statusBar.Progress = 1;
             obj.push_GenerateRaster.ForegroundColor = 'k';
         end
     end
@@ -373,10 +403,15 @@ classdef RasterGUI < handle
             arguments
                 obj RasterGUI
             end
+            % Status bar at the very bottom
+            statusBarH = 0.025;
+            statusBarY = 0.002;
+
             % Left control panel
             leftX = 0.005;                          % Left edge of control panel
             leftW = 0.250;                          % Width of control panel
-            buttonY = 0.02;                         % Y position of Generate/Hold buttons
+            bottomY = statusBarY + statusBarH + 0.005; % Content starts above status bar
+            buttonY = bottomY;                      % Y position of Generate/Hold buttons
             buttonH = 0.08;                         % Height of Generate/Hold buttons
             tabGroupY = buttonY + buttonH + 0.01;   % Tab group starts above buttons
             tabGroupH = 0.97 - tabGroupY;           % Tab group fills to top
@@ -384,7 +419,7 @@ classdef RasterGUI < handle
             % Axes panel (contains raster, PSTH, and histogram axes)
             axesPanelX = leftX + leftW + 0.005;
             axesPanelW = 1 - axesPanelX - 0.005;
-            axesPanelY = 0.005;
+            axesPanelY = bottomY;
             axesPanelH = 0.99;
 
             % Axes positions relative to the panel
@@ -441,6 +476,9 @@ classdef RasterGUI < handle
             % --- Figure ---
             obj.figure_Main.Units = 'normalized';
             obj.figure_Main.Position = [0.025, 0.05, 0.95, 0.9];
+            % --- Status bar ---
+            obj.statusBar.Units = 'normalized';
+            obj.statusBar.Position = [0, statusBarY, 1, statusBarH];
             % --- Axes panel ---
             obj.panel_Axes.Units = 'normalized';
             obj.panel_Axes.Position = [axesPanelX, axesPanelY, axesPanelW, axesPanelH];
@@ -629,6 +667,10 @@ classdef RasterGUI < handle
                 'MenuBar', 'none', ...
                 'Visible', 'off', ...
                 'CloseRequestFcn', @(~,~) obj.hide());
+
+            % --- Status bar ---
+            obj.statusBar = StatusBar(obj.figure_Main);
+            obj.statusBar.Status = 'Ready';
 
             % --- Axes panel ---
             obj.panel_Axes = uipanel(obj.figure_Main, ...
