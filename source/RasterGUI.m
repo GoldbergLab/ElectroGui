@@ -109,6 +109,7 @@ classdef RasterGUI < handle
         push_LoadPreset
         push_SavePreset
         push_DeletePreset
+        push_RefreshPresets
 
         % Export tab
         push_ExportFigure
@@ -666,12 +667,16 @@ classdef RasterGUI < handle
             % --- Presets tab ---
             obj.popup_Presets.Units = 'pixels';
             obj.popup_Presets.Position = [tabMargin, rowY(1), tabFullW, rowH];
+            quarterW = 60;
+            quarterGap = 4;
             obj.push_LoadPreset.Units = 'pixels';
-            obj.push_LoadPreset.Position = [tabMargin, rowY(2), thirdW, rowH];
+            obj.push_LoadPreset.Position = [tabMargin, rowY(2), quarterW, rowH];
             obj.push_SavePreset.Units = 'pixels';
-            obj.push_SavePreset.Position = [tabMargin + thirdW + thirdGap, rowY(2), thirdW, rowH];
+            obj.push_SavePreset.Position = [tabMargin + (quarterW + quarterGap), rowY(2), quarterW, rowH];
             obj.push_DeletePreset.Units = 'pixels';
-            obj.push_DeletePreset.Position = [tabMargin + 2*(thirdW + thirdGap), rowY(2), thirdW, rowH];
+            obj.push_DeletePreset.Position = [tabMargin + 2*(quarterW + quarterGap), rowY(2), quarterW, rowH];
+            obj.push_RefreshPresets.Units = 'pixels';
+            obj.push_RefreshPresets.Position = [tabMargin + 3*(quarterW + quarterGap), rowY(2), quarterW, rowH];
             % --- Export tab ---
             obj.push_ExportFigure.Units = 'pixels';
             obj.push_ExportFigure.Position = [tabMargin, rowY(1), tabFullW, rowH];
@@ -955,6 +960,9 @@ classdef RasterGUI < handle
             obj.push_DeletePreset = uicontrol(presetsTab, 'Style', 'pushbutton', ...
                 'String', 'Delete', 'Enable', 'off', ...
                 'Callback', @(~,~) obj.deletePresetCallback());
+            obj.push_RefreshPresets = uicontrol(presetsTab, 'Style', 'pushbutton', ...
+                'String', 'Refresh', ...
+                'Callback', @(~,~) obj.refreshPresetList());
 
             % --- Export tab ---
             exportTab = uitab(obj.tab_group, 'Title', 'Export');
@@ -1047,6 +1055,7 @@ classdef RasterGUI < handle
             obj.push_LoadPreset.Tooltip = 'Load the selected preset';
             obj.push_SavePreset.Tooltip = 'Save current settings as a new preset';
             obj.push_DeletePreset.Tooltip = 'Delete the selected preset';
+            obj.push_RefreshPresets.Tooltip = 'Rescan the presets folder';
 
             % Export tab
             obj.push_ExportFigure.Tooltip = 'Copy the plots to a new standalone figure';
@@ -1787,6 +1796,7 @@ classdef RasterGUI < handle
                 obj.push_LoadPreset, ...
                 obj.push_SavePreset, ...
                 obj.push_DeletePreset, ...
+                obj.push_RefreshPresets, ...
                 obj.push_ExportFigure, ...
                 obj.push_ExportPNG, ...
                 obj.push_ExportPDF, ...
