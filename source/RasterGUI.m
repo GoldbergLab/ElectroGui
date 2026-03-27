@@ -1690,6 +1690,10 @@ classdef RasterGUI < handle
             vis = onOff{showFilter + 1};
             obj.popup_TrigFilterMode.Visible = vis;
             obj.edit_TrigFilterList.Visible = vis;
+            % Disable text field when mode is "All"
+            trigModes = obj.popup_TrigFilterMode.String;
+            isAll = strcmp(trigModes{obj.popup_TrigFilterMode.Value}, 'All');
+            obj.edit_TrigFilterList.Enable = onOff{~isAll + 1};
         end
         function updateEventOptionsVisibility(obj)
             % Show/hide event filter controls based on the selected type.
@@ -1703,6 +1707,10 @@ classdef RasterGUI < handle
             vis = onOff{showFilter + 1};
             obj.popup_EventFilterMode.Visible = vis;
             obj.edit_EventFilterList.Visible = vis;
+            % Disable text field when mode is "All"
+            eventModes = obj.popup_EventFilterMode.String;
+            isAll = strcmp(eventModes{obj.popup_EventFilterMode.Value}, 'All');
+            obj.edit_EventFilterList.Enable = onOff{~isAll + 1};
         end
         function syncOptionsFromGUI(obj)
             % Read all inline option controls into properties before generating.
