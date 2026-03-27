@@ -3185,7 +3185,7 @@ function timestamp = getFileTime(obj, filenum, forceRead)
         filenum double
         forceRead logical = false
     end
-    if ~obj.isDataLoaded()
+    if ~electro_gui.isDataLoaded(obj.dbase)
         error('No data loaded');
     end
     if ~forceRead && obj.dbase.Time ~= 0
@@ -3223,7 +3223,7 @@ function recordFileTime(obj, fileNum, timestamp, forceUpdate)
     end
 
     % If data is loaded, timestamp is nonzero, save it in dbase.Times
-    if obj.isDataLoaded() && timestamp ~= 0
+    if electro_gui.isDataLoaded(obj.dbase) && timestamp ~= 0
         if obj.dbase.Times(fileNum) == 0 || forceUpdate
             obj.dbase.Times(fileNum) = timestamp;
         end
