@@ -1034,7 +1034,7 @@ classdef RasterGUI < handle
             trialY = 1:numTrials;
 
             % Tick height: each trial spans 1 unit, ticks fill most of it
-            tickHalfHeight = 0.4;
+            tickHalfHeight = obj.PlotTickSize(1) / 2;
             ti = obj.triggerInfo;
 
             % --- Plot trigger boxes (vectorized as a single patch) ---
