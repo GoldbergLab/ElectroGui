@@ -3178,33 +3178,55 @@ function setSelectedEventFunction(obj, axnum, eventFunction)
     obj.popup_Functions(axnum).Value = newIndex;
 end
 
-function updateFileTime(obj, filenum)
+function timestamp = getFileTime(obj, filenum, forceRead)
+    % Get timestamp of filenum (but don't update it in dbase)
     arguments
         obj electro_gui
         filenum double
+        forceRead logical = false
     end
-    filePath = fullfile(obj.dbase.PathName, obj.dbase.SoundFiles(filenum).name);
-    loader = obj.dbase.SoundLoader;
-
-    if obj.settings.EnableFileCaching
-        data = obj.retrieveFileFromCache(filePath, loader);
-        [~, ~, timestamp] = data{:};
+    if ~obj.isDataLoaded()
+        error('No data loaded');
+    end
+    if ~forceRead && obj.dbase.Time ~= 0
+        timestamp = obj.dbase.Time;
     else
-        [~, ~, timestamp] = electro_gui.eg_runPlugin(obj.plugins.loaders, loader, filePath, true);
+        filePath = fullfile(obj.dbase.PathName, obj.dbase.SoundFiles(filenum).name);
+        loader = obj.dbase.SoundLoader;
+    
+        if obj.settings.EnableFileCaching
+            data = obj.retrieveFileFromCache(filePath, loader);
+            [~, ~, timestamp] = data{:};
+        else
+            [~, ~, timestamp] = electro_gui.eg_runPlugin(obj.plugins.loaders, loader, filePath, true);
+        end
     end
+end
+
+function updateFileTime(obj, filenum, forceUpdate)
+    % Get timestamp of filenum and update it in dbase
+    arguments
+        obj electro_gui
+        filenum double
+        forceUpdate logical = false
+    end
+    timestamp = obj.getFileTime(filenum, forceUpdate);
     obj.recordFileTime(filenum, timestamp);
 end
 
-function recordFileTime(obj, fileNum, timestamp)
+function recordFileTime(obj, fileNum, timestamp, forceUpdate)
     arguments
         obj electro_gui
         fileNum double
         timestamp = 0
+        forceUpdate logical = false
     end
 
     % If data is loaded, timestamp is nonzero, save it in dbase.Times
     if obj.isDataLoaded() && timestamp ~= 0
-        obj.dbase.Times(fileNum) = timestamp;
+        if obj.dbase.Times(fileNum) == 0 || forceUpdate
+            obj.dbase.Times(fileNum) = timestamp;
+        end
     end
 end
 
