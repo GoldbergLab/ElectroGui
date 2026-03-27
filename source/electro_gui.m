@@ -3231,6 +3231,92 @@ function recordFileTime(obj, fileNum, timestamp, forceUpdate)
     end
 end
 
+function fileLength = getFileLength(obj, filenum, forceRead)
+    % Get the length (in samples) of the sound file for filenum.
+    % Returns the cached value unless forceRead is true or the cached
+    % value is zero.
+    arguments
+        obj electro_gui
+        filenum double
+        forceRead logical = false
+    end
+    if ~electro_gui.isDataLoaded(obj.dbase)
+        error('No data loaded');
+    end
+    if ~forceRead && obj.dbase.FileLength(filenum) ~= 0
+        fileLength = obj.dbase.FileLength(filenum);
+    else
+        filePath = fullfile(obj.dbase.PathName, obj.dbase.SoundFiles(filenum).name);
+        loader = obj.dbase.SoundLoader;
+        if obj.settings.EnableFileCaching
+            data = obj.retrieveFileFromCache(filePath, loader);
+            [soundData, ~, ~] = data{:};
+        else
+            [soundData, ~, ~] = electro_gui.eg_runPlugin(obj.plugins.loaders, loader, filePath, true);
+        end
+        fileLength = length(soundData);
+    end
+end
+
+function updateFileLength(obj, filenum, forceUpdate)
+    % Get file length and update it in dbase
+    arguments
+        obj electro_gui
+        filenum double
+        forceUpdate logical = false
+    end
+    fileLength = obj.getFileLength(filenum, forceUpdate);
+    obj.recordFileLength(filenum, fileLength, forceUpdate);
+end
+
+function recordFileLength(obj, fileNum, fileLength, forceUpdate)
+    arguments
+        obj electro_gui
+        fileNum double
+        fileLength double = 0
+        forceUpdate logical = false
+    end
+    if electro_gui.isDataLoaded(obj.dbase) && fileLength ~= 0
+        if obj.dbase.FileLength(fileNum) == 0 || forceUpdate
+            obj.dbase.FileLength(fileNum) = fileLength;
+        end
+    end
+end
+
+function updateFileInfo(obj, filenum, forceUpdate)
+    % Update both timestamp and file length for filenum in one call.
+    % More efficient than calling updateFileTime and updateFileLength
+    % separately since both come from the same loader call.
+    arguments
+        obj electro_gui
+        filenum double
+        forceUpdate logical = false
+    end
+    if ~electro_gui.isDataLoaded(obj.dbase)
+        return;
+    end
+    needTime = forceUpdate || obj.dbase.Times(filenum) == 0;
+    needLength = forceUpdate || obj.dbase.FileLength(filenum) == 0;
+    if ~needTime && ~needLength
+        return;
+    end
+    % Load the file once
+    filePath = fullfile(obj.dbase.PathName, obj.dbase.SoundFiles(filenum).name);
+    loader = obj.dbase.SoundLoader;
+    if obj.settings.EnableFileCaching
+        data = obj.retrieveFileFromCache(filePath, loader);
+        [soundData, ~, timestamp] = data{:};
+    else
+        [soundData, ~, timestamp] = electro_gui.eg_runPlugin(obj.plugins.loaders, loader, filePath, true);
+    end
+    if needTime
+        obj.recordFileTime(filenum, timestamp, forceUpdate);
+    end
+    if needLength
+        obj.recordFileLength(filenum, length(soundData), forceUpdate);
+    end
+end
+
 function [channelData, channelSamplingRate, channelLabels, timestamp] = loadChannelData(...
         obj, channelNum, options)
     arguments
