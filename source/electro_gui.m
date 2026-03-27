@@ -4779,10 +4779,7 @@ function SaveCurrentDbase(obj, dbasePath)
 
     electro_gui.SaveDbase(savePath, dbase, settings);
 
-    fprintf('***********************************\n')
-    fprintf('%s - dbase saved!\n', string(datetime()));
-    fprintf('***********************************\n')
-    msgbox('dbase saved!', 'dbase saved', "help", 'modal')
+    electro_gui.notifyDbaseSave(savePath);
 
     obj.settings.DefaultDbaseFilename = savePath;
     obj.addRecentFile(savePath);
@@ -7023,6 +7020,9 @@ function figure_Main_Closerequest_Handler(obj, hObject, event)
     end
     if isfield(obj.ExportWindow, 'fig')
         delete(obj.ExportWindow.fig);
+    end
+    if ~isempty(obj.rasterGUI) && isvalid(obj.rasterGUI)
+        delete(obj.rasterGUI);
     end
     delete(obj.figure_Main);
     delete(obj.figure_Transformer);
@@ -12355,9 +12355,7 @@ end
             else
                 [dbase, settings] = obj.GetDBase(obj.settings.IncludeDocumentation);
                 electro_gui.SaveDbase(obj.CurrentDbasePath, dbase, settings);
-                fprintf('***********************************\n')
-                fprintf('%s - dbase saved to %s\n', string(datetime()), obj.CurrentDbasePath);
-                fprintf('***********************************\n')
+                electro_gui.notifyDbaseSave(savePath);
             end
         end
         function file_Save_Callback(obj, hObject, eventdata)
@@ -13839,6 +13837,13 @@ end
         end
     end
     methods (Static)   % dbase manipulation methods
+        function notifyDbaseSave(path)
+            fprintf('***********************************\n')
+            fprintf('%s - dbase saved to %s!\n', string(datetime()), path);
+            fprintf('***********************************\n')
+            msgbox(sprintf('dbase saved as %s', path), 'dbase saved', "help", 'modal')
+
+        end
         function style = getGUIStyle(lightOrDark)
             arguments
                 lightOrDark {mustBeMember(lightOrDark, {'light', 'dark'})} = 'light'
