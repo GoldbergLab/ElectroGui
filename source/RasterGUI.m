@@ -86,6 +86,7 @@ classdef RasterGUI < handle
         edit_FileRange
 
         % Plot inline edits
+        check_AutoXLim
         edit_XMin
         edit_XMax
         edit_TickHeight
@@ -612,30 +613,32 @@ classdef RasterGUI < handle
             obj.popup_PSTHCount.Units = 'pixels';
             obj.popup_PSTHCount.Position = [popupAfterLabelX, rowY(2), popupAfterLabelW, rowH];
             % --- Plot tab ---
+            obj.check_AutoXLim.Units = 'pixels';
+            obj.check_AutoXLim.Position = [tabMargin, rowY(1), tabFullW, rowH];
             obj.text_XMin.Units = 'pixels';
-            obj.text_XMin.Position = [tabMargin, rowY(1), plotLabelW, rowH];
+            obj.text_XMin.Position = [tabMargin, rowY(2), plotLabelW, rowH];
             obj.edit_XMin.Units = 'pixels';
-            obj.edit_XMin.Position = [tabMargin + plotLabelW + 2, rowY(1), plotEditW, rowH];
+            obj.edit_XMin.Position = [tabMargin + plotLabelW + 2, rowY(2), plotEditW, rowH];
             obj.text_XMax.Units = 'pixels';
-            obj.text_XMax.Position = [col2X, rowY(1), plotLabelW, rowH];
+            obj.text_XMax.Position = [col2X, rowY(2), plotLabelW, rowH];
             obj.edit_XMax.Units = 'pixels';
-            obj.edit_XMax.Position = [col2X + plotLabelW + 2, rowY(1), plotEditW, rowH];
+            obj.edit_XMax.Position = [col2X + plotLabelW + 2, rowY(2), plotEditW, rowH];
             obj.text_TickHeight.Units = 'pixels';
-            obj.text_TickHeight.Position = [tabMargin, rowY(2), plotLabelW, rowH];
+            obj.text_TickHeight.Position = [tabMargin, rowY(3), plotLabelW, rowH];
             obj.edit_TickHeight.Units = 'pixels';
-            obj.edit_TickHeight.Position = [tabMargin + plotLabelW + 2, rowY(2), plotEditW, rowH];
+            obj.edit_TickHeight.Position = [tabMargin + plotLabelW + 2, rowY(3), plotEditW, rowH];
             obj.text_BinSize.Units = 'pixels';
-            obj.text_BinSize.Position = [col2X, rowY(2), plotLabelW, rowH];
+            obj.text_BinSize.Position = [col2X, rowY(3), plotLabelW, rowH];
             obj.edit_BinSize.Units = 'pixels';
-            obj.edit_BinSize.Position = [col2X + plotLabelW + 2, rowY(2), plotEditW, rowH];
+            obj.edit_BinSize.Position = [col2X + plotLabelW + 2, rowY(3), plotEditW, rowH];
             obj.text_TickLineWidth.Units = 'pixels';
-            obj.text_TickLineWidth.Position = [tabMargin, rowY(3), plotLabelW, rowH];
+            obj.text_TickLineWidth.Position = [tabMargin, rowY(4), plotLabelW, rowH];
             obj.edit_TickLineWidth.Units = 'pixels';
-            obj.edit_TickLineWidth.Position = [tabMargin + plotLabelW + 2, rowY(3), plotEditW, rowH];
+            obj.edit_TickLineWidth.Position = [tabMargin + plotLabelW + 2, rowY(4), plotEditW, rowH];
             obj.text_Overlap.Units = 'pixels';
-            obj.text_Overlap.Position = [col2X, rowY(3), plotLabelW, rowH];
+            obj.text_Overlap.Position = [col2X, rowY(4), plotLabelW, rowH];
             obj.edit_Overlap.Units = 'pixels';
-            obj.edit_Overlap.Position = [col2X + plotLabelW + 2, rowY(3), plotEditW, rowH];
+            obj.edit_Overlap.Position = [col2X + plotLabelW + 2, rowY(4), plotEditW, rowH];
             % --- Presets tab ---
             obj.popup_Presets.Units = 'pixels';
             obj.popup_Presets.Position = [tabMargin, rowY(1), tabFullW, rowH];
@@ -856,18 +859,25 @@ classdef RasterGUI < handle
             % --- Plot tab ---
             plotTab = uitab(obj.tab_group, 'Title', 'Plot');
 
+            obj.check_AutoXLim = uicontrol(plotTab, 'Style', 'checkbox', ...
+                'String', 'Auto X limits', 'Value', 1, ...
+                'Callback', @(~,~) obj.autoXLimChanged());
             obj.text_XMin = uicontrol(plotTab, 'Style', 'text', ...
                 'String', 'X min (s):', ...
                 'Tag', 'text_XMin', ...
                 'HorizontalAlignment', 'right');
             obj.edit_XMin = uicontrol(plotTab, 'Style', 'edit', ...
-                'String', num2str(obj.PlotXLim(1)));
+                'String', num2str(obj.PlotXLim(1)), ...
+                'Enable', 'off', ...
+                'Callback', @(~,~) obj.xLimChanged());
             obj.text_XMax = uicontrol(plotTab, 'Style', 'text', ...
                 'String', 'X max (s):', ...
                 'Tag', 'text_XMax', ...
                 'HorizontalAlignment', 'right');
             obj.edit_XMax = uicontrol(plotTab, 'Style', 'edit', ...
-                'String', num2str(obj.PlotXLim(2)));
+                'String', num2str(obj.PlotXLim(2)), ...
+                'Enable', 'off', ...
+                'Callback', @(~,~) obj.xLimChanged());
 
             obj.text_TickHeight = uicontrol(plotTab, 'Style', 'text', ...
                 'String', 'Tick height:', ...
@@ -1041,12 +1051,24 @@ classdef RasterGUI < handle
             % --- Axes formatting ---
             ax.YDir = 'reverse';
             ax.YLim = [0.5, numTrials + 0.5];
-            ax.XLim = obj.PlotXLim;
+            if obj.check_AutoXLim.Value
+                ax.XLimMode = 'auto';
+            else
+                ax.XLim = obj.PlotXLim;
+            end
             ax.YLabel.String = 'Trial';
             ax.XLabel.String = 'Time (s)';
             ax.Box = 'on';
             title(ax, sprintf('%d trials', numTrials));
             hold(ax, 'off');
+
+            % If auto, update PlotXLim and edit boxes from the auto result
+            if obj.check_AutoXLim.Value
+                drawnow;
+                obj.PlotXLim = ax.XLim;
+                obj.edit_XMin.String = num2str(obj.PlotXLim(1), '%.3f');
+                obj.edit_XMax.String = num2str(obj.PlotXLim(2), '%.3f');
+            end
         end
 
         function plotPSTH(obj)
@@ -1117,7 +1139,11 @@ classdef RasterGUI < handle
                 'PickableParts', 'none', 'HitTest', 'off');
 
             % Formatting
-            ax.XLim = obj.PlotXLim;
+            if obj.check_AutoXLim.Value
+                ax.XLimMode = 'auto';
+            else
+                ax.XLim = obj.PlotXLim;
+            end
             ax.YLabel.String = yLabel;
             ax.XLabel.String = 'Time (s)';
             ax.Box = 'on';
@@ -1633,6 +1659,7 @@ classdef RasterGUI < handle
                 obj.push_Open, ...
                 obj.popup_PSTHUnits, ...
                 obj.popup_PSTHCount, ...
+                obj.check_AutoXLim, ...
                 obj.edit_XMin, ...
                 obj.edit_XMax, ...
                 obj.edit_TickHeight, ...
@@ -1689,6 +1716,12 @@ classdef RasterGUI < handle
                 obj.popup_Presets.Enable = 'off';
                 obj.push_LoadPreset.Enable = 'off';
                 obj.push_DeletePreset.Enable = 'off';
+            end
+
+            % X limit edits: disabled when auto is on
+            if obj.check_AutoXLim.Value
+                obj.edit_XMin.Enable = 'off';
+                obj.edit_XMax.Enable = 'off';
             end
         end
     end
@@ -1770,6 +1803,48 @@ classdef RasterGUI < handle
             obj.PlotTickSize(3) = str2double(obj.edit_TickLineWidth.String);
             obj.PSTHBinSize = str2double(obj.edit_BinSize.String);
             obj.PlotOverlap = str2double(obj.edit_Overlap.String);
+        end
+        function autoXLimChanged(obj)
+            % Called when the Auto X limits checkbox changes.
+            arguments
+                obj RasterGUI
+            end
+            obj.updateControlStates();
+            obj.applyXLim();
+        end
+        function xLimChanged(obj)
+            % Called when the X min or X max edit box changes.
+            arguments
+                obj RasterGUI
+            end
+            obj.syncOptionsFromGUI();
+            obj.applyXLim();
+        end
+        function applyXLim(obj)
+            % Apply X limits to all axes based on auto/manual mode.
+            arguments
+                obj RasterGUI
+            end
+            if isempty(fieldnames(obj.triggerInfo))
+                return;
+            end
+            if obj.check_AutoXLim.Value
+                obj.axes_Raster.XLimMode = 'auto';
+                obj.axes_PSTH.XLimMode = 'auto';
+                % Update the edit boxes to show the auto-computed limits
+                drawnow;
+                obj.PlotXLim = obj.axes_Raster.XLim;
+                obj.edit_XMin.String = num2str(obj.PlotXLim(1), '%.3f');
+                obj.edit_XMax.String = num2str(obj.PlotXLim(2), '%.3f');
+            else
+                obj.axes_Raster.XLimMode = 'manual';
+                obj.axes_Raster.XLim = obj.PlotXLim;
+                obj.axes_PSTH.XLimMode = 'manual';
+                obj.axes_PSTH.XLim = obj.PlotXLim;
+            end
+            % Replot PSTH and histogram since their bin range depends on X limits
+            obj.plotPSTH();
+            obj.plotHist();
         end
         function windowSettingChanged(obj)
             % Called when a Window tab setting changes. Clears cache
