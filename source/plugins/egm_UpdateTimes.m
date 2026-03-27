@@ -1,6 +1,6 @@
 function egm_UpdateTimes(obj)
 % ElectroGui macro
-% Update the timestamp for every file in the dbase by loading each file's
+% Update the timestamp for files in the dbase by loading each file's
 % time information. Useful for populating timestamps after creating a new
 % dbase or after adding files.
 arguments
@@ -14,16 +14,28 @@ if numFiles == 0
     return;
 end
 
+answer = inputdlg( ...
+    {'File range', 'Update existing timestamps? (yes/no)'}, ...
+    'Update Times', 1, ...
+    {['1:', num2str(numFiles)], 'no'});
+if isempty(answer)
+    return;
+end
+
+filenums = eval(answer{1}); %#ok<EVLC>
+forceUpdate = strcmpi(strtrim(answer{2}), 'yes');
+
 progressBar = waitbar(0, 'Updating file timestamps...');
 
-for filenum = 1:numFiles
+for fileIdx = 1:length(filenums)
+    filenum = filenums(fileIdx);
     if ~isvalid(progressBar)
         return;
     end
-    waitbar(filenum / numFiles, progressBar, ...
-        sprintf('Updating file %d of %d...', filenum, numFiles));
-    obj.updateFileTime(filenum, true);
+    waitbar(fileIdx / length(filenums), progressBar, ...
+        sprintf('Updating file %d of %d (file #%d)...', fileIdx, length(filenums), filenum));
+    obj.updateFileTime(filenum, forceUpdate);
 end
 
 delete(progressBar);
-msgbox(sprintf('Updated timestamps for %d files.', numFiles));
+msgbox(sprintf('Updated timestamps for %d files.', length(filenums)));
