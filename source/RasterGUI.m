@@ -441,14 +441,15 @@ classdef RasterGUI < handle
 
             % Axes positions relative to the panel
             axesMargin = 0.035;
+            rightMargin = 0.02;
             rasterX = 0.08;                       % Left edge within panel
             rasterY = 0.35;                       % Raster bottom within panel
             rasterH = 0.58;                       % Raster height
             psthY = 0.10;                         % PSTH bottom within panel
             psthH = rasterY - psthY - axesMargin; % PSTH fills gap below raster
-            axesW = 0.58;                         % Width of raster and PSTH
-            histX = rasterX + axesW + axesMargin; % Histogram x within panel
-            histW = 0.14;                         % Histogram width
+            histW = 0.12;                         % Histogram width
+            histX = 1 - rightMargin - histW;      % Histogram flush to right
+            axesW = histX - rasterX - axesMargin; % Raster/PSTH fill remaining space
 
             % Tab content layout in pixels (controls stay compact regardless
             % of window size; tab group itself uses normalized units)
