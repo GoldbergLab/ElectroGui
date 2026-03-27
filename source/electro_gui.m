@@ -243,6 +243,7 @@ classdef electro_gui < handle
         file_New
         file_New_RHD
         file_Open
+        file_SaveQuick
         file_Save
         menu_AlterFileList
         menu_ChangeFiles
@@ -8576,10 +8577,16 @@ function setupGUI(obj)
         'Label','<None>',...
         'Tag','openRecent_None');
 
+    obj.file_SaveQuick = uimenu(...
+        'Parent',obj.menu_File,...
+        'Callback',@obj.file_SaveQuick_Callback,...
+        'Label','Save',...
+        'Accelerator','s',...
+        'Tag','file_SaveQuick');
     obj.file_Save = uimenu(...
         'Parent',obj.menu_File,...
         'Callback',@obj.file_Save_Callback,...
-        'Label','Save...',...
+        'Label','Save as...',...
         'Tag','file_Save');
 
     % obj.menu_AlterFileList
@@ -12339,6 +12346,19 @@ end
         end
         function file_Open_Callback(obj, hObject, eventdata)
             obj.OpenDbase();
+        end
+        function file_SaveQuick_Callback(obj, ~, ~)
+            % Save directly to the current dbase path without prompting.
+            % If no path is known, fall back to Save as.
+            if isempty(obj.CurrentDbasePath)
+                obj.SaveCurrentDbase();
+            else
+                [dbase, settings] = obj.GetDBase(obj.settings.IncludeDocumentation);
+                electro_gui.SaveDbase(obj.CurrentDbasePath, dbase, settings);
+                fprintf('***********************************\n')
+                fprintf('%s - dbase saved to %s\n', string(datetime()), obj.CurrentDbasePath);
+                fprintf('***********************************\n')
+            end
         end
         function file_Save_Callback(obj, hObject, eventdata)
             obj.SaveCurrentDbase();
