@@ -147,7 +147,8 @@ classdef RasterGUI < handle
     %% Properties - state
     properties (Access = private)
         % Data
-        triggerInfo struct = struct()  % Output of trigger alignment
+        triggerInfo struct = struct()       % Sorted trigger info (used for plotting)
+        preSortTriggerInfo struct = struct() % Cached alignment output before sorting
         AllEventOnsets cell = {}
         AllEventOffsets cell = {}
         AllEventLabels cell = {}
@@ -311,6 +312,9 @@ classdef RasterGUI < handle
                     return;
                 end
 
+                % Cache the pre-sort alignment data
+                obj.preSortTriggerInfo = ti;
+
                 % --- Step 4: Sort triggers ---
                 obj.statusBar.Status = sprintf('Sorting %d triggers...', length(ti.absTime));
                 obj.statusBar.Progress = 0.6;
@@ -320,25 +324,16 @@ classdef RasterGUI < handle
                 descending = obj.radio_Descending.Value;
                 groupLabels = obj.check_GroupLabels.Value;
 
-                if ~strcmp(primarySortType, '(None)')
-                    ti = RasterGUI.sortTriggers(ti, primarySortType, descending, ...
-                        obj.P.event.includeSyllList, groupLabels);
-                end
-
-                % Secondary sort (applied first so primary sort is dominant)
+                % Apply secondary sort first (so primary is dominant)
                 secondarySortStrs = obj.popup_SecondarySort.String;
                 secondarySortType = secondarySortStrs{obj.popup_SecondarySort.Value};
                 if ~strcmp(secondarySortType, '(None)')
-                    % Re-sort: secondary first, then primary
-                    [event.on, event.off, event.info, ~] = obj.getEventStructure( ...
-                        eventSourceIdx, eventTypeStr, obj.P.event);
-                    ti = obj.alignEventsToTriggers(trig, event);
                     ti = RasterGUI.sortTriggers(ti, secondarySortType, descending, ...
                         obj.P.event.includeSyllList, false);
-                    if ~strcmp(primarySortType, '(None)')
-                        ti = RasterGUI.sortTriggers(ti, primarySortType, descending, ...
-                            obj.P.event.includeSyllList, groupLabels);
-                    end
+                end
+                if ~strcmp(primarySortType, '(None)')
+                    ti = RasterGUI.sortTriggers(ti, primarySortType, descending, ...
+                        obj.P.event.includeSyllList, groupLabels);
                 end
 
                 obj.triggerInfo = ti;
@@ -692,14 +687,15 @@ classdef RasterGUI < handle
             % --- Trigger tab ---
             trigTab = uitab(obj.tab_group, 'Title', 'Trigger');
             obj.popup_TriggerSource = uicontrol(trigTab, 'Style', 'popupmenu', ...
-                'String', {'Sound'});
+                'String', {'Sound'}, ...
+                'Callback', @(~,~) obj.clearCache());
             obj.text__TriggerType = uicontrol(trigTab, 'Style', 'text', ...
                 'String', 'Type:', ...
                 'Tag', 'text__TriggerType', ...
                 'HorizontalAlignment', 'right');
             obj.popup_TriggerType = uicontrol(trigTab, 'Style', 'popupmenu', ...
                 'String', {'Syllables', 'Markers', 'Motifs', 'Bouts'}, ...
-                'Callback', @(~,~) obj.updateControlStates());
+                'Callback', @(~,~) obj.upstreamSettingChanged());
             obj.text_TriggerAlignment = uicontrol(trigTab, 'Style', 'text', ...
                 'String', 'Align:', ...
                 'Tag', 'text_TriggerAlignment', ...
@@ -726,14 +722,15 @@ classdef RasterGUI < handle
             % --- Events tab ---
             eventTab = uitab(obj.tab_group, 'Title', 'Events');
             obj.popup_EventSource = uicontrol(eventTab, 'Style', 'popupmenu', ...
-                'String', {'Sound'});
+                'String', {'Sound'}, ...
+                'Callback', @(~,~) obj.upstreamSettingChanged());
             obj.text_EventType = uicontrol(eventTab, 'Style', 'text', ...
                 'String', 'Type:', ...
                 'Tag', 'text_EventType', ...
                 'HorizontalAlignment', 'right');
             obj.popup_EventType = uicontrol(eventTab, 'Style', 'popupmenu', ...
                 'String', {'Syllables', 'Markers', 'Events', 'Bursts', 'Continuous'}, ...
-                'Callback', @(~,~) obj.updateControlStates());
+                'Callback', @(~,~) obj.upstreamSettingChanged());
             obj.check_CopyTrigger = uicontrol(eventTab, 'Style', 'checkbox', ...
                 'String', 'Copy trigger to events');
             % Inline event options (visible depending on type)
@@ -758,13 +755,15 @@ classdef RasterGUI < handle
                 'Tag', 'text_StartReference', ...
                 'HorizontalAlignment', 'right');
             obj.popup_StartReference = uicontrol(windowTab, 'Style', 'popupmenu', ...
-                'String', {'Trigger onset', 'Trigger offset', 'Prev trigger onset', 'Prev trigger offset'});
+                'String', {'Trigger onset', 'Trigger offset', 'Prev trigger onset', 'Prev trigger offset'}, ...
+                'Callback', @(~,~) obj.clearCache());
             obj.text_StopReference = uicontrol(windowTab, 'Style', 'text', ...
                 'String', 'Stop:', ...
                 'Tag', 'text_StopReference', ...
                 'HorizontalAlignment', 'right');
             obj.popup_StopReference = uicontrol(windowTab, 'Style', 'popupmenu', ...
-                'String', {'Trigger onset', 'Trigger offset', 'Next trigger onset', 'Next trigger offset'});
+                'String', {'Trigger onset', 'Trigger offset', 'Next trigger onset', 'Next trigger offset'}, ...
+                'Callback', @(~,~) obj.clearCache());
             obj.text_PreStart = uicontrol(windowTab, 'Style', 'text', ...
                 'String', 'Pre (s):', ...
                 'Tag', 'text_PreStart', ...
@@ -791,26 +790,30 @@ classdef RasterGUI < handle
                 'Tag', 'text_PrimarySort', ...
                 'HorizontalAlignment', 'right');
             obj.popup_PrimarySort = uicontrol(sortTab, 'Style', 'popupmenu', ...
-                'String', obj.getSortOptions());
+                'String', obj.getSortOptions(), ...
+                'Callback', @(~,~) obj.sortSettingChanged());
             obj.text_SecondarySort = uicontrol(sortTab, 'Style', 'text', ...
                 'String', 'Secondary:', ...
                 'Tag', 'text_SecondarySort', ...
                 'HorizontalAlignment', 'right');
             obj.popup_SecondarySort = uicontrol(sortTab, 'Style', 'popupmenu', ...
-                'String', obj.getSortOptions());
+                'String', obj.getSortOptions(), ...
+                'Callback', @(~,~) obj.sortSettingChanged());
             obj.radio_Ascending = uicontrol(sortTab, 'Style', 'radiobutton', ...
                 'String', 'Ascending', 'Value', 1, ...
-                'Callback', @(~,~) set(obj.radio_Descending, 'Value', 0));
+                'Callback', @(~,~) obj.ascendingClicked());
             obj.radio_Descending = uicontrol(sortTab, 'Style', 'radiobutton', ...
                 'String', 'Descending', 'Value', 0, ...
-                'Callback', @(~,~) set(obj.radio_Ascending, 'Value', 0));
+                'Callback', @(~,~) obj.descendingClicked());
             obj.check_GroupLabels = uicontrol(sortTab, 'Style', 'checkbox', ...
-                'String', 'Group by label');
+                'String', 'Group by label', ...
+                'Callback', @(~,~) obj.sortSettingChanged());
 
             % --- Files tab ---
             filesTab = uitab(obj.tab_group, 'Title', 'Files');
             obj.popup_Files = uicontrol(filesTab, 'Style', 'popupmenu', ...
-                'String', {'All files in range', 'Only selected by search', 'Only unselected'});
+                'String', {'All files in range', 'Only selected by search', 'Only unselected'}, ...
+                'Callback', @(~,~) obj.clearCache());
             obj.text_FileRange = uicontrol(filesTab, 'Style', 'text', ...
                 'String', 'Range:', ...
                 'Tag', 'text_FileRange', ...
@@ -1491,6 +1494,77 @@ classdef RasterGUI < handle
         end
     end
 
+    %% Cache management
+    methods (Access = private)
+        function clearCache(obj)
+            % Clear the pre-sort trigger info cache. Called when any
+            % upstream setting changes (trigger/event source/type, window,
+            % file range, include/ignore lists).
+            arguments
+                obj RasterGUI
+            end
+            obj.preSortTriggerInfo = struct();
+        end
+
+        function hasCache = hasCachedData(obj)
+            % Check if a valid pre-sort cache exists.
+            arguments
+                obj RasterGUI
+            end
+            hasCache = ~isempty(fieldnames(obj.preSortTriggerInfo));
+        end
+
+        function resortAndPlot(obj)
+            % Re-sort and re-plot from cached alignment data without
+            % re-extracting triggers/events. No-op if cache is empty.
+            arguments
+                obj RasterGUI
+            end
+            if ~obj.hasCachedData()
+                return;
+            end
+
+            obj.statusBar.Status = 'Re-sorting...';
+            obj.statusBar.Progress = 0.3;
+            drawnow;
+
+            % Start from the cached pre-sort data
+            ti = obj.preSortTriggerInfo;
+
+            % Apply sort
+            obj.syncOptionsFromGUI();
+            primarySortStrs = obj.popup_PrimarySort.String;
+            primarySortType = primarySortStrs{obj.popup_PrimarySort.Value};
+            descending = obj.radio_Descending.Value;
+            groupLabels = obj.check_GroupLabels.Value;
+
+            secondarySortStrs = obj.popup_SecondarySort.String;
+            secondarySortType = secondarySortStrs{obj.popup_SecondarySort.Value};
+
+            % Secondary sort first (so primary is dominant)
+            if ~strcmp(secondarySortType, '(None)')
+                ti = RasterGUI.sortTriggers(ti, secondarySortType, descending, ...
+                    obj.P.event.includeSyllList, false);
+            end
+            if ~strcmp(primarySortType, '(None)')
+                ti = RasterGUI.sortTriggers(ti, primarySortType, descending, ...
+                    obj.P.event.includeSyllList, groupLabels);
+            end
+
+            obj.triggerInfo = ti;
+
+            obj.statusBar.Status = 'Plotting...';
+            obj.statusBar.Progress = 0.7;
+            drawnow;
+            obj.plotRaster();
+            obj.plotPSTH();
+            obj.plotHist();
+
+            obj.statusBar.Status = sprintf('Re-sorted — %d trials', length(ti.absTime));
+            obj.statusBar.Progress = 1;
+        end
+    end
+
     %% Widget enable/disable management
     methods (Access = private)
         function controls = getAllInteractiveControls(obj)
@@ -1658,6 +1732,41 @@ classdef RasterGUI < handle
             obj.PlotTickSize(3) = str2double(obj.edit_TickLineWidth.String);
             obj.PSTHBinSize = str2double(obj.edit_BinSize.String);
             obj.PlotOverlap = str2double(obj.edit_Overlap.String);
+        end
+        function upstreamSettingChanged(obj)
+            % Called when any upstream setting changes (trigger/event
+            % source/type, window, file range, include/ignore lists).
+            % Clears the cache and updates control states.
+            arguments
+                obj RasterGUI
+            end
+            obj.clearCache();
+            obj.updateControlStates();
+        end
+        function ascendingClicked(obj)
+            arguments
+                obj RasterGUI
+            end
+            obj.radio_Descending.Value = 0;
+            obj.radio_Ascending.Value = 1;
+            obj.sortSettingChanged();
+        end
+        function descendingClicked(obj)
+            arguments
+                obj RasterGUI
+            end
+            obj.radio_Ascending.Value = 0;
+            obj.radio_Descending.Value = 1;
+            obj.sortSettingChanged();
+        end
+        function sortSettingChanged(obj)
+            % Called when a sort-only setting changes (primary/secondary
+            % sort, ascending/descending, group labels). Re-sorts from
+            % cache if available.
+            arguments
+                obj RasterGUI
+            end
+            obj.resortAndPlot();
         end
         function openCallback(obj) %#ok<MANU>
             % TODO: Port open dbase functionality
