@@ -440,16 +440,15 @@ classdef RasterGUI < handle
             axesPanelH = 0.99;
 
             % Axes positions relative to the panel
-            axesMargin = 0.035;
             rightMargin = 0.02;
             rasterX = 0.08;                       % Left edge within panel
-            rasterY = 0.35;                       % Raster bottom within panel
-            rasterH = 0.58;                       % Raster height
+            rasterY = 0.30;                       % Raster bottom within panel
+            rasterH = 0.63;                       % Raster height
             psthY = 0.10;                         % PSTH bottom within panel
-            psthH = rasterY - psthY - axesMargin; % PSTH fills gap below raster
+            psthH = rasterY - psthY;              % PSTH butts up to raster bottom
             histW = 0.12;                         % Histogram width
             histX = 1 - rightMargin - histW;      % Histogram flush to right
-            axesW = histX - rasterX - axesMargin; % Raster/PSTH fill remaining space
+            axesW = histX - rasterX;              % Raster/PSTH butt up to histogram
 
             % Tab content layout in pixels (controls stay compact regardless
             % of window size; tab group itself uses normalized units)
@@ -1095,7 +1094,8 @@ classdef RasterGUI < handle
                 ax.XLim = obj.PlotXLim;
             end
             ax.YLabel.String = 'Trial';
-            ax.XLabel.String = 'Time (s)';
+            ax.XLabel.String = '';
+            ax.XTickLabel = {};
             ax.Box = 'on';
             title(ax, sprintf('%d trials', numTrials));
             hold(ax, 'off');
