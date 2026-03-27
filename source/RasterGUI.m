@@ -92,16 +92,12 @@ classdef RasterGUI < handle
         edit_Overlap
 
         % Trigger options (inline in tab)
-        edit_TrigIncludeList
-        edit_TrigIgnoreList
-        text_TrigIncludeLabel
-        text_TrigIgnoreLabel
+        popup_TrigFilterMode    % 'All', 'Include', 'Exclude'
+        edit_TrigFilterList
 
         % Event options (inline in tab)
-        edit_EventIncludeList
-        edit_EventIgnoreList
-        text_EventIncludeLabel
-        text_EventIgnoreLabel
+        popup_EventFilterMode   % 'All', 'Include', 'Exclude'
+        edit_EventFilterList
 
         % Presets tab
         popup_Presets
@@ -277,6 +273,24 @@ classdef RasterGUI < handle
             obj.syncOptionsFromGUI();
 
             try
+                % Validate filter settings
+                if strcmp(obj.P.trig.filterMode, 'Include') && isempty(obj.P.trig.filterList)
+                    obj.statusBar.Status = 'Error: Include mode requires labels';
+                    obj.statusBar.Progress = [];
+                    obj.updateControlStates();
+                    obj.push_GenerateRaster.ForegroundColor = 'k';
+                    warndlg('Trigger filter is set to "Include" but no labels are specified.', 'Empty include list');
+                    return;
+                end
+                if strcmp(obj.P.event.filterMode, 'Include') && isempty(obj.P.event.filterList)
+                    obj.statusBar.Status = 'Error: Include mode requires labels';
+                    obj.statusBar.Progress = [];
+                    obj.updateControlStates();
+                    obj.push_GenerateRaster.ForegroundColor = 'k';
+                    warndlg('Event filter is set to "Include" but no labels are specified.', 'Empty include list');
+                    return;
+                end
+
                 % --- Step 1: Get trigger times ---
                 obj.statusBar.Status = 'Extracting triggers...';
                 obj.statusBar.Progress = 0.1;
@@ -329,11 +343,11 @@ classdef RasterGUI < handle
                 secondarySortType = secondarySortStrs{obj.popup_SecondarySort.Value};
                 if ~strcmp(secondarySortType, '(None)')
                     ti = RasterGUI.sortTriggers(ti, secondarySortType, descending, ...
-                        obj.P.event.includeSyllList, false);
+                        obj.P.event.filterList, false);
                 end
                 if ~strcmp(primarySortType, '(None)')
                     ti = RasterGUI.sortTriggers(ti, primarySortType, descending, ...
-                        obj.P.event.includeSyllList, groupLabels);
+                        obj.P.event.filterList, groupLabels);
                 end
 
                 obj.triggerInfo = ti;
@@ -373,8 +387,8 @@ classdef RasterGUI < handle
             arguments
                 obj RasterGUI
             end
-            obj.P.trig.includeSyllList = '';
-            obj.P.trig.ignoreSyllList = '';
+            obj.P.trig.filterMode = 'All';   % 'All', 'Include', or 'Exclude'
+            obj.P.trig.filterList = '';
             obj.P.trig.motifSequences = {};
             obj.P.trig.motifInterval = 0.2;
             obj.P.trig.boutInterval = 0.5;
@@ -515,15 +529,14 @@ classdef RasterGUI < handle
             obj.popup_TriggerAlignment.Position = [popupAfterLabelX, rowY(3), popupAfterLabelW, rowH];
             obj.check_CopyEvents.Units = 'pixels';
             obj.check_CopyEvents.Position = [tabMargin, rowY(4), tabFullW, rowH];
-            % Inline trigger options (visible depending on type)
-            obj.text_TrigIncludeLabel.Units = 'pixels';
-            obj.text_TrigIncludeLabel.Position = [tabMargin, rowY(5), labelW, rowH];
-            obj.edit_TrigIncludeList.Units = 'pixels';
-            obj.edit_TrigIncludeList.Position = [popupAfterLabelX, rowY(5), fullW - popupAfterLabelX, rowH];
-            obj.text_TrigIgnoreLabel.Units = 'pixels';
-            obj.text_TrigIgnoreLabel.Position = [tabMargin, rowY(6), labelW, rowH];
-            obj.edit_TrigIgnoreList.Units = 'pixels';
-            obj.edit_TrigIgnoreList.Position = [popupAfterLabelX, rowY(6), fullW - popupAfterLabelX, rowH];
+            % Inline trigger filter (visible depending on type)
+            filterModeW = 70;
+            filterListX = tabMargin + filterModeW + 4;
+            filterListW = fullW - filterListX;
+            obj.popup_TrigFilterMode.Units = 'pixels';
+            obj.popup_TrigFilterMode.Position = [tabMargin, rowY(5), filterModeW, rowH];
+            obj.edit_TrigFilterList.Units = 'pixels';
+            obj.edit_TrigFilterList.Position = [filterListX, rowY(5), filterListW, rowH];
             % --- Events tab ---
             obj.popup_EventSource.Units = 'pixels';
             obj.popup_EventSource.Position = [tabMargin, rowY(1), tabFullW, rowH];
@@ -533,15 +546,11 @@ classdef RasterGUI < handle
             obj.popup_EventType.Position = [popupAfterLabelX, rowY(2), popupAfterLabelW, rowH];
             obj.check_CopyTrigger.Units = 'pixels';
             obj.check_CopyTrigger.Position = [tabMargin, rowY(3), tabFullW, rowH];
-            % Inline event options (visible depending on type)
-            obj.text_EventIncludeLabel.Units = 'pixels';
-            obj.text_EventIncludeLabel.Position = [tabMargin, rowY(4), labelW, rowH];
-            obj.edit_EventIncludeList.Units = 'pixels';
-            obj.edit_EventIncludeList.Position = [popupAfterLabelX, rowY(4), fullW - popupAfterLabelX, rowH];
-            obj.text_EventIgnoreLabel.Units = 'pixels';
-            obj.text_EventIgnoreLabel.Position = [tabMargin, rowY(5), labelW, rowH];
-            obj.edit_EventIgnoreList.Units = 'pixels';
-            obj.edit_EventIgnoreList.Position = [popupAfterLabelX, rowY(5), fullW - popupAfterLabelX, rowH];
+            % Inline event filter (visible depending on type)
+            obj.popup_EventFilterMode.Units = 'pixels';
+            obj.popup_EventFilterMode.Position = [tabMargin, rowY(4), filterModeW, rowH];
+            obj.edit_EventFilterList.Units = 'pixels';
+            obj.edit_EventFilterList.Position = [filterListX, rowY(4), filterListW, rowH];
             % --- Window tab ---
             obj.text_StartReference.Units = 'pixels';
             obj.text_StartReference.Position = [tabMargin, rowY(1), winLabelW, rowH];
@@ -704,20 +713,14 @@ classdef RasterGUI < handle
                 'String', {'Onset', 'Offset', 'Midpoint'});
             obj.check_CopyEvents = uicontrol(trigTab, 'Style', 'checkbox', ...
                 'String', 'Copy events from trigger');
-            % Inline trigger options (visible depending on type)
-            obj.text_TrigIncludeLabel = uicontrol(trigTab, 'Style', 'text', ...
-                'String', 'Include:', ...
-                'HorizontalAlignment', 'right');
-            obj.edit_TrigIncludeList = uicontrol(trigTab, 'Style', 'edit', ...
+            % Inline trigger filter (visible depending on type)
+            obj.popup_TrigFilterMode = uicontrol(trigTab, 'Style', 'popupmenu', ...
+                'String', {'All', 'Include', 'Exclude'}, ...
+                'Callback', @(~,~) obj.upstreamSettingChanged());
+            obj.edit_TrigFilterList = uicontrol(trigTab, 'Style', 'edit', ...
                 'String', '', 'HorizontalAlignment', 'left', ...
-                'Tooltip', 'Syllable/marker labels to include (leave empty for all)');
-
-            obj.text_TrigIgnoreLabel = uicontrol(trigTab, 'Style', 'text', ...
-                'String', 'Ignore:', ...
-                'HorizontalAlignment', 'right');
-            obj.edit_TrigIgnoreList = uicontrol(trigTab, 'Style', 'edit', ...
-                'String', '', 'HorizontalAlignment', 'left', ...
-                'Tooltip', 'Syllable/marker labels to exclude');
+                'Tooltip', 'Syllable/marker labels to include or exclude', ...
+                'Callback', @(~,~) obj.clearCache());
 
             % --- Events tab ---
             eventTab = uitab(obj.tab_group, 'Title', 'Events');
@@ -733,19 +736,14 @@ classdef RasterGUI < handle
                 'Callback', @(~,~) obj.upstreamSettingChanged());
             obj.check_CopyTrigger = uicontrol(eventTab, 'Style', 'checkbox', ...
                 'String', 'Copy trigger to events');
-            % Inline event options (visible depending on type)
-            obj.text_EventIncludeLabel = uicontrol(eventTab, 'Style', 'text', ...
-                'String', 'Include:', ...
-                'HorizontalAlignment', 'right');
-            obj.edit_EventIncludeList = uicontrol(eventTab, 'Style', 'edit', ...
+            % Inline event filter (visible depending on type)
+            obj.popup_EventFilterMode = uicontrol(eventTab, 'Style', 'popupmenu', ...
+                'String', {'All', 'Include', 'Exclude'}, ...
+                'Callback', @(~,~) obj.upstreamSettingChanged());
+            obj.edit_EventFilterList = uicontrol(eventTab, 'Style', 'edit', ...
                 'String', '', 'HorizontalAlignment', 'left', ...
-                'Tooltip', 'Syllable/marker labels to include (leave empty for all)');
-            obj.text_EventIgnoreLabel = uicontrol(eventTab, 'Style', 'text', ...
-                'String', 'Ignore:', ...
-                'HorizontalAlignment', 'right');
-            obj.edit_EventIgnoreList = uicontrol(eventTab, 'Style', 'edit', ...
-                'String', '', 'HorizontalAlignment', 'left', ...
-                'Tooltip', 'Syllable/marker labels to exclude');
+                'Tooltip', 'Syllable/marker labels to include or exclude', ...
+                'Callback', @(~,~) obj.clearCache());
 
             % --- Window tab ---
             windowTab = uitab(obj.tab_group, 'Title', 'Window');
@@ -1561,11 +1559,11 @@ classdef RasterGUI < handle
             % Secondary sort first (so primary is dominant)
             if ~strcmp(secondarySortType, '(None)')
                 ti = RasterGUI.sortTriggers(ti, secondarySortType, descending, ...
-                    obj.P.event.includeSyllList, false);
+                    obj.P.event.filterList, false);
             end
             if ~strcmp(primarySortType, '(None)')
                 ti = RasterGUI.sortTriggers(ti, primarySortType, descending, ...
-                    obj.P.event.includeSyllList, groupLabels);
+                    obj.P.event.filterList, groupLabels);
             end
 
             obj.triggerInfo = ti;
@@ -1595,13 +1593,13 @@ classdef RasterGUI < handle
                 obj.popup_TriggerType, ...
                 obj.popup_TriggerAlignment, ...
                 obj.check_CopyEvents, ...
-                obj.edit_TrigIncludeList, ...
-                obj.edit_TrigIgnoreList, ...
+                obj.popup_TrigFilterMode, ...
+                obj.edit_TrigFilterList, ...
                 obj.popup_EventSource, ...
                 obj.popup_EventType, ...
                 obj.check_CopyTrigger, ...
-                obj.edit_EventIncludeList, ...
-                obj.edit_EventIgnoreList, ...
+                obj.popup_EventFilterMode, ...
+                obj.edit_EventFilterList, ...
                 obj.popup_StartReference, ...
                 obj.popup_StopReference, ...
                 obj.edit_PreStart, ...
@@ -1681,34 +1679,30 @@ classdef RasterGUI < handle
     %% Callback stubs
     methods (Access = private)
         function updateTriggerOptionsVisibility(obj)
-            % Show/hide trigger option controls based on the selected type.
+            % Show/hide trigger filter controls based on the selected type.
             arguments
                 obj RasterGUI
             end
             trigTypeStrs = obj.popup_TriggerType.String;
             trigType = trigTypeStrs{obj.popup_TriggerType.Value};
-            showIncludeIgnore = ismember(trigType, {'Syllables', 'Markers', 'Bouts'});
+            showFilter = ismember(trigType, {'Syllables', 'Markers', 'Bouts'});
             onOff = {'off', 'on'};
-            vis = onOff{showIncludeIgnore + 1};
-            obj.text_TrigIncludeLabel.Visible = vis;
-            obj.edit_TrigIncludeList.Visible = vis;
-            obj.text_TrigIgnoreLabel.Visible = vis;
-            obj.edit_TrigIgnoreList.Visible = vis;
+            vis = onOff{showFilter + 1};
+            obj.popup_TrigFilterMode.Visible = vis;
+            obj.edit_TrigFilterList.Visible = vis;
         end
         function updateEventOptionsVisibility(obj)
-            % Show/hide event option controls based on the selected type.
+            % Show/hide event filter controls based on the selected type.
             arguments
                 obj RasterGUI
             end
             eventTypeStrs = obj.popup_EventType.String;
             eventType = eventTypeStrs{obj.popup_EventType.Value};
-            showIncludeIgnore = ismember(eventType, {'Syllables', 'Markers', 'Bouts'});
+            showFilter = ismember(eventType, {'Syllables', 'Markers', 'Bouts'});
             onOff = {'off', 'on'};
-            vis = onOff{showIncludeIgnore + 1};
-            obj.text_EventIncludeLabel.Visible = vis;
-            obj.edit_EventIncludeList.Visible = vis;
-            obj.text_EventIgnoreLabel.Visible = vis;
-            obj.edit_EventIgnoreList.Visible = vis;
+            vis = onOff{showFilter + 1};
+            obj.popup_EventFilterMode.Visible = vis;
+            obj.edit_EventFilterList.Visible = vis;
         end
         function syncOptionsFromGUI(obj)
             % Read all inline option controls into properties before generating.
@@ -1716,11 +1710,13 @@ classdef RasterGUI < handle
                 obj RasterGUI
             end
 
-            % Trigger/Event include/ignore lists
-            obj.P.trig.includeSyllList = obj.edit_TrigIncludeList.String;
-            obj.P.trig.ignoreSyllList = obj.edit_TrigIgnoreList.String;
-            obj.P.event.includeSyllList = obj.edit_EventIncludeList.String;
-            obj.P.event.ignoreSyllList = obj.edit_EventIgnoreList.String;
+            % Trigger/Event filter
+            trigModes = obj.popup_TrigFilterMode.String;
+            obj.P.trig.filterMode = trigModes{obj.popup_TrigFilterMode.Value};
+            obj.P.trig.filterList = obj.edit_TrigFilterList.String;
+            eventModes = obj.popup_EventFilterMode.String;
+            obj.P.event.filterMode = eventModes{obj.popup_EventFilterMode.Value};
+            obj.P.event.filterList = obj.edit_EventFilterList.String;
 
             % Copy if linked
             if obj.check_CopyTrigger.Value
@@ -1957,41 +1953,11 @@ classdef RasterGUI < handle
                             end
                             inform.label{fileListIdx} = labels;
 
-                            % Apply include list
-                            includeList = P.includeSyllList;
-                            escapeIdx = strfind(includeList, '''''');
-                            includeList([escapeIdx, escapeIdx + 1]) = [];
-                            includeList = double(includeList);
-                            if ~isempty(escapeIdx)
-                                includeList = [includeList, 0]; %#ok<AGROW>
-                            end
-                            if ~isempty(includeList)
-                                keepIdx = [];
-                                for k = 1:length(includeList)
-                                    keepIdx = union(keepIdx, find(labels == includeList(k)));
-                                end
-                                ons{fileListIdx} = ons{fileListIdx}(keepIdx);
-                                offs{fileListIdx} = offs{fileListIdx}(keepIdx);
-                                inform.label{fileListIdx} = inform.label{fileListIdx}(keepIdx);
-                            end
-
-                            % Apply ignore list
-                            ignoreList = P.ignoreSyllList;
-                            escapeIdx = strfind(ignoreList, '''''');
-                            ignoreList([escapeIdx, escapeIdx + 1]) = [];
-                            ignoreList = double(ignoreList);
-                            if ~isempty(escapeIdx)
-                                ignoreList = [ignoreList, 0]; %#ok<AGROW>
-                            end
-                            if ~isempty(ignoreList)
-                                removeIdx = [];
-                                for k = 1:length(ignoreList)
-                                    removeIdx = union(removeIdx, find(inform.label{fileListIdx} == ignoreList(k)));
-                                end
-                                ons{fileListIdx}(removeIdx) = [];
-                                offs{fileListIdx}(removeIdx) = [];
-                                inform.label{fileListIdx}(removeIdx) = [];
-                            end
+                            % Apply filter based on mode
+                            keepMask = RasterGUI.getLabelFilterMask(labels, P.filterMode, P.filterList);
+                            ons{fileListIdx} = ons{fileListIdx}(keepMask);
+                            offs{fileListIdx} = offs{fileListIdx}(keepMask);
+                            inform.label{fileListIdx} = inform.label{fileListIdx}(keepMask);
                         end
 
                     case 'Motifs'
@@ -2031,41 +1997,15 @@ classdef RasterGUI < handle
                         if ~isempty(dbase.SegmentTimes{filenum})
                             selectedIndices = find(dbase.SegmentIsSelected{filenum} == 1);
 
-                            % Apply include/ignore lists to filter syllables
+                            % Apply filter to select which syllables form bouts
                             labels = zeros(1, length(selectedIndices));
                             for labelIdx = 1:length(labels)
                                 if ~isempty(dbase.SegmentTitles{filenum}{selectedIndices(labelIdx)})
                                     labels(labelIdx) = double(dbase.SegmentTitles{filenum}{selectedIndices(labelIdx)});
                                 end
                             end
-                            includeList = P.includeSyllList;
-                            escapeIdx = strfind(includeList, '''''');
-                            includeList([escapeIdx, escapeIdx + 1]) = [];
-                            includeList = double(includeList);
-                            if ~isempty(escapeIdx)
-                                includeList = [includeList, 0]; %#ok<AGROW>
-                            end
-                            if ~isempty(includeList)
-                                keepIdx = [];
-                                for k = 1:length(includeList)
-                                    keepIdx = union(keepIdx, find(labels == includeList(k)));
-                                end
-                                selectedIndices = selectedIndices(keepIdx);
-                            end
-                            ignoreList = P.ignoreSyllList;
-                            escapeIdx = strfind(ignoreList, '''''');
-                            ignoreList([escapeIdx, escapeIdx + 1]) = [];
-                            ignoreList = double(ignoreList);
-                            if ~isempty(escapeIdx)
-                                ignoreList = [ignoreList, 0]; %#ok<AGROW>
-                            end
-                            if ~isempty(ignoreList)
-                                removeIdx = [];
-                                for k = 1:length(ignoreList)
-                                    removeIdx = union(removeIdx, find(labels == ignoreList(k)));
-                                end
-                                selectedIndices(removeIdx) = [];
-                            end
+                            keepMask = RasterGUI.getLabelFilterMask(labels, P.filterMode, P.filterList);
+                            selectedIndices = selectedIndices(keepMask);
 
                             % Find bouts: groups of syllables separated by gaps
                             syllOnsets = [dbase.SegmentTimes{filenum}(selectedIndices, 1); inf];
@@ -2392,6 +2332,32 @@ classdef RasterGUI < handle
 
     %% Sort options
     methods (Access = private, Static)
+        function keepMask = getLabelFilterMask(labels, filterMode, filterList)
+            % Return a logical mask indicating which labels to keep based
+            % on the filter mode and list.
+            %
+            % Arguments:
+            %   labels - numeric array of label values (double of char)
+            %   filterMode - 'All', 'Include', or 'Exclude'
+            %   filterList - char array of label characters
+            arguments
+                labels double
+                filterMode (1, :) char {mustBeMember(filterMode, {'All', 'Include', 'Exclude'})}
+                filterList (1, :) char = ''
+            end
+
+            switch filterMode
+                case 'All'
+                    keepMask = true(size(labels));
+                case 'Include'
+                    filterCodes = double(filterList);
+                    keepMask = ismember(labels, filterCodes);
+                case 'Exclude'
+                    filterCodes = double(filterList);
+                    keepMask = ~ismember(labels, filterCodes);
+            end
+        end
+
         function options = getSortOptions()
             options = { ...
                 '(None)', ...
