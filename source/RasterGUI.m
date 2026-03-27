@@ -711,11 +711,11 @@ classdef RasterGUI < handle
                 'BorderType', 'none');
 
             obj.axes_Raster = axes(obj.panel_Axes, ...
-                'Box', 'on');
+                'Box', 'on', 'Tag', 'axes_Raster');
             obj.axes_PSTH = axes(obj.panel_Axes, ...
-                'Box', 'on');
+                'Box', 'on', 'Tag', 'axes_PSTH');
             obj.axes_Hist = axes(obj.panel_Axes, ...
-                'Box', 'on');
+                'Box', 'on', 'Tag', 'axes_Hist');
 
             % --- Left side: tab group + generate buttons ---
             obj.tab_group = uitabgroup(obj.figure_Main);
