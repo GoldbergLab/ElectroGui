@@ -717,6 +717,10 @@ classdef RasterGUI < handle
             obj.axes_Hist = axes(obj.panel_Axes, ...
                 'Box', 'on', 'Tag', 'axes_Hist');
 
+            % Link axes: raster+PSTH share X, raster+histogram share Y
+            linkaxes([obj.axes_Raster, obj.axes_PSTH], 'x');
+            linkaxes([obj.axes_Raster, obj.axes_Hist], 'y');
+
             % --- Left side: tab group + generate buttons ---
             obj.tab_group = uitabgroup(obj.figure_Main);
 
@@ -1074,7 +1078,18 @@ classdef RasterGUI < handle
             ax.YDir = 'reverse';
             ax.YLim = [0.5, numTrials + 0.5];
             if obj.check_AutoXLim.Value
-                ax.XLimMode = 'auto';
+                % Compute tight X limits from all plotted data
+                allXData = [];
+                for k = 1:length(ax.Children)
+                    child = ax.Children(k);
+                    if isprop(child, 'XData') && ~isempty(child.XData)
+                        finiteX = child.XData(isfinite(child.XData));
+                        allXData = [allXData; finiteX(:)]; %#ok<AGROW>
+                    end
+                end
+                if ~isempty(allXData)
+                    ax.XLim = [min(allXData), max(allXData)];
+                end
             else
                 ax.XLim = obj.PlotXLim;
             end
@@ -1160,12 +1175,7 @@ classdef RasterGUI < handle
                 'Color', [0.5, 0.5, 0.5], 'LineWidth', 0.5, ...
                 'PickableParts', 'none', 'HitTest', 'off');
 
-            % Formatting
-            if obj.check_AutoXLim.Value
-                ax.XLimMode = 'auto';
-            else
-                ax.XLim = obj.PlotXLim;
-            end
+            % Formatting (X limits linked to raster via linkaxes)
             ax.YLabel.String = yLabel;
             ax.XLabel.String = 'Time (s)';
             ax.Box = 'on';
@@ -1851,18 +1861,10 @@ classdef RasterGUI < handle
                 return;
             end
             if obj.check_AutoXLim.Value
-                obj.axes_Raster.XLimMode = 'auto';
-                obj.axes_PSTH.XLimMode = 'auto';
-                % Update the edit boxes to show the auto-computed limits
-                drawnow;
-                obj.PlotXLim = obj.axes_Raster.XLim;
-                obj.edit_XMin.String = num2str(obj.PlotXLim(1), '%.3f');
-                obj.edit_XMax.String = num2str(obj.PlotXLim(2), '%.3f');
+                % Recompute tight limits from raster data
+                obj.plotRaster();  % Will compute and set tight X limits
             else
-                obj.axes_Raster.XLimMode = 'manual';
-                obj.axes_Raster.XLim = obj.PlotXLim;
-                obj.axes_PSTH.XLimMode = 'manual';
-                obj.axes_PSTH.XLim = obj.PlotXLim;
+                obj.axes_Raster.XLim = obj.PlotXLim;  % PSTH follows via linkaxes
             end
             % Replot PSTH and histogram since their bin range depends on X limits
             obj.plotPSTH();
