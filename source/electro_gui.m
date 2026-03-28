@@ -453,6 +453,16 @@ classdef electro_gui < handle
             % Style GUI
             obj.updateGUIStyle(false);
 
+            % Start parallel pool in the background for file caching
+            if obj.settings.EnableFileCaching
+                try
+                    parfeval(@gcp, 0);
+                catch
+                    % Parallel Computing Toolbox may not be installed;
+                    % addToFileCache will handle this gracefully later
+                end
+            end
+
             progressBar.Progress = 1;
             delete(progressBar);
         end
