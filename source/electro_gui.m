@@ -11054,6 +11054,15 @@ end
                     case 'y'
                         % User pressed control-z - undo last action
                         obj.Redo();
+                    case 'r'
+                        if obj.isShiftDown()
+                            % Ctrl+Shift+R: destroy and recreate RasterGUI
+                            if ~isempty(obj.rasterGUI) && isvalid(obj.rasterGUI)
+                                delete(obj.rasterGUI);
+                            end
+                            obj.rasterGUI = RasterGUI(obj);
+                            obj.rasterGUI.show();
+                        end
                     case 'comma'
                         % User pressed "control-comma" - switch to previous channel
                         axnum = obj.ActiveAxnum;

@@ -55,6 +55,7 @@ classdef RasterGUI < handle
         edit_EventSeriesBurstMinSpikes
         push_EventSeriesColor
         check_EventSeriesPSTH
+        popup_EventSeriesPSTHStyle
 
         % Window panel
         popup_StartReference
@@ -170,7 +171,7 @@ classdef RasterGUI < handle
         % Event series: array of structs, one per event series
         % Each has: name, sourceIdx, type, filterMode, filterList,
         %           burstFrequency, burstMinSpikes, color, showPSTH,
-        %           triggerInfo (per-series aligned data)
+        %           psthStyle, triggerInfo (per-series aligned data)
         eventSeries struct = struct( ...
             'name', {}, ...
             'sourceIdx', {}, ...    % Index into popup (1=Sound, 2+=event detectors)
@@ -181,6 +182,7 @@ classdef RasterGUI < handle
             'burstMinSpikes', {}, ...  % Min spikes to form a valid burst (per-series)
             'color', {}, ...        % 1x3 RGB
             'showPSTH', {}, ...     % true/false
+            'psthStyle', {}, ...    % 'Line', 'Histogram', or 'Both'
             'triggerInfo', {} ...   % Aligned event data for this series
         )
 
@@ -645,7 +647,10 @@ classdef RasterGUI < handle
             obj.push_EventSeriesColor.Units = 'pixels';
             obj.push_EventSeriesColor.Position = [tabMargin, rowY(detailStartRow + 3), rowH, rowH];  % Square button
             obj.check_EventSeriesPSTH.Units = 'pixels';
-            obj.check_EventSeriesPSTH.Position = [tabMargin + rowH + 8, rowY(detailStartRow + 3), halfW, rowH];
+            obj.check_EventSeriesPSTH.Position = [tabMargin + rowH + 8, rowY(detailStartRow + 3), 80, rowH];
+            psthStyleX = tabMargin + rowH + 8 + 80 + 4;
+            obj.popup_EventSeriesPSTHStyle.Units = 'pixels';
+            obj.popup_EventSeriesPSTHStyle.Position = [psthStyleX, rowY(detailStartRow + 3), 80, rowH];
             % Window controls (continued in Events tab)
             winRefLabelW = 30;
             winRefPopupX = tabMargin + winRefLabelW + 2;
@@ -917,6 +922,10 @@ classdef RasterGUI < handle
                 'String', 'PSTH source', ...
                 'Visible', 'off', ...
                 'Callback', @(~,~) obj.eventSeriesPSTHChanged());
+            obj.popup_EventSeriesPSTHStyle = uicontrol(eventTab, 'Style', 'popupmenu', ...
+                'String', {'Line', 'Histogram', 'Both'}, ...
+                'Visible', 'off', ...
+                'Callback', @(~,~) obj.eventSeriesPSTHChanged());
 
             % Window controls (in Events tab)
             % Row: Start: [Trigger onset ▾] — [0.4] s
@@ -1179,6 +1188,7 @@ classdef RasterGUI < handle
             obj.edit_EventSeriesBurstMinSpikes.Tooltip = 'Minimum number of events in a burst';
             obj.push_EventSeriesColor.Tooltip = 'Click to pick a color for this series';
             obj.check_EventSeriesPSTH.Tooltip = 'Include this series in the PSTH display (multiple allowed)';
+            obj.popup_EventSeriesPSTHStyle.Tooltip = 'PSTH plot style: Line, Histogram (bar), or Both';
             obj.popup_StartReference.Tooltip = 'Reference point for the start of the event window';
             obj.popup_StopReference.Tooltip = 'Reference point for the end of the event window';
             obj.check_ExcludeIncomplete.Tooltip = 'Exclude triggers whose window extends beyond file boundaries';
@@ -1476,11 +1486,18 @@ classdef RasterGUI < handle
                     psthValues = movmean(psthValues, obj.PSTHSmoothingWindow);
                 end
 
-                % Plot as a filled area with the series color
-                fill(ax, [binCenters, fliplr(binCenters)], ...
-                    [psthValues, zeros(size(psthValues))], ...
-                    s.color, 'FaceAlpha', 0.3, 'EdgeColor', s.color, ...
-                    'LineWidth', 1);
+                % Plot using the series' psthStyle setting
+                style = s.psthStyle;
+                if any(strcmp(style, {'Histogram', 'Both'}))
+                    % Bar-style histogram using stairs for sharp bin edges
+                    bar(ax, binCenters, psthValues, 1, ...
+                        'FaceColor', s.color, 'FaceAlpha', 0.25, ...
+                        'EdgeColor', 'none');
+                end
+                if any(strcmp(style, {'Line', 'Both'}))
+                    plot(ax, binCenters, psthValues, ...
+                        'Color', s.color, 'LineWidth', 1.5);
+                end
             end
 
             % Zero line
@@ -1642,6 +1659,7 @@ classdef RasterGUI < handle
                 seriesConfigs(k).burstMinSpikes = s.burstMinSpikes;
                 seriesConfigs(k).color = s.color;
                 seriesConfigs(k).showPSTH = s.showPSTH;
+                seriesConfigs(k).psthStyle = s.psthStyle;
             end
             preset.eventSeries = seriesConfigs;
 
@@ -1706,7 +1724,8 @@ classdef RasterGUI < handle
                     'name', {}, 'sourceIdx', {}, 'type', {}, ...
                     'filterMode', {}, 'filterList', {}, ...
                     'burstFrequency', {}, 'burstMinSpikes', {}, ...
-                    'color', {}, 'showPSTH', {}, 'triggerInfo', {});
+                    'color', {}, 'showPSTH', {}, 'psthStyle', {}, ...
+                    'triggerInfo', {});
 
                 % Recreate each series from the saved config
                 for k = 1:length(preset.eventSeries)
@@ -1730,6 +1749,11 @@ classdef RasterGUI < handle
                     end
                     obj.eventSeries(k).color = sc.color;
                     obj.eventSeries(k).showPSTH = logical(sc.showPSTH);
+                    if isfield(sc, 'psthStyle')
+                        obj.eventSeries(k).psthStyle = sc.psthStyle;
+                    else
+                        obj.eventSeries(k).psthStyle = 'Both';
+                    end
                     obj.eventSeries(k).triggerInfo = struct();  % Must regenerate
                 end
 
@@ -1992,6 +2016,7 @@ classdef RasterGUI < handle
             series.burstMinSpikes = 2;      % Min events to form a valid burst
             series.color = colors(colorIdx, :);
             series.showPSTH = (seriesNumber == 1);  % First series shows PSTH by default
+            series.psthStyle = 'Both';
             series.triggerInfo = struct();
         end
 
@@ -2097,8 +2122,15 @@ classdef RasterGUI < handle
             % Color button
             obj.push_EventSeriesColor.BackgroundColor = series.color;
 
-            % PSTH checkbox
+            % PSTH checkbox and style
             obj.check_EventSeriesPSTH.Value = series.showPSTH;
+            styleStrs = obj.popup_EventSeriesPSTHStyle.String;
+            styleIdx = find(strcmp(styleStrs, series.psthStyle), 1);
+            if ~isempty(styleIdx)
+                obj.popup_EventSeriesPSTHStyle.Value = styleIdx;
+            else
+                obj.popup_EventSeriesPSTHStyle.Value = 3;  % Default to 'Both'
+            end
 
             % Show/hide context-dependent controls based on source and type
             obj.updateEventSeriesDetailVisibility();
@@ -2128,6 +2160,8 @@ classdef RasterGUI < handle
             obj.eventSeries(idx).burstMinSpikes = str2double(obj.edit_EventSeriesBurstMinSpikes.String);
             obj.eventSeries(idx).color = obj.push_EventSeriesColor.BackgroundColor;
             obj.eventSeries(idx).showPSTH = logical(obj.check_EventSeriesPSTH.Value);
+            styleStrs = obj.popup_EventSeriesPSTHStyle.String;
+            obj.eventSeries(idx).psthStyle = styleStrs{obj.popup_EventSeriesPSTHStyle.Value};
 
             % Update list display in case name changed
             obj.refreshEventSeriesList();
@@ -2143,7 +2177,8 @@ classdef RasterGUI < handle
             end
             alwaysVisible = [obj.edit_EventSeriesName, ...
                 obj.popup_EventSeriesSource, obj.popup_EventSeriesType, ...
-                obj.push_EventSeriesColor, obj.check_EventSeriesPSTH];
+                obj.push_EventSeriesColor, obj.check_EventSeriesPSTH, ...
+                obj.popup_EventSeriesPSTHStyle];
             set(alwaysVisible, 'Visible', 'on');
             % Show/hide filter vs burst controls based on context
             obj.updateEventSeriesDetailVisibility();
@@ -2159,7 +2194,8 @@ classdef RasterGUI < handle
                 obj.edit_EventSeriesFilterList, ...
                 obj.text_EventSeriesBurstFreq, obj.edit_EventSeriesBurstFreq, ...
                 obj.text_EventSeriesBurstMinSpikes, obj.edit_EventSeriesBurstMinSpikes, ...
-                obj.push_EventSeriesColor, obj.check_EventSeriesPSTH];
+                obj.push_EventSeriesColor, obj.check_EventSeriesPSTH, ...
+                obj.popup_EventSeriesPSTHStyle];
             set(widgets, 'Visible', 'off');
         end
 
@@ -2297,8 +2333,8 @@ classdef RasterGUI < handle
         end
 
         function eventSeriesPSTHChanged(obj)
-            % Update the selected series' showPSTH value and replot.
-            % Multiple series can have showPSTH=true simultaneously.
+            % Update the selected series' showPSTH and psthStyle, then
+            % replot. Multiple series can have showPSTH=true simultaneously.
             arguments
                 obj RasterGUI
             end
@@ -2307,6 +2343,8 @@ classdef RasterGUI < handle
             end
             idx = obj.list_EventSeries.Value;
             obj.eventSeries(idx).showPSTH = logical(obj.check_EventSeriesPSTH.Value);
+            styleStrs = obj.popup_EventSeriesPSTHStyle.String;
+            obj.eventSeries(idx).psthStyle = styleStrs{obj.popup_EventSeriesPSTHStyle.Value};
             % Replot PSTH and histogram to reflect the change
             obj.plotPSTH();
             obj.plotHist();
@@ -2417,6 +2455,7 @@ classdef RasterGUI < handle
                 obj.edit_EventSeriesBurstMinSpikes, ...
                 obj.push_EventSeriesColor, ...
                 obj.check_EventSeriesPSTH, ...
+                obj.popup_EventSeriesPSTHStyle, ...
                 obj.popup_StartReference, ...
                 obj.popup_StopReference, ...
                 obj.edit_PreStart, ...
