@@ -48,6 +48,11 @@ classdef RasterGUI < handle
         popup_EventSeriesType
         popup_EventSeriesFilterMode
         edit_EventSeriesFilterList
+        % Burst-specific controls (visible only when type is Bursts/Burst events/Single events)
+        text_EventSeriesBurstFreq
+        edit_EventSeriesBurstFreq
+        text_EventSeriesBurstMinSpikes
+        edit_EventSeriesBurstMinSpikes
         push_EventSeriesColor
         check_EventSeriesPSTH
 
@@ -164,13 +169,16 @@ classdef RasterGUI < handle
 
         % Event series: array of structs, one per event series
         % Each has: name, sourceIdx, type, filterMode, filterList,
-        %           color, showPSTH, triggerInfo (per-series aligned data)
+        %           burstFrequency, burstMinSpikes, color, showPSTH,
+        %           triggerInfo (per-series aligned data)
         eventSeries struct = struct( ...
             'name', {}, ...
             'sourceIdx', {}, ...    % Index into popup (1=Sound, 2+=event detectors)
             'type', {}, ...         % e.g., 'Events', 'Syllables'
             'filterMode', {}, ...   % 'All', 'Include', 'Exclude'
             'filterList', {}, ...   % Label filter string
+            'burstFrequency', {}, ...  % Hz threshold for burst detection (per-series)
+            'burstMinSpikes', {}, ...  % Min spikes to form a valid burst (per-series)
             'color', {}, ...        % 1x3 RGB
             'showPSTH', {}, ...     % true/false
             'triggerInfo', {} ...   % Aligned event data for this series
@@ -344,10 +352,12 @@ classdef RasterGUI < handle
                     obj.statusBar.Progress = 0.1 + 0.35 * (seriesIdx - 1) / numSeries;
                     drawnow;
 
-                    % Build a P struct for this series
-                    seriesP = obj.P.trig;  % Start with trigger params as base
+                    % Build a P struct for this series, overriding per-series params
+                    seriesP = obj.P.trig;
                     seriesP.filterMode = s.filterMode;
                     seriesP.filterList = s.filterList;
+                    seriesP.burstFrequency = s.burstFrequency;
+                    seriesP.burstMinSpikes = s.burstMinSpikes;
 
                     % Extract events
                     eventSourceIdx = s.sourceIdx - 1;  % 0 = Sound
@@ -615,6 +625,19 @@ classdef RasterGUI < handle
             obj.popup_EventSeriesFilterMode.Position = [tabMargin, rowY(detailStartRow + 2), filterModeW, rowH];
             obj.edit_EventSeriesFilterList.Units = 'pixels';
             obj.edit_EventSeriesFilterList.Position = [filterListX, rowY(detailStartRow + 2), filterListW, rowH];
+            % Burst controls occupy the same row as filter controls
+            burstLabelW = 30;
+            burstEditW = 40;
+            burstGap = 4;
+            obj.text_EventSeriesBurstFreq.Units = 'pixels';
+            obj.text_EventSeriesBurstFreq.Position = [tabMargin, rowY(detailStartRow + 2), burstLabelW, rowH];
+            obj.edit_EventSeriesBurstFreq.Units = 'pixels';
+            obj.edit_EventSeriesBurstFreq.Position = [tabMargin + burstLabelW + burstGap, rowY(detailStartRow + 2), burstEditW, rowH];
+            burstMinX = tabMargin + burstLabelW + burstGap + burstEditW + burstGap;
+            obj.text_EventSeriesBurstMinSpikes.Units = 'pixels';
+            obj.text_EventSeriesBurstMinSpikes.Position = [burstMinX, rowY(detailStartRow + 2), burstLabelW, rowH];
+            obj.edit_EventSeriesBurstMinSpikes.Units = 'pixels';
+            obj.edit_EventSeriesBurstMinSpikes.Position = [burstMinX + burstLabelW + burstGap, rowY(detailStartRow + 2), burstEditW, rowH];
             obj.push_EventSeriesColor.Units = 'pixels';
             obj.push_EventSeriesColor.Position = [tabMargin, rowY(detailStartRow + 3), rowH, rowH];  % Square button
             obj.check_EventSeriesPSTH.Units = 'pixels';
@@ -853,12 +876,23 @@ classdef RasterGUI < handle
                 'Callback', @(~,~) obj.eventSeriesSourceChanged());
             obj.popup_EventSeriesType = uicontrol(eventTab, 'Style', 'popupmenu', ...
                 'String', {'Syllables'}, 'Visible', 'off', ...
-                'Callback', @(~,~) obj.eventSeriesDetailChanged());
+                'Callback', @(~,~) obj.eventSeriesTypeChanged());
             obj.popup_EventSeriesFilterMode = uicontrol(eventTab, 'Style', 'popupmenu', ...
                 'String', {'All', 'Include', 'Exclude'}, 'Visible', 'off', ...
                 'Callback', @(~,~) obj.eventSeriesFilterModeChanged());
             obj.edit_EventSeriesFilterList = uicontrol(eventTab, 'Style', 'edit', ...
                 'String', '', 'HorizontalAlignment', 'left', 'Visible', 'off', ...
+                'Callback', @(~,~) obj.eventSeriesDetailChanged());
+            % Burst-specific controls (same row as filter, shown for burst types)
+            obj.text_EventSeriesBurstFreq = uicontrol(eventTab, 'Style', 'text', ...
+                'String', 'Freq:', 'HorizontalAlignment', 'right', 'Visible', 'off');
+            obj.edit_EventSeriesBurstFreq = uicontrol(eventTab, 'Style', 'edit', ...
+                'String', '100', 'Visible', 'off', ...
+                'Callback', @(~,~) obj.eventSeriesDetailChanged());
+            obj.text_EventSeriesBurstMinSpikes = uicontrol(eventTab, 'Style', 'text', ...
+                'String', 'Min:', 'HorizontalAlignment', 'right', 'Visible', 'off');
+            obj.edit_EventSeriesBurstMinSpikes = uicontrol(eventTab, 'Style', 'edit', ...
+                'String', '2', 'Visible', 'off', ...
                 'Callback', @(~,~) obj.eventSeriesDetailChanged());
             obj.push_EventSeriesColor = uicontrol(eventTab, 'Style', 'pushbutton', ...
                 'String', '', 'Visible', 'off', ...
@@ -1122,6 +1156,8 @@ classdef RasterGUI < handle
             obj.popup_EventSeriesType.Tooltip = 'Type of events to extract for this series';
             obj.popup_EventSeriesFilterMode.Tooltip = 'All: use all labels; Include: only listed; Exclude: all except listed';
             obj.edit_EventSeriesFilterList.Tooltip = 'Label characters to include or exclude';
+            obj.edit_EventSeriesBurstFreq.Tooltip = 'Minimum burst frequency (Hz): events closer than 1/freq are grouped into bursts';
+            obj.edit_EventSeriesBurstMinSpikes.Tooltip = 'Minimum number of events in a burst';
             obj.push_EventSeriesColor.Tooltip = 'Click to pick a color for this series';
             obj.check_EventSeriesPSTH.Tooltip = 'Include this series in the PSTH display (multiple allowed)';
             obj.popup_StartReference.Tooltip = 'Reference point for the start of the event window';
@@ -1353,7 +1389,7 @@ classdef RasterGUI < handle
             hold(ax, 'on');
 
             % Find all series with showPSTH=true
-            psthSeriesIndices = find(arrayfun(@(s) s.showPSTH, obj.eventSeries));
+            psthSeriesIndices = find([obj.eventSeries.showPSTH]);
             if isempty(psthSeriesIndices)
                 % No series designated for PSTH — leave blank
                 ax.YLabel.String = '';
@@ -1455,7 +1491,7 @@ classdef RasterGUI < handle
             hold(ax, 'on');
 
             % Use the first PSTH-enabled series for the histogram
-            psthSeriesIdx = find(arrayfun(@(s) s.showPSTH, obj.eventSeries), 1);
+            psthSeriesIdx = find([obj.eventSeries.showPSTH], 1);
             if isempty(psthSeriesIdx)
                 % No series has showPSTH checked — leave blank
                 hold(ax, 'off');
@@ -1579,6 +1615,8 @@ classdef RasterGUI < handle
                 seriesConfigs(k).type = s.type;
                 seriesConfigs(k).filterMode = s.filterMode;
                 seriesConfigs(k).filterList = s.filterList;
+                seriesConfigs(k).burstFrequency = s.burstFrequency;
+                seriesConfigs(k).burstMinSpikes = s.burstMinSpikes;
                 seriesConfigs(k).color = s.color;
                 seriesConfigs(k).showPSTH = s.showPSTH;
             end
@@ -1643,8 +1681,9 @@ classdef RasterGUI < handle
                 % Clear existing series
                 obj.eventSeries = struct( ...
                     'name', {}, 'sourceIdx', {}, 'type', {}, ...
-                    'filterMode', {}, 'filterList', {}, 'color', {}, ...
-                    'showPSTH', {}, 'triggerInfo', {});
+                    'filterMode', {}, 'filterList', {}, ...
+                    'burstFrequency', {}, 'burstMinSpikes', {}, ...
+                    'color', {}, 'showPSTH', {}, 'triggerInfo', {});
 
                 % Recreate each series from the saved config
                 for k = 1:length(preset.eventSeries)
@@ -1654,6 +1693,18 @@ classdef RasterGUI < handle
                     obj.eventSeries(k).type = sc.type;
                     obj.eventSeries(k).filterMode = sc.filterMode;
                     obj.eventSeries(k).filterList = sc.filterList;
+                    % Backward compatibility: use defaults if burst fields
+                    % are missing from older presets
+                    if isfield(sc, 'burstFrequency')
+                        obj.eventSeries(k).burstFrequency = sc.burstFrequency;
+                    else
+                        obj.eventSeries(k).burstFrequency = 100;
+                    end
+                    if isfield(sc, 'burstMinSpikes')
+                        obj.eventSeries(k).burstMinSpikes = sc.burstMinSpikes;
+                    else
+                        obj.eventSeries(k).burstMinSpikes = 2;
+                    end
                     obj.eventSeries(k).color = sc.color;
                     obj.eventSeries(k).showPSTH = logical(sc.showPSTH);
                     obj.eventSeries(k).triggerInfo = struct();  % Must regenerate
@@ -1913,6 +1964,8 @@ classdef RasterGUI < handle
             series.type = 'Syllables';
             series.filterMode = 'All';
             series.filterList = '';
+            series.burstFrequency = 100;    % Hz threshold for burst detection
+            series.burstMinSpikes = 2;      % Min events to form a valid burst
             series.color = colors(colorIdx, :);
             series.showPSTH = (seriesNumber == 1);  % First series shows PSTH by default
             series.triggerInfo = struct();
@@ -2013,14 +2066,18 @@ classdef RasterGUI < handle
             end
             obj.edit_EventSeriesFilterList.String = series.filterList;
 
+            % Burst parameters
+            obj.edit_EventSeriesBurstFreq.String = num2str(series.burstFrequency);
+            obj.edit_EventSeriesBurstMinSpikes.String = num2str(series.burstMinSpikes);
+
             % Color button
             obj.push_EventSeriesColor.BackgroundColor = series.color;
 
             % PSTH checkbox
             obj.check_EventSeriesPSTH.Value = series.showPSTH;
 
-            % Update filter list enable/disable
-            obj.updateEventSeriesFilterVisibility();
+            % Show/hide context-dependent controls based on source and type
+            obj.updateEventSeriesDetailVisibility();
         end
 
         function saveSelectedEventSeries(obj)
@@ -2043,6 +2100,8 @@ classdef RasterGUI < handle
             filterModes = obj.popup_EventSeriesFilterMode.String;
             obj.eventSeries(idx).filterMode = filterModes{obj.popup_EventSeriesFilterMode.Value};
             obj.eventSeries(idx).filterList = obj.edit_EventSeriesFilterList.String;
+            obj.eventSeries(idx).burstFrequency = str2double(obj.edit_EventSeriesBurstFreq.String);
+            obj.eventSeries(idx).burstMinSpikes = str2double(obj.edit_EventSeriesBurstMinSpikes.String);
             obj.eventSeries(idx).color = obj.push_EventSeriesColor.BackgroundColor;
             obj.eventSeries(idx).showPSTH = logical(obj.check_EventSeriesPSTH.Value);
 
@@ -2052,28 +2111,31 @@ classdef RasterGUI < handle
         end
 
         function showEventSeriesDetail(obj)
-            % Make all detail controls visible.
+            % Make always-visible detail controls visible, then update
+            % context-dependent controls (filter vs burst) based on
+            % the current source and type selection.
             arguments
                 obj RasterGUI
             end
-            widgets = [obj.edit_EventSeriesName, obj.popup_EventSeriesSource, ...
-                obj.popup_EventSeriesType, obj.popup_EventSeriesFilterMode, ...
-                obj.edit_EventSeriesFilterList, obj.push_EventSeriesColor, ...
-                obj.check_EventSeriesPSTH];
-            set(widgets, 'Visible', 'on');
-            % Also show associated text labels
-            obj.updateEventSeriesFilterVisibility();
+            alwaysVisible = [obj.edit_EventSeriesName, ...
+                obj.popup_EventSeriesSource, obj.popup_EventSeriesType, ...
+                obj.push_EventSeriesColor, obj.check_EventSeriesPSTH];
+            set(alwaysVisible, 'Visible', 'on');
+            % Show/hide filter vs burst controls based on context
+            obj.updateEventSeriesDetailVisibility();
         end
 
         function hideEventSeriesDetail(obj)
-            % Hide all detail controls.
+            % Hide all detail controls (filter, burst, and always-on).
             arguments
                 obj RasterGUI
             end
             widgets = [obj.edit_EventSeriesName, obj.popup_EventSeriesSource, ...
                 obj.popup_EventSeriesType, obj.popup_EventSeriesFilterMode, ...
-                obj.edit_EventSeriesFilterList, obj.push_EventSeriesColor, ...
-                obj.check_EventSeriesPSTH];
+                obj.edit_EventSeriesFilterList, ...
+                obj.text_EventSeriesBurstFreq, obj.edit_EventSeriesBurstFreq, ...
+                obj.text_EventSeriesBurstMinSpikes, obj.edit_EventSeriesBurstMinSpikes, ...
+                obj.push_EventSeriesColor, obj.check_EventSeriesPSTH];
             set(widgets, 'Visible', 'off');
         end
 
@@ -2097,17 +2159,47 @@ classdef RasterGUI < handle
             end
         end
 
-        function updateEventSeriesFilterVisibility(obj)
-            % Enable/disable the filter list based on filter mode.
+        function updateEventSeriesDetailVisibility(obj)
+            % Show/hide the filter and burst controls based on the
+            % selected source and type. Sound sources show include/
+            % exclude filter controls; spike sources with burst types
+            % show burst frequency/min spikes controls; other spike
+            % types (Events, Pauses) show neither.
             arguments
                 obj RasterGUI
             end
-            modes = obj.popup_EventSeriesFilterMode.String;
-            isAll = strcmp(modes{obj.popup_EventSeriesFilterMode.Value}, 'All');
-            if isAll
-                obj.edit_EventSeriesFilterList.Enable = 'off';
+            sourceIdx = obj.popup_EventSeriesSource.Value - 1;  % 0 = Sound
+            typeStrs = obj.popup_EventSeriesType.String;
+            typeStr = typeStrs{obj.popup_EventSeriesType.Value};
+            isSoundSource = (sourceIdx == 0);
+            isBurstType = ismember(typeStr, {'Bursts', 'Burst events', 'Single events'});
+
+            % Filter controls: visible only for Sound sources
+            filterWidgets = [obj.popup_EventSeriesFilterMode, ...
+                obj.edit_EventSeriesFilterList];
+            if isSoundSource
+                set(filterWidgets, 'Visible', 'on');
+                % Enable/disable filter list based on filter mode
+                modes = obj.popup_EventSeriesFilterMode.String;
+                isAll = strcmp(modes{obj.popup_EventSeriesFilterMode.Value}, 'All');
+                if isAll
+                    obj.edit_EventSeriesFilterList.Enable = 'off';
+                else
+                    obj.edit_EventSeriesFilterList.Enable = 'on';
+                end
             else
-                obj.edit_EventSeriesFilterList.Enable = 'on';
+                set(filterWidgets, 'Visible', 'off');
+            end
+
+            % Burst controls: visible only for spike sources with burst types
+            burstWidgets = [obj.text_EventSeriesBurstFreq, ...
+                obj.edit_EventSeriesBurstFreq, ...
+                obj.text_EventSeriesBurstMinSpikes, ...
+                obj.edit_EventSeriesBurstMinSpikes];
+            if ~isSoundSource && isBurstType
+                set(burstWidgets, 'Visible', 'on');
+            else
+                set(burstWidgets, 'Visible', 'off');
             end
         end
 
@@ -2123,11 +2215,23 @@ classdef RasterGUI < handle
 
         function eventSeriesSourceChanged(obj)
             % Called when the series source popup changes. Updates type
-            % options, saves, and clears cache.
+            % options, updates detail visibility, saves, and clears cache.
             arguments
                 obj RasterGUI
             end
             obj.updateEventSeriesTypeOptions();
+            obj.updateEventSeriesDetailVisibility();
+            obj.saveSelectedEventSeries();
+            obj.clearCache();
+        end
+
+        function eventSeriesTypeChanged(obj)
+            % Called when the series type popup changes. Updates detail
+            % visibility (filter vs burst controls), saves, and clears cache.
+            arguments
+                obj RasterGUI
+            end
+            obj.updateEventSeriesDetailVisibility();
             obj.saveSelectedEventSeries();
             obj.clearCache();
         end
@@ -2138,7 +2242,7 @@ classdef RasterGUI < handle
             arguments
                 obj RasterGUI
             end
-            obj.updateEventSeriesFilterVisibility();
+            obj.updateEventSeriesDetailVisibility();
             obj.saveSelectedEventSeries();
             obj.clearCache();
         end
@@ -2178,7 +2282,7 @@ classdef RasterGUI < handle
                 return;
             end
             idx = obj.list_EventSeries.Value;
-            obj.eventSeries(idx).showPSTH = obj.check_EventSeriesPSTH.Value;
+            obj.eventSeries(idx).showPSTH = logical(obj.check_EventSeriesPSTH.Value);
             % Replot PSTH and histogram to reflect the change
             obj.plotPSTH();
             obj.plotHist();
@@ -2285,6 +2389,8 @@ classdef RasterGUI < handle
                 obj.popup_EventSeriesType, ...
                 obj.popup_EventSeriesFilterMode, ...
                 obj.edit_EventSeriesFilterList, ...
+                obj.edit_EventSeriesBurstFreq, ...
+                obj.edit_EventSeriesBurstMinSpikes, ...
                 obj.push_EventSeriesColor, ...
                 obj.check_EventSeriesPSTH, ...
                 obj.popup_StartReference, ...
