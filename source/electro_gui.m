@@ -1336,9 +1336,8 @@ classdef electro_gui < handle
 
             pcaScores = [];
 
-            % Check if stats exist
-            if ~isfield(obj.dbase, 'EventFeatureStats') || ...
-                    eventSourceIdx > length(obj.dbase.EventFeatureStats) || ...
+            % Check if stats exist for this event source
+            if eventSourceIdx > length(obj.dbase.EventFeatureStats) || ...
                     isempty(obj.dbase.EventFeatureStats{eventSourceIdx})
                 return;
             end
@@ -1395,9 +1394,8 @@ classdef electro_gui < handle
 
             waveformPcaScores = [];
 
-            % Check if waveform PCA stats exist
-            if ~isfield(obj.dbase, 'EventFeatureStats') || ...
-                    eventSourceIdx > length(obj.dbase.EventFeatureStats) || ...
+            % Check if waveform PCA stats exist for this event source
+            if eventSourceIdx > length(obj.dbase.EventFeatureStats) || ...
                     isempty(obj.dbase.EventFeatureStats{eventSourceIdx})
                 return;
             end
@@ -1466,8 +1464,7 @@ classdef electro_gui < handle
             % if computed statistics are available for both displayed features.
 
             % Check if stats exist for this event source
-            if ~isfield(obj.dbase, 'EventFeatureStats') || ...
-                    eventSourceIdx > length(obj.dbase.EventFeatureStats) || ...
+            if eventSourceIdx > length(obj.dbase.EventFeatureStats) || ...
                     isempty(obj.dbase.EventFeatureStats{eventSourceIdx})
                 return;
             end
@@ -6038,10 +6035,9 @@ function setEventFeatureStats(obj, eventSourceIdx, names, options)
     stats.numFilesSampled = options.numFilesSampled;
     stats.computedOn = options.computedOn;
 
-    % Initialize EventFeatureStats cell array if needed
-    if ~isfield(obj.dbase, 'EventFeatureStats') || ...
-            length(obj.dbase.EventFeatureStats) < length(obj.dbase.EventSources)
-        obj.dbase.EventFeatureStats = cell(1, length(obj.dbase.EventSources));
+    % Expand EventFeatureStats cell array if needed (e.g., new event sources added)
+    if length(obj.dbase.EventFeatureStats) < length(obj.dbase.EventSources)
+        obj.dbase.EventFeatureStats{length(obj.dbase.EventSources)} = [];
     end
 
     obj.dbase.EventFeatureStats{eventSourceIdx} = stats;
@@ -15816,6 +15812,10 @@ end
                         dbase.MarkerTypes{filenum} = [dbase.MarkerTypes{filenum}, repmat(settings.MarkerTypes(1), [1, numMarkers-numMarkerTypes])];
                     end
                 end
+            end
+
+            if ~isfield(dbase, 'EventFeatureStats')
+                dbase.EventFeatureStats = cell(1, length(dbase.EventSources));
             end
 
             % Check that segment and marker times have a Nx2 size, even when N = 0, and that segment/marker titles are row vectors, not column vectors
