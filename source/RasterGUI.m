@@ -37,12 +37,10 @@ classdef RasterGUI < handle
         popup_TriggerSource
         popup_TriggerType
         popup_TriggerAlignment
-        check_CopyEvents
 
         % Event panel
         popup_EventSource
         popup_EventType
-        check_CopyTrigger
 
         % Window panel
         popup_StartReference
@@ -540,8 +538,6 @@ classdef RasterGUI < handle
             obj.text_TriggerAlignment.Position = [tabMargin, rowY(3), labelW, rowH];
             obj.popup_TriggerAlignment.Units = 'pixels';
             obj.popup_TriggerAlignment.Position = [popupAfterLabelX, rowY(3), popupAfterLabelW, rowH];
-            obj.check_CopyEvents.Units = 'pixels';
-            obj.check_CopyEvents.Position = [tabMargin, rowY(4), tabFullW, rowH];
             % Inline trigger filter (visible depending on type)
             filterModeW = 70;
             filterListX = tabMargin + filterModeW + 4;
@@ -557,8 +553,6 @@ classdef RasterGUI < handle
             obj.text_EventType.Position = [tabMargin, rowY(2), labelW, rowH];
             obj.popup_EventType.Units = 'pixels';
             obj.popup_EventType.Position = [popupAfterLabelX, rowY(2), popupAfterLabelW, rowH];
-            obj.check_CopyTrigger.Units = 'pixels';
-            obj.check_CopyTrigger.Position = [tabMargin, rowY(3), tabFullW, rowH];
             % Inline event filter (visible depending on type)
             obj.popup_EventFilterMode.Units = 'pixels';
             obj.popup_EventFilterMode.Position = [tabMargin, rowY(4), filterModeW, rowH];
@@ -768,8 +762,6 @@ classdef RasterGUI < handle
                 'HorizontalAlignment', 'right');
             obj.popup_TriggerAlignment = uicontrol(trigTab, 'Style', 'popupmenu', ...
                 'String', {'Onset', 'Offset', 'Midpoint'});
-            obj.check_CopyEvents = uicontrol(trigTab, 'Style', 'checkbox', ...
-                'String', 'Copy events from trigger');
             % Inline trigger filter (visible depending on type)
             obj.popup_TrigFilterMode = uicontrol(trigTab, 'Style', 'popupmenu', ...
                 'String', {'All', 'Include', 'Exclude'}, ...
@@ -790,8 +782,6 @@ classdef RasterGUI < handle
             obj.popup_EventType = uicontrol(eventTab, 'Style', 'popupmenu', ...
                 'String', {'Syllables', 'Markers', 'Events', 'Bursts', 'Continuous'}, ...
                 'Callback', @(~,~) obj.upstreamSettingChanged());
-            obj.check_CopyTrigger = uicontrol(eventTab, 'Style', 'checkbox', ...
-                'String', 'Copy trigger to events');
             % Inline event filter (visible depending on type)
             obj.popup_EventFilterMode = uicontrol(eventTab, 'Style', 'popupmenu', ...
                 'String', {'All', 'Include', 'Exclude'}, ...
@@ -1043,13 +1033,11 @@ classdef RasterGUI < handle
             obj.popup_TriggerSource.Tooltip = 'Data source for triggers (Sound = syllables/markers)';
             obj.popup_TriggerType.Tooltip = 'Type of trigger events to extract';
             obj.popup_TriggerAlignment.Tooltip = 'Which part of the trigger to align to (time zero)';
-            obj.check_CopyEvents.Tooltip = 'Use the same settings for events as for triggers';
             obj.popup_TrigFilterMode.Tooltip = 'All: use all labels; Include: only listed; Exclude: all except listed';
 
             % Events tab
             obj.popup_EventSource.Tooltip = 'Data source for events to plot on the raster';
             obj.popup_EventType.Tooltip = 'Type of events to extract';
-            obj.check_CopyTrigger.Tooltip = 'Use the same settings for triggers as for events';
             obj.popup_EventFilterMode.Tooltip = 'All: use all labels; Include: only listed; Exclude: all except listed';
             obj.popup_StartReference.Tooltip = 'Reference point for the start of the event window';
             obj.popup_StopReference.Tooltip = 'Reference point for the end of the event window';
@@ -1428,14 +1416,12 @@ classdef RasterGUI < handle
             preset.triggerType = trigTypeStrs{obj.popup_TriggerType.Value};
             alignStrs = obj.popup_TriggerAlignment.String;
             preset.triggerAlignment = alignStrs{obj.popup_TriggerAlignment.Value};
-            preset.copyEvents = obj.check_CopyEvents.Value;
 
             % Event settings
             eventSourceStrs = obj.popup_EventSource.String;
             preset.eventSource = eventSourceStrs{obj.popup_EventSource.Value};
             eventTypeStrs = obj.popup_EventType.String;
             preset.eventType = eventTypeStrs{obj.popup_EventType.Value};
-            preset.copyTrigger = obj.check_CopyTrigger.Value;
 
             % Window settings
             startRefStrs = obj.popup_StartReference.String;
@@ -1488,11 +1474,9 @@ classdef RasterGUI < handle
             obj.setPopupByName(obj.popup_TriggerSource, preset, 'triggerSource');
             obj.setPopupByName(obj.popup_TriggerType, preset, 'triggerType');
             obj.setPopupByName(obj.popup_TriggerAlignment, preset, 'triggerAlignment');
-            obj.setCheckbox(obj.check_CopyEvents, preset, 'copyEvents');
 
             obj.setPopupByName(obj.popup_EventSource, preset, 'eventSource');
             obj.setPopupByName(obj.popup_EventType, preset, 'eventType');
-            obj.setCheckbox(obj.check_CopyTrigger, preset, 'copyTrigger');
 
             obj.setPopupByName(obj.popup_StartReference, preset, 'startReference');
             obj.setPopupByName(obj.popup_StopReference, preset, 'stopReference');
@@ -1796,12 +1780,10 @@ classdef RasterGUI < handle
                 obj.popup_TriggerSource, ...
                 obj.popup_TriggerType, ...
                 obj.popup_TriggerAlignment, ...
-                obj.check_CopyEvents, ...
                 obj.popup_TrigFilterMode, ...
                 obj.edit_TrigFilterList, ...
                 obj.popup_EventSource, ...
                 obj.popup_EventType, ...
-                obj.check_CopyTrigger, ...
                 obj.popup_EventFilterMode, ...
                 obj.edit_EventFilterList, ...
                 obj.popup_StartReference, ...
@@ -1946,14 +1928,6 @@ classdef RasterGUI < handle
             eventModes = obj.popup_EventFilterMode.String;
             obj.P.event.filterMode = eventModes{obj.popup_EventFilterMode.Value};
             obj.P.event.filterList = obj.edit_EventFilterList.String;
-
-            % Copy if linked
-            if obj.check_CopyTrigger.Value
-                obj.P.trig = obj.P.event;
-            end
-            if obj.check_CopyEvents.Value
-                obj.P.event = obj.P.trig;
-            end
 
             % Window limits
             obj.P.preStartRef = str2double(obj.edit_PreStart.String);
