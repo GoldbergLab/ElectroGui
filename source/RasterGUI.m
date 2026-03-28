@@ -224,6 +224,10 @@ classdef RasterGUI < handle
         HistYLim double = repmat([-inf, inf], 5, 1)
         HistShow double = [1, 1]
 
+        % Full Y range of the raster (placeholder until plotRaster sets
+        % it to [0.5, numTrials+0.5]; used to clamp scroll-zoom/pan)
+        RasterFullYLim double = [0.5, 1.5]
+
         % Background color
         BackgroundColor double = [1, 1, 1]
 
@@ -805,7 +809,8 @@ classdef RasterGUI < handle
                 'NumberTitle', 'off', ...
                 'MenuBar', 'none', ...
                 'Visible', 'off', ...
-                'CloseRequestFcn', @(~,~) obj.hide());
+                'CloseRequestFcn', @(~,~) obj.hide(), ...
+                'WindowScrollWheelFcn', @(~, evt) obj.onScrollWheel(evt));
 
             % --- Status bar ---
             obj.statusBar = StatusBar(obj.figure_Main);
@@ -816,11 +821,14 @@ classdef RasterGUI < handle
                 'BorderType', 'none');
 
             obj.axes_Raster = axes(obj.panel_Axes, ...
-                'Box', 'on', 'Tag', 'axes_Raster');
+                'Box', 'on', ...
+                'Tag', 'axes_Raster');
             obj.axes_PSTH = axes(obj.panel_Axes, ...
-                'Box', 'on', 'Tag', 'axes_PSTH');
+                'Box', 'on', ...
+                'Tag', 'axes_PSTH');
             obj.axes_Hist = axes(obj.panel_Axes, ...
-                'Box', 'on', 'Tag', 'axes_Hist');
+                'Box', 'on', ...
+                'Tag', 'axes_Hist');
 
             % Link axes: raster+PSTH share X, raster+histogram share Y
             linkaxes([obj.axes_Raster, obj.axes_PSTH], 'x');
@@ -862,7 +870,8 @@ classdef RasterGUI < handle
                 'String', {'(No event series)'}, ...
                 'Callback', @(~,~) obj.selectEventSeries());
             obj.push_EventSeriesAdd = uicontrol(eventTab, 'Style', 'pushbutton', ...
-                'String', '+', 'FontWeight', 'bold', ...
+                'String', '+', ...
+                'FontWeight', 'bold', ...
                 'Callback', @(~,~) obj.addEventSeries());
             obj.push_EventSeriesRemove = uicontrol(eventTab, 'Style', 'pushbutton', ...
                 'String', char(215), 'FontWeight', 'bold', 'Enable', 'off', ... % × symbol
@@ -885,21 +894,28 @@ classdef RasterGUI < handle
                 'Callback', @(~,~) obj.eventSeriesDetailChanged());
             % Burst-specific controls (same row as filter, shown for burst types)
             obj.text_EventSeriesBurstFreq = uicontrol(eventTab, 'Style', 'text', ...
-                'String', 'Freq:', 'HorizontalAlignment', 'right', 'Visible', 'off');
+                'String', 'Freq:', ...
+                'HorizontalAlignment', 'right', ...
+                'Visible', 'off');
             obj.edit_EventSeriesBurstFreq = uicontrol(eventTab, 'Style', 'edit', ...
-                'String', '100', 'Visible', 'off', ...
+                'String', '100', ...
+                'Visible', 'off', ...
                 'Callback', @(~,~) obj.eventSeriesDetailChanged());
             obj.text_EventSeriesBurstMinSpikes = uicontrol(eventTab, 'Style', 'text', ...
-                'String', 'Min:', 'HorizontalAlignment', 'right', 'Visible', 'off');
+                'String', 'Min:', ...
+                'HorizontalAlignment', 'right', ...
+                'Visible', 'off');
             obj.edit_EventSeriesBurstMinSpikes = uicontrol(eventTab, 'Style', 'edit', ...
-                'String', '2', 'Visible', 'off', ...
+                'String', '2', ...
+                'Visible', 'off', ...
                 'Callback', @(~,~) obj.eventSeriesDetailChanged());
             obj.push_EventSeriesColor = uicontrol(eventTab, 'Style', 'pushbutton', ...
                 'String', '', 'Visible', 'off', ...
                 'BackgroundColor', [0 0 0], ...
                 'Callback', @(~,~) obj.eventSeriesColorPicked());
             obj.check_EventSeriesPSTH = uicontrol(eventTab, 'Style', 'checkbox', ...
-                'String', 'PSTH source', 'Visible', 'off', ...
+                'String', 'PSTH source', ...
+                'Visible', 'off', ...
                 'Callback', @(~,~) obj.eventSeriesPSTHChanged());
 
             % Window controls (in Events tab)
@@ -1087,13 +1103,15 @@ classdef RasterGUI < handle
             obj.popup_Presets = uicontrol(presetsTab, 'Style', 'popupmenu', ...
                 'String', {'(No presets found)'}, 'Enable', 'off');
             obj.push_LoadPreset = uicontrol(presetsTab, 'Style', 'pushbutton', ...
-                'String', 'Load', 'Enable', 'off', ...
+                'String', 'Load', ...
+                'Enable', 'off', ...
                 'Callback', @(~,~) obj.loadPresetCallback());
             obj.push_SavePreset = uicontrol(presetsTab, 'Style', 'pushbutton', ...
                 'String', 'Save', ...
                 'Callback', @(~,~) obj.savePresetCallback());
             obj.push_DeletePreset = uicontrol(presetsTab, 'Style', 'pushbutton', ...
-                'String', 'Delete', 'Enable', 'off', ...
+                'String', 'Delete', ...
+                'Enable', 'off', ...
                 'Callback', @(~,~) obj.deletePresetCallback());
             obj.push_RefreshPresets = uicontrol(presetsTab, 'Style', 'pushbutton', ...
                 'String', 'Refresh', ...
@@ -1107,7 +1125,8 @@ classdef RasterGUI < handle
             obj.text_ExportToFile = uicontrol(exportTab, 'Style', 'text', ...
                 'String', 'Export to file:', ...
                 'Tag', 'text_ExportToFile', ...
-                'HorizontalAlignment', 'left', 'FontWeight', 'bold');
+                'HorizontalAlignment', 'left', ...
+                'FontWeight', 'bold');
             % exportBtnW, exportBtnGap defined in layout constants above
             obj.push_ExportPNG = uicontrol(exportTab, 'Style', 'pushbutton', ...
                 'String', 'PNG', ...
@@ -1279,7 +1298,8 @@ classdef RasterGUI < handle
                           tY + tickHalfHeight, tY + tickHalfHeight]';  % 4 x nBoxes
                 patch(ax, patchX, patchY, trigColor, ...
                     'EdgeColor', 'none', ...
-                    'PickableParts', 'none', 'HitTest', 'off');
+                    'PickableParts', 'none', ...
+                    'HitTest', 'off');
             end
 
             % --- Plot event ticks for each series ---
@@ -1333,11 +1353,13 @@ classdef RasterGUI < handle
             % --- Plot zero line (trigger alignment point) ---
             plot(ax, [0, 0], [0.5, numTrials + 0.5], '--', ...
                 'Color', [0.5, 0.5, 0.5], 'LineWidth', 0.5, ...
-                'PickableParts', 'none', 'HitTest', 'off');
+                'PickableParts', 'none', ...
+                'HitTest', 'off');
 
             % --- Axes formatting ---
             ax.YDir = 'reverse';
             ax.YLim = [0.5, numTrials + 0.5];
+            obj.RasterFullYLim = ax.YLim;
             if obj.check_AutoXLim.Value
                 % Compute tight X limits from all plotted data
                 allXData = [];
@@ -1464,7 +1486,8 @@ classdef RasterGUI < handle
             % Zero line
             plot(ax, [0, 0], ax.YLim, '--', ...
                 'Color', [0.5, 0.5, 0.5], 'LineWidth', 0.5, ...
-                'PickableParts', 'none', 'HitTest', 'off');
+                'PickableParts', 'none', ...
+                'HitTest', 'off');
 
             % Formatting (X limits linked to raster via linkaxes)
             ax.YLabel.String = yLabel;
@@ -1801,7 +1824,8 @@ classdef RasterGUI < handle
             presetNames = obj.popup_Presets.String;
             selectedName = presetNames{obj.popup_Presets.Value};
             answer = questdlg(sprintf('Delete preset "%s"?', selectedName), ...
-                'Delete Preset', 'Delete', 'Cancel', 'Cancel');
+                'Delete Preset', 'Delete', ...
+                'Cancel', 'Cancel');
             if ~strcmp(answer, 'Delete')
                 return;
             end
@@ -2546,7 +2570,7 @@ classdef RasterGUI < handle
 
             % File range
             try
-                obj.FileRange = eval(obj.edit_FileRange.String); %#ok<EVLC>
+                obj.FileRange = eval(obj.edit_FileRange.String);
             catch
                 electro_gui.issueWarning('Invalid file range expression, using all files.', 'badFileRange');
                 numFiles = electro_gui.getNumFiles(obj.eg.dbase);
@@ -2788,6 +2812,73 @@ classdef RasterGUI < handle
             else
                 obj.push_Hold.String = 'Hold on';
             end
+        end
+
+        function onScrollWheel(obj, evt)
+            % Handle mouse scroll over the raster axes. Plain scroll
+            % zooms Y centered on the mouse; shift+scroll pans Y.
+            % X limits are never changed. Zoom/pan is clamped so the
+            % view cannot exceed the full data range.
+            arguments
+                obj RasterGUI
+                evt matlab.ui.eventdata.ScrollWheelData
+            end
+
+            % Only act when the mouse is over the raster axes
+            ax = obj.axes_Raster;
+            cp = ax.CurrentPoint;
+            yMouse = cp(1, 2);
+            xMouse = cp(1, 1);
+            xlim = ax.XLim;
+            ylim = ax.YLim;
+            % Check if the mouse is within the raster axes data range
+            if xMouse < xlim(1) || xMouse > xlim(2) || ...
+               yMouse < ylim(1) || yMouse > ylim(2)
+                return;
+            end
+
+            fullYLim = obj.RasterFullYLim;
+            fullSpan = fullYLim(2) - fullYLim(1);
+            scrollDir = evt.VerticalScrollCount;  % +1 = scroll down, -1 = scroll up
+
+            modifier = get(obj.figure_Main, 'CurrentModifier');
+            isShift = any(strcmp(modifier, 'shift'));
+
+            if isShift
+                % --- Shift+scroll: pan in Y ---
+                % Pan by 10% of the current view span per scroll click
+                panAmount = 0.1 * diff(ylim) * scrollDir;
+                newYLim = ylim + panAmount;
+                % Clamp to full data range
+                if newYLim(1) < fullYLim(1)
+                    newYLim = newYLim - (newYLim(1) - fullYLim(1));
+                end
+                if newYLim(2) > fullYLim(2)
+                    newYLim = newYLim - (newYLim(2) - fullYLim(2));
+                end
+            else
+                % --- Plain scroll: zoom in Y centered on mouse ---
+                % Scroll down = zoom out, scroll up = zoom in
+                zoomFactor = 1.15 ^ scrollDir;
+                newSpan = diff(ylim) * zoomFactor;
+                % Clamp: don't zoom out past the full data range
+                newSpan = min(newSpan, fullSpan);
+                % Clamp: don't zoom in past 1 trial height
+                newSpan = max(newSpan, 1);
+                % Fraction of the view below the mouse stays constant
+                frac = (yMouse - ylim(1)) / diff(ylim);
+                newYLim = [yMouse - frac * newSpan, yMouse - frac * newSpan + newSpan];
+                % Clamp to full data range (shift if needed)
+                if newYLim(1) < fullYLim(1)
+                    newYLim = [fullYLim(1), fullYLim(1) + newSpan];
+                end
+                if newYLim(2) > fullYLim(2)
+                    newYLim = [fullYLim(2) - newSpan, fullYLim(2)];
+                end
+            end
+
+            ax.YLim = newYLim;
+            % Histogram follows via linkaxes
         end
     end
 
