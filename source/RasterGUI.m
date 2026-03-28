@@ -38,9 +38,18 @@ classdef RasterGUI < handle
         popup_TriggerType
         popup_TriggerAlignment
 
-        % Event panel
-        popup_EventSource
-        popup_EventType
+        % Event series panel
+        list_EventSeries
+        push_EventSeriesAdd
+        push_EventSeriesRemove
+        % Event series detail controls (populated from selected series)
+        edit_EventSeriesName
+        popup_EventSeriesSource
+        popup_EventSeriesType
+        popup_EventSeriesFilterMode
+        edit_EventSeriesFilterList
+        push_EventSeriesColor
+        check_EventSeriesPSTH
 
         % Window panel
         popup_StartReference
@@ -103,9 +112,6 @@ classdef RasterGUI < handle
         popup_TrigFilterMode    % 'All', 'Include', 'Exclude'
         edit_TrigFilterList
 
-        % Event options (inline in tab)
-        popup_EventFilterMode   % 'All', 'Include', 'Exclude'
-        edit_EventFilterList
 
         % Presets tab
         popup_Presets
@@ -156,12 +162,20 @@ classdef RasterGUI < handle
         % Data
         triggerInfo struct = struct()       % Sorted trigger info (used for plotting)
         preSortTriggerInfo struct = struct() % Cached alignment output before sorting
-        AllEventOnsets cell = {}
-        AllEventOffsets cell = {}
-        AllEventLabels cell = {}
-        AllSelections cell = {}
-        AllEventOptions cell = {}
-        AllEventPlots double = zeros(0, 5)
+
+        % Event series: array of structs, one per event series
+        % Each has: name, sourceIdx, type, filterMode, filterList,
+        %           color, showPSTH, triggerInfo (per-series aligned data)
+        eventSeries struct = struct( ...
+            'name', {}, ...
+            'sourceIdx', {}, ...    % Index into popup (1=Sound, 2+=event detectors)
+            'type', {}, ...         % e.g., 'Events', 'Syllables'
+            'filterMode', {}, ...   % 'All', 'Include', 'Exclude'
+            'filterList', {}, ...   % Label filter string
+            'color', {}, ...        % 1x3 RGB
+            'showPSTH', {}, ...     % true/false
+            'triggerInfo', {} ...   % Aligned event data for this series
+        )
 
         % File range
         FileRange double = []
@@ -410,7 +424,6 @@ classdef RasterGUI < handle
             obj.P.trig.pauseMinDuration = 0.05;
             obj.P.trig.contSmooth = 1;
             obj.P.trig.contSubsample = 0.001;
-            obj.P.event = obj.P.trig;
             obj.P.preStartRef = 0.4;
             obj.P.postStopRef = 0.4;
             obj.P.filter = repmat([-inf, inf], 15, 1);
@@ -547,17 +560,32 @@ classdef RasterGUI < handle
             obj.edit_TrigFilterList.Units = 'pixels';
             obj.edit_TrigFilterList.Position = [filterListX, rowY(5), filterListW, rowH];
             % --- Events tab ---
-            obj.popup_EventSource.Units = 'pixels';
-            obj.popup_EventSource.Position = [tabMargin, rowY(1), tabFullW, rowH];
-            obj.text_EventType.Units = 'pixels';
-            obj.text_EventType.Position = [tabMargin, rowY(2), labelW, rowH];
-            obj.popup_EventType.Units = 'pixels';
-            obj.popup_EventType.Position = [popupAfterLabelX, rowY(2), popupAfterLabelW, rowH];
-            % Inline event filter (visible depending on type)
-            obj.popup_EventFilterMode.Units = 'pixels';
-            obj.popup_EventFilterMode.Position = [tabMargin, rowY(4), filterModeW, rowH];
-            obj.edit_EventFilterList.Units = 'pixels';
-            obj.edit_EventFilterList.Position = [filterListX, rowY(4), filterListW, rowH];
+            % Series list with +/- buttons to the right
+            listH = 3 * rowSpacing;  % 3 rows tall
+            btnW = 22;
+            btnGap = 2;
+            obj.list_EventSeries.Units = 'pixels';
+            obj.list_EventSeries.Position = [tabMargin, rowY(1) - listH + rowH, fullW - btnW - btnGap, listH];
+            obj.push_EventSeriesAdd.Units = 'pixels';
+            obj.push_EventSeriesAdd.Position = [fullW - btnW, rowY(1), btnW, rowH];
+            obj.push_EventSeriesRemove.Units = 'pixels';
+            obj.push_EventSeriesRemove.Position = [fullW - btnW, rowY(1) - rowSpacing, btnW, rowH];
+            % Detail controls start below the list
+            detailStartRow = 4;  % After 3-row list
+            obj.edit_EventSeriesName.Units = 'pixels';
+            obj.edit_EventSeriesName.Position = [tabMargin, rowY(detailStartRow), fullW, rowH];
+            obj.popup_EventSeriesSource.Units = 'pixels';
+            obj.popup_EventSeriesSource.Position = [tabMargin, rowY(detailStartRow + 1), halfW, rowH];
+            obj.popup_EventSeriesType.Units = 'pixels';
+            obj.popup_EventSeriesType.Position = [tabMargin + halfW + halfGap, rowY(detailStartRow + 1), halfW, rowH];
+            obj.popup_EventSeriesFilterMode.Units = 'pixels';
+            obj.popup_EventSeriesFilterMode.Position = [tabMargin, rowY(detailStartRow + 2), filterModeW, rowH];
+            obj.edit_EventSeriesFilterList.Units = 'pixels';
+            obj.edit_EventSeriesFilterList.Position = [filterListX, rowY(detailStartRow + 2), filterListW, rowH];
+            obj.push_EventSeriesColor.Units = 'pixels';
+            obj.push_EventSeriesColor.Position = [tabMargin, rowY(detailStartRow + 3), rowH, rowH];  % Square button
+            obj.check_EventSeriesPSTH.Units = 'pixels';
+            obj.check_EventSeriesPSTH.Position = [tabMargin + rowH + 8, rowY(detailStartRow + 3), halfW, rowH];
             % Window controls (continued in Events tab)
             winRefLabelW = 30;
             winRefPopupX = tabMargin + winRefLabelW + 2;
@@ -772,23 +800,39 @@ classdef RasterGUI < handle
 
             % --- Events tab ---
             eventTab = uitab(obj.tab_group, 'Title', 'Events');
-            obj.popup_EventSource = uicontrol(eventTab, 'Style', 'popupmenu', ...
-                'String', {'Sound'}, ...
-                'Callback', @(~,~) obj.upstreamSettingChanged());
-            obj.text_EventType = uicontrol(eventTab, 'Style', 'text', ...
-                'String', 'Type:', ...
-                'Tag', 'text_EventType', ...
-                'HorizontalAlignment', 'right');
-            obj.popup_EventType = uicontrol(eventTab, 'Style', 'popupmenu', ...
-                'String', {'Syllables', 'Markers', 'Events', 'Bursts', 'Continuous'}, ...
-                'Callback', @(~,~) obj.typeChanged());
-            % Inline event filter (visible depending on type)
-            obj.popup_EventFilterMode = uicontrol(eventTab, 'Style', 'popupmenu', ...
-                'String', {'All', 'Include', 'Exclude'}, ...
-                'Callback', @(~,~) obj.upstreamSettingChanged());
-            obj.edit_EventFilterList = uicontrol(eventTab, 'Style', 'edit', ...
-                'String', '', 'HorizontalAlignment', 'left', ...
-                'Callback', @(~,~) obj.clearCache());
+            % Series list and management buttons
+            obj.list_EventSeries = uicontrol(eventTab, 'Style', 'listbox', ...
+                'String', {'(No event series)'}, ...
+                'Callback', @(~,~) obj.selectEventSeries());
+            obj.push_EventSeriesAdd = uicontrol(eventTab, 'Style', 'pushbutton', ...
+                'String', '+', 'FontWeight', 'bold', ...
+                'Callback', @(~,~) obj.addEventSeries());
+            obj.push_EventSeriesRemove = uicontrol(eventTab, 'Style', 'pushbutton', ...
+                'String', char(215), 'FontWeight', 'bold', 'Enable', 'off', ... % × symbol
+                'Callback', @(~,~) obj.removeEventSeries());
+            % Detail controls (hidden until a series is selected)
+            obj.edit_EventSeriesName = uicontrol(eventTab, 'Style', 'edit', ...
+                'String', '', 'Visible', 'off', ...
+                'Callback', @(~,~) obj.eventSeriesNameChanged());
+            obj.popup_EventSeriesSource = uicontrol(eventTab, 'Style', 'popupmenu', ...
+                'String', {'Sound'}, 'Visible', 'off', ...
+                'Callback', @(~,~) obj.eventSeriesSourceChanged());
+            obj.popup_EventSeriesType = uicontrol(eventTab, 'Style', 'popupmenu', ...
+                'String', {'Syllables'}, 'Visible', 'off', ...
+                'Callback', @(~,~) obj.eventSeriesDetailChanged());
+            obj.popup_EventSeriesFilterMode = uicontrol(eventTab, 'Style', 'popupmenu', ...
+                'String', {'All', 'Include', 'Exclude'}, 'Visible', 'off', ...
+                'Callback', @(~,~) obj.eventSeriesFilterModeChanged());
+            obj.edit_EventSeriesFilterList = uicontrol(eventTab, 'Style', 'edit', ...
+                'String', '', 'HorizontalAlignment', 'left', 'Visible', 'off', ...
+                'Callback', @(~,~) obj.eventSeriesDetailChanged());
+            obj.push_EventSeriesColor = uicontrol(eventTab, 'Style', 'pushbutton', ...
+                'String', '', 'Visible', 'off', ...
+                'BackgroundColor', [0 0 0], ...
+                'Callback', @(~,~) obj.eventSeriesColorPicked());
+            obj.check_EventSeriesPSTH = uicontrol(eventTab, 'Style', 'checkbox', ...
+                'String', 'PSTH source', 'Visible', 'off', ...
+                'Callback', @(~,~) obj.eventSeriesPSTHChanged());
 
             % Window controls (in Events tab)
             % Row: Start: [Trigger onset ▾] — [0.4] s
@@ -1694,6 +1738,308 @@ classdef RasterGUI < handle
 
             close(tempFig);
             fprintf('Exported to: %s\n', fullPath);
+        end
+    end
+
+    %% Event series management
+    methods (Access = private)
+        function DefaultSeriesColors = getDefaultSeriesColors(~)
+            % Default color palette for event series
+            DefaultSeriesColors = [
+                0.0, 0.0, 0.0;   % Black
+                1.0, 0.0, 0.0;   % Red
+                0.0, 0.0, 1.0;   % Blue
+                0.0, 0.6, 0.0;   % Green
+                0.8, 0.4, 0.0;   % Orange
+                0.5, 0.0, 0.8;   % Purple
+            ];
+        end
+
+        function series = createDefaultEventSeries(obj, seriesNumber)
+            % Create a new event series struct with default values.
+            arguments
+                obj RasterGUI
+                seriesNumber (1, 1) double {mustBePositive, mustBeInteger}
+            end
+            colors = obj.getDefaultSeriesColors();
+            colorIdx = mod(seriesNumber - 1, size(colors, 1)) + 1;
+            series.name = sprintf('Event series %d', seriesNumber);
+            series.sourceIdx = 1;           % Default to first source (Sound)
+            series.type = 'Syllables';
+            series.filterMode = 'All';
+            series.filterList = '';
+            series.color = colors(colorIdx, :);
+            series.showPSTH = (seriesNumber == 1);  % First series shows PSTH by default
+            series.triggerInfo = struct();
+        end
+
+        function addEventSeries(obj)
+            % Add a new event series with default values.
+            arguments
+                obj RasterGUI
+            end
+            seriesNum = length(obj.eventSeries) + 1;
+            obj.eventSeries(seriesNum) = obj.createDefaultEventSeries(seriesNum);
+            obj.refreshEventSeriesList();
+            obj.list_EventSeries.Value = seriesNum;
+            obj.selectEventSeries();
+            obj.clearCache();
+        end
+
+        function removeEventSeries(obj)
+            % Remove the currently selected event series.
+            arguments
+                obj RasterGUI
+            end
+            if isempty(obj.eventSeries)
+                return;
+            end
+            idx = obj.list_EventSeries.Value;
+            obj.eventSeries(idx) = [];
+            obj.refreshEventSeriesList();
+            if ~isempty(obj.eventSeries)
+                obj.list_EventSeries.Value = min(idx, length(obj.eventSeries));
+                obj.selectEventSeries();
+            else
+                obj.hideEventSeriesDetail();
+            end
+            obj.clearCache();
+        end
+
+        function refreshEventSeriesList(obj)
+            % Update the listbox display from the eventSeries array.
+            arguments
+                obj RasterGUI
+            end
+            if isempty(obj.eventSeries)
+                obj.list_EventSeries.String = {'(No event series)'};
+                obj.list_EventSeries.Value = 1;
+                obj.push_EventSeriesRemove.Enable = 'off';
+            else
+                names = cell(1, length(obj.eventSeries));
+                for k = 1:length(obj.eventSeries)
+                    names{k} = obj.eventSeries(k).name;
+                end
+                obj.list_EventSeries.String = names;
+                obj.push_EventSeriesRemove.Enable = 'on';
+            end
+        end
+
+        function selectEventSeries(obj)
+            % Populate the detail controls from the selected event series.
+            arguments
+                obj RasterGUI
+            end
+            if isempty(obj.eventSeries)
+                obj.hideEventSeriesDetail();
+                return;
+            end
+            idx = obj.list_EventSeries.Value;
+            if idx < 1 || idx > length(obj.eventSeries)
+                obj.hideEventSeriesDetail();
+                return;
+            end
+            series = obj.eventSeries(idx);
+
+            % Show detail controls
+            obj.showEventSeriesDetail();
+
+            % Populate values
+            obj.edit_EventSeriesName.String = series.name;
+
+            % Set source popup
+            obj.popup_EventSeriesSource.Value = series.sourceIdx;
+
+            % Update type options based on source, then set type
+            obj.updateEventSeriesTypeOptions();
+            typeStrs = obj.popup_EventSeriesType.String;
+            typeIdx = find(strcmp(typeStrs, series.type), 1);
+            if ~isempty(typeIdx)
+                obj.popup_EventSeriesType.Value = typeIdx;
+            else
+                obj.popup_EventSeriesType.Value = 1;
+            end
+
+            % Filter
+            filterModes = obj.popup_EventSeriesFilterMode.String;
+            filterIdx = find(strcmp(filterModes, series.filterMode), 1);
+            if ~isempty(filterIdx)
+                obj.popup_EventSeriesFilterMode.Value = filterIdx;
+            end
+            obj.edit_EventSeriesFilterList.String = series.filterList;
+
+            % Color button
+            obj.push_EventSeriesColor.BackgroundColor = series.color;
+
+            % PSTH checkbox
+            obj.check_EventSeriesPSTH.Value = series.showPSTH;
+
+            % Update filter list enable/disable
+            obj.updateEventSeriesFilterVisibility();
+        end
+
+        function saveSelectedEventSeries(obj)
+            % Save the detail control values back to the selected series.
+            arguments
+                obj RasterGUI
+            end
+            if isempty(obj.eventSeries)
+                return;
+            end
+            idx = obj.list_EventSeries.Value;
+            if idx < 1 || idx > length(obj.eventSeries)
+                return;
+            end
+
+            obj.eventSeries(idx).name = obj.edit_EventSeriesName.String;
+            obj.eventSeries(idx).sourceIdx = obj.popup_EventSeriesSource.Value;
+            typeStrs = obj.popup_EventSeriesType.String;
+            obj.eventSeries(idx).type = typeStrs{obj.popup_EventSeriesType.Value};
+            filterModes = obj.popup_EventSeriesFilterMode.String;
+            obj.eventSeries(idx).filterMode = filterModes{obj.popup_EventSeriesFilterMode.Value};
+            obj.eventSeries(idx).filterList = obj.edit_EventSeriesFilterList.String;
+            obj.eventSeries(idx).color = obj.push_EventSeriesColor.BackgroundColor;
+            obj.eventSeries(idx).showPSTH = obj.check_EventSeriesPSTH.Value;
+
+            % Update list display in case name changed
+            obj.refreshEventSeriesList();
+            obj.list_EventSeries.Value = idx;
+        end
+
+        function showEventSeriesDetail(obj)
+            % Make all detail controls visible.
+            arguments
+                obj RasterGUI
+            end
+            widgets = [obj.edit_EventSeriesName, obj.popup_EventSeriesSource, ...
+                obj.popup_EventSeriesType, obj.popup_EventSeriesFilterMode, ...
+                obj.edit_EventSeriesFilterList, obj.push_EventSeriesColor, ...
+                obj.check_EventSeriesPSTH];
+            set(widgets, 'Visible', 'on');
+            % Also show associated text labels
+            obj.updateEventSeriesFilterVisibility();
+        end
+
+        function hideEventSeriesDetail(obj)
+            % Hide all detail controls.
+            arguments
+                obj RasterGUI
+            end
+            widgets = [obj.edit_EventSeriesName, obj.popup_EventSeriesSource, ...
+                obj.popup_EventSeriesType, obj.popup_EventSeriesFilterMode, ...
+                obj.edit_EventSeriesFilterList, obj.push_EventSeriesColor, ...
+                obj.check_EventSeriesPSTH];
+            set(widgets, 'Visible', 'off');
+        end
+
+        function updateEventSeriesTypeOptions(obj)
+            % Update the type dropdown options based on the selected source.
+            arguments
+                obj RasterGUI
+            end
+            numEventSources = length(obj.eg.dbase.EventSources);
+            sourceIdx = obj.popup_EventSeriesSource.Value - 1;
+            if sourceIdx == 0
+                types = {'Syllables', 'Markers', 'Motifs', 'Bouts'};
+            elseif sourceIdx <= numEventSources
+                types = {'Events', 'Bursts', 'Burst events', 'Single events', 'Pauses'};
+            else
+                types = {'Continuous function'};
+            end
+            if ~isequal(obj.popup_EventSeriesType.String, types)
+                obj.popup_EventSeriesType.String = types;
+                obj.popup_EventSeriesType.Value = 1;
+            end
+        end
+
+        function updateEventSeriesFilterVisibility(obj)
+            % Enable/disable the filter list based on filter mode.
+            arguments
+                obj RasterGUI
+            end
+            modes = obj.popup_EventSeriesFilterMode.String;
+            isAll = strcmp(modes{obj.popup_EventSeriesFilterMode.Value}, 'All');
+            if isAll
+                obj.edit_EventSeriesFilterList.Enable = 'off';
+            else
+                obj.edit_EventSeriesFilterList.Enable = 'on';
+            end
+        end
+
+        function eventSeriesDetailChanged(obj)
+            % Called when any detail control changes. Saves back to the
+            % series array and clears cache.
+            arguments
+                obj RasterGUI
+            end
+            obj.saveSelectedEventSeries();
+            obj.clearCache();
+        end
+
+        function eventSeriesSourceChanged(obj)
+            % Called when the series source popup changes. Updates type
+            % options, saves, and clears cache.
+            arguments
+                obj RasterGUI
+            end
+            obj.updateEventSeriesTypeOptions();
+            obj.saveSelectedEventSeries();
+            obj.clearCache();
+        end
+
+        function eventSeriesFilterModeChanged(obj)
+            % Called when the filter mode changes. Updates filter list
+            % enable state, saves, and clears cache.
+            arguments
+                obj RasterGUI
+            end
+            obj.updateEventSeriesFilterVisibility();
+            obj.saveSelectedEventSeries();
+            obj.clearCache();
+        end
+
+        function eventSeriesNameChanged(obj)
+            % Called when the series name is edited. Saves and refreshes list.
+            arguments
+                obj RasterGUI
+            end
+            obj.saveSelectedEventSeries();
+        end
+
+        function eventSeriesColorPicked(obj)
+            % Open a color picker for the selected series.
+            arguments
+                obj RasterGUI
+            end
+            if isempty(obj.eventSeries)
+                return;
+            end
+            idx = obj.list_EventSeries.Value;
+            newColor = uisetcolor(obj.eventSeries(idx).color, 'Pick series color');
+            if length(newColor) == 3
+                obj.eventSeries(idx).color = newColor;
+                obj.push_EventSeriesColor.BackgroundColor = newColor;
+                obj.clearCache();
+            end
+        end
+
+        function eventSeriesPSTHChanged(obj)
+            % Ensure only one series has showPSTH=true.
+            arguments
+                obj RasterGUI
+            end
+            if isempty(obj.eventSeries)
+                return;
+            end
+            idx = obj.list_EventSeries.Value;
+            if obj.check_EventSeriesPSTH.Value
+                % Turn off all other series' PSTH
+                for k = 1:length(obj.eventSeries)
+                    obj.eventSeries(k).showPSTH = (k == idx);
+                end
+            else
+                obj.eventSeries(idx).showPSTH = false;
+            end
         end
     end
 
