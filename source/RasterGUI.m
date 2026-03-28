@@ -1280,7 +1280,7 @@ classdef RasterGUI < handle
             end
 
             ax = obj.axes_Raster;
-            cla(ax);
+            delete(ax.Children);
             hold(ax, 'on');
 
             % Trial y-positions (trial 1 at top)
@@ -1368,8 +1368,17 @@ classdef RasterGUI < handle
 
             % --- Axes formatting ---
             ax.YDir = 'reverse';
-            ax.YLim = [0.5, numTrials + 0.5];
-            obj.RasterFullYLim = ax.YLim;
+            newFullYLim = [0.5, numTrials + 0.5];
+            if isequal(obj.RasterFullYLim, newFullYLim)
+                % Trial count unchanged — preserve the user's zoom/pan
+                % but clamp in case the view extends past the data
+                ax.YLim = [max(ax.YLim(1), newFullYLim(1)), ...
+                           min(ax.YLim(2), newFullYLim(2))];
+            else
+                % Trial count changed — reset to show all trials
+                ax.YLim = newFullYLim;
+            end
+            obj.RasterFullYLim = newFullYLim;
             if obj.check_AutoXLim.Value
                 % Compute tight X limits from all plotted data
                 allXData = [];
@@ -1411,13 +1420,16 @@ classdef RasterGUI < handle
                 obj RasterGUI
             end
             ti = obj.triggerInfo;
+            if isempty(ti) || ~isfield(ti, 'absTime')
+                return;
+            end
             numTrials = length(ti.absTime);
             if numTrials == 0
                 return;
             end
 
             ax = obj.axes_PSTH;
-            cla(ax);
+            delete(ax.Children);
             hold(ax, 'on');
 
             % Find all series with showPSTH=true
@@ -1521,13 +1533,16 @@ classdef RasterGUI < handle
             end
 
             ti = obj.triggerInfo;
+            if isempty(ti) || ~isfield(ti, 'absTime')
+                return;
+            end
             numTrials = length(ti.absTime);
             if numTrials == 0
                 return;
             end
 
             ax = obj.axes_Hist;
-            cla(ax);
+            delete(ax.Children);
             hold(ax, 'on');
 
             % Use the first PSTH-enabled series for the histogram
@@ -1578,9 +1593,8 @@ classdef RasterGUI < handle
             barh(ax, binCenters, binnedCounts, 1, ...
                 'FaceColor', [0.5, 0.5, 0.5], 'EdgeColor', 'none');
 
-            % Match Y axis to raster
+            % Match Y axis to raster (YLim follows via linkaxes)
             ax.YDir = 'reverse';
-            ax.YLim = [0.5, numTrials + 0.5];
             ax.YTickLabel = {};  % Hide Y tick labels (shared with raster)
             ax.XLabel.String = 'Events';
             ax.Box = 'on';
