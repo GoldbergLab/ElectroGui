@@ -1123,7 +1123,7 @@ classdef RasterGUI < handle
             obj.popup_EventSeriesFilterMode.Tooltip = 'All: use all labels; Include: only listed; Exclude: all except listed';
             obj.edit_EventSeriesFilterList.Tooltip = 'Label characters to include or exclude';
             obj.push_EventSeriesColor.Tooltip = 'Click to pick a color for this series';
-            obj.check_EventSeriesPSTH.Tooltip = 'Use this series as the PSTH source (only one at a time)';
+            obj.check_EventSeriesPSTH.Tooltip = 'Include this series in the PSTH display (multiple allowed)';
             obj.popup_StartReference.Tooltip = 'Reference point for the start of the event window';
             obj.popup_StopReference.Tooltip = 'Reference point for the end of the event window';
             obj.check_ExcludeIncomplete.Tooltip = 'Exclude triggers whose window extends beyond file boundaries';
@@ -1335,8 +1335,10 @@ classdef RasterGUI < handle
         end
 
         function plotPSTH(obj)
-            % Render the peri-stimulus time histogram using the event
-            % series that has showPSTH=true.
+            % Render peri-stimulus time histograms for all event series
+            % that have showPSTH=true. Each series is plotted in its own
+            % color as an overlaid line. If no series has showPSTH checked,
+            % the axes stays blank.
             arguments
                 obj RasterGUI
             end
@@ -1350,70 +1352,78 @@ classdef RasterGUI < handle
             cla(ax);
             hold(ax, 'on');
 
-            % Find the series with showPSTH=true
-            psthSeriesIdx = find(arrayfun(@(s) s.showPSTH, obj.eventSeries), 1);
-            if isempty(psthSeriesIdx)
-                % No series designated for PSTH — use first series if available
-                if ~isempty(obj.eventSeries)
-                    psthSeriesIdx = 1;
-                else
-                    hold(ax, 'off');
-                    return;
-                end
-            end
-            psthSeries = obj.eventSeries(psthSeriesIdx);
-            psthTI = psthSeries.triggerInfo;
-            if isempty(psthTI) || ~isfield(psthTI, 'eventOnsets')
+            % Find all series with showPSTH=true
+            psthSeriesIndices = find(arrayfun(@(s) s.showPSTH, obj.eventSeries));
+            if isempty(psthSeriesIndices)
+                % No series designated for PSTH — leave blank
+                ax.YLabel.String = '';
+                ax.XLabel.String = 'Time (s)';
                 hold(ax, 'off');
                 return;
             end
 
-            % Collect all event times across trials from the PSTH series
-            allEventTimes = cat(1, psthTI.eventOnsets{:});
-
-            if isempty(allEventTimes)
-                hold(ax, 'off');
-                return;
-            end
-
-            % Bin edges
+            % Shared bin edges for all series
             binSize = obj.PSTHBinSize;
             binEdges = obj.PlotXLim(1):binSize:obj.PlotXLim(2);
             if isempty(binEdges) || length(binEdges) < 2
                 hold(ax, 'off');
                 return;
             end
-
-            % Compute histogram
-            counts = histcounts(allEventTimes, binEdges);
             binCenters = (binEdges(1:end-1) + binEdges(2:end)) / 2;
 
-            % Convert to the selected units
+            % Determine Y axis label from selected units
             psthUnitStrs = obj.popup_PSTHUnits.String;
             psthUnit = psthUnitStrs{obj.popup_PSTHUnits.Value};
             switch psthUnit
-                case 'Rate (Hz)'
-                    psthValues = counts / (numTrials * binSize);
-                    yLabel = 'Firing rate (Hz)';
-                case 'Count/trial'
-                    psthValues = counts / numTrials;
-                    yLabel = 'Count/trial';
-                case 'Total count'
-                    psthValues = counts;
-                    yLabel = 'Total count';
-                otherwise
-                    psthValues = counts / (numTrials * binSize);
-                    yLabel = 'Rate (Hz)';
+                case 'Rate (Hz)',    yLabel = 'Firing rate (Hz)';
+                case 'Count/trial',  yLabel = 'Count/trial';
+                case 'Total count',  yLabel = 'Total count';
+                otherwise,           yLabel = 'Rate (Hz)';
             end
 
-            % Smooth if requested
-            if obj.PSTHSmoothingWindow > 1
-                psthValues = movmean(psthValues, obj.PSTHSmoothingWindow);
-            end
+            % Plot each PSTH series as a line in its color
+            for k = 1:length(psthSeriesIndices)
+                sIdx = psthSeriesIndices(k);
+                s = obj.eventSeries(sIdx);
+                seriesTI = s.triggerInfo;
 
-            % Plot as bar chart
-            bar(ax, binCenters, psthValues, 1, ...
-                'FaceColor', [0.3, 0.3, 0.3], 'EdgeColor', 'none');
+                % Skip series with no aligned data
+                if isempty(seriesTI) || ~isfield(seriesTI, 'eventOnsets')
+                    continue;
+                end
+
+                % Collect all event times across trials
+                allEventTimes = cat(1, seriesTI.eventOnsets{:});
+                if isempty(allEventTimes)
+                    continue;
+                end
+
+                % Compute histogram counts
+                counts = histcounts(allEventTimes, binEdges);
+
+                % Convert to the selected units
+                switch psthUnit
+                    case 'Rate (Hz)'
+                        psthValues = counts / (numTrials * binSize);
+                    case 'Count/trial'
+                        psthValues = counts / numTrials;
+                    case 'Total count'
+                        psthValues = counts;
+                    otherwise
+                        psthValues = counts / (numTrials * binSize);
+                end
+
+                % Smooth if requested
+                if obj.PSTHSmoothingWindow > 1
+                    psthValues = movmean(psthValues, obj.PSTHSmoothingWindow);
+                end
+
+                % Plot as a filled area with the series color
+                fill(ax, [binCenters, fliplr(binCenters)], ...
+                    [psthValues, zeros(size(psthValues))], ...
+                    s.color, 'FaceAlpha', 0.3, 'EdgeColor', s.color, ...
+                    'LineWidth', 1);
+            end
 
             % Zero line
             plot(ax, [0, 0], ax.YLim, '--', ...
@@ -1444,10 +1454,12 @@ classdef RasterGUI < handle
             cla(ax);
             hold(ax, 'on');
 
-            % Use the PSTH series for the histogram (same source)
+            % Use the first PSTH-enabled series for the histogram
             psthSeriesIdx = find(arrayfun(@(s) s.showPSTH, obj.eventSeries), 1);
-            if isempty(psthSeriesIdx) && ~isempty(obj.eventSeries)
-                psthSeriesIdx = 1;
+            if isempty(psthSeriesIdx)
+                % No series has showPSTH checked — leave blank
+                hold(ax, 'off');
+                return;
             end
             if isempty(psthSeriesIdx)
                 hold(ax, 'off');
@@ -2157,7 +2169,8 @@ classdef RasterGUI < handle
         end
 
         function eventSeriesPSTHChanged(obj)
-            % Ensure only one series has showPSTH=true.
+            % Update the selected series' showPSTH value and replot.
+            % Multiple series can have showPSTH=true simultaneously.
             arguments
                 obj RasterGUI
             end
@@ -2165,14 +2178,10 @@ classdef RasterGUI < handle
                 return;
             end
             idx = obj.list_EventSeries.Value;
-            if obj.check_EventSeriesPSTH.Value
-                % Turn off all other series' PSTH
-                for k = 1:length(obj.eventSeries)
-                    obj.eventSeries(k).showPSTH = (k == idx);
-                end
-            else
-                obj.eventSeries(idx).showPSTH = false;
-            end
+            obj.eventSeries(idx).showPSTH = obj.check_EventSeriesPSTH.Value;
+            % Replot PSTH and histogram to reflect the change
+            obj.plotPSTH();
+            obj.plotHist();
         end
     end
 
