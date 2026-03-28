@@ -508,7 +508,7 @@ classdef RasterGUI < handle
             m = 5;                         % Margin (px)
             rowH = 22;                     % Row height (px)
             rowSpacing = 28;               % Vertical spacing between row tops (px)
-            numRows = 10;
+            numRows = 15;
             % rowY positions computed after tab group creation (see below)
             % Placeholder — will be set once we know the tab interior height
 
@@ -600,9 +600,9 @@ classdef RasterGUI < handle
             obj.list_EventSeries.Units = 'pixels';
             obj.list_EventSeries.Position = [tabMargin, rowY(1) - listH + rowH, fullW - btnW - btnGap, listH];
             obj.push_EventSeriesAdd.Units = 'pixels';
-            obj.push_EventSeriesAdd.Position = [fullW - btnW, rowY(1), btnW, rowH];
+            obj.push_EventSeriesAdd.Position = [tabMargin + fullW - btnW, rowY(1), btnW, rowH];
             obj.push_EventSeriesRemove.Units = 'pixels';
-            obj.push_EventSeriesRemove.Position = [fullW - btnW, rowY(1) - rowSpacing, btnW, rowH];
+            obj.push_EventSeriesRemove.Position = [tabMargin + fullW - btnW, rowY(1) - rowSpacing, btnW, rowH];
             % Detail controls start below the list
             detailStartRow = 4;  % After 3-row list
             obj.edit_EventSeriesName.Units = 'pixels';
@@ -629,37 +629,38 @@ classdef RasterGUI < handle
             winEditW = 40;
             winUnitX = winEditX + winEditW + 2;
             winUnitW = 12;
+            sharedControlsStartRow = detailStartRow + 4;
 
             obj.text_StartReference.Units = 'pixels';
-            obj.text_StartReference.Position = [tabMargin, rowY(5), winRefLabelW, rowH];
+            obj.text_StartReference.Position = [tabMargin, rowY(sharedControlsStartRow), winRefLabelW, rowH];
             obj.popup_StartReference.Units = 'pixels';
-            obj.popup_StartReference.Position = [winRefPopupX, rowY(5), winRefPopupW, rowH];
+            obj.popup_StartReference.Position = [winRefPopupX, rowY(sharedControlsStartRow), winRefPopupW, rowH];
             obj.text_PreMinus.Units = 'pixels';
-            obj.text_PreMinus.Position = [winOpX, rowY(5), winOpW, rowH];
+            obj.text_PreMinus.Position = [winOpX, rowY(sharedControlsStartRow), winOpW, rowH];
             obj.edit_PreStart.Units = 'pixels';
-            obj.edit_PreStart.Position = [winEditX, rowY(5), winEditW, rowH];
+            obj.edit_PreStart.Position = [winEditX, rowY(sharedControlsStartRow), winEditW, rowH];
             obj.text_PreUnit.Units = 'pixels';
-            obj.text_PreUnit.Position = [winUnitX, rowY(5), winUnitW, rowH];
+            obj.text_PreUnit.Position = [winUnitX, rowY(sharedControlsStartRow), winUnitW, rowH];
 
             obj.text_StopReference.Units = 'pixels';
-            obj.text_StopReference.Position = [tabMargin, rowY(6), winRefLabelW, rowH];
+            obj.text_StopReference.Position = [tabMargin, rowY(sharedControlsStartRow+1), winRefLabelW, rowH];
             obj.popup_StopReference.Units = 'pixels';
-            obj.popup_StopReference.Position = [winRefPopupX, rowY(6), winRefPopupW, rowH];
+            obj.popup_StopReference.Position = [winRefPopupX, rowY(sharedControlsStartRow+1), winRefPopupW, rowH];
             obj.text_PostPlus.Units = 'pixels';
-            obj.text_PostPlus.Position = [winOpX, rowY(6), winOpW, rowH];
+            obj.text_PostPlus.Position = [winOpX, rowY(sharedControlsStartRow+1), winOpW, rowH];
             obj.edit_PostStop.Units = 'pixels';
-            obj.edit_PostStop.Position = [winEditX, rowY(6), winEditW, rowH];
+            obj.edit_PostStop.Position = [winEditX, rowY(sharedControlsStartRow+1), winEditW, rowH];
             obj.text_PostUnit.Units = 'pixels';
-            obj.text_PostUnit.Position = [winUnitX, rowY(6), winUnitW, rowH];
+            obj.text_PostUnit.Position = [winUnitX, rowY(sharedControlsStartRow+1), winUnitW, rowH];
 
             obj.check_ExcludeIncomplete.Units = 'pixels';
-            obj.check_ExcludeIncomplete.Position = [tabMargin, rowY(7), tabFullW, rowH];
+            obj.check_ExcludeIncomplete.Position = [tabMargin, rowY(sharedControlsStartRow+2), tabFullW, rowH];
             obj.check_ExcludePartialEvents.Units = 'pixels';
-            obj.check_ExcludePartialEvents.Position = [tabMargin, rowY(8), tabFullW, rowH];
+            obj.check_ExcludePartialEvents.Position = [tabMargin, rowY(sharedControlsStartRow+3), tabFullW, rowH];
             obj.check_WindowAutoUpdate.Units = 'pixels';
-            obj.check_WindowAutoUpdate.Position = [tabMargin, rowY(9), halfW, rowH];
+            obj.check_WindowAutoUpdate.Position = [tabMargin, rowY(sharedControlsStartRow+4), halfW, rowH];
             obj.push_WindowUpdate.Units = 'pixels';
-            obj.push_WindowUpdate.Position = [tabMargin + halfW + halfGap, rowY(9), halfW, rowH];
+            obj.push_WindowUpdate.Position = [tabMargin + halfW + halfGap, rowY(sharedControlsStartRow+4), halfW, rowH];
             % --- Sort tab ---
             obj.text_PrimarySort.Units = 'pixels';
             obj.text_PrimarySort.Position = [tabMargin, rowY(1), sortLabelW, rowH];
