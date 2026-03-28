@@ -136,7 +136,6 @@ classdef RasterGUI < handle
         % Static text widgets
         text__TriggerType
         text_TriggerAlignment
-        text_EventType
         text_StartReference
         text_StopReference
         text_PreMinus
@@ -307,12 +306,23 @@ classdef RasterGUI < handle
                     warndlg('Trigger filter is set to "Include" but no labels are specified.', 'Empty include list');
                     return;
                 end
-                if strcmp(obj.P.event.filterMode, 'Include') && isempty(obj.P.event.filterList)
-                    obj.statusBar.Status = 'Error: Include mode requires labels';
+                for seriesIdx = 1:length(obj.eventSeries)
+                    s = obj.eventSeries(seriesIdx);
+                    if strcmp(s.filterMode, 'Include') && isempty(s.filterList)
+                        obj.statusBar.Status = sprintf('Error: Series "%s" Include mode requires labels', s.name);
+                        obj.statusBar.Progress = [];
+                        obj.updateControlStates();
+                        obj.push_GenerateRaster.ForegroundColor = 'k';
+                        warndlg(sprintf('Event series "%s" filter is set to "Include" but no labels are specified.', s.name), 'Empty include list');
+                        return;
+                    end
+                end
+                if isempty(obj.eventSeries)
+                    obj.statusBar.Status = 'No event series defined';
                     obj.statusBar.Progress = [];
                     obj.updateControlStates();
                     obj.push_GenerateRaster.ForegroundColor = 'k';
-                    warndlg('Event filter is set to "Include" but no labels are specified.', 'Empty include list');
+                    warndlg('Please add at least one event series.', 'No event series');
                     return;
                 end
 
@@ -326,21 +336,34 @@ classdef RasterGUI < handle
                 [trig.on, trig.off, trig.info, ~] = obj.getEventStructure( ...
                     trigSourceIdx, trigTypeStr, obj.P.trig);
 
-                % --- Step 2: Get event times ---
-                obj.statusBar.Status = 'Extracting events...';
-                obj.statusBar.Progress = 0.25;
-                drawnow;
-                eventSourceIdx = obj.popup_EventSource.Value - 1;
-                eventTypeStrs = obj.popup_EventType.String;
-                eventTypeStr = eventTypeStrs{obj.popup_EventType.Value};
-                [event.on, event.off, event.info, ~] = obj.getEventStructure( ...
-                    eventSourceIdx, eventTypeStr, obj.P.event);
+                % --- Step 2: Extract and align events for each series ---
+                numSeries = length(obj.eventSeries);
+                for seriesIdx = 1:numSeries
+                    s = obj.eventSeries(seriesIdx);
+                    obj.statusBar.Status = sprintf('Extracting events for "%s" (%d/%d)...', s.name, seriesIdx, numSeries);
+                    obj.statusBar.Progress = 0.1 + 0.35 * (seriesIdx - 1) / numSeries;
+                    drawnow;
 
-                % --- Step 3: Align events to triggers ---
-                obj.statusBar.Status = 'Aligning events to triggers...';
-                obj.statusBar.Progress = 0.45;
-                drawnow;
-                ti = obj.alignEventsToTriggers(trig, event);
+                    % Build a P struct for this series
+                    seriesP = obj.P.trig;  % Start with trigger params as base
+                    seriesP.filterMode = s.filterMode;
+                    seriesP.filterList = s.filterList;
+
+                    % Extract events
+                    eventSourceIdx = s.sourceIdx - 1;  % 0 = Sound
+                    [event.on, event.off, event.info, ~] = obj.getEventStructure( ...
+                        eventSourceIdx, s.type, seriesP);
+
+                    % Align events to triggers
+                    seriesTI = obj.alignEventsToTriggers(trig, event);
+
+                    % Store aligned data in the series
+                    obj.eventSeries(seriesIdx).triggerInfo = seriesTI;
+                end
+
+                % Use the first series' triggerInfo as the primary
+                % (for trigger metadata like absTime, labels, sort values)
+                ti = obj.eventSeries(1).triggerInfo;
 
                 if isempty(ti) || ~isfield(ti, 'absTime') || isempty(ti.absTime)
                     obj.statusBar.Status = 'No triggers found';
@@ -354,9 +377,9 @@ classdef RasterGUI < handle
                 % Cache the pre-sort alignment data
                 obj.preSortTriggerInfo = ti;
 
-                % --- Step 4: Sort triggers ---
+                % --- Step 3: Sort triggers ---
                 obj.statusBar.Status = sprintf('Sorting %d triggers...', length(ti.absTime));
-                obj.statusBar.Progress = 0.6;
+                obj.statusBar.Progress = 0.55;
                 drawnow;
                 primarySortStrs = obj.popup_PrimarySort.String;
                 primarySortType = primarySortStrs{obj.popup_PrimarySort.Value};
@@ -367,12 +390,22 @@ classdef RasterGUI < handle
                 secondarySortStrs = obj.popup_SecondarySort.String;
                 secondarySortType = secondarySortStrs{obj.popup_SecondarySort.Value};
                 if ~strcmp(secondarySortType, '(None)')
-                    ti = RasterGUI.sortTriggers(ti, secondarySortType, descending, ...
-                        obj.P.event.filterList, false);
+                    [ti, ord] = RasterGUI.sortTriggers(ti, secondarySortType, descending, ...
+                        '', false);
+                    % Apply same sort order to all series
+                    for seriesIdx = 1:numSeries
+                        obj.eventSeries(seriesIdx).triggerInfo = ...
+                            RasterGUI.applyOrder(obj.eventSeries(seriesIdx).triggerInfo, ord);
+                    end
                 end
                 if ~strcmp(primarySortType, '(None)')
-                    ti = RasterGUI.sortTriggers(ti, primarySortType, descending, ...
-                        obj.P.event.filterList, groupLabels);
+                    [ti, ord] = RasterGUI.sortTriggers(ti, primarySortType, descending, ...
+                        '', groupLabels);
+                    % Apply same sort order to all series
+                    for seriesIdx = 1:numSeries
+                        obj.eventSeries(seriesIdx).triggerInfo = ...
+                            RasterGUI.applyOrder(obj.eventSeries(seriesIdx).triggerInfo, ord);
+                    end
                 end
 
                 obj.triggerInfo = ti;
@@ -1079,10 +1112,17 @@ classdef RasterGUI < handle
             obj.popup_TriggerAlignment.Tooltip = 'Which part of the trigger to align to (time zero)';
             obj.popup_TrigFilterMode.Tooltip = 'All: use all labels; Include: only listed; Exclude: all except listed';
 
-            % Events tab
-            obj.popup_EventSource.Tooltip = 'Data source for events to plot on the raster';
-            obj.popup_EventType.Tooltip = 'Type of events to extract';
-            obj.popup_EventFilterMode.Tooltip = 'All: use all labels; Include: only listed; Exclude: all except listed';
+            % Events tab - series controls
+            obj.list_EventSeries.Tooltip = 'Event series to plot on the raster';
+            obj.push_EventSeriesAdd.Tooltip = 'Add a new event series';
+            obj.push_EventSeriesRemove.Tooltip = 'Remove the selected event series';
+            obj.edit_EventSeriesName.Tooltip = 'Display name for this series';
+            obj.popup_EventSeriesSource.Tooltip = 'Data source for this event series';
+            obj.popup_EventSeriesType.Tooltip = 'Type of events to extract for this series';
+            obj.popup_EventSeriesFilterMode.Tooltip = 'All: use all labels; Include: only listed; Exclude: all except listed';
+            obj.edit_EventSeriesFilterList.Tooltip = 'Label characters to include or exclude';
+            obj.push_EventSeriesColor.Tooltip = 'Click to pick a color for this series';
+            obj.check_EventSeriesPSTH.Tooltip = 'Use this series as the PSTH source (only one at a time)';
             obj.popup_StartReference.Tooltip = 'Reference point for the start of the event window';
             obj.popup_StopReference.Tooltip = 'Reference point for the end of the event window';
             obj.check_ExcludeIncomplete.Tooltip = 'Exclude triggers whose window extends beyond file boundaries';
@@ -1154,7 +1194,7 @@ classdef RasterGUI < handle
                     obj.eg.dbase.EventFunctions{sourceIdx}); %#ok<AGROW>
             end
             obj.popup_TriggerSource.String = sourceStrings;
-            obj.popup_EventSource.String = sourceStrings;
+            obj.popup_EventSeriesSource.String = sourceStrings;
 
             obj.FileRange = 1:electro_gui.getNumFiles(obj.eg.dbase);
         end
@@ -1205,30 +1245,52 @@ classdef RasterGUI < handle
                     'PickableParts', 'none', 'HitTest', 'off');
             end
 
-            % --- Plot event ticks (vectorized as a single plot call) ---
-            obj.statusBar.Status = 'Plotting event ticks...';
-            obj.statusBar.Progress = 0.85;
-            drawnow;
-            eventColor = [0, 0, 0];  % Black
-            % Pre-allocate: count total events across all trials
-            totalEvents = sum(cellfun(@length, ti.eventOnsets));
-            if totalEvents > 0
+            % --- Plot event ticks for each series ---
+            % Each event series is rendered as vertical tick marks in its
+            % own color. All ticks for a series are concatenated into a
+            % single NaN-separated vector for fast vectorized rendering.
+            for seriesIdx = 1:length(obj.eventSeries)
+                s = obj.eventSeries(seriesIdx);
+                seriesTI = s.triggerInfo;
+
+                % Skip series with no aligned data
+                if isempty(seriesTI) || ~isfield(seriesTI, 'eventOnsets')
+                    continue;
+                end
+
+                obj.statusBar.Status = sprintf('Plotting "%s" (%d/%d)...', ...
+                    s.name, seriesIdx, length(obj.eventSeries));
+                obj.statusBar.Progress = 0.8 + 0.15 * seriesIdx / length(obj.eventSeries);
+                drawnow;
+
+                % Count total events across all trials for pre-allocation
+                totalEvents = sum(cellfun(@length, seriesTI.eventOnsets));
+                if totalEvents == 0
+                    continue;
+                end
+
+                % Build NaN-separated X/Y arrays for all event ticks.
+                % Each tick is 3 entries: [x; x; NaN] and [yBottom; yTop; NaN]
                 allX = NaN(3 * totalEvents, 1);
                 allY = NaN(3 * totalEvents, 1);
-                idx = 0;
+                writeIdx = 0;
                 for trialIdx = 1:numTrials
-                    eventTimes = ti.eventOnsets{trialIdx};
+                    eventTimes = seriesTI.eventOnsets{trialIdx};
                     nEvents = length(eventTimes);
                     if nEvents > 0
                         yBottom = trialY(trialIdx) - tickHalfHeight;
                         yTop = trialY(trialIdx) + tickHalfHeight;
-                        range = idx + (1:3*nEvents);
+                        range = writeIdx + (1:3*nEvents);
                         allX(range) = reshape([eventTimes(:)'; eventTimes(:)'; NaN(1, nEvents)], [], 1);
-                        allY(range) = reshape([repmat(yBottom, 1, nEvents); repmat(yTop, 1, nEvents); NaN(1, nEvents)], [], 1);
-                        idx = idx + 3 * nEvents;
+                        allY(range) = reshape([repmat(yBottom, 1, nEvents); ...
+                                               repmat(yTop, 1, nEvents); ...
+                                               NaN(1, nEvents)], [], 1);
+                        writeIdx = writeIdx + 3 * nEvents;
                     end
                 end
-                plot(ax, allX, allY, 'Color', eventColor, 'LineWidth', 0.5);
+
+                % Render all ticks for this series in one call
+                plot(ax, allX, allY, 'Color', s.color, 'LineWidth', 0.5);
             end
 
             % --- Plot zero line (trigger alignment point) ---
@@ -1272,7 +1334,8 @@ classdef RasterGUI < handle
         end
 
         function plotPSTH(obj)
-            % Render the peri-stimulus time histogram from triggerInfo.
+            % Render the peri-stimulus time histogram using the event
+            % series that has showPSTH=true.
             arguments
                 obj RasterGUI
             end
@@ -1286,8 +1349,26 @@ classdef RasterGUI < handle
             cla(ax);
             hold(ax, 'on');
 
-            % Collect all event times across trials
-            allEventTimes = cat(1, ti.eventOnsets{:});
+            % Find the series with showPSTH=true
+            psthSeriesIdx = find(arrayfun(@(s) s.showPSTH, obj.eventSeries), 1);
+            if isempty(psthSeriesIdx)
+                % No series designated for PSTH — use first series if available
+                if ~isempty(obj.eventSeries)
+                    psthSeriesIdx = 1;
+                else
+                    hold(ax, 'off');
+                    return;
+                end
+            end
+            psthSeries = obj.eventSeries(psthSeriesIdx);
+            psthTI = psthSeries.triggerInfo;
+            if isempty(psthTI) || ~isfield(psthTI, 'eventOnsets')
+                hold(ax, 'off');
+                return;
+            end
+
+            % Collect all event times across trials from the PSTH series
+            allEventTimes = cat(1, psthTI.eventOnsets{:});
 
             if isempty(allEventTimes)
                 hold(ax, 'off');
@@ -1362,11 +1443,26 @@ classdef RasterGUI < handle
             cla(ax);
             hold(ax, 'on');
 
+            % Use the PSTH series for the histogram (same source)
+            psthSeriesIdx = find(arrayfun(@(s) s.showPSTH, obj.eventSeries), 1);
+            if isempty(psthSeriesIdx) && ~isempty(obj.eventSeries)
+                psthSeriesIdx = 1;
+            end
+            if isempty(psthSeriesIdx)
+                hold(ax, 'off');
+                return;
+            end
+            histTI = obj.eventSeries(psthSeriesIdx).triggerInfo;
+            if isempty(histTI) || ~isfield(histTI, 'eventOnsets')
+                hold(ax, 'off');
+                return;
+            end
+
             % Count events per trial within the visible X range
             xLim = obj.PlotXLim;
             countsPerTrial = zeros(numTrials, 1);
             for trialIdx = 1:numTrials
-                eventTimes = ti.eventOnsets{trialIdx};
+                eventTimes = histTI.eventOnsets{trialIdx};
                 if ~isempty(eventTimes)
                     countsPerTrial(trialIdx) = sum(eventTimes >= xLim(1) & eventTimes <= xLim(2));
                 end
@@ -1461,11 +1557,19 @@ classdef RasterGUI < handle
             alignStrs = obj.popup_TriggerAlignment.String;
             preset.triggerAlignment = alignStrs{obj.popup_TriggerAlignment.Value};
 
-            % Event settings
-            eventSourceStrs = obj.popup_EventSource.String;
-            preset.eventSource = eventSourceStrs{obj.popup_EventSource.Value};
-            eventTypeStrs = obj.popup_EventType.String;
-            preset.eventType = eventTypeStrs{obj.popup_EventType.Value};
+            % Event series (save the config for each series, without triggerInfo)
+            seriesConfigs = struct([]);
+            for k = 1:length(obj.eventSeries)
+                s = obj.eventSeries(k);
+                seriesConfigs(k).name = s.name;
+                seriesConfigs(k).sourceIdx = s.sourceIdx;
+                seriesConfigs(k).type = s.type;
+                seriesConfigs(k).filterMode = s.filterMode;
+                seriesConfigs(k).filterList = s.filterList;
+                seriesConfigs(k).color = s.color;
+                seriesConfigs(k).showPSTH = s.showPSTH;
+            end
+            preset.eventSeries = seriesConfigs;
 
             % Window settings
             startRefStrs = obj.popup_StartReference.String;
@@ -1519,8 +1623,36 @@ classdef RasterGUI < handle
             obj.setPopupByName(obj.popup_TriggerType, preset, 'triggerType');
             obj.setPopupByName(obj.popup_TriggerAlignment, preset, 'triggerAlignment');
 
-            obj.setPopupByName(obj.popup_EventSource, preset, 'eventSource');
-            obj.setPopupByName(obj.popup_EventType, preset, 'eventType');
+            % Restore event series from preset.
+            % Each series config is rebuilt from the saved fields, with
+            % an empty triggerInfo (data must be regenerated).
+            if isfield(preset, 'eventSeries')
+                % Clear existing series
+                obj.eventSeries = struct( ...
+                    'name', {}, 'sourceIdx', {}, 'type', {}, ...
+                    'filterMode', {}, 'filterList', {}, 'color', {}, ...
+                    'showPSTH', {}, 'triggerInfo', {});
+
+                % Recreate each series from the saved config
+                for k = 1:length(preset.eventSeries)
+                    sc = preset.eventSeries(k);
+                    obj.eventSeries(k).name = sc.name;
+                    obj.eventSeries(k).sourceIdx = sc.sourceIdx;
+                    obj.eventSeries(k).type = sc.type;
+                    obj.eventSeries(k).filterMode = sc.filterMode;
+                    obj.eventSeries(k).filterList = sc.filterList;
+                    obj.eventSeries(k).color = sc.color;
+                    obj.eventSeries(k).showPSTH = sc.showPSTH;
+                    obj.eventSeries(k).triggerInfo = struct();  % Must regenerate
+                end
+
+                % Update the list display and select the first series
+                obj.refreshEventSeriesList();
+                if ~isempty(obj.eventSeries)
+                    obj.list_EventSeries.Value = 1;
+                    obj.selectEventSeries();
+                end
+            end
 
             obj.setPopupByName(obj.popup_StartReference, preset, 'startReference');
             obj.setPopupByName(obj.popup_StopReference, preset, 'stopReference');
@@ -2091,13 +2223,20 @@ classdef RasterGUI < handle
             secondarySortType = secondarySortStrs{obj.popup_SecondarySort.Value};
 
             % Secondary sort first (so primary is dominant)
+            % Apply same order to all event series
             if ~strcmp(secondarySortType, '(None)')
-                ti = RasterGUI.sortTriggers(ti, secondarySortType, descending, ...
-                    obj.P.event.filterList, false);
+                [ti, ord] = RasterGUI.sortTriggers(ti, secondarySortType, descending, '', false);
+                for seriesIdx = 1:length(obj.eventSeries)
+                    obj.eventSeries(seriesIdx).triggerInfo = ...
+                        RasterGUI.applyOrder(obj.eventSeries(seriesIdx).triggerInfo, ord);
+                end
             end
             if ~strcmp(primarySortType, '(None)')
-                ti = RasterGUI.sortTriggers(ti, primarySortType, descending, ...
-                    obj.P.event.filterList, groupLabels);
+                [ti, ord] = RasterGUI.sortTriggers(ti, primarySortType, descending, '', groupLabels);
+                for seriesIdx = 1:length(obj.eventSeries)
+                    obj.eventSeries(seriesIdx).triggerInfo = ...
+                        RasterGUI.applyOrder(obj.eventSeries(seriesIdx).triggerInfo, ord);
+                end
             end
 
             obj.triggerInfo = ti;
@@ -2128,10 +2267,16 @@ classdef RasterGUI < handle
                 obj.popup_TriggerAlignment, ...
                 obj.popup_TrigFilterMode, ...
                 obj.edit_TrigFilterList, ...
-                obj.popup_EventSource, ...
-                obj.popup_EventType, ...
-                obj.popup_EventFilterMode, ...
-                obj.edit_EventFilterList, ...
+                obj.list_EventSeries, ...
+                obj.push_EventSeriesAdd, ...
+                obj.push_EventSeriesRemove, ...
+                obj.edit_EventSeriesName, ...
+                obj.popup_EventSeriesSource, ...
+                obj.popup_EventSeriesType, ...
+                obj.popup_EventSeriesFilterMode, ...
+                obj.edit_EventSeriesFilterList, ...
+                obj.push_EventSeriesColor, ...
+                obj.check_EventSeriesPSTH, ...
                 obj.popup_StartReference, ...
                 obj.popup_StopReference, ...
                 obj.edit_PreStart, ...
@@ -2222,30 +2367,9 @@ classdef RasterGUI < handle
                 obj.popup_TriggerType.Value = 1;
             end
 
-            % Same logic for event type options.
-            % Additionally, if the source index exceeds the number of
-            % event detectors, it refers to a continuous channel function.
-            eventSourceIdx = obj.popup_EventSource.Value - 1;
-            if eventSourceIdx == 0
-                % Sound source: behavioral event types
-                eventTypes = {'Syllables', 'Markers', 'Motifs', 'Bouts'};
-            elseif eventSourceIdx <= numEventSources
-                % Event detector source: neural event types
-                eventTypes = {'Events', 'Bursts', 'Burst events', 'Single events', 'Pauses'};
-            else
-                % Beyond event detectors: continuous channel function
-                eventTypes = {'Continuous function'};
-            end
-            if ~isequal(obj.popup_EventType.String, eventTypes)
-                obj.popup_EventType.String = eventTypes;
-                obj.popup_EventType.Value = 1;
-            end
-
             % Trigger include/ignore: only when type needs them
             obj.updateTriggerOptionsVisibility();
 
-            % Event include/ignore: only when type needs them
-            obj.updateEventOptionsVisibility();
 
             % Preset Load/Delete: only when presets exist
             presetNames = obj.popup_Presets.String;
@@ -2283,36 +2407,22 @@ classdef RasterGUI < handle
             isAll = strcmp(trigModes{obj.popup_TrigFilterMode.Value}, 'All');
             obj.edit_TrigFilterList.Enable = onOff{~isAll + 1};
         end
-        function updateEventOptionsVisibility(obj)
-            % Show/hide event filter controls based on the selected type.
-            arguments
-                obj RasterGUI
-            end
-            eventTypeStrs = obj.popup_EventType.String;
-            eventType = eventTypeStrs{obj.popup_EventType.Value};
-            showFilter = ismember(eventType, {'Syllables', 'Markers', 'Bouts'});
-            onOff = {'off', 'on'};
-            vis = onOff{showFilter + 1};
-            obj.popup_EventFilterMode.Visible = vis;
-            obj.edit_EventFilterList.Visible = vis;
-            % Disable text field when mode is "All"
-            eventModes = obj.popup_EventFilterMode.String;
-            isAll = strcmp(eventModes{obj.popup_EventFilterMode.Value}, 'All');
-            obj.edit_EventFilterList.Enable = onOff{~isAll + 1};
-        end
         function syncOptionsFromGUI(obj)
             % Read all inline option controls into properties before generating.
             arguments
                 obj RasterGUI
             end
 
-            % Trigger/Event filter
+            % Trigger filter
             trigModes = obj.popup_TrigFilterMode.String;
             obj.P.trig.filterMode = trigModes{obj.popup_TrigFilterMode.Value};
             obj.P.trig.filterList = obj.edit_TrigFilterList.String;
-            eventModes = obj.popup_EventFilterMode.String;
-            obj.P.event.filterMode = eventModes{obj.popup_EventFilterMode.Value};
-            obj.P.event.filterList = obj.edit_EventFilterList.String;
+
+            % Event series: save the currently selected series' detail
+            % controls back to the series array
+            if ~isempty(obj.eventSeries)
+                obj.saveSelectedEventSeries();
+            end
 
             % Window limits
             obj.P.preStartRef = str2double(obj.edit_PreStart.String);
@@ -2448,7 +2558,6 @@ classdef RasterGUI < handle
                 obj RasterGUI
             end
             obj.updateTriggerOptionsVisibility();
-            obj.updateEventOptionsVisibility();
             obj.clearCache();
         end
         function upstreamSettingChanged(obj)
@@ -3121,6 +3230,21 @@ classdef RasterGUI < handle
                 case 'Exclude'
                     filterCodes = double(filterList);
                     keepMask = ~ismember(labels, filterCodes);
+            end
+        end
+
+        function reorderedTI = applyOrder(ti, ord)
+            % Apply a sort order to a triggerInfo struct (reorder all fields).
+            arguments
+                ti (1, 1) struct
+                ord (1, :) double
+            end
+            reorderedTI = ti;
+            fields = fieldnames(ti);
+            for k = 1:length(fields)
+                if ~strcmp(fields{k}, 'contLabel') && length(ti.(fields{k})) == length(ord)
+                    reorderedTI.(fields{k}) = ti.(fields{k})(ord);
+                end
             end
         end
 
