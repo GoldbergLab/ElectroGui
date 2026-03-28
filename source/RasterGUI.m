@@ -1856,6 +1856,45 @@ classdef RasterGUI < handle
                 controls(k).Enable = 'on';
             end
 
+            % Update trigger type options based on trigger source.
+            % Source index 0 means "Sound", which provides behavioral
+            % triggers (syllables, markers, etc.). Any other source is
+            % an event detector, which provides neural event types.
+            numEventSources = length(obj.eg.dbase.EventSources);
+            trigSourceIdx = obj.popup_TriggerSource.Value - 1;
+            if trigSourceIdx == 0
+                % Sound source: behavioral trigger types
+                trigTypes = {'Syllables', 'Markers', 'Motifs', 'Bouts'};
+            else
+                % Event detector source: neural trigger types
+                trigTypes = {'Events', 'Bursts', 'Burst events', 'Single events', 'Pauses'};
+            end
+            % Only update if the options actually changed, to avoid
+            % resetting the user's selection unnecessarily
+            if ~isequal(obj.popup_TriggerType.String, trigTypes)
+                obj.popup_TriggerType.String = trigTypes;
+                obj.popup_TriggerType.Value = 1;
+            end
+
+            % Same logic for event type options.
+            % Additionally, if the source index exceeds the number of
+            % event detectors, it refers to a continuous channel function.
+            eventSourceIdx = obj.popup_EventSource.Value - 1;
+            if eventSourceIdx == 0
+                % Sound source: behavioral event types
+                eventTypes = {'Syllables', 'Markers', 'Motifs', 'Bouts'};
+            elseif eventSourceIdx <= numEventSources
+                % Event detector source: neural event types
+                eventTypes = {'Events', 'Bursts', 'Burst events', 'Single events', 'Pauses'};
+            else
+                % Beyond event detectors: continuous channel function
+                eventTypes = {'Continuous function'};
+            end
+            if ~isequal(obj.popup_EventType.String, eventTypes)
+                obj.popup_EventType.String = eventTypes;
+                obj.popup_EventType.Value = 1;
+            end
+
             % Trigger include/ignore: only when type needs them
             obj.updateTriggerOptionsVisibility();
 
