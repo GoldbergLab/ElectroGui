@@ -1643,7 +1643,7 @@ classdef RasterGUI < handle
                     obj.eventSeries(k).filterMode = sc.filterMode;
                     obj.eventSeries(k).filterList = sc.filterList;
                     obj.eventSeries(k).color = sc.color;
-                    obj.eventSeries(k).showPSTH = sc.showPSTH;
+                    obj.eventSeries(k).showPSTH = logical(sc.showPSTH);
                     obj.eventSeries(k).triggerInfo = struct();  % Must regenerate
                 end
 
@@ -2032,7 +2032,7 @@ classdef RasterGUI < handle
             obj.eventSeries(idx).filterMode = filterModes{obj.popup_EventSeriesFilterMode.Value};
             obj.eventSeries(idx).filterList = obj.edit_EventSeriesFilterList.String;
             obj.eventSeries(idx).color = obj.push_EventSeriesColor.BackgroundColor;
-            obj.eventSeries(idx).showPSTH = obj.check_EventSeriesPSTH.Value;
+            obj.eventSeries(idx).showPSTH = logical(obj.check_EventSeriesPSTH.Value);
 
             % Update list display in case name changed
             obj.refreshEventSeriesList();
