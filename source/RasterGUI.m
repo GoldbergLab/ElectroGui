@@ -755,7 +755,7 @@ classdef RasterGUI < handle
                 'HorizontalAlignment', 'right');
             obj.popup_TriggerType = uicontrol(trigTab, 'Style', 'popupmenu', ...
                 'String', {'Syllables', 'Markers', 'Motifs', 'Bouts'}, ...
-                'Callback', @(~,~) obj.upstreamSettingChanged());
+                'Callback', @(~,~) obj.typeChanged());
             obj.text_TriggerAlignment = uicontrol(trigTab, 'Style', 'text', ...
                 'String', 'Align:', ...
                 'Tag', 'text_TriggerAlignment', ...
@@ -781,7 +781,7 @@ classdef RasterGUI < handle
                 'HorizontalAlignment', 'right');
             obj.popup_EventType = uicontrol(eventTab, 'Style', 'popupmenu', ...
                 'String', {'Syllables', 'Markers', 'Events', 'Bursts', 'Continuous'}, ...
-                'Callback', @(~,~) obj.upstreamSettingChanged());
+                'Callback', @(~,~) obj.typeChanged());
             % Inline event filter (visible depending on type)
             obj.popup_EventFilterMode = uicontrol(eventTab, 'Style', 'popupmenu', ...
                 'String', {'All', 'Include', 'Exclude'}, ...
@@ -2091,6 +2091,19 @@ classdef RasterGUI < handle
             if obj.check_WindowAutoUpdate.Value
                 obj.generate();
             end
+        end
+        function typeChanged(obj)
+            % Called when the trigger or event Type dropdown changes.
+            % Updates filter visibility and clears cache, but does NOT
+            % call updateControlStates (which would re-set the Type
+            % dropdown options and interfere with the in-progress
+            % value change).
+            arguments
+                obj RasterGUI
+            end
+            obj.updateTriggerOptionsVisibility();
+            obj.updateEventOptionsVisibility();
+            obj.clearCache();
         end
         function upstreamSettingChanged(obj)
             % Called when any upstream setting changes (trigger/event
