@@ -1027,6 +1027,7 @@ classdef RasterGUI < handle
                 'Callback', @(~,~) obj.generate());
             obj.push_Hold = uicontrol(obj.figure_Main, 'Style', 'pushbutton', ...
                 'String', 'Hold on', ...
+                'Visible', 'off', ...  % Deferred to v1.1
                 'Callback', @(~,~) obj.holdCallback());
 
             % Set tooltips on all controls
