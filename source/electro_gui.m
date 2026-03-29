@@ -3626,7 +3626,7 @@ function updateSoundData(obj, soundChannel)
     obj.sound = sound;
     obj.dbase.Fs = fs;
     filenum = electro_gui.getCurrentFileNum(obj.settings);
-    obj.dbase.Times(filenum) = timestamp;
+    obj.recordFileTime(filenum, timestamp);
 end
 
 function filtered_sound = filterSound(obj, sound, fs, algorithm, filterParams)
