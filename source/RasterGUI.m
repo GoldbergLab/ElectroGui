@@ -892,6 +892,7 @@ classdef RasterGUI < handle
 
             % --- Status bar ---
             obj.statusBar = StatusBar(obj.figure_Main);
+            obj.statusBar.AutoClear = true;
             obj.statusBar.Status = 'Ready';
 
             % --- Axes panel ---
