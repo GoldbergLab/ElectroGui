@@ -313,26 +313,6 @@ classdef RasterGUI < handle
             obj.syncOptionsFromGUI();
 
             try
-                % Validate filter settings
-                if strcmp(obj.P.trig.filterMode, 'Include') && isempty(obj.P.trig.filterList)
-                    obj.statusBar.Status = 'Error: Include mode requires labels';
-                    obj.statusBar.Progress = [];
-                    obj.updateControlStates();
-                    obj.push_GenerateRaster.ForegroundColor = 'k';
-                    warndlg('Trigger filter is set to "Include" but no labels are specified.', 'Empty include list');
-                    return;
-                end
-                for seriesIdx = 1:length(obj.eventSeries)
-                    s = obj.eventSeries(seriesIdx);
-                    if strcmp(s.filterMode, 'Include') && isempty(s.filterList)
-                        obj.statusBar.Status = sprintf('Error: Series "%s" Include mode requires labels', s.name);
-                        obj.statusBar.Progress = [];
-                        obj.updateControlStates();
-                        obj.push_GenerateRaster.ForegroundColor = 'k';
-                        warndlg(sprintf('Event series "%s" filter is set to "Include" but no labels are specified.', s.name), 'Empty include list');
-                        return;
-                    end
-                end
                 if isempty(obj.eventSeries)
                     obj.statusBar.Status = 'No event series defined';
                     obj.statusBar.Progress = [];
@@ -3558,8 +3538,13 @@ classdef RasterGUI < handle
                 case 'All'
                     keepMask = true(size(labels));
                 case 'Include'
-                    filterCodes = double(filterList);
-                    keepMask = ismember(labels, filterCodes);
+                    if isempty(filterList)
+                        % Empty include list = include all (same as 'All')
+                        keepMask = true(size(labels));
+                    else
+                        filterCodes = double(filterList);
+                        keepMask = ismember(labels, filterCodes);
+                    end
                 case 'Exclude'
                     filterCodes = double(filterList);
                     keepMask = ~ismember(labels, filterCodes);
