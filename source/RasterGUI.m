@@ -39,6 +39,11 @@ classdef RasterGUI < handle
         popup_TriggerAlignment
         check_ExcludeIncomplete
         check_PlotOtherTrialTriggers
+        % Trigger label coloring controls
+        list_TriggerLabels
+        push_TrigLabelColor
+        check_TrigAutoColor
+        popup_TrigColormap
         check_TrigAutoUpdate
         push_TrigUpdate
 
@@ -168,9 +173,16 @@ classdef RasterGUI < handle
 
     %% Properties - state
     properties (Access = private)
+
         % Data
         triggerInfo struct = struct()       % Sorted trigger info (used for plotting)
         preSortTriggerInfo struct = struct() % Cached alignment output before sorting
+
+        % Trigger label coloring: parallel arrays mapping label values
+        % to RGB colors. Persists across generates so manual color
+        % choices are preserved. New labels get auto-assigned or gray.
+        TriggerLabelValues double = []      % Numeric label values (double of char)
+        TriggerLabelColors double = []      % N x 3 RGB colors
 
         % Event series: array of structs, one per event series
         % Each has: name, sourceIdx, type, filterMode, filterList,
@@ -447,6 +459,9 @@ classdef RasterGUI < handle
 
                 obj.triggerInfo = ti;
 
+                % Update trigger label color mapping
+                obj.updateTriggerLabelColors();
+
                 % --- Step 5: Plot ---
                 obj.statusBar.Status = sprintf('Plotting %d trials...', length(ti.absTime));
                 obj.statusBar.Progress = 0.75;
@@ -546,7 +561,7 @@ classdef RasterGUI < handle
             m = 5;                         % Margin (px)
             rowH = 22;                     % Row height (px)
             rowSpacing = 28;               % Vertical spacing between row tops (px)
-            numRows = 15;
+            numRows = 20;
             % rowY positions computed after tab group creation (see below)
             % Placeholder — will be set once we know the tab interior height
 
@@ -634,10 +649,21 @@ classdef RasterGUI < handle
             obj.check_ExcludeIncomplete.Position = [tabMargin, rowY(6), tabFullW, rowH];
             obj.check_PlotOtherTrialTriggers.Units = 'pixels';
             obj.check_PlotOtherTrialTriggers.Position = [tabMargin, rowY(7), tabFullW, rowH];
+            % Trigger label coloring controls
+            trigLabelListH = 3 * rowSpacing;  % 3 rows tall
+            trigColorBtnW = 50;
+            obj.list_TriggerLabels.Units = 'pixels';
+            obj.list_TriggerLabels.Position = [tabMargin, rowY(8) - trigLabelListH + rowH, fullW, trigLabelListH];
+            obj.push_TrigLabelColor.Units = 'pixels';
+            obj.push_TrigLabelColor.Position = [tabMargin, rowY(11), trigColorBtnW, rowH];
+            obj.check_TrigAutoColor.Units = 'pixels';
+            obj.check_TrigAutoColor.Position = [tabMargin + trigColorBtnW + 8, rowY(11), 80, rowH];
+            obj.popup_TrigColormap.Units = 'pixels';
+            obj.popup_TrigColormap.Position = [tabMargin + trigColorBtnW + 8 + 80 + 4, rowY(11), 80, rowH];
             obj.check_TrigAutoUpdate.Units = 'pixels';
-            obj.check_TrigAutoUpdate.Position = [tabMargin, rowY(8), halfW, rowH];
+            obj.check_TrigAutoUpdate.Position = [tabMargin, rowY(12), halfW, rowH];
             obj.push_TrigUpdate.Units = 'pixels';
-            obj.push_TrigUpdate.Position = [tabMargin + halfW + halfGap, rowY(8), halfW, rowH];
+            obj.push_TrigUpdate.Position = [tabMargin + halfW + halfGap, rowY(12), halfW, rowH];
             % --- Events tab ---
             % Series list with +/- buttons to the right
             listH = 3 * rowSpacing;  % 3 rows tall
@@ -922,6 +948,20 @@ classdef RasterGUI < handle
             obj.check_PlotOtherTrialTriggers = uicontrol(trigTab, 'Style', 'checkbox', ...
                 'String', 'Plot triggers from other trials', ...
                 'Callback', @(~,~) obj.replotFromCache());
+            % Trigger label coloring
+            obj.list_TriggerLabels = uicontrol(trigTab, 'Style', 'listbox', ...
+                'String', {'(No triggers yet)'}, ...
+                'Callback', @(~,~) obj.selectTriggerLabel());
+            obj.push_TrigLabelColor = uicontrol(trigTab, 'Style', 'pushbutton', ...
+                'String', 'Color', ...
+                'Callback', @(~,~) obj.trigLabelColorPicked());
+            obj.check_TrigAutoColor = uicontrol(trigTab, 'Style', 'checkbox', ...
+                'String', 'Auto-color', 'Value', 1, ...
+                'Callback', @(~,~) obj.trigAutoColorChanged());
+            obj.popup_TrigColormap = uicontrol(trigTab, 'Style', 'popupmenu', ...
+                'String', {'hsv', 'parula', 'jet', 'turbo', 'lines', 'colorcube', 'prism'}, ...
+                'Callback', @(~,~) obj.trigAutoColorChanged());
+
             obj.check_TrigAutoUpdate = uicontrol(trigTab, 'Style', 'checkbox', ...
                 'String', 'Auto-update', 'Value', 1);
             obj.push_TrigUpdate = uicontrol(trigTab, 'Style', 'pushbutton', ...
@@ -1239,6 +1279,10 @@ classdef RasterGUI < handle
             obj.popup_TrigFilterMode.Tooltip = 'All: use all labels; Include: only listed; Exclude: all except listed';
             obj.check_ExcludeIncomplete.Tooltip = 'Exclude triggers whose window extends beyond file boundaries';
             obj.check_PlotOtherTrialTriggers.Tooltip = 'Show triggers from other trials that fall within each trial''s time window';
+            obj.list_TriggerLabels.Tooltip = 'Trigger labels and their colors; select to change color';
+            obj.push_TrigLabelColor.Tooltip = 'Pick a color for the selected trigger label';
+            obj.check_TrigAutoColor.Tooltip = 'Automatically assign colors from the selected colormap';
+            obj.popup_TrigColormap.Tooltip = 'Colormap for automatic label coloring';
             obj.check_TrigAutoUpdate.Tooltip = 'Automatically regenerate when trigger settings change';
             obj.push_TrigUpdate.Tooltip = 'Regenerate raster with current trigger settings';
 
@@ -1356,26 +1400,35 @@ classdef RasterGUI < handle
             tickHalfHeight = obj.PlotTickSize(1) / 2;
             ti = obj.triggerInfo;
 
-            % --- Plot trigger boxes (vectorized as a single patch) ---
+            % --- Plot trigger boxes by label color ---
+            % Group triggers by label and render one patch per color group
+            % for performance (vectorized within each group).
             obj.statusBar.Status = 'Plotting trigger boxes...';
             drawnow;
-            trigColor = [1.0, 0.85, 0.85];  % Light red
             trigOn = ti.currTrigOnset(:);
             trigOff = ti.currTrigOffset(:);
+            trigLabels = ti.label(:);
             validTrig = isfinite(trigOn) & isfinite(trigOff);
             if any(validTrig)
-                tOn = trigOn(validTrig);
-                tOff = trigOff(validTrig);
-                tY = trialY(validTrig)';
-                % Build patch with matrix inputs: each column is one face
-                % (4 vertices per face)
-                patchX = [tOn, tOff, tOff, tOn]';   % 4 x nBoxes
-                patchY = [tY - tickHalfHeight, tY - tickHalfHeight, ...
-                          tY + tickHalfHeight, tY + tickHalfHeight]';  % 4 x nBoxes
-                patch(ax, patchX, patchY, trigColor, ...
-                    'EdgeColor', 'none', ...
-                    'PickableParts', 'none', ...
-                    'HitTest', 'off');
+                uniqueLabelsInView = unique(trigLabels(validTrig));
+                for labelIdx = 1:length(uniqueLabelsInView)
+                    thisLabel = uniqueLabelsInView(labelIdx);
+                    mask = validTrig & (trigLabels == thisLabel);
+                    if ~any(mask), continue; end
+                    tOn = trigOn(mask);
+                    tOff = trigOff(mask);
+                    tY = trialY(mask)';
+                    % Look up the color for this label, lightened for boxes
+                    baseColor = obj.getTriggerLabelColor(thisLabel);
+                    boxColor = 1 - (1 - baseColor) * 0.25;  % Lighten toward white
+                    patchX = [tOn, tOff, tOff, tOn]';
+                    patchY = [tY - tickHalfHeight, tY - tickHalfHeight, ...
+                              tY + tickHalfHeight, tY + tickHalfHeight]';
+                    patch(ax, patchX, patchY, boxColor, ...
+                        'EdgeColor', 'none', ...
+                        'PickableParts', 'none', ...
+                        'HitTest', 'off');
+                end
             end
 
             % --- Plot triggers from other trials (optional) ---
@@ -1383,23 +1436,17 @@ classdef RasterGUI < handle
             % falls within this trial's visible time window. Uses absolute
             % time to handle triggers across file boundaries.
             if obj.check_PlotOtherTrialTriggers.Value && numTrials > 1
-                otherTrigColor = [0.85, 0.85, 1.0];  % Light blue
-                % Absolute alignment time for each trial (in days)
+                % Absolute alignment time for each trial (in seconds)
                 absT = ti.absTime(:);
-                % Each trial's trigger onset/offset in seconds relative
-                % to its own alignment point
                 ownOn = ti.currTrigOnset(:);
                 ownOff = ti.currTrigOffset(:);
-                % Visible X range (seconds) — only plot what's on screen
                 xLim = ax.XLim;
 
-                % For each trial i, compute where every OTHER trial j's
-                % trigger would appear: offset = (absT(j) - absT(i)) in
-                % seconds, then add j's own trigger onset/offset.
-                % Work in vectorized form: NxN matrices.
-                dtSec = absT - absT';  % N x N, dtSec(j,i) = seconds from trial i to j
-                otherOn = dtSec + ownOn;    % (j,i) = trial j's onset in trial i's coords
-                otherOff = dtSec + ownOff;  % (j,i) = trial j's offset in trial i's coords
+                % Compute where every other trial's trigger appears in
+                % each trial's coordinate system (NxN matrices).
+                dtSec = absT - absT';
+                otherOn = dtSec + ownOn;
+                otherOff = dtSec + ownOff;
 
                 % Zero out the diagonal (own trigger already plotted)
                 otherOn(1:numTrials+1:end) = NaN;
@@ -1414,13 +1461,25 @@ classdef RasterGUI < handle
                     boxOn = otherOn(idx);
                     boxOff = otherOff(idx);
                     boxY = trialY(destTrial)';
-                    opX = [boxOn, boxOff, boxOff, boxOn]';
-                    opY = [boxY - tickHalfHeight, boxY - tickHalfHeight, ...
-                           boxY + tickHalfHeight, boxY + tickHalfHeight]';
-                    patch(ax, opX, opY, otherTrigColor, ...
-                        'EdgeColor', 'none', ...
-                        'PickableParts', 'none', ...
-                        'HitTest', 'off');
+                    srcLabels = trigLabels(srcTrial);
+
+                    % Render per label group with lightened colors
+                    uniqueSrcLabels = unique(srcLabels);
+                    for li = 1:length(uniqueSrcLabels)
+                        lbl = uniqueSrcLabels(li);
+                        lmask = srcLabels == lbl;
+                        if ~any(lmask), continue; end
+                        baseColor = obj.getTriggerLabelColor(lbl);
+                        % Extra lightened for "other trial" boxes
+                        otherColor = 1 - (1 - baseColor) * 0.12;
+                        opX = [boxOn(lmask), boxOff(lmask), boxOff(lmask), boxOn(lmask)]';
+                        opY = [boxY(lmask) - tickHalfHeight, boxY(lmask) - tickHalfHeight, ...
+                               boxY(lmask) + tickHalfHeight, boxY(lmask) + tickHalfHeight]';
+                        patch(ax, opX, opY, otherColor, ...
+                            'EdgeColor', 'none', ...
+                            'PickableParts', 'none', ...
+                            'HitTest', 'off');
+                    end
                 end
             end
 
@@ -2606,6 +2665,10 @@ classdef RasterGUI < handle
                 obj.edit_TrigFilterList, ...
                 obj.check_ExcludeIncomplete, ...
                 obj.check_PlotOtherTrialTriggers, ...
+                obj.list_TriggerLabels, ...
+                obj.push_TrigLabelColor, ...
+                obj.check_TrigAutoColor, ...
+                obj.popup_TrigColormap, ...
                 obj.check_TrigAutoUpdate, ...
                 obj.push_TrigUpdate, ...
                 obj.list_EventSeries, ...
@@ -2728,6 +2791,9 @@ classdef RasterGUI < handle
                 obj.edit_XMin.Enable = 'off';
                 obj.edit_XMax.Enable = 'off';
             end
+
+            % Trigger label color controls
+            obj.updateTrigLabelControlStates();
         end
     end
 
@@ -2918,6 +2984,155 @@ classdef RasterGUI < handle
                 obj.generate();
             end
         end
+
+        function updateTriggerLabelColors(obj)
+            % Update the trigger label color mapping after generate().
+            % Discovers all unique labels in the current triggerInfo,
+            % preserves existing manual color assignments, and assigns
+            % colors to new labels (auto from colormap, or gray for manual).
+            arguments
+                obj RasterGUI
+            end
+            if isempty(obj.triggerInfo) || ~isfield(obj.triggerInfo, 'label')
+                return;
+            end
+
+            % Get unique labels sorted by first appearance
+            allLabels = obj.triggerInfo.label(:);
+            [~, firstIdx] = unique(allLabels, 'first');
+            uniqueLabels = allLabels(sort(firstIdx));
+
+            if obj.check_TrigAutoColor.Value
+                % Auto-color mode: assign from colormap
+                cmapName = obj.popup_TrigColormap.String{obj.popup_TrigColormap.Value};
+                cmapFunc = str2func(cmapName);
+                nLabels = length(uniqueLabels);
+                colors = cmapFunc(max(nLabels, 1));
+                obj.TriggerLabelValues = uniqueLabels;
+                obj.TriggerLabelColors = colors(1:nLabels, :);
+            else
+                % Manual mode: preserve existing colors, assign gray to new labels
+                oldValues = obj.TriggerLabelValues;
+                oldColors = obj.TriggerLabelColors;
+                newColors = zeros(length(uniqueLabels), 3);
+                for k = 1:length(uniqueLabels)
+                    existingIdx = find(oldValues == uniqueLabels(k), 1);
+                    if ~isempty(existingIdx)
+                        newColors(k, :) = oldColors(existingIdx, :);
+                    else
+                        newColors(k, :) = [0.5, 0.5, 0.5];  % Gray for new labels
+                    end
+                end
+                obj.TriggerLabelValues = uniqueLabels;
+                obj.TriggerLabelColors = newColors;
+            end
+
+            obj.refreshTriggerLabelList();
+            obj.updateTrigLabelControlStates();
+        end
+
+        function refreshTriggerLabelList(obj)
+            % Update the trigger label listbox display with colored
+            % block characters and label text.
+            arguments
+                obj RasterGUI
+            end
+            if isempty(obj.TriggerLabelValues)
+                obj.list_TriggerLabels.String = {'(No triggers yet)'};
+                return;
+            end
+
+            strs = cell(length(obj.TriggerLabelValues), 1);
+            for k = 1:length(obj.TriggerLabelValues)
+                labelVal = obj.TriggerLabelValues(k);
+                rgb = obj.TriggerLabelColors(k, :);
+                hexColor = sprintf('%02X%02X%02X', round(255 * rgb));
+
+                % Determine label display text
+                if labelVal == 0
+                    labelStr = '(unlabeled)';
+                elseif labelVal > 1000
+                    % Numeric labels (burst counts, motif indices, etc.)
+                    labelStr = num2str(labelVal - 1000);
+                else
+                    labelStr = char(labelVal);
+                end
+
+                strs{k} = sprintf('<HTML><FONT COLOR=#%s>&#9632;</FONT> %s</HTML>', ...
+                    hexColor, labelStr);
+            end
+            obj.list_TriggerLabels.String = strs;
+        end
+
+        function updateTrigLabelControlStates(obj)
+            % Enable/disable the color picker and colormap based on
+            % auto-color mode.
+            arguments
+                obj RasterGUI
+            end
+            if obj.check_TrigAutoColor.Value
+                obj.push_TrigLabelColor.Enable = 'off';
+                obj.popup_TrigColormap.Enable = 'on';
+            else
+                obj.push_TrigLabelColor.Enable = 'on';
+                obj.popup_TrigColormap.Enable = 'off';
+            end
+        end
+
+        function selectTriggerLabel(~)
+            % Callback for trigger label listbox selection (no-op for now;
+            % selection is read by the color picker when clicked).
+        end
+
+        function trigLabelColorPicked(obj)
+            % Open a color picker for the selected trigger label.
+            arguments
+                obj RasterGUI
+            end
+            if isempty(obj.TriggerLabelValues)
+                return;
+            end
+            idx = obj.list_TriggerLabels.Value;
+            if idx < 1 || idx > length(obj.TriggerLabelValues)
+                return;
+            end
+            newColor = uisetcolor(obj.TriggerLabelColors(idx, :), 'Pick label color');
+            if length(newColor) == 3
+                obj.TriggerLabelColors(idx, :) = newColor;
+                obj.refreshTriggerLabelList();
+                obj.replotFromCache();
+            end
+        end
+
+        function trigAutoColorChanged(obj)
+            % Called when auto-color checkbox or colormap selection changes.
+            % Reassigns colors and replots.
+            arguments
+                obj RasterGUI
+            end
+            obj.updateTrigLabelControlStates();
+            if obj.check_TrigAutoColor.Value
+                % Recompute colors from the selected colormap
+                obj.updateTriggerLabelColors();
+                obj.replotFromCache();
+            end
+        end
+
+        function rgb = getTriggerLabelColor(obj, labelValue)
+            % Look up the color for a given trigger label value.
+            % Returns the mapped color, or light red as a fallback.
+            arguments
+                obj RasterGUI
+                labelValue (1, 1) double
+            end
+            idx = find(obj.TriggerLabelValues == labelValue, 1);
+            if ~isempty(idx)
+                rgb = obj.TriggerLabelColors(idx, :);
+            else
+                rgb = [1.0, 0.85, 0.85];  % Default light red
+            end
+        end
+
         function ascendingClicked(obj)
             arguments
                 obj RasterGUI
