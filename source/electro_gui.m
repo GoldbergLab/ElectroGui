@@ -10,7 +10,7 @@ classdef electro_gui < handle
         SourceName char
         UserFile
         OriginalDbase struct
-        CurrentDbasePath char = ''   % Keep track elof currently loaded dbase name
+        CurrentDbasePath char = ''   % Keep track of currently loaded dbase name
         CurrentDefaults char = ''
         MinMATLAB_utilsCommitDate = datetime('13-Jan-2026 11:34:46')
     end
@@ -4715,7 +4715,7 @@ function OpenDbase(obj, filePathOrDbase, options)
             dbaseSettings = struct();
         end
 
-        obj.CurrentDbasePath = path;
+        obj.CurrentDbasePath = fullfile(path, file);
 
     elseif isstruct(filePathOrDbase)
         % We're loading a dbase from memory, not from file
@@ -11032,12 +11032,14 @@ end
                         % User pressed control-n - activate new dbase dialog
                         obj.CreateNewDbase();
                     case 's'
-                        % User pressed control-s - activate save dbase dialog
-                        recentFiles = obj.getTempSetting('recentFiles');
-                        if ~isempty(recentFiles)
-                            obj.SaveCurrentDbase(recentFiles{1});
-                        else
-                            obj.SaveCurrentDbase();
+                        if obj.isShiftDown()
+                            % User pressed control-shift-s - activate save dbase dialog
+                            recentFiles = obj.getTempSetting('recentFiles');
+                            if ~isempty(recentFiles)
+                                obj.SaveCurrentDbase(recentFiles{1});
+                            else
+                                obj.SaveCurrentDbase();
+                            end
                         end
                     case 'space'
                         % User pressed control-space - start playback
@@ -12455,7 +12457,7 @@ end
             else
                 [dbase, settings] = obj.GetDBase(obj.settings.IncludeDocumentation);
                 electro_gui.SaveDbase(obj.CurrentDbasePath, dbase, settings);
-                electro_gui.notifyDbaseSave(savePath);
+                electro_gui.notifyDbaseSave(obj.CurrentDbasePath);
             end
         end
         function file_Save_Callback(obj, hObject, eventdata)
