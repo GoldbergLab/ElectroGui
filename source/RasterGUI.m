@@ -1400,9 +1400,8 @@ classdef RasterGUI < handle
             tickHalfHeight = obj.PlotTickSize(1) / 2;
             ti = obj.triggerInfo;
 
-            % --- Plot trigger boxes by label color ---
-            % Group triggers by label and render one patch per color group
-            % for performance (vectorized within each group).
+            % --- Plot trigger boxes colored by label ---
+            % Single patch call with per-face colors via FaceVertexCData.
             obj.statusBar.Status = 'Plotting trigger boxes...';
             drawnow;
             trigOn = ti.currTrigOnset(:);
@@ -1410,25 +1409,31 @@ classdef RasterGUI < handle
             trigLabels = ti.label(:);
             validTrig = isfinite(trigOn) & isfinite(trigOff);
             if any(validTrig)
-                uniqueLabelsInView = unique(trigLabels(validTrig));
-                for labelIdx = 1:length(uniqueLabelsInView)
-                    thisLabel = uniqueLabelsInView(labelIdx);
-                    mask = validTrig & (trigLabels == thisLabel);
-                    if ~any(mask), continue; end
-                    tOn = trigOn(mask);
-                    tOff = trigOff(mask);
-                    tY = trialY(mask)';
-                    % Look up the color for this label, lightened for boxes
-                    baseColor = obj.getTriggerLabelColor(thisLabel);
-                    boxColor = 1 - (1 - baseColor) * 0.25;  % Lighten toward white
-                    patchX = [tOn, tOff, tOff, tOn]';
-                    patchY = [tY - tickHalfHeight, tY - tickHalfHeight, ...
-                              tY + tickHalfHeight, tY + tickHalfHeight]';
-                    patch(ax, patchX, patchY, boxColor, ...
-                        'EdgeColor', 'none', ...
-                        'PickableParts', 'none', ...
-                        'HitTest', 'off');
+                tOn = trigOn(validTrig);
+                tOff = trigOff(validTrig);
+                tY = trialY(validTrig)';
+                n = length(tOn);
+                % Build vertices: [all BL; all BR; all TR; all TL]
+                vertices = [tOn, tY - tickHalfHeight; ...
+                            tOff, tY - tickHalfHeight; ...
+                            tOff, tY + tickHalfHeight; ...
+                            tOn, tY + tickHalfHeight];
+                faces = [(1:n)', (n+1:2*n)', (2*n+1:3*n)', (3*n+1:4*n)'];
+                % Build per-face colors from label mapping, lightened for boxes.
+                % Vectorized: look up color per unique label, then broadcast.
+                tLabels = trigLabels(validTrig);
+                faceColors = zeros(n, 3);
+                uniqueValid = unique(tLabels);
+                for labelNum = 1:length(uniqueValid)
+                    mask = tLabels == uniqueValid(labelNum);
+                    baseColor = obj.getTriggerLabelColor(uniqueValid(labelNum));
+                    faceColors(mask, :) = repmat(1 - (1 - baseColor) * 0.25, sum(mask), 1);
                 end
+                patch(ax, 'Faces', faces, 'Vertices', vertices, ...
+                    'FaceVertexCData', faceColors, 'FaceColor', 'flat', ...
+                    'EdgeColor', 'none', ...
+                    'PickableParts', 'none', ...
+                    'HitTest', 'off');
             end
 
             % --- Plot triggers from other trials (optional) ---
@@ -1462,24 +1467,28 @@ classdef RasterGUI < handle
                     boxOff = otherOff(idx);
                     boxY = trialY(destTrial)';
                     srcLabels = trigLabels(srcTrial);
+                    nOther = length(boxOn);
 
-                    % Render per label group with lightened colors
-                    uniqueSrcLabels = unique(srcLabels);
-                    for li = 1:length(uniqueSrcLabels)
-                        lbl = uniqueSrcLabels(li);
-                        lmask = srcLabels == lbl;
-                        if ~any(lmask), continue; end
-                        baseColor = obj.getTriggerLabelColor(lbl);
-                        % Extra lightened for "other trial" boxes
-                        otherColor = 1 - (1 - baseColor) * 0.12;
-                        opX = [boxOn(lmask), boxOff(lmask), boxOff(lmask), boxOn(lmask)]';
-                        opY = [boxY(lmask) - tickHalfHeight, boxY(lmask) - tickHalfHeight, ...
-                               boxY(lmask) + tickHalfHeight, boxY(lmask) + tickHalfHeight]';
-                        patch(ax, opX, opY, otherColor, ...
-                            'EdgeColor', 'none', ...
-                            'PickableParts', 'none', ...
-                            'HitTest', 'off');
+                    % Single patch call with per-face colors
+                    vertices = [boxOn, boxY - tickHalfHeight; ...
+                                boxOff, boxY - tickHalfHeight; ...
+                                boxOff, boxY + tickHalfHeight; ...
+                                boxOn, boxY + tickHalfHeight];
+                    otherFaces = [(1:nOther)', (nOther+1:2*nOther)', ...
+                                  (2*nOther+1:3*nOther)', (3*nOther+1:4*nOther)'];
+                    % Extra-lightened colors for other-trial triggers
+                    otherFaceColors = zeros(nOther, 3);
+                    uniqueSrc = unique(srcLabels);
+                    for labelNum = 1:length(uniqueSrc)
+                        mask = srcLabels == uniqueSrc(labelNum);
+                        baseColor = obj.getTriggerLabelColor(uniqueSrc(labelNum));
+                        otherFaceColors(mask, :) = repmat(1 - (1 - baseColor) * 0.12, sum(mask), 1);
                     end
+                    patch(ax, 'Faces', otherFaces, 'Vertices', vertices, ...
+                        'FaceVertexCData', otherFaceColors, 'FaceColor', 'flat', ...
+                        'EdgeColor', 'none', ...
+                        'PickableParts', 'none', ...
+                        'HitTest', 'off');
                 end
             end
 
