@@ -37,6 +37,10 @@ classdef RasterGUI < handle
         popup_TriggerSource
         popup_TriggerType
         popup_TriggerAlignment
+        check_ExcludeIncomplete
+        check_PlotOtherTrialTriggers
+        check_TrigAutoUpdate
+        push_TrigUpdate
 
         % Event series panel
         list_EventSeries
@@ -60,7 +64,6 @@ classdef RasterGUI < handle
         % Window panel
         popup_StartReference
         popup_StopReference
-        check_ExcludeIncomplete
         check_ExcludePartialEvents
         check_WindowAutoUpdate
         push_WindowUpdate
@@ -85,7 +88,6 @@ classdef RasterGUI < handle
 
         % Control buttons
         push_GenerateRaster
-        push_Hold
 
         % PSTH panel
         popup_PSTHUnits
@@ -211,7 +213,7 @@ classdef RasterGUI < handle
         PlotAlpha double = ones(1, 30)
         PlotAutoColors double = []
         PlotXLim double = [-0.15, 0.15]
-        PlotTickSize double = [1, 0.25, 0.01, 0.5]
+        PlotTickSize double = [1, 0.25, 1, 0.5]
         PlotOverlap double = 50
         PlotInPerSec double = 0.04
 
@@ -496,8 +498,8 @@ classdef RasterGUI < handle
             leftX = 0.005;                          % Left edge of control panel
             leftW = 0.250;                          % Width of control panel
             bottomY = statusBarY + statusBarH + 0.005; % Content starts above status bar
-            buttonY = bottomY;                      % Y position of Generate/Hold buttons
-            buttonH = 0.08;                         % Height of Generate/Hold buttons
+            buttonY = bottomY;                      % Y position of Generate button
+            buttonH = 0.08;                         % Height of Generate button
             tabGroupY = buttonY + buttonH + 0.01;   % Tab group starts above buttons
             tabGroupH = 0.97 - tabGroupY;           % Tab group fills to top
 
@@ -608,6 +610,14 @@ classdef RasterGUI < handle
             obj.popup_TrigFilterMode.Position = [tabMargin, rowY(5), filterModeW, rowH];
             obj.edit_TrigFilterList.Units = 'pixels';
             obj.edit_TrigFilterList.Position = [filterListX, rowY(5), filterListW, rowH];
+            obj.check_ExcludeIncomplete.Units = 'pixels';
+            obj.check_ExcludeIncomplete.Position = [tabMargin, rowY(6), tabFullW, rowH];
+            obj.check_PlotOtherTrialTriggers.Units = 'pixels';
+            obj.check_PlotOtherTrialTriggers.Position = [tabMargin, rowY(7), tabFullW, rowH];
+            obj.check_TrigAutoUpdate.Units = 'pixels';
+            obj.check_TrigAutoUpdate.Position = [tabMargin, rowY(8), halfW, rowH];
+            obj.push_TrigUpdate.Units = 'pixels';
+            obj.push_TrigUpdate.Position = [tabMargin + halfW + halfGap, rowY(8), halfW, rowH];
             % --- Events tab ---
             % Series list with +/- buttons to the right
             listH = 3 * rowSpacing;  % 3 rows tall
@@ -685,14 +695,12 @@ classdef RasterGUI < handle
             obj.text_PostUnit.Units = 'pixels';
             obj.text_PostUnit.Position = [winUnitX, rowY(sharedControlsStartRow+1), winUnitW, rowH];
 
-            obj.check_ExcludeIncomplete.Units = 'pixels';
-            obj.check_ExcludeIncomplete.Position = [tabMargin, rowY(sharedControlsStartRow+2), tabFullW, rowH];
             obj.check_ExcludePartialEvents.Units = 'pixels';
-            obj.check_ExcludePartialEvents.Position = [tabMargin, rowY(sharedControlsStartRow+3), tabFullW, rowH];
+            obj.check_ExcludePartialEvents.Position = [tabMargin, rowY(sharedControlsStartRow+2), tabFullW, rowH];
             obj.check_WindowAutoUpdate.Units = 'pixels';
-            obj.check_WindowAutoUpdate.Position = [tabMargin, rowY(sharedControlsStartRow+4), halfW, rowH];
+            obj.check_WindowAutoUpdate.Position = [tabMargin, rowY(sharedControlsStartRow+3), halfW, rowH];
             obj.push_WindowUpdate.Units = 'pixels';
-            obj.push_WindowUpdate.Position = [tabMargin + halfW + halfGap, rowY(sharedControlsStartRow+4), halfW, rowH];
+            obj.push_WindowUpdate.Position = [tabMargin + halfW + halfGap, rowY(sharedControlsStartRow+3), halfW, rowH];
             % --- Sort tab ---
             obj.text_PrimarySort.Units = 'pixels';
             obj.text_PrimarySort.Position = [tabMargin, rowY(1), sortLabelW, rowH];
@@ -793,11 +801,9 @@ classdef RasterGUI < handle
             obj.push_ExportJPG.Position = [tabMargin + 2*(exportBtnW + exportBtnGap), rowY(3), exportBtnW, rowH];
             obj.push_ExportSVG.Units = 'pixels';
             obj.push_ExportSVG.Position = [tabMargin + 3*(exportBtnW + exportBtnGap), rowY(3), exportBtnW, rowH];
-            % --- Generate / Hold buttons below the tab group ---
+            % --- Generate button below the tab group ---
             obj.push_GenerateRaster.Units = 'normalized';
-            obj.push_GenerateRaster.Position = [leftX, buttonY, leftW * 0.48, buttonH];
-            obj.push_Hold.Units = 'normalized';
-            obj.push_Hold.Position = [leftX + leftW * 0.52, buttonY, leftW * 0.48, buttonH];
+            obj.push_GenerateRaster.Position = [leftX, buttonY, leftW, buttonH];
             obj.popup_PSTHUnits.Position = [popupAfterLabelX, rowY(1), popupAfterLabelW, rowH];
 
         end
@@ -827,7 +833,8 @@ classdef RasterGUI < handle
 
             obj.axes_Raster = axes(obj.panel_Axes, ...
                 'Box', 'on', ...
-                'Tag', 'axes_Raster');
+                'Tag', 'axes_Raster', ...
+                'ButtonDownFcn', @(~,~) obj.onRasterClick());
             obj.axes_PSTH = axes(obj.panel_Axes, ...
                 'Box', 'on', ...
                 'Tag', 'axes_PSTH');
@@ -846,27 +853,39 @@ classdef RasterGUI < handle
             trigTab = uitab(obj.tab_group, 'Title', 'Trigger');
             obj.popup_TriggerSource = uicontrol(trigTab, 'Style', 'popupmenu', ...
                 'String', {'Sound'}, ...
-                'Callback', @(~,~) obj.clearCache());
+                'Callback', @(~,~) obj.triggerSettingChanged());
             obj.text__TriggerType = uicontrol(trigTab, 'Style', 'text', ...
                 'String', 'Type:', ...
                 'Tag', 'text__TriggerType', ...
                 'HorizontalAlignment', 'right');
             obj.popup_TriggerType = uicontrol(trigTab, 'Style', 'popupmenu', ...
                 'String', {'Syllables', 'Markers', 'Motifs', 'Bouts'}, ...
-                'Callback', @(~,~) obj.typeChanged());
+                'Callback', @(~,~) obj.triggerTypeChanged());
             obj.text_TriggerAlignment = uicontrol(trigTab, 'Style', 'text', ...
                 'String', 'Align:', ...
                 'Tag', 'text_TriggerAlignment', ...
                 'HorizontalAlignment', 'right');
             obj.popup_TriggerAlignment = uicontrol(trigTab, 'Style', 'popupmenu', ...
-                'String', {'Onset', 'Offset', 'Midpoint'});
+                'String', {'Onset', 'Offset', 'Midpoint'}, ...
+                'Callback', @(~,~) obj.triggerSettingChanged());
             % Inline trigger filter (visible depending on type)
             obj.popup_TrigFilterMode = uicontrol(trigTab, 'Style', 'popupmenu', ...
                 'String', {'All', 'Include', 'Exclude'}, ...
-                'Callback', @(~,~) obj.upstreamSettingChanged());
+                'Callback', @(~,~) obj.triggerSettingChanged());
             obj.edit_TrigFilterList = uicontrol(trigTab, 'Style', 'edit', ...
                 'String', '', 'HorizontalAlignment', 'left', ...
-                'Callback', @(~,~) obj.clearCache());
+                'Callback', @(~,~) obj.triggerSettingChanged());
+            obj.check_ExcludeIncomplete = uicontrol(trigTab, 'Style', 'checkbox', ...
+                'String', 'Exclude incomplete', 'Value', 1, ...
+                'Callback', @(~,~) obj.triggerSettingChanged());
+            obj.check_PlotOtherTrialTriggers = uicontrol(trigTab, 'Style', 'checkbox', ...
+                'String', 'Plot triggers from other trials', ...
+                'Callback', @(~,~) obj.replotFromCache());
+            obj.check_TrigAutoUpdate = uicontrol(trigTab, 'Style', 'checkbox', ...
+                'String', 'Auto-update', 'Value', 1);
+            obj.push_TrigUpdate = uicontrol(trigTab, 'Style', 'pushbutton', ...
+                'String', 'Update', ...
+                'Callback', @(~,~) obj.generate());
 
             % --- Events tab ---
             eventTab = uitab(obj.tab_group, 'Title', 'Events');
@@ -884,6 +903,7 @@ classdef RasterGUI < handle
             % Detail controls (hidden until a series is selected)
             obj.edit_EventSeriesName = uicontrol(eventTab, 'Style', 'edit', ...
                 'String', '', 'Visible', 'off', ...
+                'HorizontalAlignment', 'left', ...
                 'Callback', @(~,~) obj.eventSeriesNameChanged());
             obj.popup_EventSeriesSource = uicontrol(eventTab, 'Style', 'popupmenu', ...
                 'String', {'Sound'}, 'Visible', 'off', ...
@@ -962,9 +982,6 @@ classdef RasterGUI < handle
             obj.text_PostUnit = uicontrol(eventTab, 'Style', 'text', ...
                 'String', 's', ...
                 'HorizontalAlignment', 'left');
-            obj.check_ExcludeIncomplete = uicontrol(eventTab, 'Style', 'checkbox', ...
-                'String', 'Exclude incomplete', 'Value', 1, ...
-                'Callback', @(~,~) obj.windowSettingChanged());
             obj.check_ExcludePartialEvents = uicontrol(eventTab, 'Style', 'checkbox', ...
                 'String', 'Exclude partial events', ...
                 'Callback', @(~,~) obj.windowSettingChanged());
@@ -1150,15 +1167,11 @@ classdef RasterGUI < handle
                 'String', 'SVG', ...
                 'Callback', @(~,~) obj.exportToFile('svg'));
 
-            % --- Generate / Hold buttons below the tab group ---
+            % --- Generate button below the tab group ---
             obj.push_GenerateRaster = uicontrol(obj.figure_Main, 'Style', 'pushbutton', ...
                 'String', 'Generate', ...
                 'FontWeight', 'bold', ...
                 'Callback', @(~,~) obj.generate());
-            obj.push_Hold = uicontrol(obj.figure_Main, 'Style', 'pushbutton', ...
-                'String', 'Hold on', ...
-                'Visible', 'off', ...  % Deferred to v1.1
-                'Callback', @(~,~) obj.holdCallback());
 
             % Set tooltips on all controls
             obj.setTooltips();
@@ -1174,6 +1187,10 @@ classdef RasterGUI < handle
             obj.popup_TriggerType.Tooltip = 'Type of trigger events to extract';
             obj.popup_TriggerAlignment.Tooltip = 'Which part of the trigger to align to (time zero)';
             obj.popup_TrigFilterMode.Tooltip = 'All: use all labels; Include: only listed; Exclude: all except listed';
+            obj.check_ExcludeIncomplete.Tooltip = 'Exclude triggers whose window extends beyond file boundaries';
+            obj.check_PlotOtherTrialTriggers.Tooltip = 'Show triggers from other trials that fall within each trial''s time window';
+            obj.check_TrigAutoUpdate.Tooltip = 'Automatically regenerate when trigger settings change';
+            obj.push_TrigUpdate.Tooltip = 'Regenerate raster with current trigger settings';
 
             % Events tab - series controls
             obj.list_EventSeries.Tooltip = 'Event series to plot on the raster';
@@ -1191,7 +1208,6 @@ classdef RasterGUI < handle
             obj.popup_EventSeriesPSTHStyle.Tooltip = 'PSTH plot style: Line, Histogram (bar), or Both';
             obj.popup_StartReference.Tooltip = 'Reference point for the start of the event window';
             obj.popup_StopReference.Tooltip = 'Reference point for the end of the event window';
-            obj.check_ExcludeIncomplete.Tooltip = 'Exclude triggers whose window extends beyond file boundaries';
             obj.check_ExcludePartialEvents.Tooltip = 'Exclude events not fully contained within the window';
             obj.check_WindowAutoUpdate.Tooltip = 'Automatically regenerate when window settings change';
             obj.push_WindowUpdate.Tooltip = 'Regenerate raster with current settings';
@@ -1243,7 +1259,6 @@ classdef RasterGUI < handle
 
             % Main buttons
             obj.push_GenerateRaster.Tooltip = 'Extract triggers and events, sort, and plot';
-            obj.push_Hold.Tooltip = 'Overlay next generation on top of current plot';
         end
 
         function populateSourceMenus(obj)
@@ -1312,6 +1327,52 @@ classdef RasterGUI < handle
                     'HitTest', 'off');
             end
 
+            % --- Plot triggers from other trials (optional) ---
+            % For each trial, find all other triggers whose onset/offset
+            % falls within this trial's visible time window. Uses absolute
+            % time to handle triggers across file boundaries.
+            if obj.check_PlotOtherTrialTriggers.Value && numTrials > 1
+                otherTrigColor = [0.85, 0.85, 1.0];  % Light blue
+                % Absolute alignment time for each trial (in days)
+                absT = ti.absTime(:);
+                % Each trial's trigger onset/offset in seconds relative
+                % to its own alignment point
+                ownOn = ti.currTrigOnset(:);
+                ownOff = ti.currTrigOffset(:);
+                % Visible X range (seconds) — only plot what's on screen
+                xLim = ax.XLim;
+
+                % For each trial i, compute where every OTHER trial j's
+                % trigger would appear: offset = (absT(j) - absT(i)) in
+                % seconds, then add j's own trigger onset/offset.
+                % Work in vectorized form: NxN matrices.
+                dtSec = absT - absT';  % N x N, dtSec(j,i) = seconds from trial i to j
+                otherOn = dtSec + ownOn;    % (j,i) = trial j's onset in trial i's coords
+                otherOff = dtSec + ownOff;  % (j,i) = trial j's offset in trial i's coords
+
+                % Zero out the diagonal (own trigger already plotted)
+                otherOn(1:numTrials+1:end) = NaN;
+                otherOff(1:numTrials+1:end) = NaN;
+
+                % Find boxes that overlap the visible X range
+                visible = isfinite(otherOn) & isfinite(otherOff) & ...
+                          otherOff > xLim(1) & otherOn < xLim(2);
+                [srcTrial, destTrial] = find(visible);
+                if ~isempty(srcTrial)
+                    idx = sub2ind([numTrials, numTrials], srcTrial, destTrial);
+                    boxOn = otherOn(idx);
+                    boxOff = otherOff(idx);
+                    boxY = trialY(destTrial)';
+                    opX = [boxOn, boxOff, boxOff, boxOn]';
+                    opY = [boxY - tickHalfHeight, boxY - tickHalfHeight, ...
+                           boxY + tickHalfHeight, boxY + tickHalfHeight]';
+                    patch(ax, opX, opY, otherTrigColor, ...
+                        'EdgeColor', 'none', ...
+                        'PickableParts', 'none', ...
+                        'HitTest', 'off');
+                end
+            end
+
             % --- Plot event ticks for each series ---
             % Each event series is rendered as vertical tick marks in its
             % own color. All ticks for a series are concatenated into a
@@ -1357,7 +1418,8 @@ classdef RasterGUI < handle
                 end
 
                 % Render all ticks for this series in one call
-                plot(ax, allX, allY, 'Color', s.color, 'LineWidth', 0.5);
+                plot(ax, allX, allY, 'Color', s.color, ...
+                    'LineWidth', obj.PlotTickSize(3));
             end
 
             % --- Plot zero line (trigger alignment point) ---
@@ -1682,16 +1744,17 @@ classdef RasterGUI < handle
             preset.startReference = startRefStrs{obj.popup_StartReference.Value};
             stopRefStrs = obj.popup_StopReference.String;
             preset.stopReference = stopRefStrs{obj.popup_StopReference.Value};
-            preset.excludeIncomplete = obj.check_ExcludeIncomplete.Value;
-            preset.excludePartialEvents = obj.check_ExcludePartialEvents.Value;
+            preset.excludeIncomplete = logical(obj.check_ExcludeIncomplete.Value);
+            preset.plotOtherTrialTriggers = logical(obj.check_PlotOtherTrialTriggers.Value);
+            preset.excludePartialEvents = logical(obj.check_ExcludePartialEvents.Value);
 
             % Sort settings
             primarySortStrs = obj.popup_PrimarySort.String;
             preset.primarySort = primarySortStrs{obj.popup_PrimarySort.Value};
             secondarySortStrs = obj.popup_SecondarySort.String;
             preset.secondarySort = secondarySortStrs{obj.popup_SecondarySort.Value};
-            preset.ascending = obj.radio_Ascending.Value;
-            preset.groupLabels = obj.check_GroupLabels.Value;
+            preset.ascending = logical(obj.radio_Ascending.Value);
+            preset.groupLabels = logical(obj.check_GroupLabels.Value);
 
             % File settings
             fileStrs = obj.popup_Files.String;
@@ -1782,6 +1845,7 @@ classdef RasterGUI < handle
             obj.setPopupByName(obj.popup_StartReference, preset, 'startReference');
             obj.setPopupByName(obj.popup_StopReference, preset, 'stopReference');
             obj.setCheckbox(obj.check_ExcludeIncomplete, preset, 'excludeIncomplete');
+            obj.setCheckbox(obj.check_PlotOtherTrialTriggers, preset, 'plotOtherTrialTriggers');
             obj.setCheckbox(obj.check_ExcludePartialEvents, preset, 'excludePartialEvents');
 
             obj.setPopupByName(obj.popup_PrimarySort, preset, 'primarySort');
@@ -2330,7 +2394,9 @@ classdef RasterGUI < handle
         end
 
         function eventSeriesColorPicked(obj)
-            % Open a color picker for the selected series.
+            % Open a color picker for the selected series. Color is a
+            % display-only property, so replot from cache rather than
+            % clearing cache and regenerating.
             arguments
                 obj RasterGUI
             end
@@ -2342,7 +2408,7 @@ classdef RasterGUI < handle
             if length(newColor) == 3
                 obj.eventSeries(idx).color = newColor;
                 obj.push_EventSeriesColor.BackgroundColor = newColor;
-                obj.clearCache();
+                obj.replotFromCache();
             end
         end
 
@@ -2457,6 +2523,10 @@ classdef RasterGUI < handle
                 obj.popup_TriggerAlignment, ...
                 obj.popup_TrigFilterMode, ...
                 obj.edit_TrigFilterList, ...
+                obj.check_ExcludeIncomplete, ...
+                obj.check_PlotOtherTrialTriggers, ...
+                obj.check_TrigAutoUpdate, ...
+                obj.push_TrigUpdate, ...
                 obj.list_EventSeries, ...
                 obj.push_EventSeriesAdd, ...
                 obj.push_EventSeriesRemove, ...
@@ -2474,7 +2544,6 @@ classdef RasterGUI < handle
                 obj.popup_StopReference, ...
                 obj.edit_PreStart, ...
                 obj.edit_PostStop, ...
-                obj.check_ExcludeIncomplete, ...
                 obj.check_ExcludePartialEvents, ...
                 obj.check_WindowAutoUpdate, ...
                 obj.push_WindowUpdate, ...
@@ -2512,8 +2581,7 @@ classdef RasterGUI < handle
                 obj.push_ExportPDF, ...
                 obj.push_ExportJPG, ...
                 obj.push_ExportSVG, ...
-                obj.push_GenerateRaster, ...
-                obj.push_Hold];
+                obj.push_GenerateRaster];
         end
 
         function disableAllControls(obj)
@@ -2741,27 +2809,32 @@ classdef RasterGUI < handle
                 obj.generate();
             end
         end
-        function typeChanged(obj)
-            % Called when the trigger or event Type dropdown changes.
-            % Updates filter visibility and clears cache, but does NOT
-            % call updateControlStates (which would re-set the Type
-            % dropdown options and interfere with the in-progress
-            % value change).
-            arguments
-                obj RasterGUI
-            end
-            obj.updateTriggerOptionsVisibility();
-            obj.clearCache();
-        end
-        function upstreamSettingChanged(obj)
-            % Called when any upstream setting changes (trigger/event
-            % source/type, window, file range, include/ignore lists).
-            % Clears the cache and updates control states.
+        function triggerSettingChanged(obj)
+            % Called when a Trigger tab setting changes. Clears cache
+            % and regenerates if auto-update is on.
             arguments
                 obj RasterGUI
             end
             obj.clearCache();
             obj.updateControlStates();
+            if obj.check_TrigAutoUpdate.Value
+                obj.generate();
+            end
+        end
+        function triggerTypeChanged(obj)
+            % Called when the trigger Type dropdown changes. Updates
+            % filter visibility and clears cache, but does NOT call
+            % updateControlStates (which would re-set the Type dropdown
+            % options and interfere with the in-progress value change).
+            % Regenerates if auto-update is on.
+            arguments
+                obj RasterGUI
+            end
+            obj.updateTriggerOptionsVisibility();
+            obj.clearCache();
+            if obj.check_TrigAutoUpdate.Value
+                obj.generate();
+            end
         end
         function ascendingClicked(obj)
             arguments
@@ -2856,14 +2929,14 @@ classdef RasterGUI < handle
             end
 
         end
-        function holdCallback(obj)
+        function onRasterClick(obj)
+            % Handle clicks on the raster axes. Double-click resets
+            % the Y zoom to show all trials.
             arguments
                 obj RasterGUI
             end
-            if strcmp(obj.push_Hold.String, 'Hold on')
-                obj.push_Hold.String = 'Hold off';
-            else
-                obj.push_Hold.String = 'Hold on';
+            if strcmp(obj.figure_Main.SelectionType, 'open')
+                obj.axes_Raster.YLim = obj.RasterFullYLim;
             end
         end
 
@@ -3209,8 +3282,8 @@ classdef RasterGUI < handle
                     end
 
                     filenum = trig.info.filenum(fileIdx);
-                    timestamp = obj.eg.getFileTime(filenum);
-                    absTime = timestamp + alignSample / (fs * 24 * 60 * 60);
+                    fileDatetime = electro_gui.getFileDatetime(obj.eg.dbase, filenum);
+                    absTime = posixtime(fileDatetime) + alignSample / fs;
 
                     % Determine window start (in samples)
                     switch startRefType
