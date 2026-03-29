@@ -58,6 +58,7 @@ classdef RasterGUI < handle
         edit_EventSeriesBurstFreq
         text_EventSeriesBurstMinSpikes
         edit_EventSeriesBurstMinSpikes
+        popup_EventSeriesSelection
         push_EventSeriesColor
         check_EventSeriesPSTH
         popup_EventSeriesPSTHStyle
@@ -173,8 +174,8 @@ classdef RasterGUI < handle
 
         % Event series: array of structs, one per event series
         % Each has: name, sourceIdx, type, filterMode, filterList,
-        %           burstFrequency, burstMinSpikes, color, showPSTH,
-        %           psthStyle, triggerInfo (per-series aligned data)
+        %           burstFrequency, burstMinSpikes, selectionMode,
+        %           color, showPSTH, psthStyle, triggerInfo
         eventSeries struct = struct( ...
             'name', {}, ...
             'sourceIdx', {}, ...    % Index into popup (1=Sound, 2+=event detectors)
@@ -183,6 +184,7 @@ classdef RasterGUI < handle
             'filterList', {}, ...   % Label filter string
             'burstFrequency', {}, ...  % Hz threshold for burst detection (per-series)
             'burstMinSpikes', {}, ...  % Min spikes to form a valid burst (per-series)
+            'selectionMode', {}, ...   % 'All', 'Selected', 'Unselected'
             'color', {}, ...        % 1x3 RGB
             'showPSTH', {}, ...     % true/false
             'psthStyle', {}, ...    % 'Line', 'Histogram', or 'Both'
@@ -382,6 +384,7 @@ classdef RasterGUI < handle
                     seriesP.filterList = s.filterList;
                     seriesP.burstFrequency = s.burstFrequency;
                     seriesP.burstMinSpikes = s.burstMinSpikes;
+                    seriesP.selectionMode = s.selectionMode;
 
                     % Extract events
                     eventSourceIdx = s.sourceIdx - 1;  % 0 = Sound
@@ -488,6 +491,7 @@ classdef RasterGUI < handle
             obj.P.trig.boutMinSyllables = 2;
             obj.P.trig.burstFrequency = 100;
             obj.P.trig.burstMinSpikes = 2;
+            obj.P.trig.selectionMode = 'Selected only';
             obj.P.trig.pauseMinDuration = 0.05;
             obj.P.trig.contSmooth = 1;
             obj.P.trig.contSubsample = 0.001;
@@ -645,9 +649,9 @@ classdef RasterGUI < handle
             obj.push_EventSeriesAdd.Position = [tabMargin + fullW - btnW, rowY(1), btnW, rowH];
             obj.push_EventSeriesRemove.Units = 'pixels';
             obj.push_EventSeriesRemove.Position = [tabMargin + fullW - btnW, rowY(1) - rowSpacing, btnW, rowH];
-            % Detail panel: positioned below the list, spans 4 rows
+            % Detail panel: positioned below the list, spans 5 rows
             detailStartRow = 4;  % After 3-row list
-            detailNumRows = 4;
+            detailNumRows = 5;
             panelPad = 3;  % Internal padding within the panel
             panelH = detailNumRows * rowSpacing + 2 * panelPad;
             panelY = rowY(detailStartRow) - (detailNumRows - 1) * rowSpacing - panelPad;
@@ -686,15 +690,18 @@ classdef RasterGUI < handle
             obj.text_EventSeriesBurstMinSpikes.Position = [burstMinX, pRowY(3), burstLabelW, rowH];
             obj.edit_EventSeriesBurstMinSpikes.Units = 'pixels';
             obj.edit_EventSeriesBurstMinSpikes.Position = [burstMinX + burstLabelW + burstGap, pRowY(3), burstEditW, rowH];
-            % Color, PSTH, style (row 4)
+            % Selection mode (row 4)
+            obj.popup_EventSeriesSelection.Units = 'pixels';
+            obj.popup_EventSeriesSelection.Position = [panelPad, pRowY(4), pW, rowH];
+            % Color, PSTH, style (row 5)
             colorBtnW = rowH;  % Square button
             obj.push_EventSeriesColor.Units = 'pixels';
-            obj.push_EventSeriesColor.Position = [panelPad, pRowY(4), colorBtnW, rowH];
+            obj.push_EventSeriesColor.Position = [panelPad, pRowY(5), colorBtnW, rowH];
             obj.check_EventSeriesPSTH.Units = 'pixels';
-            obj.check_EventSeriesPSTH.Position = [panelPad + colorBtnW + 8, pRowY(4), 80, rowH];
+            obj.check_EventSeriesPSTH.Position = [panelPad + colorBtnW + 8, pRowY(5), 80, rowH];
             psthStyleX = panelPad + colorBtnW + 8 + 80 + 4;
             obj.popup_EventSeriesPSTHStyle.Units = 'pixels';
-            obj.popup_EventSeriesPSTHStyle.Position = [psthStyleX, pRowY(4), 80, rowH];
+            obj.popup_EventSeriesPSTHStyle.Position = [psthStyleX, pRowY(5), 80, rowH];
             % Window controls (continued in Events tab)
             winRefLabelW = 30;
             winRefPopupX = tabMargin + winRefLabelW + 2;
@@ -975,6 +982,10 @@ classdef RasterGUI < handle
                 'String', '2', ...
                 'Visible', 'off', ...
                 'Callback', @(~,~) obj.eventSeriesDetailChanged());
+            obj.popup_EventSeriesSelection = uicontrol(dp, 'Style', 'popupmenu', ...
+                'String', {'All', 'Selected only', 'Unselected only'}, ...
+                'Value', 2, ...  % Default to 'Selected only'
+                'Callback', @(~,~) obj.eventSeriesDetailChanged());
             obj.push_EventSeriesColor = uicontrol(dp, 'Style', 'pushbutton', ...
                 'String', '', ...
                 'BackgroundColor', [0 0 0], ...
@@ -1102,7 +1113,7 @@ classdef RasterGUI < handle
                 'Tag', 'text_PSTHCount', ...
                 'HorizontalAlignment', 'right');
             obj.popup_PSTHCount = uicontrol(psthTab, 'Style', 'popupmenu', ...
-                'String', {'All events', 'Selected only', 'Unselected only'}, ...
+                'String', {'Onsets', 'Offsets', 'Full duration'}, ...
                 'Callback', @(~,~) obj.replotFromCache());
 
             % --- Plot tab ---
@@ -1242,6 +1253,7 @@ classdef RasterGUI < handle
             obj.edit_EventSeriesFilterList.Tooltip = 'Label characters to include or exclude';
             obj.edit_EventSeriesBurstFreq.Tooltip = 'Minimum burst frequency (Hz): events closer than 1/freq are grouped into bursts';
             obj.edit_EventSeriesBurstMinSpikes.Tooltip = 'Minimum number of events in a burst';
+            obj.popup_EventSeriesSelection.Tooltip = 'All: use all events; Selected only: use events marked as selected; Unselected only: use unselected events';
             obj.push_EventSeriesColor.Tooltip = 'Click to pick a color for this series';
             obj.check_EventSeriesPSTH.Tooltip = 'Include this series in the PSTH display (multiple allowed)';
             obj.popup_EventSeriesPSTHStyle.Tooltip = 'PSTH plot style: Line, Histogram (bar), or Both';
@@ -1269,7 +1281,7 @@ classdef RasterGUI < handle
 
             % PSTH tab
             obj.popup_PSTHUnits.Tooltip = 'Units for the PSTH Y axis';
-            obj.popup_PSTHCount.Tooltip = 'Which events to count in the PSTH';
+            obj.popup_PSTHCount.Tooltip = 'Onsets: count event starts; Offsets: count event ends; Full duration: count active events per bin';
 
             % Plot tab
             obj.check_AutoXLim.Tooltip = 'Automatically fit X limits to the data';
@@ -1562,6 +1574,10 @@ classdef RasterGUI < handle
                 otherwise,           yLabel = 'Rate (Hz)';
             end
 
+            % Determine count mode (Onsets, Offsets, or Full duration)
+            psthCountStrs = obj.popup_PSTHCount.String;
+            psthCountMode = psthCountStrs{obj.popup_PSTHCount.Value};
+
             % Plot each PSTH series as a line in its color
             for k = 1:length(psthSeriesIndices)
                 sIdx = psthSeriesIndices(k);
@@ -1573,14 +1589,28 @@ classdef RasterGUI < handle
                     continue;
                 end
 
-                % Collect all event times across trials
-                allEventTimes = cat(1, seriesTI.eventOnsets{:});
-                if isempty(allEventTimes)
-                    continue;
+                % Compute histogram counts based on count mode
+                switch psthCountMode
+                    case 'Onsets'
+                        allTimes = cat(1, seriesTI.eventOnsets{:});
+                        if isempty(allTimes), continue; end
+                        counts = histcounts(allTimes, binEdges);
+                    case 'Offsets'
+                        allTimes = cat(1, seriesTI.eventOffsets{:});
+                        if isempty(allTimes), continue; end
+                        counts = histcounts(allTimes, binEdges);
+                    case 'Full duration'
+                        % Count how many events are active in each bin
+                        % (onset before bin end AND offset after bin start)
+                        allOnsets = cat(1, seriesTI.eventOnsets{:});
+                        allOffsets = cat(1, seriesTI.eventOffsets{:});
+                        if isempty(allOnsets), continue; end
+                        counts = zeros(1, length(binEdges) - 1);
+                        for b = 1:length(counts)
+                            counts(b) = sum(allOnsets < binEdges(b+1) & ...
+                                            allOffsets > binEdges(b));
+                        end
                 end
-
-                % Compute histogram counts
-                counts = histcounts(allEventTimes, binEdges);
 
                 % Convert to the selected units
                 switch psthUnit
@@ -1772,6 +1802,7 @@ classdef RasterGUI < handle
                 seriesConfigs(k).filterList = s.filterList;
                 seriesConfigs(k).burstFrequency = s.burstFrequency;
                 seriesConfigs(k).burstMinSpikes = s.burstMinSpikes;
+                seriesConfigs(k).selectionMode = s.selectionMode;
                 seriesConfigs(k).color = s.color;
                 seriesConfigs(k).showPSTH = s.showPSTH;
                 seriesConfigs(k).psthStyle = s.psthStyle;
@@ -1840,6 +1871,7 @@ classdef RasterGUI < handle
                     'name', {}, 'sourceIdx', {}, 'type', {}, ...
                     'filterMode', {}, 'filterList', {}, ...
                     'burstFrequency', {}, 'burstMinSpikes', {}, ...
+                    'selectionMode', {}, ...
                     'color', {}, 'showPSTH', {}, 'psthStyle', {}, ...
                     'triggerInfo', {});
 
@@ -1862,6 +1894,11 @@ classdef RasterGUI < handle
                         obj.eventSeries(k).burstMinSpikes = sc.burstMinSpikes;
                     else
                         obj.eventSeries(k).burstMinSpikes = 2;
+                    end
+                    if isfield(sc, 'selectionMode')
+                        obj.eventSeries(k).selectionMode = sc.selectionMode;
+                    else
+                        obj.eventSeries(k).selectionMode = 'Selected only';
                     end
                     obj.eventSeries(k).color = sc.color;
                     obj.eventSeries(k).showPSTH = logical(sc.showPSTH);
@@ -1927,6 +1964,8 @@ classdef RasterGUI < handle
             end
             obj.applyPreset(loaded.preset);
             obj.updateControlStates();
+            obj.clearCache();
+            obj.generate();
             fprintf('Loaded preset: %s\n', selectedName);
         end
 
@@ -2131,6 +2170,7 @@ classdef RasterGUI < handle
             series.filterList = '';
             series.burstFrequency = 100;    % Hz threshold for burst detection
             series.burstMinSpikes = 2;      % Min events to form a valid burst
+            series.selectionMode = 'Selected only';  % 'All', 'Selected only', 'Unselected only'
             series.color = colors(colorIdx, :);
             series.showPSTH = (seriesNumber == 1);  % First series shows PSTH by default
             series.psthStyle = 'Both';
@@ -2236,6 +2276,19 @@ classdef RasterGUI < handle
             obj.edit_EventSeriesBurstFreq.String = num2str(series.burstFrequency);
             obj.edit_EventSeriesBurstMinSpikes.String = num2str(series.burstMinSpikes);
 
+            % Selection mode — controls whether to use all events/segments,
+            % only those marked as selected in the dbase, or only
+            % unselected ones. Applies to both Sound sources
+            % (SegmentIsSelected/MarkerIsSelected) and spike sources
+            % (EventIsSelected).
+            selStrs = obj.popup_EventSeriesSelection.String;
+            selIdx = find(strcmp(selStrs, series.selectionMode), 1);
+            if ~isempty(selIdx)
+                obj.popup_EventSeriesSelection.Value = selIdx;
+            else
+                obj.popup_EventSeriesSelection.Value = 1;  % Default to 'All'
+            end
+
             % Color button
             obj.push_EventSeriesColor.BackgroundColor = series.color;
 
@@ -2275,6 +2328,8 @@ classdef RasterGUI < handle
             obj.eventSeries(idx).filterList = obj.edit_EventSeriesFilterList.String;
             obj.eventSeries(idx).burstFrequency = str2double(obj.edit_EventSeriesBurstFreq.String);
             obj.eventSeries(idx).burstMinSpikes = str2double(obj.edit_EventSeriesBurstMinSpikes.String);
+            selStrs = obj.popup_EventSeriesSelection.String;
+            obj.eventSeries(idx).selectionMode = selStrs{obj.popup_EventSeriesSelection.Value};
             obj.eventSeries(idx).color = obj.push_EventSeriesColor.BackgroundColor;
             obj.eventSeries(idx).showPSTH = logical(obj.check_EventSeriesPSTH.Value);
             styleStrs = obj.popup_EventSeriesPSTHStyle.String;
@@ -2563,6 +2618,7 @@ classdef RasterGUI < handle
                 obj.edit_EventSeriesFilterList, ...
                 obj.edit_EventSeriesBurstFreq, ...
                 obj.edit_EventSeriesBurstMinSpikes, ...
+                obj.popup_EventSeriesSelection, ...
                 obj.push_EventSeriesColor, ...
                 obj.check_EventSeriesPSTH, ...
                 obj.popup_EventSeriesPSTHStyle, ...
@@ -3077,33 +3133,38 @@ classdef RasterGUI < handle
             for fileListIdx = 1:numLstFiles
                 filenum = lst(fileListIdx);
 
+                % For spike event types, build the selection mask and
+                % extract part times once before the type-specific logic.
+                % P.selectionMode controls which events are included:
+                % 'All', 'Selected only', or 'Unselected only'.
+                if ismember(eventTypeStr, {'Events', 'Bursts', 'Burst events', 'Single events', 'Pauses'})
+                    selectedMask = dbase.EventIsSelected{eventSourceIdx}{1, filenum} == 1;
+                    for partIdx = 2:size(dbase.EventIsSelected{eventSourceIdx}, 1)
+                        selectedMask = selectedMask & (dbase.EventIsSelected{eventSourceIdx}{partIdx, filenum} == 1);
+                    end
+                    switch P.selectionMode
+                        case 'All'
+                            selectedIndices = (1:length(selectedMask))';
+                        case 'Selected only'
+                            selectedIndices = find(selectedMask);
+                        case 'Unselected only'
+                            selectedIndices = find(~selectedMask);
+                    end
+                    allPartTimes = dbase.EventTimes{eventSourceIdx}{1, filenum}(selectedIndices);
+                    for partIdx = 2:size(dbase.EventTimes{eventSourceIdx}, 1)
+                        allPartTimes = [allPartTimes, dbase.EventTimes{eventSourceIdx}{partIdx, filenum}(selectedIndices)]; %#ok<AGROW>
+                    end
+                end
+
                 switch eventTypeStr
                     case 'Events'
-                        % Get selected events across all event parts
-                        selectedMask = dbase.EventIsSelected{eventSourceIdx}{1, filenum} == 1;
-                        for partIdx = 2:size(dbase.EventIsSelected{eventSourceIdx}, 1)
-                            selectedMask = selectedMask & (dbase.EventIsSelected{eventSourceIdx}{partIdx, filenum} == 1);
-                        end
-                        selectedIndices = find(selectedMask);
-                        allPartTimes = dbase.EventTimes{eventSourceIdx}{1, filenum}(selectedIndices);
-                        for partIdx = 2:size(dbase.EventTimes{eventSourceIdx}, 1)
-                            allPartTimes = [allPartTimes, dbase.EventTimes{eventSourceIdx}{partIdx, filenum}(selectedIndices)]; %#ok<AGROW>
-                        end
+                        % Simple events: onset = min across parts, offset = max
                         ons{fileListIdx} = min(allPartTimes, [], 2);
                         offs{fileListIdx} = max(allPartTimes, [], 2);
                         inform.label{fileListIdx} = zeros(size(allPartTimes, 1), 1);
 
                     case 'Bursts'
                         % Find bursts based on inter-event frequency
-                        selectedMask = dbase.EventIsSelected{eventSourceIdx}{1, filenum} == 1;
-                        for partIdx = 2:size(dbase.EventIsSelected{eventSourceIdx}, 1)
-                            selectedMask = selectedMask & (dbase.EventIsSelected{eventSourceIdx}{partIdx, filenum} == 1);
-                        end
-                        selectedIndices = find(selectedMask);
-                        allPartTimes = dbase.EventTimes{eventSourceIdx}{1, filenum}(selectedIndices);
-                        for partIdx = 2:size(dbase.EventTimes{eventSourceIdx}, 1)
-                            allPartTimes = [allPartTimes, dbase.EventTimes{eventSourceIdx}{partIdx, filenum}(selectedIndices)]; %#ok<AGROW>
-                        end
                         eventSamples = min(allPartTimes, [], 2);
                         burstOnsets = find(fs ./ (eventSamples(1:end-1) - [-inf; eventSamples(1:end-2)]) <= P.burstFrequency & ...
                             fs ./ (eventSamples(2:end) - eventSamples(1:end-1)) > (P.burstFrequency + eps));
@@ -3116,15 +3177,6 @@ classdef RasterGUI < handle
 
                     case {'Burst events', 'Single events'}
                         % Categorize individual spikes by burst membership
-                        selectedMask = dbase.EventIsSelected{eventSourceIdx}{1, filenum} == 1;
-                        for partIdx = 2:size(dbase.EventIsSelected{eventSourceIdx}, 1)
-                            selectedMask = selectedMask & (dbase.EventIsSelected{eventSourceIdx}{partIdx, filenum} == 1);
-                        end
-                        selectedIndices = find(selectedMask);
-                        allPartTimes = dbase.EventTimes{eventSourceIdx}{1, filenum}(selectedIndices);
-                        for partIdx = 2:size(dbase.EventTimes{eventSourceIdx}, 1)
-                            allPartTimes = [allPartTimes, dbase.EventTimes{eventSourceIdx}{partIdx, filenum}(selectedIndices)]; %#ok<AGROW>
-                        end
                         evOn = min(allPartTimes, [], 2);
                         evOff = max(allPartTimes, [], 2);
                         burstOnsets = find(fs ./ (evOn(1:end-1) - [-inf; evOn(1:end-2)]) <= P.burstFrequency & ...
@@ -3148,15 +3200,6 @@ classdef RasterGUI < handle
 
                     case 'Pauses'
                         % Find gaps between events
-                        selectedMask = dbase.EventIsSelected{eventSourceIdx}{1, filenum} == 1;
-                        for partIdx = 2:size(dbase.EventIsSelected{eventSourceIdx}, 1)
-                            selectedMask = selectedMask & (dbase.EventIsSelected{eventSourceIdx}{partIdx, filenum} == 1);
-                        end
-                        selectedIndices = find(selectedMask);
-                        allPartTimes = dbase.EventTimes{eventSourceIdx}{1, filenum}(selectedIndices);
-                        for partIdx = 2:size(dbase.EventTimes{eventSourceIdx}, 1)
-                            allPartTimes = [allPartTimes, dbase.EventTimes{eventSourceIdx}{partIdx, filenum}(selectedIndices)]; %#ok<AGROW>
-                        end
                         gapOnsets = [min(allPartTimes, [], 2); obj.eg.getFileLength(filenum) + fs * P.pauseMinDuration];
                         gapOffsets = [-fs * P.pauseMinDuration; max(allPartTimes, [], 2)];
                         pauseIndices = find(gapOnsets - gapOffsets > fs * P.pauseMinDuration);
@@ -3176,7 +3219,15 @@ classdef RasterGUI < handle
                                 titles = dbase.MarkerTitles{filenum};
                         end
                         if ~isempty(times)
-                            selectedIndices = find(selection == 1);
+                            % Apply selection mode filter
+                            switch P.selectionMode
+                                case 'All'
+                                    selectedIndices = (1:size(times, 1))';
+                                case 'Selected only'
+                                    selectedIndices = find(selection == 1);
+                                case 'Unselected only'
+                                    selectedIndices = find(selection ~= 1);
+                            end
                             ons{fileListIdx} = times(selectedIndices, 1);
                             offs{fileListIdx} = times(selectedIndices, 2);
                             labels = zeros(size(ons{fileListIdx}));
@@ -3196,7 +3247,15 @@ classdef RasterGUI < handle
 
                     case 'Motifs'
                         if ~isempty(dbase.SegmentTimes{filenum})
-                            selectedIndices = find(dbase.SegmentIsSelected{filenum} == 1);
+                            % Apply selection mode filter
+                            switch P.selectionMode
+                                case 'All'
+                                    selectedIndices = (1:size(dbase.SegmentTimes{filenum}, 1))';
+                                case 'Selected only'
+                                    selectedIndices = find(dbase.SegmentIsSelected{filenum} == 1);
+                                case 'Unselected only'
+                                    selectedIndices = find(dbase.SegmentIsSelected{filenum} ~= 1);
+                            end
                             syllOnsets = dbase.SegmentTimes{filenum}(selectedIndices, 1);
                             syllOffsets = dbase.SegmentTimes{filenum}(selectedIndices, 2);
                             syllTitles = dbase.SegmentTitles{filenum}(selectedIndices);
@@ -3229,7 +3288,15 @@ classdef RasterGUI < handle
 
                     case 'Bouts'
                         if ~isempty(dbase.SegmentTimes{filenum})
-                            selectedIndices = find(dbase.SegmentIsSelected{filenum} == 1);
+                            % Apply selection mode filter
+                            switch P.selectionMode
+                                case 'All'
+                                    selectedIndices = (1:size(dbase.SegmentTimes{filenum}, 1))';
+                                case 'Selected only'
+                                    selectedIndices = find(dbase.SegmentIsSelected{filenum} == 1);
+                                case 'Unselected only'
+                                    selectedIndices = find(dbase.SegmentIsSelected{filenum} ~= 1);
+                            end
 
                             % Apply filter to select which syllables form bouts
                             labels = zeros(1, length(selectedIndices));
