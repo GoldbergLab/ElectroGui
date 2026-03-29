@@ -46,6 +46,7 @@ classdef RasterGUI < handle
         list_EventSeries
         push_EventSeriesAdd
         push_EventSeriesRemove
+        panel_EventSeriesDetail  % Bordered panel for per-series controls
         % Event series detail controls (populated from selected series)
         edit_EventSeriesName
         popup_EventSeriesSource
@@ -273,11 +274,46 @@ classdef RasterGUI < handle
             if isempty(obj.figure_Main) || ~isvalid(obj.figure_Main)
                 obj.buildGUI();
                 obj.layoutGUI();
-                obj.populateSourceMenus();
+                obj.refreshFromDbase();
                 obj.refreshPresetList();  % Also calls updateControlStates
+            else
+                obj.refreshFromDbase();
             end
             obj.figure_Main.Visible = 'on';
             figure(obj.figure_Main);  % Bring to front
+        end
+
+        function refreshFromDbase(obj)
+            % Rescan the electro_gui dbase and update all derived UI state.
+            % Call this when electro_gui data may have changed (segments,
+            % markers, events, event sources, file count, properties, etc.).
+            arguments
+                obj RasterGUI
+            end
+
+            % --- Update source popups ---
+            % Rebuild the source list and try to preserve current selections
+            oldTrigSource = obj.popup_TriggerSource.Value;
+            oldEventSource = obj.popup_EventSeriesSource.Value;
+            obj.populateSourceMenus();
+            obj.popup_TriggerSource.Value = min(oldTrigSource, length(obj.popup_TriggerSource.String));
+            obj.popup_EventSeriesSource.Value = min(oldEventSource, length(obj.popup_EventSeriesSource.String));
+
+            % --- Update file count ---
+            numFiles = electro_gui.getNumFiles(obj.eg.dbase);
+            obj.FileRange = 1:numFiles;
+            obj.edit_FileRange.String = ['1:', num2str(numFiles)];
+
+            % --- Update property names ---
+            if ~isempty(obj.eg.dbase.PropertyNames)
+                obj.popup_PropertyName.String = obj.eg.dbase.PropertyNames;
+            else
+                obj.popup_PropertyName.String = {'(No properties)'};
+            end
+
+            % --- Clear cached data (segments/events may have changed) ---
+            obj.clearCache();
+            obj.updateControlStates();
         end
 
         function hide(obj)
@@ -609,38 +645,56 @@ classdef RasterGUI < handle
             obj.push_EventSeriesAdd.Position = [tabMargin + fullW - btnW, rowY(1), btnW, rowH];
             obj.push_EventSeriesRemove.Units = 'pixels';
             obj.push_EventSeriesRemove.Position = [tabMargin + fullW - btnW, rowY(1) - rowSpacing, btnW, rowH];
-            % Detail controls start below the list
+            % Detail panel: positioned below the list, spans 4 rows
             detailStartRow = 4;  % After 3-row list
+            detailNumRows = 4;
+            panelPad = 3;  % Internal padding within the panel
+            panelH = detailNumRows * rowSpacing + 2 * panelPad;
+            panelY = rowY(detailStartRow) - (detailNumRows - 1) * rowSpacing - panelPad;
+            obj.panel_EventSeriesDetail.Units = 'pixels';
+            obj.panel_EventSeriesDetail.Position = [tabMargin - 1, panelY, fullW + 2, panelH];
+            % Detail controls positioned relative to the panel interior
+            % Row positions within the panel (top-down)
+            pW = fullW - 2 * panelPad;   % Usable width inside panel
+            pHalfW = pW * 0.48;
+            pHalfGap = pW * 0.04;
+            pRowY = panelH - panelPad - rowH - (0:detailNumRows-1) * rowSpacing;
             obj.edit_EventSeriesName.Units = 'pixels';
-            obj.edit_EventSeriesName.Position = [tabMargin, rowY(detailStartRow), fullW, rowH];
+            obj.edit_EventSeriesName.Position = [panelPad, pRowY(1), pW, rowH];
             obj.popup_EventSeriesSource.Units = 'pixels';
-            obj.popup_EventSeriesSource.Position = [tabMargin, rowY(detailStartRow + 1), halfW, rowH];
+            obj.popup_EventSeriesSource.Position = [panelPad, pRowY(2), pHalfW, rowH];
             obj.popup_EventSeriesType.Units = 'pixels';
-            obj.popup_EventSeriesType.Position = [tabMargin + halfW + halfGap, rowY(detailStartRow + 1), halfW, rowH];
+            obj.popup_EventSeriesType.Position = [panelPad + pHalfW + pHalfGap, pRowY(2), pHalfW, rowH];
+            % Filter controls (row 3, visible for Sound sources)
+            pFilterModeW = 70;
+            pFilterListX = panelPad + pFilterModeW + 4;
+            pFilterListW = pW - pFilterModeW - 4;
             obj.popup_EventSeriesFilterMode.Units = 'pixels';
-            obj.popup_EventSeriesFilterMode.Position = [tabMargin, rowY(detailStartRow + 2), filterModeW, rowH];
+            obj.popup_EventSeriesFilterMode.Position = [panelPad, pRowY(3), pFilterModeW, rowH];
             obj.edit_EventSeriesFilterList.Units = 'pixels';
-            obj.edit_EventSeriesFilterList.Position = [filterListX, rowY(detailStartRow + 2), filterListW, rowH];
-            % Burst controls occupy the same row as filter controls
+            obj.edit_EventSeriesFilterList.Position = [pFilterListX, pRowY(3), pFilterListW, rowH];
+            % Burst controls (row 3, visible for burst types)
             burstLabelW = 30;
             burstEditW = 40;
             burstGap = 4;
             obj.text_EventSeriesBurstFreq.Units = 'pixels';
-            obj.text_EventSeriesBurstFreq.Position = [tabMargin, rowY(detailStartRow + 2), burstLabelW, rowH];
+            obj.text_EventSeriesBurstFreq.Position = [panelPad, pRowY(3), burstLabelW, rowH];
             obj.edit_EventSeriesBurstFreq.Units = 'pixels';
-            obj.edit_EventSeriesBurstFreq.Position = [tabMargin + burstLabelW + burstGap, rowY(detailStartRow + 2), burstEditW, rowH];
-            burstMinX = tabMargin + burstLabelW + burstGap + burstEditW + burstGap;
+            obj.edit_EventSeriesBurstFreq.Position = [panelPad + burstLabelW + burstGap, pRowY(3), burstEditW, rowH];
+            burstMinX = panelPad + burstLabelW + burstGap + burstEditW + burstGap;
             obj.text_EventSeriesBurstMinSpikes.Units = 'pixels';
-            obj.text_EventSeriesBurstMinSpikes.Position = [burstMinX, rowY(detailStartRow + 2), burstLabelW, rowH];
+            obj.text_EventSeriesBurstMinSpikes.Position = [burstMinX, pRowY(3), burstLabelW, rowH];
             obj.edit_EventSeriesBurstMinSpikes.Units = 'pixels';
-            obj.edit_EventSeriesBurstMinSpikes.Position = [burstMinX + burstLabelW + burstGap, rowY(detailStartRow + 2), burstEditW, rowH];
+            obj.edit_EventSeriesBurstMinSpikes.Position = [burstMinX + burstLabelW + burstGap, pRowY(3), burstEditW, rowH];
+            % Color, PSTH, style (row 4)
+            colorBtnW = rowH;  % Square button
             obj.push_EventSeriesColor.Units = 'pixels';
-            obj.push_EventSeriesColor.Position = [tabMargin, rowY(detailStartRow + 3), rowH, rowH];  % Square button
+            obj.push_EventSeriesColor.Position = [panelPad, pRowY(4), colorBtnW, rowH];
             obj.check_EventSeriesPSTH.Units = 'pixels';
-            obj.check_EventSeriesPSTH.Position = [tabMargin + rowH + 8, rowY(detailStartRow + 3), 80, rowH];
-            psthStyleX = tabMargin + rowH + 8 + 80 + 4;
+            obj.check_EventSeriesPSTH.Position = [panelPad + colorBtnW + 8, pRowY(4), 80, rowH];
+            psthStyleX = panelPad + colorBtnW + 8 + 80 + 4;
             obj.popup_EventSeriesPSTHStyle.Units = 'pixels';
-            obj.popup_EventSeriesPSTHStyle.Position = [psthStyleX, rowY(detailStartRow + 3), 80, rowH];
+            obj.popup_EventSeriesPSTHStyle.Position = [psthStyleX, pRowY(4), 80, rowH];
             % Window controls (continued in Events tab)
             winRefLabelW = 30;
             winRefPopupX = tabMargin + winRefLabelW + 2;
@@ -880,51 +934,56 @@ classdef RasterGUI < handle
             obj.push_EventSeriesRemove = uicontrol(eventTab, 'Style', 'pushbutton', ...
                 'String', char(215), 'FontWeight', 'bold', 'Enable', 'off', ... % × symbol
                 'Callback', @(~,~) obj.removeEventSeries());
-            % Detail controls (hidden until a series is selected)
-            obj.edit_EventSeriesName = uicontrol(eventTab, 'Style', 'edit', ...
-                'String', '', 'Visible', 'off', ...
+            % Detail panel (bordered, hidden until a series is selected)
+            obj.panel_EventSeriesDetail = uipanel(eventTab, ...
+                'Title', '', ...
+                'BorderType', 'line', ...
+                'HighlightColor', [0.7, 0.7, 0.7], ...
+                'Visible', 'off');
+            dp = obj.panel_EventSeriesDetail;  % Short alias for parenting
+            % Detail controls (inside the panel)
+            obj.edit_EventSeriesName = uicontrol(dp, 'Style', 'edit', ...
+                'String', '', ...
                 'HorizontalAlignment', 'left', ...
                 'Callback', @(~,~) obj.eventSeriesNameChanged());
-            obj.popup_EventSeriesSource = uicontrol(eventTab, 'Style', 'popupmenu', ...
-                'String', {'Sound'}, 'Visible', 'off', ...
+            obj.popup_EventSeriesSource = uicontrol(dp, 'Style', 'popupmenu', ...
+                'String', {'Sound'}, ...
                 'Callback', @(~,~) obj.eventSeriesSourceChanged());
-            obj.popup_EventSeriesType = uicontrol(eventTab, 'Style', 'popupmenu', ...
-                'String', {'Syllables'}, 'Visible', 'off', ...
+            obj.popup_EventSeriesType = uicontrol(dp, 'Style', 'popupmenu', ...
+                'String', {'Syllables'}, ...
                 'Callback', @(~,~) obj.eventSeriesTypeChanged());
-            obj.popup_EventSeriesFilterMode = uicontrol(eventTab, 'Style', 'popupmenu', ...
+            obj.popup_EventSeriesFilterMode = uicontrol(dp, 'Style', 'popupmenu', ...
                 'String', {'All', 'Include', 'Exclude'}, 'Visible', 'off', ...
                 'Callback', @(~,~) obj.eventSeriesFilterModeChanged());
-            obj.edit_EventSeriesFilterList = uicontrol(eventTab, 'Style', 'edit', ...
+            obj.edit_EventSeriesFilterList = uicontrol(dp, 'Style', 'edit', ...
                 'String', '', 'HorizontalAlignment', 'left', 'Visible', 'off', ...
                 'Callback', @(~,~) obj.eventSeriesDetailChanged());
             % Burst-specific controls (same row as filter, shown for burst types)
-            obj.text_EventSeriesBurstFreq = uicontrol(eventTab, 'Style', 'text', ...
+            obj.text_EventSeriesBurstFreq = uicontrol(dp, 'Style', 'text', ...
                 'String', 'Freq:', ...
                 'HorizontalAlignment', 'right', ...
                 'Visible', 'off');
-            obj.edit_EventSeriesBurstFreq = uicontrol(eventTab, 'Style', 'edit', ...
+            obj.edit_EventSeriesBurstFreq = uicontrol(dp, 'Style', 'edit', ...
                 'String', '100', ...
                 'Visible', 'off', ...
                 'Callback', @(~,~) obj.eventSeriesDetailChanged());
-            obj.text_EventSeriesBurstMinSpikes = uicontrol(eventTab, 'Style', 'text', ...
+            obj.text_EventSeriesBurstMinSpikes = uicontrol(dp, 'Style', 'text', ...
                 'String', 'Min:', ...
                 'HorizontalAlignment', 'right', ...
                 'Visible', 'off');
-            obj.edit_EventSeriesBurstMinSpikes = uicontrol(eventTab, 'Style', 'edit', ...
+            obj.edit_EventSeriesBurstMinSpikes = uicontrol(dp, 'Style', 'edit', ...
                 'String', '2', ...
                 'Visible', 'off', ...
                 'Callback', @(~,~) obj.eventSeriesDetailChanged());
-            obj.push_EventSeriesColor = uicontrol(eventTab, 'Style', 'pushbutton', ...
-                'String', '', 'Visible', 'off', ...
+            obj.push_EventSeriesColor = uicontrol(dp, 'Style', 'pushbutton', ...
+                'String', '', ...
                 'BackgroundColor', [0 0 0], ...
                 'Callback', @(~,~) obj.eventSeriesColorPicked());
-            obj.check_EventSeriesPSTH = uicontrol(eventTab, 'Style', 'checkbox', ...
+            obj.check_EventSeriesPSTH = uicontrol(dp, 'Style', 'checkbox', ...
                 'String', 'PSTH source', ...
-                'Visible', 'off', ...
                 'Callback', @(~,~) obj.eventSeriesPSTHChanged());
-            obj.popup_EventSeriesPSTHStyle = uicontrol(eventTab, 'Style', 'popupmenu', ...
+            obj.popup_EventSeriesPSTHStyle = uicontrol(dp, 'Style', 'popupmenu', ...
                 'String', {'Line', 'Histogram', 'Both'}, ...
-                'Visible', 'off', ...
                 'Callback', @(~,~) obj.eventSeriesPSTHChanged());
 
             % Window controls (in Events tab)
@@ -2227,34 +2286,21 @@ classdef RasterGUI < handle
         end
 
         function showEventSeriesDetail(obj)
-            % Make always-visible detail controls visible, then update
-            % context-dependent controls (filter vs burst) based on
-            % the current source and type selection.
+            % Show the detail panel and update context-dependent controls
+            % (filter vs burst) based on the current source and type.
             arguments
                 obj RasterGUI
             end
-            alwaysVisible = [obj.edit_EventSeriesName, ...
-                obj.popup_EventSeriesSource, obj.popup_EventSeriesType, ...
-                obj.push_EventSeriesColor, obj.check_EventSeriesPSTH, ...
-                obj.popup_EventSeriesPSTHStyle];
-            set(alwaysVisible, 'Visible', 'on');
-            % Show/hide filter vs burst controls based on context
+            obj.panel_EventSeriesDetail.Visible = 'on';
             obj.updateEventSeriesDetailVisibility();
         end
 
         function hideEventSeriesDetail(obj)
-            % Hide all detail controls (filter, burst, and always-on).
+            % Hide the entire detail panel.
             arguments
                 obj RasterGUI
             end
-            widgets = [obj.edit_EventSeriesName, obj.popup_EventSeriesSource, ...
-                obj.popup_EventSeriesType, obj.popup_EventSeriesFilterMode, ...
-                obj.edit_EventSeriesFilterList, ...
-                obj.text_EventSeriesBurstFreq, obj.edit_EventSeriesBurstFreq, ...
-                obj.text_EventSeriesBurstMinSpikes, obj.edit_EventSeriesBurstMinSpikes, ...
-                obj.push_EventSeriesColor, obj.check_EventSeriesPSTH, ...
-                obj.popup_EventSeriesPSTHStyle];
-            set(widgets, 'Visible', 'off');
+            obj.panel_EventSeriesDetail.Visible = 'off';
         end
 
         function updateEventSeriesTypeOptions(obj)
@@ -3363,6 +3409,16 @@ classdef RasterGUI < handle
                     triggerInfo.eventOffsets{count} = (event.off{fileIdx}(eventIdx) - alignSample) / fs;
                     triggerInfo.eventLabels{count} = event.info.label{fileIdx}(eventIdx) / fs;
                 end
+            end
+
+            % Warn if timestamps are not strictly increasing, which
+            % indicates the dbase file timestamps may be incorrect
+            % (e.g., chunked files sharing a parent timestamp).
+            if count > 1 && any(diff(triggerInfo.absTime) <= 0)
+                warning('RasterGUI:nonMonotonicTime', ...
+                    ['Trigger absolute times are not strictly increasing. ' ...
+                     'This may cause incorrect cross-trial trigger plotting. ' ...
+                     'Consider running the "Fix chunked timestamps" macro.']);
             end
         end
     end
