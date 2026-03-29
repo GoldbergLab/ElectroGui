@@ -675,12 +675,16 @@ classdef RasterGUI < handle
             obj.push_EventSeriesAdd.Position = [tabMargin + fullW - btnW, rowY(1), btnW, rowH];
             obj.push_EventSeriesRemove.Units = 'pixels';
             obj.push_EventSeriesRemove.Position = [tabMargin + fullW - btnW, rowY(1) - rowSpacing, btnW, rowH];
-            % Detail panel: positioned below the list, spans 5 rows
+            % Detail panel: positioned below the list, spans 5 rows.
+            % The panel top aligns with row 4 (first row below the 3-row
+            % listbox), and extends downward for detailNumRows rows plus
+            % internal padding.
             detailStartRow = 4;  % After 3-row list
             detailNumRows = 5;
             panelPad = 3;  % Internal padding within the panel
             panelH = detailNumRows * rowSpacing + 2 * panelPad;
-            panelY = rowY(detailStartRow) - (detailNumRows - 1) * rowSpacing - panelPad;
+            panelTopY = rowY(detailStartRow) + rowH;  % Top of row 4's control
+            panelY = panelTopY - panelH;
             obj.panel_EventSeriesDetail.Units = 'pixels';
             obj.panel_EventSeriesDetail.Position = [tabMargin - 1, panelY, fullW + 2, panelH];
             % Detail controls positioned relative to the panel interior
@@ -728,7 +732,8 @@ classdef RasterGUI < handle
             psthStyleX = panelPad + colorBtnW + 8 + 80 + 4;
             obj.popup_EventSeriesPSTHStyle.Units = 'pixels';
             obj.popup_EventSeriesPSTHStyle.Position = [psthStyleX, pRowY(5), 80, rowH];
-            % Window controls (continued in Events tab)
+            % Window controls (continued in Events tab).
+            % Start below the detail panel with one row of gap.
             winRefLabelW = 30;
             winRefPopupX = tabMargin + winRefLabelW + 2;
             winRefPopupW = 110;
@@ -738,7 +743,7 @@ classdef RasterGUI < handle
             winEditW = 40;
             winUnitX = winEditX + winEditW + 2;
             winUnitW = 12;
-            sharedControlsStartRow = detailStartRow + 4;
+            sharedControlsStartRow = detailStartRow + detailNumRows + 1;
 
             obj.text_StartReference.Units = 'pixels';
             obj.text_StartReference.Position = [tabMargin, rowY(sharedControlsStartRow), winRefLabelW, rowH];
