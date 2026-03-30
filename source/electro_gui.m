@@ -3230,8 +3230,10 @@ function recordFileTime(obj, fileNum, timestamp, forceUpdate)
         forceUpdate logical = false
     end
 
-    % If data is loaded, timestamp is nonzero, save it in dbase.Times
-    if electro_gui.isDataLoaded(obj.dbase) && timestamp ~= 0
+    % If data is loaded and timestamp is a valid nonzero scalar, save
+    % it in dbase.Times. Some loaders return empty or multi-element
+    % time vectors — only store if it's a usable scalar datenum.
+    if electro_gui.isDataLoaded(obj.dbase) && isscalar(timestamp) && timestamp ~= 0
         if obj.dbase.Times(fileNum) == 0 || forceUpdate
             obj.dbase.Times(fileNum) = timestamp;
         end
