@@ -440,21 +440,30 @@ classdef RasterGUI < handle
                 descending = obj.radio_Descending.Value;
                 groupLabels = obj.check_GroupLabels.Value;
 
+                % Get the first event series' aligned data for event-based
+                % sort criteria (Number of events, First/Last onset, etc.)
+                if ~isempty(obj.eventSeries)
+                    eventTI = obj.eventSeries(1).triggerInfo;
+                else
+                    eventTI = struct();
+                end
+
                 % Apply secondary sort first (so primary is dominant)
                 secondarySortStrs = obj.popup_SecondarySort.String;
                 secondarySortType = secondarySortStrs{obj.popup_SecondarySort.Value};
                 if ~strcmp(secondarySortType, '(None)')
                     [ti, ord] = RasterGUI.sortTriggers(ti, secondarySortType, descending, ...
-                        '', false);
-                    % Apply same sort order to all series
+                        '', false, eventTI);
+                    % Apply same sort order to all series and eventTI
                     for seriesIdx = 1:numSeries
                         obj.eventSeries(seriesIdx).triggerInfo = ...
                             RasterGUI.applyOrder(obj.eventSeries(seriesIdx).triggerInfo, ord);
                     end
+                    eventTI = RasterGUI.applyOrder(eventTI, ord);
                 end
                 if ~strcmp(primarySortType, '(None)')
                     [ti, ord] = RasterGUI.sortTriggers(ti, primarySortType, descending, ...
-                        '', groupLabels);
+                        '', groupLabels, eventTI);
                     % Apply same sort order to all series
                     for seriesIdx = 1:numSeries
                         obj.eventSeries(seriesIdx).triggerInfo = ...
@@ -1844,6 +1853,8 @@ classdef RasterGUI < handle
         function plotHist(obj)
             % Render the vertical histogram showing event counts per trial,
             % displayed as horizontal bars aligned with the raster Y axis.
+            % Mirrors plotPSTH: plots all showPSTH-enabled series in their
+            % own colors and styles, using the same count mode.
             arguments
                 obj RasterGUI
             end
@@ -1861,63 +1872,98 @@ classdef RasterGUI < handle
             delete(ax.Children);
             hold(ax, 'on');
 
-            % Use the first PSTH-enabled series for the histogram
-            psthSeriesIdx = find([obj.eventSeries.showPSTH], 1);
-            if isempty(psthSeriesIdx)
-                % No series has showPSTH checked — leave blank
-                hold(ax, 'off');
-                return;
-            end
-            if isempty(psthSeriesIdx)
-                hold(ax, 'off');
-                return;
-            end
-            histTI = obj.eventSeries(psthSeriesIdx).triggerInfo;
-            if isempty(histTI) || ~isfield(histTI, 'eventOnsets')
+            % Find all PSTH-enabled series
+            psthSeriesIndices = find([obj.eventSeries.showPSTH]);
+            if isempty(psthSeriesIndices)
+                ax.YDir = 'reverse';
+                ax.YTickLabel = {};
+                ax.XLabel.String = '';
                 hold(ax, 'off');
                 return;
             end
 
-            % Count events per trial within the visible X range
-            xLim = obj.PlotXLim;
-            countsPerTrial = zeros(numTrials, 1);
-            for trialIdx = 1:numTrials
-                eventTimes = histTI.eventOnsets{trialIdx};
-                if ~isempty(eventTimes)
-                    countsPerTrial(trialIdx) = sum(eventTimes >= xLim(1) & eventTimes <= xLim(2));
-                end
-            end
+            % Count mode (same as PSTH)
+            psthCountStrs = obj.popup_PSTHCount.String;
+            psthCountMode = psthCountStrs{obj.popup_PSTHCount.Value};
 
-            % Bin counts by groups of trials for smoother display
-            binSize = max(1, round(obj.HistBinSize(1)));
-            numBins = ceil(numTrials / binSize);
-            binnedCounts = zeros(numBins, 1);
+            % Binning parameters — counts reflect all events in each
+            % trial's full window, not just the visible X range.
+            trialBinSize = max(1, round(obj.HistBinSize(1)));
+            numBins = ceil(numTrials / trialBinSize);
             binCenters = zeros(numBins, 1);
             for binIdx = 1:numBins
-                trialStart = (binIdx - 1) * binSize + 1;
-                trialEnd = min(binIdx * binSize, numTrials);
-                binnedCounts(binIdx) = mean(countsPerTrial(trialStart:trialEnd));
+                trialStart = (binIdx - 1) * trialBinSize + 1;
+                trialEnd = min(binIdx * trialBinSize, numTrials);
                 binCenters(binIdx) = (trialStart + trialEnd) / 2;
             end
 
-            % Smooth if requested
-            if obj.HistSmoothingWindow > 1 && length(binnedCounts) > 1
-                binnedCounts = movmean(binnedCounts, obj.HistSmoothingWindow);
+            maxCount = 0;
+
+            % Plot each PSTH-enabled series
+            for seriesNum = 1:length(psthSeriesIndices)
+                sIdx = psthSeriesIndices(seriesNum);
+                s = obj.eventSeries(sIdx);
+                seriesTI = s.triggerInfo;
+
+                if isempty(seriesTI) || ~isfield(seriesTI, 'eventOnsets')
+                    continue;
+                end
+
+                % Count events per trial using the selected count mode.
+                % Counts all events in the trial window, not just the
+                % visible X range, so the histogram reflects the data
+                % selection and matches event-based sort criteria.
+                countsPerTrial = zeros(numTrials, 1);
+                for trialIdx = 1:numTrials
+                    onsets = seriesTI.eventOnsets{trialIdx};
+                    offsets = seriesTI.eventOffsets{trialIdx};
+                    switch psthCountMode
+                        case 'Onsets'
+                            countsPerTrial(trialIdx) = length(onsets);
+                        case 'Offsets'
+                            countsPerTrial(trialIdx) = length(offsets);
+                        case 'Full duration'
+                            countsPerTrial(trialIdx) = length(onsets);
+                    end
+                end
+
+                % Bin counts by groups of trials
+                binnedCounts = zeros(numBins, 1);
+                for binIdx = 1:numBins
+                    trialStart = (binIdx - 1) * trialBinSize + 1;
+                    trialEnd = min(binIdx * trialBinSize, numTrials);
+                    binnedCounts(binIdx) = mean(countsPerTrial(trialStart:trialEnd));
+                end
+
+                % Smooth if requested
+                if obj.HistSmoothingWindow > 1 && length(binnedCounts) > 1
+                    binnedCounts = movmean(binnedCounts, obj.HistSmoothingWindow);
+                end
+
+                maxCount = max(maxCount, max(binnedCounts));
+
+                % Plot using the series' psthStyle
+                style = s.psthStyle;
+                if any(strcmp(style, {'Histogram', 'Both'}))
+                    barh(ax, binCenters, binnedCounts, 1, ...
+                        'FaceColor', s.color, 'FaceAlpha', 0.25, ...
+                        'EdgeColor', 'none');
+                end
+                if any(strcmp(style, {'Line', 'Both'}))
+                    plot(ax, binnedCounts, binCenters, ...
+                        'Color', s.color, 'LineWidth', 1);
+                end
             end
 
-            % Plot as horizontal bars (Y = trial, X = count)
-            barh(ax, binCenters, binnedCounts, 1, ...
-                'FaceColor', [0.5, 0.5, 0.5], 'EdgeColor', 'none');
-
-            % Match Y axis to raster (YLim follows via linkaxes)
+            % Formatting (Y axis linked to raster via linkaxes)
             ax.YDir = 'reverse';
-            ax.YTickLabel = {};  % Hide Y tick labels (shared with raster)
-            ax.XLabel.String = 'Events';
+            ax.YTickLabel = {};
+            ax.XLabel.String = 'Events/trial';
             ax.Box = 'on';
 
             % Auto-scale X
-            if max(binnedCounts) > 0
-                ax.XLim = [0, max(binnedCounts) * 1.1];
+            if maxCount > 0
+                ax.XLim = [0, maxCount * 1.1];
             end
 
             hold(ax, 'off');
@@ -2744,17 +2790,25 @@ classdef RasterGUI < handle
             secondarySortStrs = obj.popup_SecondarySort.String;
             secondarySortType = secondarySortStrs{obj.popup_SecondarySort.Value};
 
+            % Get event series data for event-based sort criteria
+            if ~isempty(obj.eventSeries)
+                eventTI = obj.eventSeries(1).triggerInfo;
+            else
+                eventTI = struct();
+            end
+
             % Secondary sort first (so primary is dominant)
             % Apply same order to all event series
             if ~strcmp(secondarySortType, '(None)')
-                [ti, ord] = RasterGUI.sortTriggers(ti, secondarySortType, descending, '', false);
+                [ti, ord] = RasterGUI.sortTriggers(ti, secondarySortType, descending, '', false, eventTI);
                 for seriesIdx = 1:length(obj.eventSeries)
                     obj.eventSeries(seriesIdx).triggerInfo = ...
                         RasterGUI.applyOrder(obj.eventSeries(seriesIdx).triggerInfo, ord);
                 end
+                eventTI = RasterGUI.applyOrder(eventTI, ord);
             end
             if ~strcmp(primarySortType, '(None)')
-                [ti, ord] = RasterGUI.sortTriggers(ti, primarySortType, descending, '', groupLabels);
+                [ti, ord] = RasterGUI.sortTriggers(ti, primarySortType, descending, '', groupLabels, eventTI);
                 for seriesIdx = 1:length(obj.eventSeries)
                     obj.eventSeries(seriesIdx).triggerInfo = ...
                         RasterGUI.applyOrder(obj.eventSeries(seriesIdx).triggerInfo, ord);
@@ -3870,7 +3924,7 @@ classdef RasterGUI < handle
     end
 
     methods (Static, Access = private)
-        function [triggerInfo, ord] = sortTriggers(triggerInfo, sortType, descending, includeList, groupLabels)
+        function [triggerInfo, ord] = sortTriggers(triggerInfo, sortType, descending, includeList, groupLabels, eventTI)
             % Sort triggers according to the specified criterion.
             arguments
                 triggerInfo (1, 1) struct
@@ -3878,6 +3932,7 @@ classdef RasterGUI < handle
                 descending (1, 1) logical
                 includeList (1, :) char = ''
                 groupLabels (1, 1) logical = false
+                eventTI struct = struct()  % Event series triggerInfo for event-based sort criteria
             end
             %
             % Arguments:
@@ -3886,6 +3941,19 @@ classdef RasterGUI < handle
             %   descending - true for descending order
             %   includeList - label inclusion list (for label sorting)
             %   groupLabels - true to group triggers by label
+            %   eventTI - (optional) triggerInfo from an event series,
+            %       used for event-dependent sort criteria (Number of
+            %       events, First/Last event onset/offset, Is in event).
+            %       If empty, falls back to triggerInfo's own eventOnsets.
+
+            % Use event series data for event-dependent criteria if provided
+            if ~isempty(fieldnames(eventTI)) && isfield(eventTI, 'eventOnsets')
+                eventOnsets = eventTI.eventOnsets;
+                eventOffsets = eventTI.eventOffsets;
+            else
+                eventOnsets = triggerInfo.eventOnsets;
+                eventOffsets = triggerInfo.eventOffsets;
+            end
 
             switch sortType
                 case 'Absolute time'
@@ -3920,73 +3988,73 @@ classdef RasterGUI < handle
                 case 'Preceding event onset'
                     sortValues = inf(size(triggerInfo.absTime));
                     for k = 1:length(sortValues)
-                        preceding = find(triggerInfo.eventOnsets{k} < 0);
+                        preceding = find(eventOnsets{k} < 0);
                         if ~isempty(preceding)
-                            sortValues(k) = -triggerInfo.eventOnsets{k}(preceding(end));
+                            sortValues(k) = -eventOnsets{k}(preceding(end));
                         end
                     end
                 case 'Preceding event offset'
                     sortValues = inf(size(triggerInfo.absTime));
                     for k = 1:length(sortValues)
-                        preceding = find(triggerInfo.eventOffsets{k} < 0);
+                        preceding = find(eventOffsets{k} < 0);
                         if ~isempty(preceding)
-                            sortValues(k) = -triggerInfo.eventOffsets{k}(preceding(end));
+                            sortValues(k) = -eventOffsets{k}(preceding(end));
                         end
                     end
                 case 'Following event onset'
                     sortValues = inf(size(triggerInfo.absTime));
                     for k = 1:length(sortValues)
-                        following = find(triggerInfo.eventOnsets{k} > 0);
+                        following = find(eventOnsets{k} > 0);
                         if ~isempty(following)
-                            sortValues(k) = triggerInfo.eventOnsets{k}(following(1));
+                            sortValues(k) = eventOnsets{k}(following(1));
                         end
                     end
                 case 'Following event offset'
                     sortValues = inf(size(triggerInfo.absTime));
                     for k = 1:length(sortValues)
-                        following = find(triggerInfo.eventOffsets{k} > 0);
+                        following = find(eventOffsets{k} > 0);
                         if ~isempty(following)
-                            sortValues(k) = triggerInfo.eventOffsets{k}(following(1));
+                            sortValues(k) = eventOffsets{k}(following(1));
                         end
                     end
                 case 'First event onset'
                     sortValues = inf(size(triggerInfo.absTime));
                     for k = 1:length(sortValues)
-                        if ~isempty(triggerInfo.eventOnsets{k})
-                            sortValues(k) = min(triggerInfo.eventOnsets{k});
+                        if ~isempty(eventOnsets{k})
+                            sortValues(k) = min(eventOnsets{k});
                         end
                     end
                 case 'First event offset'
                     sortValues = inf(size(triggerInfo.absTime));
                     for k = 1:length(sortValues)
-                        if ~isempty(triggerInfo.eventOffsets{k})
-                            sortValues(k) = min(triggerInfo.eventOffsets{k});
+                        if ~isempty(eventOffsets{k})
+                            sortValues(k) = min(eventOffsets{k});
                         end
                     end
                 case 'Last event onset'
                     sortValues = inf(size(triggerInfo.absTime));
                     for k = 1:length(sortValues)
-                        if ~isempty(triggerInfo.eventOnsets{k})
-                            sortValues(k) = max(triggerInfo.eventOnsets{k});
+                        if ~isempty(eventOnsets{k})
+                            sortValues(k) = max(eventOnsets{k});
                         end
                     end
                 case 'Last event offset'
                     sortValues = inf(size(triggerInfo.absTime));
                     for k = 1:length(sortValues)
-                        if ~isempty(triggerInfo.eventOffsets{k})
-                            sortValues(k) = max(triggerInfo.eventOffsets{k});
+                        if ~isempty(eventOffsets{k})
+                            sortValues(k) = max(eventOffsets{k});
                         end
                     end
                 case 'Number of events'
                     sortValues = inf(size(triggerInfo.absTime));
                     for k = 1:length(sortValues)
-                        sortValues(k) = length(triggerInfo.eventOnsets{k});
+                        sortValues(k) = length(eventOnsets{k});
                     end
                 case 'Is in event'
                     sortValues = inf(size(triggerInfo.absTime));
                     for k = 1:length(sortValues)
-                        sortValues(k) = (length(find(triggerInfo.eventOnsets{k} <= 0)) > ...
-                            length(find(triggerInfo.eventOffsets{k} < 0)));
+                        sortValues(k) = (length(find(eventOnsets{k} <= 0)) > ...
+                            length(find(eventOffsets{k} < 0)));
                     end
                 otherwise
                     % (None) or unrecognized — no sort
