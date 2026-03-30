@@ -122,6 +122,11 @@ classdef RasterGUI < handle
         edit_BinSize
         edit_TickLineWidth
         edit_Overlap
+        % Legend controls
+        panel_Legend
+        check_ShowLegend
+        check_LegendTriggers
+        check_LegendEvents
 
         % Trigger options (inline in tab)
         popup_TrigFilterMode    % 'All', 'Include', 'Exclude'
@@ -473,6 +478,7 @@ classdef RasterGUI < handle
                 obj.statusBar.Progress = 0.95;
                 drawnow;
                 obj.plotHist();
+                obj.updateLegend();
 
             catch ME
                 obj.statusBar.Status = sprintf('Error: %s', ME.message);
@@ -843,10 +849,26 @@ classdef RasterGUI < handle
             obj.text_Overlap.Position = [col2X, rowY(4), plotLabelW, rowH];
             obj.edit_Overlap.Units = 'pixels';
             obj.edit_Overlap.Position = [col2X + plotLabelW + 2, rowY(4), plotEditW, rowH];
+            % Legend panel: spans rows 5-7 (2 internal rows + title)
+            legendPanelPad = 8;
+            legendPanelH = 2 * rowSpacing + 1.5 * legendPanelPad;
+            legendPanelTopY = rowY(5) + rowH;
+            obj.panel_Legend.Units = 'pixels';
+            obj.panel_Legend.Position = [tabMargin - 1, legendPanelTopY - legendPanelH, fullW + 2, legendPanelH];
+            % Controls inside the legend panel
+            legendRowY1 = legendPanelH - legendPanelPad - textHeight;
+            legendRowY2 = legendRowY1 - rowSpacing;
+            obj.check_ShowLegend.Units = 'pixels';
+            obj.check_ShowLegend.Position = [legendPanelPad, legendRowY1, 120, rowH];
+            obj.check_LegendTriggers.Units = 'pixels';
+            obj.check_LegendTriggers.Position = [legendPanelPad, legendRowY2, 80, rowH];
+            obj.check_LegendEvents.Units = 'pixels';
+            obj.check_LegendEvents.Position = [legendPanelPad + 80 + 4, legendRowY2, 80, rowH];
+
             obj.check_PlotAutoUpdate.Units = 'pixels';
-            obj.check_PlotAutoUpdate.Position = [tabMargin, rowY(5), halfW, rowH];
+            obj.check_PlotAutoUpdate.Position = [tabMargin, rowY(8), halfW, rowH];
             obj.push_PlotUpdate.Units = 'pixels';
-            obj.push_PlotUpdate.Position = [tabMargin + halfW + halfGap, rowY(5), halfW, rowH];
+            obj.push_PlotUpdate.Position = [tabMargin + halfW + halfGap, rowY(8), halfW, rowH];
             % --- Presets tab ---
             obj.popup_Presets.Units = 'pixels';
             obj.popup_Presets.Position = [tabMargin, rowY(1), tabFullW, rowH];
@@ -1214,6 +1236,21 @@ classdef RasterGUI < handle
             obj.edit_Overlap = uicontrol(plotTab, 'Style', 'edit', ...
                 'String', num2str(obj.PlotOverlap), ...
                 'Callback', @(~,~) obj.plotSettingChanged());
+            % Legend controls (grouped in a labeled panel)
+            obj.panel_Legend = uipanel(plotTab, ...
+                'Title', 'Legend', ...
+                'BorderType', 'line', ...
+                'HighlightColor', [0.7, 0.7, 0.7]);
+            obj.check_ShowLegend = uicontrol(obj.panel_Legend, 'Style', 'checkbox', ...
+                'String', 'Show', 'Value', 0, ...
+                'Callback', @(~,~) obj.updateLegend());
+            obj.check_LegendTriggers = uicontrol(obj.panel_Legend, 'Style', 'checkbox', ...
+                'String', 'Triggers', 'Value', 1, ...
+                'Callback', @(~,~) obj.updateLegend());
+            obj.check_LegendEvents = uicontrol(obj.panel_Legend, 'Style', 'checkbox', ...
+                'String', 'Events', 'Value', 1, ...
+                'Callback', @(~,~) obj.updateLegend());
+
             obj.check_PlotAutoUpdate = uicontrol(plotTab, 'Style', 'checkbox', ...
                 'String', 'Auto-update', 'Value', 1);
             obj.push_PlotUpdate = uicontrol(plotTab, 'Style', 'pushbutton', ...
@@ -1341,6 +1378,9 @@ classdef RasterGUI < handle
             obj.edit_BinSize.Tooltip = 'PSTH histogram bin width (seconds)';
             obj.edit_TickLineWidth.Tooltip = 'Line width for event ticks';
             obj.edit_Overlap.Tooltip = 'Vertical overlap between adjacent trials (percent)';
+            obj.check_ShowLegend.Tooltip = 'Show or hide the legend on the raster axes';
+            obj.check_LegendTriggers.Tooltip = 'Include trigger label colors in the legend';
+            obj.check_LegendEvents.Tooltip = 'Include event series in the legend';
             obj.check_PlotAutoUpdate.Tooltip = 'Automatically replot when plot settings change';
             obj.push_PlotUpdate.Tooltip = 'Replot with current settings';
 
@@ -1713,7 +1753,7 @@ classdef RasterGUI < handle
                 end
                 if any(strcmp(style, {'Line', 'Both'}))
                     plot(ax, binCenters, psthValues, ...
-                        'Color', s.color, 'LineWidth', 1.5);
+                        'Color', s.color, 'LineWidth', 1);
                 end
             end
 
@@ -1728,6 +1768,77 @@ classdef RasterGUI < handle
             ax.XLabel.String = 'Time (s)';
             ax.Box = 'on';
             hold(ax, 'off');
+        end
+
+        function updateLegend(obj)
+            % Show or hide a legend on the raster axes based on the
+            % legend checkboxes. Creates invisible dummy plot objects
+            % for each legend entry so the legend shows the correct
+            % icons and colors.
+            arguments
+                obj RasterGUI
+            end
+            ax = obj.axes_Raster;
+
+            % Remove any existing legend and dummy handles
+            legend(ax, 'off');
+            delete(findobj(ax, 'Tag', 'LegendDummy'));
+
+            if ~obj.check_ShowLegend.Value
+                return;
+            end
+
+            hold(ax, 'on');
+            dummyHandles = gobjects(0);
+
+            % Add trigger label entries (colored patches)
+            if obj.check_LegendTriggers.Value && ~isempty(obj.TriggerLabelValues)
+                for labelNum = 1:length(obj.TriggerLabelValues)
+                    labelVal = obj.TriggerLabelValues(labelNum);
+                    color = obj.TriggerLabelColors(labelNum, :);
+                    boxColor = 1 - (1 - color) * 0.25;  % Match lightened box color
+                    % Label display text
+                    if labelVal == 0
+                        labelStr = '(unlabeled)';
+                    elseif labelVal > 1000
+                        labelStr = num2str(labelVal - 1000);
+                    else
+                        labelStr = char(labelVal);
+                    end
+                    h = patch(ax, NaN, NaN, boxColor, ...
+                        'EdgeColor', color, 'LineWidth', 0.5, ...
+                        'DisplayName', labelStr, ...
+                        'Tag', 'LegendDummy');
+                    dummyHandles(end+1) = h; %#ok<AGROW>
+                end
+            end
+
+            % Add event series entries (colored lines)
+            if obj.check_LegendEvents.Value && ~isempty(obj.eventSeries)
+                for seriesNum = 1:length(obj.eventSeries)
+                    s = obj.eventSeries(seriesNum);
+                    h = plot(ax, NaN, NaN, '|', ...
+                        'Color', s.color, ...
+                        'MarkerSize', 10, ...
+                        'LineWidth', max(obj.PlotTickSize(3), 1.5), ...
+                        'DisplayName', s.name, ...
+                        'Tag', 'LegendDummy');
+                    dummyHandles(end+1) = h; %#ok<AGROW>
+                end
+            end
+
+            if isempty(dummyHandles)
+                return;
+            end
+
+            lg = legend(ax, dummyHandles, ...
+                'Location', 'northeast', ...
+                'FontSize', 8, ...
+                'Box', 'on');
+            % Make the legend non-interactive so it doesn't interfere
+            % with scroll zoom or double-click
+            lg.HitTest = 'off';
+            lg.PickableParts = 'none';
         end
 
         function plotHist(obj)
@@ -2658,6 +2769,7 @@ classdef RasterGUI < handle
             obj.plotRaster();
             obj.plotPSTH();
             obj.plotHist();
+            obj.updateLegend();
 
             obj.statusBar.Status = sprintf('Re-sorted — %d trials', length(ti.absTime));
             obj.statusBar.Progress = 1;
@@ -2723,6 +2835,9 @@ classdef RasterGUI < handle
                 obj.popup_PSTHUnits, ...
                 obj.popup_PSTHCount, ...
                 obj.check_AutoXLim, ...
+                obj.check_ShowLegend, ...
+                obj.check_LegendTriggers, ...
+                obj.check_LegendEvents, ...
                 obj.check_PlotAutoUpdate, ...
                 obj.push_PlotUpdate, ...
                 obj.edit_XMin, ...
@@ -2959,6 +3074,7 @@ classdef RasterGUI < handle
             obj.plotRaster();
             obj.plotPSTH();
             obj.plotHist();
+            obj.updateLegend();
         end
         function windowSettingChanged(obj)
             % Called when a Window tab setting changes. Clears cache
