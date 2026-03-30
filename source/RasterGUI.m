@@ -16,12 +16,12 @@ classdef RasterGUI < handle
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     %% Properties - electro_gui reference
-    properties (SetAccess = private)
+    properties% (SetAccess = private)  % TODO: restore access control
         eg electro_gui  % Reference to parent electro_gui instance
     end
 
     %% Properties - GUI widgets
-    properties (Access = private)
+    properties% (Access = private)  % TODO: restore access control
         % Figure
         figure_Main matlab.ui.Figure
 
@@ -177,7 +177,7 @@ classdef RasterGUI < handle
     end
 
     %% Properties - state
-    properties (Access = private)
+    properties% (Access = private)  % TODO: restore access control
 
         % Data
         triggerInfo struct = struct()       % Sorted trigger info (used for plotting)
@@ -2358,7 +2358,7 @@ classdef RasterGUI < handle
             series.selectionMode = 'Selected only';  % 'All', 'Selected only', 'Unselected only'
             series.color = colors(colorIdx, :);
             series.showPSTH = (seriesNumber == 1);  % First series shows PSTH by default
-            series.psthStyle = 'Both';
+            series.psthStyle = 'Line';
             series.triggerInfo = struct();
         end
 
@@ -3091,9 +3091,42 @@ classdef RasterGUI < handle
         function triggerSettingChanged(obj)
             % Called when a Trigger tab setting changes. Clears cache
             % and regenerates if auto-update is on.
+            %
+            % Optimization: if only the filter changed and the effective
+            % filter settings are identical (after normalizing empty
+            % Include/Exclude as All), skip the expensive regeneration.
             arguments
                 obj RasterGUI
             end
+
+            % Check if the effective filter settings actually changed
+            trigModes = obj.popup_TrigFilterMode.String;
+            newMode = trigModes{obj.popup_TrigFilterMode.Value};
+            newList = obj.edit_TrigFilterList.String;
+            % Normalize: empty Include or Exclude is equivalent to All
+            if ismember(newMode, {'Include', 'Exclude'}) && isempty(newList)
+                effectiveNewMode = 'All';
+            else
+                effectiveNewMode = newMode;
+            end
+            oldList = obj.P.trig.filterList;
+            if ismember(obj.P.trig.filterMode, {'Include', 'Exclude'}) && isempty(oldList)
+                effectiveOldMode = 'All';
+            else
+                effectiveOldMode = obj.P.trig.filterMode;
+            end
+            filterUnchanged = strcmp(effectiveNewMode, effectiveOldMode) && ...
+                (strcmp(effectiveNewMode, 'All') || strcmp(newList, oldList));
+
+            if filterUnchanged
+                % Effective filter unchanged — update stored settings
+                % but skip regeneration
+                obj.P.trig.filterMode = newMode;
+                obj.P.trig.filterList = newList;
+                obj.updateControlStates();
+                return;
+            end
+
             obj.clearCache();
             obj.updateControlStates();
             if obj.check_TrigAutoUpdate.Value
