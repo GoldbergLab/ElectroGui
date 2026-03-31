@@ -1187,23 +1187,21 @@ classdef electro_gui < handle
                 obj.EventWaveHandles = gobjects().empty;
                 % Check if there is channel data
                 if ~isempty(channelData)
-                    % Loop over events
-                    for eventNum = 1:length(eventTimes)
-                        % Get the event time and time limits
-                        eventTime = eventTimes(eventNum);
-                        leftWidth = round(obj.settings.EventXLims(eventSourceIdx, 1) * fs);
-                        rightWidth = round(obj.settings.EventXLims(eventSourceIdx, 2) * fs);
-                        startTime = max([1, eventTime - leftWidth]);
-                        endTime = min([length(channelData), eventTime + rightWidth]);
+                    % Extract waveform snippets via the static utility
+                    [waveforms, tMs] = electro_gui.getEventWaveforms( ...
+                        obj.dbase, filenum, eventSourceIdx, ...
+                        'Settings', obj.settings, ...
+                        'ChannelData', channelData, 'Fs', fs, ...
+                        'EventPartIdx', eventPartIdx);
+
+                    % Plot each waveform (only selected events get a line)
+                    for eventNum = 1:length(waveforms)
                         if eventSelection(eventNum)
-                            % If event is selected, plot the wave
                             obj.EventWaveHandles(eventNum) = plot( ...
                                 obj.axes_Events, ...
-                                ((startTime:endTime)-eventTimes(eventNum))/fs*1000, ...
-                                channelData(startTime:endTime), ...
-                                'Color',obj.GUIStyle.EventPlotColor);
+                                tMs{eventNum}, waveforms{eventNum}, ...
+                                'Color', obj.GUIStyle.EventPlotColor);
                         else
-                            % If event is not selected, use graphics placeholder
                             obj.EventWaveHandles(eventNum) = gobjects();
                         end
                     end
