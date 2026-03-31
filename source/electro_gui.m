@@ -14992,6 +14992,146 @@ end
             end
             isPlugin = false;
         end
+        function [waveforms, t] = getEventWaveforms(dbase, filenum, eventSourceIdx, options)
+            % Extract event-aligned waveform snippets from channel data.
+            %
+            % Returns one waveform snippet per event, centered on the event
+            % time and spanning the window defined by EventXLims. This is a
+            % static utility that reproduces the waveform extraction logic
+            % from updateEventViewer without requiring an electro_gui
+            % instance.
+            %
+            % Arguments:
+            %   dbase          - electro_gui dbase struct
+            %   filenum        - file number to extract waveforms from
+            %   eventSourceIdx - index into dbase.EventTimes
+            %
+            % Optional name-value arguments:
+            %   Settings     - electro_gui settings struct; used to read
+            %                  EventXLims when EventXLims is not provided
+            %   EventXLims   - [preTime, postTime] in seconds around each
+            %                  event. Overrides Settings.EventXLims.
+            %   ChannelData  - pre-loaded channel data vector. When
+            %                  omitted, the channel is loaded from disk
+            %                  using Loader.
+            %   Fs           - sampling rate in Hz. Required when
+            %                  ChannelData is provided; ignored otherwise
+            %                  (read from the loader output).
+            %   Loader       - function handle or loader plugin name
+            %                  (string/char). Used to load channel data
+            %                  when ChannelData is not provided. If a
+            %                  string, findPlugins locates the matching
+            %                  egl_* plugin. Defaults to
+            %                  dbase.ChannelLoader{channelNum}.
+            %   EventPartIdx - which event part to use (default 1)
+            %
+            % Returns:
+            %   waveforms - 1xN cell array of waveform column vectors,
+            %               one per event. Waveforms near file boundaries
+            %               are truncated (matching the existing behavior
+            %               in updateEventViewer).
+            %   t         - 1xN cell array of time vectors in milliseconds
+            %               relative to the event time, matching the
+            %               corresponding waveform.
+            arguments
+                dbase (1, 1) struct
+                filenum (1, 1) double {mustBePositive, mustBeInteger}
+                eventSourceIdx (1, 1) double {mustBePositive, mustBeInteger}
+                options.Settings = []
+                options.EventXLims = []
+                options.ChannelData = []
+                options.Fs = []
+                options.Loader = []
+                options.EventPartIdx (1, 1) double {mustBePositive, mustBeInteger} = 1
+            end
+
+            % --- Resolve EventXLims ---
+            % Priority: explicit EventXLims > Settings.EventXLims
+            if ~isempty(options.EventXLims)
+                eventXLims = options.EventXLims;
+            elseif ~isempty(options.Settings)
+                eventXLims = options.Settings.EventXLims(eventSourceIdx, :);
+            else
+                error('electro_gui:getEventWaveforms:noEventXLims', ...
+                    'Either EventXLims or Settings must be provided.');
+            end
+
+            % --- Resolve channel data and sampling rate ---
+            if ~isempty(options.ChannelData)
+                % Case 1: caller provided pre-loaded data
+                if isempty(options.Fs)
+                    error('electro_gui:getEventWaveforms:noFs', ...
+                        'Fs is required when ChannelData is provided.');
+                end
+                channelData = options.ChannelData;
+                fs = options.Fs;
+            else
+                % Need to load from disk — resolve the loader.
+                % Note: accessing EventChannels directly here rather than
+                % going through GetEventSourceInfoStatic, because that
+                % would require Settings which may not be available.
+                channelNum = dbase.EventChannels(eventSourceIdx);
+
+                if ~isempty(options.Loader)
+                    loader = options.Loader;
+                else
+                    % Default to the loader registered for this channel
+                    loader = dbase.ChannelLoader{channelNum};
+                end
+
+                % Resolve loader name to function handle if needed
+                if istext(loader)
+                    % Case 3: loader is a plugin name — find it on disk
+                    loaderPrefix = electro_gui.PluginPrefixes.loaders;
+                    sourceDir = fileparts(mfilename("fullpath"));
+                    pluginsDir = fullfile(sourceDir, 'plugins');
+                    loaderPlugins = electro_gui.findPlugins(pluginsDir, loaderPrefix);
+                    plugin = electro_gui.findPlugin(loaderPlugins, char(loader));
+                    if isempty(plugin)
+                        error('electro_gui:getEventWaveforms:loaderNotFound', ...
+                            'Loader plugin "%s" not found in %s.', loader, pluginsDir);
+                    end
+                    loaderFunc = plugin;
+                else
+                    % Case 2: loader is already a function handle
+                    loaderFunc = loader;
+                end
+
+                % Load the channel data
+                filePath = fullfile(dbase.PathName, ...
+                    dbase.ChannelFiles{channelNum}(filenum).name);
+                [channelData, fs] = loaderFunc(filePath, true);
+
+                % Use stored Fs if available, as it may be more reliable
+                if ~isnan(dbase.ChannelFs(channelNum))
+                    fs = dbase.ChannelFs(channelNum);
+                end
+            end
+
+            % --- Extract waveforms ---
+            eventPartIdx = options.EventPartIdx;
+            eventTimes = dbase.EventTimes{eventSourceIdx}{eventPartIdx, filenum};
+            numEvents = length(eventTimes);
+
+            leftWidth = round(eventXLims(1) * fs);
+            rightWidth = round(eventXLims(2) * fs);
+            dataLength = length(channelData);
+
+            waveforms = cell(1, numEvents);
+            t = cell(1, numEvents);
+
+            for eventNum = 1:numEvents
+                eventTime = eventTimes(eventNum);
+                % Clamp to data boundaries (identical to updateEventViewer)
+                startSample = max(1, eventTime - leftWidth);
+                endSample = min(dataLength, eventTime + rightWidth);
+
+                waveforms{eventNum} = channelData(startSample:endSample)';
+                % Time in milliseconds relative to event
+                t{eventNum} = ((startSample:endSample) - eventTime) / fs * 1000;
+            end
+        end
+
         function out = findPlugins(root, prefix)
             % Create a struct array containing the name and function handle for all
             % electro_gui plugin functions with the given prefix (for example 'egl_')
