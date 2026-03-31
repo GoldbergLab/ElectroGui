@@ -342,6 +342,22 @@ classdef electro_gui < handle
         Colormap double
         FileInfoBrowserFirstPropertyColumn double
     end
+    properties (Constant)  % Plugin type prefixes
+        % Authoritative mapping from plugin type names to file prefixes.
+        % Used by gatherPlugins, findPlugins, and any code that needs to
+        % locate plugins by type without a running electro_gui instance.
+        PluginPrefixes = struct( ...
+            'spectrums',      'egs', ...
+            'segmenters',     'egg', ...
+            'filters',        'egf', ...
+            'colorMaps',      'egc', ...
+            'macros',         'egm', ...
+            'eventDetectors', 'ege', ...
+            'eventFeatures',  'ega', ...
+            'loaders',        'egl', ...
+            'templates',      'egt', ...
+            'transformers',   'egx')
+    end
     methods %% Constructor
         function obj = electro_gui()
             if ~exist('MATLAB_utils', 'file')
@@ -5597,17 +5613,12 @@ end
 function [channelNum, filterName, eventDetectorName, eventParameters, ...
         filterParameters, eventXLims, eventParts, defaultThreshold, ...
         isPseudoChannel] = GetEventSourceInfo(obj, eventSourceIdx)
-    % Return the channel number, filter name, and event detector name for
-    % the given event source index
-    channelNum = obj.dbase.EventChannels(eventSourceIdx);
-    filterName = obj.dbase.EventFunctions{eventSourceIdx};
-    filterParameters = obj.dbase.EventFunctionParameters{eventSourceIdx};
-    eventDetectorName = obj.dbase.EventDetectors{eventSourceIdx};
-    eventParameters = obj.dbase.EventParameters{eventSourceIdx};
-    eventXLims = obj.settings.EventXLims(eventSourceIdx, :);
-    eventParts = obj.dbase.EventParts{eventSourceIdx};
-    defaultThreshold = obj.settings.EventThresholdDefaults(eventSourceIdx);
-    isPseudoChannel = obj.dbase.EventChannelIsPseudo(eventSourceIdx);
+    % Instance wrapper — delegates to the static implementation so that
+    % callers without an electro_gui instance can use the static version.
+    [channelNum, filterName, eventDetectorName, eventParameters, ...
+        filterParameters, eventXLims, eventParts, defaultThreshold, ...
+        isPseudoChannel] = electro_gui.GetEventSourceInfoStatic( ...
+        obj.dbase, obj.settings, eventSourceIdx);
 end
 function [channelNum, filterName, eventDetectorName] = GetChannelAxesInfo(obj, axnum)
     % Return the current settings of specified channel axes
@@ -14669,6 +14680,22 @@ end
                 warning('Multiple warnings of type %s - suppressing further warnings.', warningType);
             end
         end
+        function [channelNum, filterName, eventDetectorName, eventParameters, ...
+                filterParameters, eventXLims, eventParts, defaultThreshold, ...
+                isPseudoChannel] = GetEventSourceInfoStatic(dbase, settings, eventSourceIdx)
+            % Static version of GetEventSourceInfo — returns event source
+            % metadata from dbase and settings without needing an
+            % electro_gui instance. The instance method delegates here.
+            channelNum = dbase.EventChannels(eventSourceIdx);
+            filterName = dbase.EventFunctions{eventSourceIdx};
+            filterParameters = dbase.EventFunctionParameters{eventSourceIdx};
+            eventDetectorName = dbase.EventDetectors{eventSourceIdx};
+            eventParameters = dbase.EventParameters{eventSourceIdx};
+            eventXLims = settings.EventXLims(eventSourceIdx, :);
+            eventParts = dbase.EventParts{eventSourceIdx};
+            defaultThreshold = settings.EventThresholdDefaults(eventSourceIdx);
+            isPseudoChannel = dbase.EventChannelIsPseudo(eventSourceIdx);
+        end
         function params = createEmptyPluginParams()
             params = struct('Names', {}, 'Values', {});
         end
@@ -15033,20 +15060,8 @@ end
                 end
             end
 
-            % Define the mapping from plugin type name (used as the field
-            % name in the output struct) to file prefix (used to match
-            % plugin filenames like egs_*.m, egg_*.m, etc.)
-            prefixes = struct( ...
-                'spectrums',      'egs', ...
-                'segmenters',     'egg', ...
-                'filters',        'egf', ...
-                'colorMaps',      'egc', ...
-                'macros',         'egm', ...
-                'eventDetectors', 'ege', ...
-                'eventFeatures',  'ega', ...
-                'loaders',        'egl', ...
-                'templates',      'egt', ...
-                'transformers',   'egx');
+            % Use the authoritative prefix mapping from the Constant property
+            prefixes = electro_gui.PluginPrefixes;
 
             % For each plugin type, search all directories and combine the
             % results into a single array.
