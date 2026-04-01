@@ -267,6 +267,11 @@ classdef RasterGUI < handle
         % Axis positions (for show/hide PSTH/hist)
         AxisPosRaster double = []
         AxisPosPSTH double = []
+
+        % linkprop handles for axis linking. Stored as properties so
+        % they don't get garbage collected (which would break the link).
+        LinkXLim = []
+        LinkYLim = []
         AxisPosHist double = []
     end
 
@@ -358,7 +363,7 @@ classdef RasterGUI < handle
                 return;
             end
 
-            obj.disableAllControls();
+            obj.setAllControlsEnabled(false);
             obj.push_GenerateRaster.ForegroundColor = 'r';
             obj.statusBar.Status = 'Generating raster...';
             obj.statusBar.Progress = 0;
@@ -665,20 +670,21 @@ classdef RasterGUI < handle
             obj.check_PlotOtherTrialTriggers.Units = 'pixels';
             obj.check_PlotOtherTrialTriggers.Position = [tabMargin, rowY(7), tabFullW, rowH];
             % Trigger label coloring controls
-            trigLabelListH = 3 * rowSpacing;  % 3 rows tall
+            trigLabelListH = 8 * rowSpacing;  % 8 rows tall
             trigColorBtnW = 50;
             obj.list_TriggerLabels.Units = 'pixels';
             obj.list_TriggerLabels.Position = [tabMargin, rowY(8) - trigLabelListH + rowH, fullW, trigLabelListH];
+            obj.list_TriggerLabels.ColumnWidth = {fullW - 4};
             obj.push_TrigLabelColor.Units = 'pixels';
-            obj.push_TrigLabelColor.Position = [tabMargin, rowY(11), trigColorBtnW, rowH];
+            obj.push_TrigLabelColor.Position = [tabMargin, rowY(16), trigColorBtnW, rowH];
             obj.check_TrigAutoColor.Units = 'pixels';
-            obj.check_TrigAutoColor.Position = [tabMargin + trigColorBtnW + 8, rowY(11), 80, rowH];
+            obj.check_TrigAutoColor.Position = [tabMargin + trigColorBtnW + 8, rowY(16), 80, rowH];
             obj.popup_TrigColormap.Units = 'pixels';
-            obj.popup_TrigColormap.Position = [tabMargin + trigColorBtnW + 8 + 80 + 4, rowY(11), 80, rowH];
+            obj.popup_TrigColormap.Position = [tabMargin + trigColorBtnW + 8 + 80 + 4, rowY(16), 80, rowH];
             obj.check_TrigAutoUpdate.Units = 'pixels';
-            obj.check_TrigAutoUpdate.Position = [tabMargin, rowY(12), halfW, rowH];
+            obj.check_TrigAutoUpdate.Position = [tabMargin, rowY(17), halfW, rowH];
             obj.push_TrigUpdate.Units = 'pixels';
-            obj.push_TrigUpdate.Position = [tabMargin + halfW + halfGap, rowY(12), halfW, rowH];
+            obj.push_TrigUpdate.Position = [tabMargin + halfW + halfGap, rowY(17), halfW, rowH];
             % --- Events tab ---
             % Series list with +/- buttons to the right
             listH = 3 * rowSpacing;  % 3 rows tall
@@ -946,9 +952,12 @@ classdef RasterGUI < handle
                 'Box', 'on', ...
                 'Tag', 'axes_Hist');
 
-            % Link axes: raster+PSTH share X, raster+histogram share Y
-            linkaxes([obj.axes_Raster, obj.axes_PSTH], 'x');
-            linkaxes([obj.axes_Raster, obj.axes_Hist], 'y');
+            % Link axes: raster+PSTH share X, raster+histogram share Y.
+            % Use linkprop instead of linkaxes because calling linkaxes
+            % twice on the same axis (once for X, once for Y) replaces
+            % the first link in R2025b.
+            obj.LinkXLim = linkprop([obj.axes_Raster, obj.axes_PSTH], 'XLim');
+            obj.LinkYLim = linkprop([obj.axes_Raster, obj.axes_Hist], 'YLim');
 
             % --- Left side: tab group + generate buttons ---
             obj.tab_group = uitabgroup(obj.figure_Main);
@@ -986,9 +995,14 @@ classdef RasterGUI < handle
                 'String', 'Plot triggers from other trials', ...
                 'Callback', @(~,~) obj.replotFromCache());
             % Trigger label coloring
-            obj.list_TriggerLabels = uicontrol(trigTab, 'Style', 'listbox', ...
-                'String', {'(No triggers yet)'}, ...
-                'Callback', @(~,~) obj.selectTriggerLabel());
+            obj.list_TriggerLabels = uitable2(trigTab, ...
+                'Data', {'(No triggers yet)'}, ...
+                'ColumnName', {}, ...
+                'RowName', {}, ...
+                'ColumnEditable', false, ...
+                'RowStriping', 'off', ...
+                'CellSelectionCallback', @(~,~) obj.selectTriggerLabel(), ...
+                'ColumnSelectable', true);
             obj.push_TrigLabelColor = uicontrol(trigTab, 'Style', 'pushbutton', ...
                 'String', 'Color', ...
                 'Callback', @(~,~) obj.trigLabelColorPicked());
@@ -2832,13 +2846,23 @@ classdef RasterGUI < handle
 
     %% Widget enable/disable management
     methods (Access = private)
-        function controls = getAllInteractiveControls(obj)
-            % Return a list of all interactive controls that should be
-            % disabled during long operations.
+        function setAllControlsEnabled(obj, enabled)
+            % Enable or disable all interactive controls. Called with
+            % false to lock the UI during generation, and with true
+            % (via updateControlStates) when generation completes.
+            % Uses a cell array rather than concatenation so that
+            % controls of different types (uicontrol, uitable2, etc.)
+            % can coexist without type-conversion errors.
             arguments
                 obj RasterGUI
+                enabled (1, 1) logical
             end
-            controls = [ ...
+            if enabled
+                enableState = 'on';
+            else
+                enableState = 'off';
+            end
+            controls = { ...
                 obj.popup_TriggerSource, ...
                 obj.popup_TriggerType, ...
                 obj.popup_TriggerAlignment, ...
@@ -2910,17 +2934,9 @@ classdef RasterGUI < handle
                 obj.push_ExportPDF, ...
                 obj.push_ExportJPG, ...
                 obj.push_ExportSVG, ...
-                obj.push_GenerateRaster];
-        end
-
-        function disableAllControls(obj)
-            % Disable all interactive controls (e.g., during generation).
-            arguments
-                obj RasterGUI
-            end
-            controls = obj.getAllInteractiveControls();
-            for k = 1:length(controls)
-                controls(k).Enable = 'off';
+                obj.push_GenerateRaster};
+            for controlIdx = 1:length(controls)
+                controls{controlIdx}.Enable = enableState;
             end
         end
 
@@ -2932,10 +2948,7 @@ classdef RasterGUI < handle
             end
 
             % Default: enable everything
-            controls = obj.getAllInteractiveControls();
-            for k = 1:length(controls)
-                controls(k).Enable = 'on';
-            end
+            obj.setAllControlsEnabled(true);
 
             % Update trigger type options based on trigger source.
             % Source index 0 means "Sound", which provides behavioral
@@ -3250,36 +3263,38 @@ classdef RasterGUI < handle
         end
 
         function refreshTriggerLabelList(obj)
-            % Update the trigger label listbox display with colored
-            % block characters and label text.
+            % Update the trigger label table display with per-row
+            % background colors and label text.
             arguments
                 obj RasterGUI
             end
             if isempty(obj.TriggerLabelValues)
-                obj.list_TriggerLabels.String = {'(No triggers yet)'};
+                obj.list_TriggerLabels.Data = {'(No triggers yet)'};
+                obj.list_TriggerLabels.ResetBackgroundColor();
                 return;
             end
 
-            strs = cell(length(obj.TriggerLabelValues), 1);
-            for k = 1:length(obj.TriggerLabelValues)
+            numLabels = length(obj.TriggerLabelValues);
+            triggerStrings = cell(numLabels, 1);
+            for k = 1:numLabels
                 labelVal = obj.TriggerLabelValues(k);
-                rgb = obj.TriggerLabelColors(k, :);
-                hexColor = sprintf('%02X%02X%02X', round(255 * rgb));
 
                 % Determine label display text
                 if labelVal == 0
-                    labelStr = '(unlabeled)';
+                    triggerStrings{k} = '(unlabeled)';
                 elseif labelVal > 1000
                     % Numeric labels (burst counts, motif indices, etc.)
-                    labelStr = num2str(labelVal - 1000);
+                    triggerStrings{k} = num2str(labelVal - 1000);
                 else
-                    labelStr = char(labelVal);
+                    triggerStrings{k} = char(labelVal);
                 end
-
-                strs{k} = sprintf('<HTML><FONT COLOR=#%s>&#9632;</FONT> %s</HTML>', ...
-                    hexColor, labelStr);
             end
-            obj.list_TriggerLabels.String = strs;
+            obj.list_TriggerLabels.Data = triggerStrings;
+
+            % Set per-row background colors to match trigger label colors.
+            % Use lightened colors so the text remains readable.
+            bgColors = 1 - (1 - obj.TriggerLabelColors(1:numLabels, :)) * 0.35;
+            obj.list_TriggerLabels.BackgroundColor = bgColors;
         end
 
         function updateTrigLabelControlStates(obj)
@@ -3310,8 +3325,8 @@ classdef RasterGUI < handle
             if isempty(obj.TriggerLabelValues)
                 return;
             end
-            idx = obj.list_TriggerLabels.Value;
-            if idx < 1 || idx > length(obj.TriggerLabelValues)
+            idx = obj.list_TriggerLabels.SelectedRow;
+            if isempty(idx) || idx < 1 || idx > length(obj.TriggerLabelValues)
                 return;
             end
             newColor = uisetcolor(obj.TriggerLabelColors(idx, :), 'Pick label color');
