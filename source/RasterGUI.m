@@ -228,60 +228,13 @@ classdef RasterGUI < handle
         TriggerLabelValues double = []      % Numeric label values (double of char)
         TriggerLabelColors double = []      % N x 3 RGB colors
 
-        % Event series: array of structs, one per event series.
-        % Each has: name, sourceIdx, type, filterMode, filterList,
-        %           burstFrequency, burstMinSpikes, selectionMode,
-        %           color, showPSTH, psthStyle
-        % Note: event *data* is stored separately in EventData, not here.
-        eventSeries struct = struct( ...
-            'name', {}, ...
-            'sourceIdx', {}, ...    % Index into popup (1=Sound, 2+=event detectors)
-            'type', {}, ...         % e.g., 'Events', 'Syllables'
-            'filterMode', {}, ...   % 'All', 'Include', 'Exclude'
-            'filterList', {}, ...   % Label filter string
-            'burstFrequency', {}, ...  % Hz threshold for burst detection (per-series)
-            'burstMinSpikes', {}, ...  % Min spikes to form a valid burst (per-series)
-            'selectionMode', {}, ...   % 'All', 'Selected', 'Unselected'
-            'color', {}, ...        % 1x3 RGB
-            'showPSTH', {}, ...     % true/false
-            'psthStyle', {} ...     % 'Line', 'Histogram', or 'Both'
-        )
-
         % File range
         FileRange double = []
         FileNames cell = {}
 
-        % Sort order
-        Order double = []
-        SkippingSort logical = false
-
-        % Plot configuration
-        PlotHandles cell = cell(1, 30)
-        PlotInclude logical = logical([0 0 0 1 1 0 0 0 0 1 0 0 0 1 1 0 1 0 1 1 0 0 0 0 0 0 0 0 0 0])
-        PlotContinuous double = [1 1 -1 1 1 -1 1 1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 1 -1 -1 1 1 -1 1 1 -1 -1 -1 -1]
-        PlotColor double = [ ...
-            1 0 0; 1 0 0; 1 0.5 0.125; 1 0 0; 1 0 0; 1 0.5 0.125; ...
-            1 0 0; 1 0 0; 1 0.5 0.125; ...
-            0 0 0; 0 0 0; 230/255 230/255 128/255; ...
-            0 0 0; 128/255 128/255 128/255; 1 0 0; ...
-            0 0 0; 128/255 128/255 128/255; 1 1 1; ...
-            0 1 0; 0 1 0; 1 1 1; ...
-            0.75 0 0.75; 0.75 0 0.75; 1 0.85 0.85; ...
-            0 0 1; 0 0 1; 0.8 0.8 1; 0 0 1; 0 0 1; 0.8 0.8 1]
-        PlotLineWidth double = ones(1, 30)
-        PlotAlpha double = ones(1, 30)
-        PlotAutoColors double = []
-        PlotInPerSec double = 0.04
-
-        % PSTH configuration (PlotXLim, PlotTickSize, PlotOverlap,
-        % PSTHBinSize, PSTHSmoothingWindow now live in ControlParams)
-        PSTHYLim double = repmat([-inf, inf], 5, 1)
-
-        % Histogram configuration
+        % Histogram configuration (not yet exposed in GUI)
         HistBinSize double = [1, 1]
         HistSmoothingWindow double = 1
-        HistYLim double = repmat([-inf, inf], 5, 1)
-        HistShow double = [1, 1]
 
         % Full Y range of the raster (placeholder until plotRaster sets
         % it to [0.5, numTrials+0.5]; used to clamp scroll-zoom/pan)
@@ -290,7 +243,7 @@ classdef RasterGUI < handle
         % Background color
         BackgroundColor double = [1, 1, 1]
 
-        % Parameters (was "P" in old macro)
+        % Single source of truth for all GUI settings
         ControlParams struct = struct()
 
         % Warp points
@@ -408,7 +361,7 @@ classdef RasterGUI < handle
             obj.syncOptionsFromGUI();
 
             try
-                if isempty(obj.eventSeries)
+                if isempty(obj.ControlParams.eventSeries)
                     obj.statusBar.Status = 'No event series defined';
                     obj.statusBar.Progress = [];
                     obj.updateControlStates();
@@ -504,10 +457,10 @@ classdef RasterGUI < handle
                 params.triggerSourceIdx, params.triggerType, params.trigger);
 
             % --- Step 2: Extract raw event times for each series ---
-            numSeries = length(obj.eventSeries);
+            numSeries = length(obj.ControlParams.eventSeries);
             rawEvents = cell(1, numSeries);
             for seriesIdx = 1:numSeries
-                series = obj.eventSeries(seriesIdx);
+                series = obj.ControlParams.eventSeries(seriesIdx);
                 obj.statusBar.Status = sprintf( ...
                     'Extracting events for "%s" (%d/%d)...', ...
                     series.name, seriesIdx, numSeries);
@@ -985,7 +938,8 @@ classdef RasterGUI < handle
             % Plot settings
             obj.ControlParams.autoXLim = true;
             obj.ControlParams.plotXLim = [-0.15, 0.15];
-            obj.ControlParams.plotTickSize = [1, 0.25, 1, 0.5];
+            obj.ControlParams.plotTickSize.tickHeight = 1;
+            obj.ControlParams.plotTickSize.lineWidth = 1;
             obj.ControlParams.plotOverlap = 50;
             obj.ControlParams.psthBinSize = 0.001;
             obj.ControlParams.psthSmoothingWindow = 1;
@@ -997,6 +951,12 @@ classdef RasterGUI < handle
             obj.ControlParams.legendTriggers = true;
             obj.ControlParams.legendEvents = true;
 
+            % Auto-update settings
+            obj.ControlParams.autoUpdateTrigger = true;
+            obj.ControlParams.autoUpdateWindow = true;
+            obj.ControlParams.autoUpdateFiles = true;
+            obj.ControlParams.autoUpdatePlot = true;
+
             % Event series configs (empty initially)
             obj.ControlParams.eventSeries = struct( ...
                 'name', {}, 'sourceIdx', {}, 'type', {}, ...
@@ -1004,9 +964,6 @@ classdef RasterGUI < handle
                 'burstFrequency', {}, 'burstMinSpikes', {}, ...
                 'selectionMode', {}, ...
                 'color', {}, 'showPSTH', {}, 'psthStyle', {});
-
-            obj.PlotAlpha(27) = 0.5;
-            obj.PlotAlpha(30) = 0.5;
 
             obj.FileRange = 1:electro_gui.getNumFiles(obj.eg.dbase);
         end
@@ -1514,19 +1471,19 @@ classdef RasterGUI < handle
             obj.edit_EventSeriesName = uicontrol(dp, 'Style', 'edit', ...
                 'String', '', ...
                 'HorizontalAlignment', 'left', ...
-                'Callback', @(~,~) obj.eventSeriesNameChanged());
+                'Callback', @(~,~) obj.ControlParams.eventSeriesNameChanged());
             obj.popup_EventSeriesSource = uicontrol(dp, 'Style', 'popupmenu', ...
                 'String', {'Sound'}, ...
-                'Callback', @(~,~) obj.eventSeriesSourceChanged());
+                'Callback', @(~,~) obj.ControlParams.eventSeriesSourceChanged());
             obj.popup_EventSeriesType = uicontrol(dp, 'Style', 'popupmenu', ...
                 'String', {'Syllables'}, ...
-                'Callback', @(~,~) obj.eventSeriesTypeChanged());
+                'Callback', @(~,~) obj.ControlParams.eventSeriesTypeChanged());
             obj.popup_EventSeriesFilterMode = uicontrol(dp, 'Style', 'popupmenu', ...
                 'String', {'All', 'Include', 'Exclude'}, 'Visible', 'off', ...
-                'Callback', @(~,~) obj.eventSeriesFilterModeChanged());
+                'Callback', @(~,~) obj.ControlParams.eventSeriesFilterModeChanged());
             obj.edit_EventSeriesFilterList = uicontrol(dp, 'Style', 'edit', ...
                 'String', '', 'HorizontalAlignment', 'left', 'Visible', 'off', ...
-                'Callback', @(~,~) obj.eventSeriesDetailChanged());
+                'Callback', @(~,~) obj.ControlParams.eventSeriesDetailChanged());
             % Burst-specific controls (same row as filter, shown for burst types)
             obj.text_EventSeriesBurstFreq = uicontrol(dp, 'Style', 'text', ...
                 'String', 'Freq:', ...
@@ -1535,7 +1492,7 @@ classdef RasterGUI < handle
             obj.edit_EventSeriesBurstFreq = uicontrol(dp, 'Style', 'edit', ...
                 'String', '100', ...
                 'Visible', 'off', ...
-                'Callback', @(~,~) obj.eventSeriesDetailChanged());
+                'Callback', @(~,~) obj.ControlParams.eventSeriesDetailChanged());
             obj.text_EventSeriesBurstMinSpikes = uicontrol(dp, 'Style', 'text', ...
                 'String', 'Min:', ...
                 'HorizontalAlignment', 'right', ...
@@ -1543,21 +1500,21 @@ classdef RasterGUI < handle
             obj.edit_EventSeriesBurstMinSpikes = uicontrol(dp, 'Style', 'edit', ...
                 'String', '2', ...
                 'Visible', 'off', ...
-                'Callback', @(~,~) obj.eventSeriesDetailChanged());
+                'Callback', @(~,~) obj.ControlParams.eventSeriesDetailChanged());
             obj.popup_EventSeriesSelection = uicontrol(dp, 'Style', 'popupmenu', ...
                 'String', {'All', 'Selected only', 'Unselected only'}, ...
                 'Value', 2, ...  % Default to 'Selected only'
-                'Callback', @(~,~) obj.eventSeriesDetailChanged());
+                'Callback', @(~,~) obj.ControlParams.eventSeriesDetailChanged());
             obj.push_EventSeriesColor = uicontrol(dp, 'Style', 'pushbutton', ...
                 'String', '', ...
                 'BackgroundColor', [0 0 0], ...
-                'Callback', @(~,~) obj.eventSeriesColorPicked());
+                'Callback', @(~,~) obj.ControlParams.eventSeriesColorPicked());
             obj.check_EventSeriesPSTH = uicontrol(dp, 'Style', 'checkbox', ...
                 'String', 'PSTH source', ...
-                'Callback', @(~,~) obj.eventSeriesPSTHChanged());
+                'Callback', @(~,~) obj.ControlParams.eventSeriesPSTHChanged());
             obj.popup_EventSeriesPSTHStyle = uicontrol(dp, 'Style', 'popupmenu', ...
                 'String', {'Line', 'Histogram', 'Both'}, ...
-                'Callback', @(~,~) obj.eventSeriesPSTHChanged());
+                'Callback', @(~,~) obj.ControlParams.eventSeriesPSTHChanged());
 
             % Window controls (in Events tab)
             % Row: Start: [Trigger onset ▾] — [0.4] s
@@ -1706,7 +1663,7 @@ classdef RasterGUI < handle
                 'Tag', 'text_TickHeight', ...
                 'HorizontalAlignment', 'right');
             obj.edit_TickHeight = uicontrol(plotTab, 'Style', 'edit', ...
-                'String', num2str(obj.ControlParams.plotTickSize(1)), ...
+                'String', num2str(obj.ControlParams.plotTickSize.tickHeight), ...
                 'Callback', @(~,~) obj.plotSettingChanged());
             obj.text_BinSize = uicontrol(plotTab, 'Style', 'text', ...
                 'String', 'Bin size (s):', ...
@@ -1721,7 +1678,7 @@ classdef RasterGUI < handle
                 'Tag', 'text_TickLineWidth', ...
                 'HorizontalAlignment', 'right');
             obj.edit_TickLineWidth = uicontrol(plotTab, 'Style', 'edit', ...
-                'String', num2str(obj.ControlParams.plotTickSize(3)), ...
+                'String', num2str(obj.ControlParams.plotTickSize.lineWidth), ...
                 'Callback', @(~,~) obj.plotSettingChanged());
             obj.text_Overlap = uicontrol(plotTab, 'Style', 'text', ...
                 'String', 'Overlap %:', ...
@@ -1943,7 +1900,7 @@ classdef RasterGUI < handle
             trialY = 1:numTrials;
 
             % Tick height: each trial spans 1 unit, ticks fill most of it
-            tickHalfHeight = obj.ControlParams.plotTickSize(1) / 2;
+            tickHalfHeight = obj.ControlParams.plotTickSize.tickHeight / 2;
 
             % --- Plot trigger boxes colored by label ---
             % Single patch call with per-face colors via FaceVertexCData.
@@ -2041,8 +1998,8 @@ classdef RasterGUI < handle
             % single NaN-separated vector for fast vectorized rendering.
             for seriesIdx = 1:numSeries
                 seriesEvents = obj.EventData{seriesIdx}(obj.TrialOrder);
-                seriesColor = obj.eventSeries(seriesIdx).color;
-                seriesName = obj.eventSeries(seriesIdx).name;
+                seriesColor = obj.ControlParams.eventSeries(seriesIdx).color;
+                seriesName = obj.ControlParams.eventSeries(seriesIdx).name;
 
                 obj.statusBar.Status = sprintf('Plotting "%s" (%d/%d)...', ...
                     seriesName, seriesIdx, numSeries);
@@ -2080,7 +2037,7 @@ classdef RasterGUI < handle
 
                 % Render all ticks for this series in one call
                 plot(ax, allX, allY, 'Color', seriesColor, ...
-                    'LineWidth', obj.ControlParams.plotTickSize(3));
+                    'LineWidth', obj.ControlParams.plotTickSize.lineWidth);
             end
 
             % --- Plot zero line (trigger alignment point) ---
@@ -2154,7 +2111,7 @@ classdef RasterGUI < handle
             hold(ax, 'on');
 
             % Find all series with showPSTH=true
-            psthSeriesIndices = find([obj.eventSeries.showPSTH]);
+            psthSeriesIndices = find([obj.ControlParams.eventSeries.showPSTH]);
             if isempty(psthSeriesIndices)
                 ax.YLabel.String = '';
                 ax.XLabel.String = 'Time (s)';
@@ -2187,8 +2144,8 @@ classdef RasterGUI < handle
             for psthIdx = 1:length(psthSeriesIndices)
                 seriesIdx = psthSeriesIndices(psthIdx);
                 seriesEvents = obj.EventData{seriesIdx}(obj.TrialOrder);
-                seriesColor = obj.eventSeries(seriesIdx).color;
-                seriesStyle = obj.eventSeries(seriesIdx).psthStyle;
+                seriesColor = obj.ControlParams.eventSeries(seriesIdx).color;
+                seriesStyle = obj.ControlParams.eventSeries(seriesIdx).psthStyle;
 
                 % Compute histogram counts based on count mode
                 switch psthCountMode
@@ -2307,13 +2264,13 @@ classdef RasterGUI < handle
             end
 
             % Add event series entries (colored lines)
-            if obj.ControlParams.legendEvents && ~isempty(obj.eventSeries)
-                for seriesNum = 1:length(obj.eventSeries)
-                    s = obj.eventSeries(seriesNum);
+            if obj.ControlParams.legendEvents && ~isempty(obj.ControlParams.eventSeries)
+                for seriesNum = 1:length(obj.ControlParams.eventSeries)
+                    s = obj.ControlParams.eventSeries(seriesNum);
                     h = plot(ax, NaN, NaN, '|', ...
                         'Color', s.color, ...
                         'MarkerSize', 10, ...
-                        'LineWidth', max(obj.ControlParams.plotTickSize(3), 1.5), ...
+                        'LineWidth', max(obj.ControlParams.plotTickSize.lineWidth, 1.5), ...
                         'DisplayName', s.name, ...
                         'Tag', 'LegendDummy');
                     dummyHandles(end+1) = h; %#ok<AGROW>
@@ -2353,7 +2310,7 @@ classdef RasterGUI < handle
             hold(ax, 'on');
 
             % Find all PSTH-enabled series
-            psthSeriesIndices = find([obj.eventSeries.showPSTH]);
+            psthSeriesIndices = find([obj.ControlParams.eventSeries.showPSTH]);
             if isempty(psthSeriesIndices)
                 ax.YDir = 'reverse';
                 ax.YTickLabel = {};
@@ -2382,8 +2339,8 @@ classdef RasterGUI < handle
             for psthIdx = 1:length(psthSeriesIndices)
                 seriesIdx = psthSeriesIndices(psthIdx);
                 seriesEvents = obj.EventData{seriesIdx}(obj.TrialOrder);
-                seriesColor = obj.eventSeries(seriesIdx).color;
-                seriesStyle = obj.eventSeries(seriesIdx).psthStyle;
+                seriesColor = obj.ControlParams.eventSeries(seriesIdx).color;
+                seriesStyle = obj.ControlParams.eventSeries(seriesIdx).psthStyle;
 
                 % Count events per trial using the selected count mode.
                 % Counts all events in the trial window, not just the
@@ -2541,9 +2498,9 @@ classdef RasterGUI < handle
 
             % --- Event series ---
             if isfield(preset, 'eventSeries')
-                obj.eventSeries = preset.eventSeries;
+                obj.ControlParams.eventSeries = preset.eventSeries;
                 obj.refreshEventSeriesList();
-                if ~isempty(obj.eventSeries)
+                if ~isempty(obj.ControlParams.eventSeries)
                     obj.list_EventSeries.Value = 1;
                     obj.selectEventSeries();
                 end
@@ -2567,8 +2524,8 @@ classdef RasterGUI < handle
                 obj.edit_XMax.String = num2str(preset.plotXLim(2));
             end
             if isfield(preset, 'plotTickSize')
-                obj.edit_TickHeight.String = num2str(preset.plotTickSize(1));
-                obj.edit_TickLineWidth.String = num2str(preset.plotTickSize(3));
+                obj.edit_TickHeight.String = num2str(preset.plotTickSize.tickHeight);
+                obj.edit_TickLineWidth.String = num2str(preset.plotTickSize.lineWidth);
             end
             if isfield(preset, 'psthBinSize')
                 obj.edit_BinSize.String = num2str(preset.psthBinSize);
@@ -2585,6 +2542,12 @@ classdef RasterGUI < handle
             obj.setCheckbox(obj.check_ShowLegend, preset, 'showLegend');
             obj.setCheckbox(obj.check_LegendTriggers, preset, 'legendTriggers');
             obj.setCheckbox(obj.check_LegendEvents, preset, 'legendEvents');
+
+            % --- Auto-update settings ---
+            obj.setCheckbox(obj.check_TrigAutoUpdate, preset, 'autoUpdateTrigger');
+            obj.setCheckbox(obj.check_WindowAutoUpdate, preset, 'autoUpdateWindow');
+            obj.setCheckbox(obj.check_FilesAutoUpdate, preset, 'autoUpdateFiles');
+            obj.setCheckbox(obj.check_PlotAutoUpdate, preset, 'autoUpdatePlot');
 
             % --- Apply the full ControlParams struct ---
             obj.ControlParams = preset;
@@ -2696,6 +2659,20 @@ classdef RasterGUI < handle
             end
             if isfield(preset, fieldName)
                 checkbox.Value = preset.(fieldName);
+            end
+        end
+
+        function value = parseDouble(editBox, fallback)
+            % Parse a numeric value from an edit box, returning the
+            % fallback if the string is not a valid finite number.
+            arguments
+                editBox (1, 1) matlab.ui.control.UIControl
+                fallback (1, 1) double
+            end
+            value = str2double(editBox.String);
+            if ~isfinite(value)
+                value = fallback;
+                editBox.String = num2str(fallback);
             end
         end
     end
@@ -2826,8 +2803,8 @@ classdef RasterGUI < handle
             arguments
                 obj RasterGUI
             end
-            seriesNum = length(obj.eventSeries) + 1;
-            obj.eventSeries(seriesNum) = obj.createDefaultEventSeries(seriesNum);
+            seriesNum = length(obj.ControlParams.eventSeries) + 1;
+            obj.ControlParams.eventSeries(seriesNum) = obj.createDefaultEventSeries(seriesNum);
             obj.refreshEventSeriesList();
             obj.list_EventSeries.Value = seriesNum;
             obj.selectEventSeries();
@@ -2839,14 +2816,14 @@ classdef RasterGUI < handle
             arguments
                 obj RasterGUI
             end
-            if isempty(obj.eventSeries)
+            if isempty(obj.ControlParams.eventSeries)
                 return;
             end
             idx = obj.list_EventSeries.Value;
-            obj.eventSeries(idx) = [];
+            obj.ControlParams.eventSeries(idx) = [];
             obj.refreshEventSeriesList();
-            if ~isempty(obj.eventSeries)
-                obj.list_EventSeries.Value = min(idx, length(obj.eventSeries));
+            if ~isempty(obj.ControlParams.eventSeries)
+                obj.list_EventSeries.Value = min(idx, length(obj.ControlParams.eventSeries));
                 obj.selectEventSeries();
             else
                 obj.hideEventSeriesDetail();
@@ -2859,14 +2836,14 @@ classdef RasterGUI < handle
             arguments
                 obj RasterGUI
             end
-            if isempty(obj.eventSeries)
+            if isempty(obj.ControlParams.eventSeries)
                 obj.list_EventSeries.String = {'(No event series)'};
                 obj.list_EventSeries.Value = 1;
                 obj.push_EventSeriesRemove.Enable = 'off';
             else
-                names = cell(1, length(obj.eventSeries));
-                for k = 1:length(obj.eventSeries)
-                    names{k} = obj.eventSeries(k).name;
+                names = cell(1, length(obj.ControlParams.eventSeries));
+                for k = 1:length(obj.ControlParams.eventSeries)
+                    names{k} = obj.ControlParams.eventSeries(k).name;
                 end
                 obj.list_EventSeries.String = names;
                 obj.push_EventSeriesRemove.Enable = 'on';
@@ -2878,16 +2855,16 @@ classdef RasterGUI < handle
             arguments
                 obj RasterGUI
             end
-            if isempty(obj.eventSeries)
+            if isempty(obj.ControlParams.eventSeries)
                 obj.hideEventSeriesDetail();
                 return;
             end
             idx = obj.list_EventSeries.Value;
-            if idx < 1 || idx > length(obj.eventSeries)
+            if idx < 1 || idx > length(obj.ControlParams.eventSeries)
                 obj.hideEventSeriesDetail();
                 return;
             end
-            series = obj.eventSeries(idx);
+            series = obj.ControlParams.eventSeries(idx);
 
             % Show detail controls
             obj.showEventSeriesDetail();
@@ -2955,44 +2932,33 @@ classdef RasterGUI < handle
             arguments
                 obj RasterGUI
             end
-            if isempty(obj.eventSeries)
+            if isempty(obj.ControlParams.eventSeries)
                 return;
             end
             idx = obj.list_EventSeries.Value;
-            if idx < 1 || idx > length(obj.eventSeries)
+            if idx < 1 || idx > length(obj.ControlParams.eventSeries)
                 return;
             end
 
-            obj.eventSeries(idx).name = obj.edit_EventSeriesName.String;
-            obj.eventSeries(idx).sourceIdx = obj.popup_EventSeriesSource.Value;
+            obj.ControlParams.eventSeries(idx).name = obj.edit_EventSeriesName.String;
+            obj.ControlParams.eventSeries(idx).sourceIdx = obj.popup_EventSeriesSource.Value;
             typeStrs = obj.popup_EventSeriesType.String;
-            obj.eventSeries(idx).type = typeStrs{obj.popup_EventSeriesType.Value};
+            obj.ControlParams.eventSeries(idx).type = typeStrs{obj.popup_EventSeriesType.Value};
             filterModes = obj.popup_EventSeriesFilterMode.String;
-            obj.eventSeries(idx).filterMode = filterModes{obj.popup_EventSeriesFilterMode.Value};
-            obj.eventSeries(idx).filterList = obj.edit_EventSeriesFilterList.String;
-            obj.eventSeries(idx).burstFrequency = str2double(obj.edit_EventSeriesBurstFreq.String);
-            obj.eventSeries(idx).burstMinSpikes = str2double(obj.edit_EventSeriesBurstMinSpikes.String);
+            obj.ControlParams.eventSeries(idx).filterMode = filterModes{obj.popup_EventSeriesFilterMode.Value};
+            obj.ControlParams.eventSeries(idx).filterList = obj.edit_EventSeriesFilterList.String;
+            obj.ControlParams.eventSeries(idx).burstFrequency = str2double(obj.edit_EventSeriesBurstFreq.String);
+            obj.ControlParams.eventSeries(idx).burstMinSpikes = str2double(obj.edit_EventSeriesBurstMinSpikes.String);
             selStrs = obj.popup_EventSeriesSelection.String;
-            obj.eventSeries(idx).selectionMode = selStrs{obj.popup_EventSeriesSelection.Value};
-            obj.eventSeries(idx).color = obj.push_EventSeriesColor.BackgroundColor;
-            obj.eventSeries(idx).showPSTH = logical(obj.check_EventSeriesPSTH.Value);
+            obj.ControlParams.eventSeries(idx).selectionMode = selStrs{obj.popup_EventSeriesSelection.Value};
+            obj.ControlParams.eventSeries(idx).color = obj.push_EventSeriesColor.BackgroundColor;
+            obj.ControlParams.eventSeries(idx).showPSTH = logical(obj.check_EventSeriesPSTH.Value);
             styleStrs = obj.popup_EventSeriesPSTHStyle.String;
-            obj.eventSeries(idx).psthStyle = styleStrs{obj.popup_EventSeriesPSTHStyle.Value};
+            obj.ControlParams.eventSeries(idx).psthStyle = styleStrs{obj.popup_EventSeriesPSTHStyle.Value};
 
             % Update list display in case name changed
             obj.refreshEventSeriesList();
             obj.list_EventSeries.Value = idx;
-        end
-
-        function configs = getEventSeriesConfigs(obj)
-            % Return a struct array of event series configs, suitable for
-            % storing in ControlParams or saving to a preset. Since
-            % eventSeries is already pure config (data lives in EventData),
-            % this just returns a copy.
-            arguments
-                obj RasterGUI
-            end
-            configs = obj.eventSeries;
         end
 
         function showEventSeriesDetail(obj)
@@ -3136,13 +3102,13 @@ classdef RasterGUI < handle
             arguments
                 obj RasterGUI
             end
-            if isempty(obj.eventSeries)
+            if isempty(obj.ControlParams.eventSeries)
                 return;
             end
             idx = obj.list_EventSeries.Value;
-            newColor = uisetcolor(obj.eventSeries(idx).color, 'Pick series color');
+            newColor = uisetcolor(obj.ControlParams.eventSeries(idx).color, 'Pick series color');
             if length(newColor) == 3
-                obj.eventSeries(idx).color = newColor;
+                obj.ControlParams.eventSeries(idx).color = newColor;
                 obj.push_EventSeriesColor.BackgroundColor = newColor;
                 obj.replotFromCache();
             end
@@ -3154,13 +3120,13 @@ classdef RasterGUI < handle
             arguments
                 obj RasterGUI
             end
-            if isempty(obj.eventSeries)
+            if isempty(obj.ControlParams.eventSeries)
                 return;
             end
             idx = obj.list_EventSeries.Value;
-            obj.eventSeries(idx).showPSTH = logical(obj.check_EventSeriesPSTH.Value);
+            obj.ControlParams.eventSeries(idx).showPSTH = logical(obj.check_EventSeriesPSTH.Value);
             styleStrs = obj.popup_EventSeriesPSTHStyle.String;
-            obj.eventSeries(idx).psthStyle = styleStrs{obj.popup_EventSeriesPSTHStyle.Value};
+            obj.ControlParams.eventSeries(idx).psthStyle = styleStrs{obj.popup_EventSeriesPSTHStyle.Value};
             % Replot PSTH and histogram to reflect the change
             obj.plotPSTH();
             obj.plotHist();
@@ -3426,8 +3392,8 @@ classdef RasterGUI < handle
             obj.ControlParams.startRefType = startRefStrs{obj.popup_StartReference.Value};
             stopRefStrs = obj.popup_StopReference.String;
             obj.ControlParams.stopRefType = stopRefStrs{obj.popup_StopReference.Value};
-            obj.ControlParams.preStartRef = str2double(obj.edit_PreStart.String);
-            obj.ControlParams.postStopRef = str2double(obj.edit_PostStop.String);
+            obj.ControlParams.preStartRef = RasterGUI.parseDouble(obj.edit_PreStart, obj.ControlParams.preStartRef);
+            obj.ControlParams.postStopRef = RasterGUI.parseDouble(obj.edit_PostStop, obj.ControlParams.postStopRef);
 
             % --- Exclude flags ---
             obj.ControlParams.excludeIncomplete = logical(obj.check_ExcludeIncomplete.Value);
@@ -3444,11 +3410,10 @@ classdef RasterGUI < handle
 
             % --- Event series ---
             % Save the currently selected series' detail controls back to
-            % the series array, then snapshot all configs into ControlParams
-            if ~isempty(obj.eventSeries)
+            % the ControlParams.eventSeries array
+            if ~isempty(obj.ControlParams.eventSeries)
                 obj.saveSelectedEventSeries();
             end
-            obj.ControlParams.eventSeries = obj.getEventSeriesConfigs();
 
             % --- File filter settings (raw GUI values) ---
             fileFilterStrs = obj.popup_Files.String;
@@ -3495,11 +3460,13 @@ classdef RasterGUI < handle
 
             % --- Plot settings ---
             obj.ControlParams.autoXLim = logical(obj.check_AutoXLim.Value);
-            obj.ControlParams.plotXLim = [str2double(obj.edit_XMin.String), str2double(obj.edit_XMax.String)];
-            obj.ControlParams.plotTickSize(1) = str2double(obj.edit_TickHeight.String);
-            obj.ControlParams.plotTickSize(3) = str2double(obj.edit_TickLineWidth.String);
-            obj.ControlParams.psthBinSize = str2double(obj.edit_BinSize.String);
-            obj.ControlParams.plotOverlap = str2double(obj.edit_Overlap.String);
+            obj.ControlParams.plotXLim = [ ...
+                RasterGUI.parseDouble(obj.edit_XMin, obj.ControlParams.plotXLim(1)), ...
+                RasterGUI.parseDouble(obj.edit_XMax, obj.ControlParams.plotXLim(2))];
+            obj.ControlParams.plotTickSize.tickHeight = RasterGUI.parseDouble(obj.edit_TickHeight, obj.ControlParams.plotTickSize.tickHeight);
+            obj.ControlParams.plotTickSize.lineWidth = RasterGUI.parseDouble(obj.edit_TickLineWidth, obj.ControlParams.plotTickSize.lineWidth);
+            obj.ControlParams.psthBinSize = RasterGUI.parseDouble(obj.edit_BinSize, obj.ControlParams.psthBinSize);
+            obj.ControlParams.plotOverlap = RasterGUI.parseDouble(obj.edit_Overlap, obj.ControlParams.plotOverlap);
 
             % --- PSTH settings ---
             psthUnitStrs = obj.popup_PSTHUnits.String;
@@ -3511,6 +3478,12 @@ classdef RasterGUI < handle
             obj.ControlParams.showLegend = logical(obj.check_ShowLegend.Value);
             obj.ControlParams.legendTriggers = logical(obj.check_LegendTriggers.Value);
             obj.ControlParams.legendEvents = logical(obj.check_LegendEvents.Value);
+
+            % --- Auto-update settings ---
+            obj.ControlParams.autoUpdateTrigger = logical(obj.check_TrigAutoUpdate.Value);
+            obj.ControlParams.autoUpdateWindow = logical(obj.check_WindowAutoUpdate.Value);
+            obj.ControlParams.autoUpdateFiles = logical(obj.check_FilesAutoUpdate.Value);
+            obj.ControlParams.autoUpdatePlot = logical(obj.check_PlotAutoUpdate.Value);
         end
         function autoXLimChanged(obj)
             % Called when the Auto X limits checkbox changes.
@@ -3971,13 +3944,13 @@ classdef RasterGUI < handle
 
     %% Core algorithms (ported from egm_Sorted_rasters)
     methods (Access = private)
-        function [ons, offs, inform, lst] = getEventStructure(obj, eventSourceIdx, eventTypeStr, P)
+        function [ons, offs, eventInfo, fileList] = getEventStructure(obj, eventSourceIdx, eventTypeStr, params)
             % Extract triggers or events from the dbase across files.
             arguments
                 obj RasterGUI
                 eventSourceIdx (1, 1) double {mustBeInteger, mustBeNonnegative}
                 eventTypeStr (1, :) char {mustBeMember(eventTypeStr, {'Events', 'Bursts', 'Burst events', 'Single events', 'Pauses', 'Syllables', 'Markers', 'Motifs', 'Bouts', 'Continuous function'})}
-                P (1, 1) struct
+                params (1, 1) struct
             end
             %
             % Arguments:
@@ -3985,43 +3958,43 @@ classdef RasterGUI < handle
             %   eventTypeStr - one of: 'Events', 'Bursts', 'Burst events',
             %       'Single events', 'Pauses', 'Syllables', 'Markers',
             %       'Motifs', 'Bouts', 'Continuous function'
-            %   P - parameter struct with fields like burstFrequency,
+            %   params - parameter struct with fields like burstFrequency,
             %       motifSequences, boutInterval, etc.
             %
             % Returns:
             %   ons - cell array of onset times (in samples) per file
             %   offs - cell array of offset times (in samples) per file
-            %   inform - struct with .label (cell of label arrays) and
+            %   eventInfo - struct with .label (cell of label arrays) and
             %       .filenum (file numbers)
-            %   lst - list of file indices processed
+            %   fileList - list of file indices processed
 
             dbase = obj.eg.dbase;
             fs = dbase.Fs;
-            lst = obj.FileRange;
+            fileList = obj.FileRange;
 
             % Filter file list based on file selection popup
             % (For now, use all files in range — file search filtering
             % can be added later when the file list widget is ported)
 
-            numLstFiles = length(lst);
-            ons = cell(1, numLstFiles);
-            offs = cell(1, numLstFiles);
-            inform.label = cell(1, numLstFiles);
-            inform.filenum = zeros(1, numLstFiles);
+            numFiles = length(fileList);
+            ons = cell(1, numFiles);
+            offs = cell(1, numFiles);
+            eventInfo.label = cell(1, numFiles);
+            eventInfo.filenum = zeros(1, numFiles);
 
-            for fileListIdx = 1:numLstFiles
-                filenum = lst(fileListIdx);
+            for fileListIdx = 1:numFiles
+                filenum = fileList(fileListIdx);
 
                 % For spike event types, build the selection mask and
                 % extract part times once before the type-specific logic.
-                % P.selectionMode controls which events are included:
+                % params.selectionMode controls which events are included:
                 % 'All', 'Selected only', or 'Unselected only'.
                 if ismember(eventTypeStr, {'Events', 'Bursts', 'Burst events', 'Single events', 'Pauses'})
                     selectedMask = dbase.EventIsSelected{eventSourceIdx}{1, filenum} == 1;
                     for partIdx = 2:size(dbase.EventIsSelected{eventSourceIdx}, 1)
                         selectedMask = selectedMask & (dbase.EventIsSelected{eventSourceIdx}{partIdx, filenum} == 1);
                     end
-                    switch P.selectionMode
+                    switch params.selectionMode
                         case 'All'
                             selectedIndices = (1:length(selectedMask))';
                         case 'Selected only'
@@ -4040,29 +4013,29 @@ classdef RasterGUI < handle
                         % Simple events: onset = min across parts, offset = max
                         ons{fileListIdx} = min(allPartTimes, [], 2);
                         offs{fileListIdx} = max(allPartTimes, [], 2);
-                        inform.label{fileListIdx} = zeros(size(allPartTimes, 1), 1);
+                        eventInfo.label{fileListIdx} = zeros(size(allPartTimes, 1), 1);
 
                     case 'Bursts'
                         % Find bursts based on inter-event frequency
                         eventSamples = min(allPartTimes, [], 2);
-                        burstOnsets = find(fs ./ (eventSamples(1:end-1) - [-inf; eventSamples(1:end-2)]) <= P.burstFrequency & ...
-                            fs ./ (eventSamples(2:end) - eventSamples(1:end-1)) > (P.burstFrequency + eps));
-                        burstOffsets = find(fs ./ (eventSamples(2:end) - eventSamples(1:end-1)) > P.burstFrequency & ...
-                            fs ./ ([eventSamples(3:end); inf] - eventSamples(2:end)) <= P.burstFrequency) + 1;
-                        validBursts = find(burstOffsets - burstOnsets >= P.burstMinSpikes - 1);
+                        burstOnsets = find(fs ./ (eventSamples(1:end-1) - [-inf; eventSamples(1:end-2)]) <= params.burstFrequency & ...
+                            fs ./ (eventSamples(2:end) - eventSamples(1:end-1)) > (params.burstFrequency + eps));
+                        burstOffsets = find(fs ./ (eventSamples(2:end) - eventSamples(1:end-1)) > params.burstFrequency & ...
+                            fs ./ ([eventSamples(3:end); inf] - eventSamples(2:end)) <= params.burstFrequency) + 1;
+                        validBursts = find(burstOffsets - burstOnsets >= params.burstMinSpikes - 1);
                         ons{fileListIdx} = eventSamples(burstOnsets(validBursts));
                         offs{fileListIdx} = eventSamples(burstOffsets(validBursts));
-                        inform.label{fileListIdx} = 1000 + burstOffsets(validBursts) - burstOnsets(validBursts) + 1;
+                        eventInfo.label{fileListIdx} = 1000 + burstOffsets(validBursts) - burstOnsets(validBursts) + 1;
 
                     case {'Burst events', 'Single events'}
                         % Categorize individual spikes by burst membership
                         evOn = min(allPartTimes, [], 2);
                         evOff = max(allPartTimes, [], 2);
-                        burstOnsets = find(fs ./ (evOn(1:end-1) - [-inf; evOn(1:end-2)]) <= P.burstFrequency & ...
-                            fs ./ (evOn(2:end) - evOn(1:end-1)) > (P.burstFrequency + eps));
-                        burstOffsets = find(fs ./ (evOn(2:end) - evOn(1:end-1)) > P.burstFrequency & ...
-                            fs ./ ([evOn(3:end); inf] - evOn(2:end)) <= P.burstFrequency) + 1;
-                        validBursts = find(burstOffsets - burstOnsets >= P.burstMinSpikes - 1);
+                        burstOnsets = find(fs ./ (evOn(1:end-1) - [-inf; evOn(1:end-2)]) <= params.burstFrequency & ...
+                            fs ./ (evOn(2:end) - evOn(1:end-1)) > (params.burstFrequency + eps));
+                        burstOffsets = find(fs ./ (evOn(2:end) - evOn(1:end-1)) > params.burstFrequency & ...
+                            fs ./ ([evOn(3:end); inf] - evOn(2:end)) <= params.burstFrequency) + 1;
+                        validBursts = find(burstOffsets - burstOnsets >= params.burstMinSpikes - 1);
                         burstSpikeIndices = [];
                         for burstNum = 1:length(validBursts)
                             burstSpikeIndices = [burstSpikeIndices, burstOnsets(validBursts(burstNum)):burstOffsets(validBursts(burstNum))]; %#ok<AGROW>
@@ -4075,16 +4048,16 @@ classdef RasterGUI < handle
                             ons{fileListIdx} = evOn(nonBurstIndices);
                             offs{fileListIdx} = evOff(nonBurstIndices);
                         end
-                        inform.label{fileListIdx} = zeros(length(ons{fileListIdx}), 1);
+                        eventInfo.label{fileListIdx} = zeros(length(ons{fileListIdx}), 1);
 
                     case 'Pauses'
                         % Find gaps between events
-                        gapOnsets = [min(allPartTimes, [], 2); obj.eg.getFileLength(filenum) + fs * P.pauseMinDuration];
-                        gapOffsets = [-fs * P.pauseMinDuration; max(allPartTimes, [], 2)];
-                        pauseIndices = find(gapOnsets - gapOffsets > fs * P.pauseMinDuration);
+                        gapOnsets = [min(allPartTimes, [], 2); obj.eg.getFileLength(filenum) + fs * params.pauseMinDuration];
+                        gapOffsets = [-fs * params.pauseMinDuration; max(allPartTimes, [], 2)];
+                        pauseIndices = find(gapOnsets - gapOffsets > fs * params.pauseMinDuration);
                         ons{fileListIdx} = gapOffsets(pauseIndices);
                         offs{fileListIdx} = gapOnsets(pauseIndices);
-                        inform.label{fileListIdx} = zeros(length(pauseIndices), 1);
+                        eventInfo.label{fileListIdx} = zeros(length(pauseIndices), 1);
 
                     case {'Syllables', 'Markers'}
                         switch eventTypeStr
@@ -4099,7 +4072,7 @@ classdef RasterGUI < handle
                         end
                         if ~isempty(times)
                             % Apply selection mode filter
-                            switch P.selectionMode
+                            switch params.selectionMode
                                 case 'All'
                                     selectedIndices = (1:size(times, 1))';
                                 case 'Selected only'
@@ -4115,19 +4088,19 @@ classdef RasterGUI < handle
                                     labels(labelIdx) = double(titles{selectedIndices(labelIdx)});
                                 end
                             end
-                            inform.label{fileListIdx} = labels;
+                            eventInfo.label{fileListIdx} = labels;
 
                             % Apply filter based on mode
-                            keepMask = RasterGUI.getLabelFilterMask(labels, P.filterMode, P.filterList);
+                            keepMask = RasterGUI.getLabelFilterMask(labels, params.filterMode, params.filterList);
                             ons{fileListIdx} = ons{fileListIdx}(keepMask);
                             offs{fileListIdx} = offs{fileListIdx}(keepMask);
-                            inform.label{fileListIdx} = inform.label{fileListIdx}(keepMask);
+                            eventInfo.label{fileListIdx} = eventInfo.label{fileListIdx}(keepMask);
                         end
 
                     case 'Motifs'
                         if ~isempty(dbase.SegmentTimes{filenum})
                             % Apply selection mode filter
-                            switch P.selectionMode
+                            switch params.selectionMode
                                 case 'All'
                                     selectedIndices = (1:size(dbase.SegmentTimes{filenum}, 1))';
                                 case 'Selected only'
@@ -4148,27 +4121,27 @@ classdef RasterGUI < handle
                             end
                             ons{fileListIdx} = [];
                             offs{fileListIdx} = [];
-                            inform.label{fileListIdx} = [];
-                            for motifIdx = 1:length(P.motifSequences)
-                                [matchStarts, matchEnds] = regexp(titleStr, P.motifSequences{motifIdx}, 'start', 'end');
+                            eventInfo.label{fileListIdx} = [];
+                            for motifIdx = 1:length(params.motifSequences)
+                                [matchStarts, matchEnds] = regexp(titleStr, params.motifSequences{motifIdx}, 'start', 'end');
                                 % Validate motif continuity
                                 for matchIdx = length(matchStarts):-1:1
-                                    if max(syllOnsets(matchStarts(matchIdx)+1:matchEnds(matchIdx)) - syllOffsets(matchStarts(matchIdx):matchEnds(matchIdx)-1)) > fs * P.motifInterval
+                                    if max(syllOnsets(matchStarts(matchIdx)+1:matchEnds(matchIdx)) - syllOffsets(matchStarts(matchIdx):matchEnds(matchIdx)-1)) > fs * params.motifInterval
                                         matchStarts(matchIdx) = [];
                                         matchEnds(matchIdx) = [];
                                     end
                                 end
                                 ons{fileListIdx} = [ons{fileListIdx}; syllOnsets(matchStarts)];
                                 offs{fileListIdx} = [offs{fileListIdx}; syllOffsets(matchEnds)];
-                                inform.label{fileListIdx} = [inform.label{fileListIdx}; motifIdx * ones(length(matchStarts), 1)];
+                                eventInfo.label{fileListIdx} = [eventInfo.label{fileListIdx}; motifIdx * ones(length(matchStarts), 1)];
                             end
-                            inform.label{fileListIdx} = 1000 + inform.label{fileListIdx};
+                            eventInfo.label{fileListIdx} = 1000 + eventInfo.label{fileListIdx};
                         end
 
                     case 'Bouts'
                         if ~isempty(dbase.SegmentTimes{filenum})
                             % Apply selection mode filter
-                            switch P.selectionMode
+                            switch params.selectionMode
                                 case 'All'
                                     selectedIndices = (1:size(dbase.SegmentTimes{filenum}, 1))';
                                 case 'Selected only'
@@ -4184,34 +4157,34 @@ classdef RasterGUI < handle
                                     labels(labelIdx) = double(dbase.SegmentTitles{filenum}{selectedIndices(labelIdx)});
                                 end
                             end
-                            keepMask = RasterGUI.getLabelFilterMask(labels, P.filterMode, P.filterList);
+                            keepMask = RasterGUI.getLabelFilterMask(labels, params.filterMode, params.filterList);
                             selectedIndices = selectedIndices(keepMask);
 
                             % Find bouts: groups of syllables separated by gaps
                             syllOnsets = [dbase.SegmentTimes{filenum}(selectedIndices, 1); inf];
                             syllOffsets = [-inf; dbase.SegmentTimes{filenum}(selectedIndices, 2)];
-                            gapIndices = find(syllOnsets - syllOffsets > fs * P.boutInterval);
+                            gapIndices = find(syllOnsets - syllOffsets > fs * params.boutInterval);
                             boutStarts = gapIndices(1:end-1);
                             boutEnds = gapIndices(2:end) - 1;
-                            durationOK = find(syllOffsets(boutEnds + 1) - syllOnsets(boutStarts) > fs * P.boutMinDuration);
-                            syllCountOK = find(boutEnds - boutStarts >= P.boutMinSyllables - 1);
+                            durationOK = find(syllOffsets(boutEnds + 1) - syllOnsets(boutStarts) > fs * params.boutMinDuration);
+                            syllCountOK = find(boutEnds - boutStarts >= params.boutMinSyllables - 1);
                             validBouts = intersect(durationOK, syllCountOK);
                             ons{fileListIdx} = syllOnsets(boutStarts(validBouts));
                             offs{fileListIdx} = syllOffsets(boutEnds(validBouts) + 1);
-                            inform.label{fileListIdx} = 1000 + boutEnds(validBouts) - boutStarts(validBouts) + 1;
+                            eventInfo.label{fileListIdx} = 1000 + boutEnds(validBouts) - boutStarts(validBouts) + 1;
                         end
 
                     case 'Continuous function'
                         ons{fileListIdx} = [];
                         offs{fileListIdx} = [];
-                        inform.label{fileListIdx} = [];
+                        eventInfo.label{fileListIdx} = [];
                 end
 
-                inform.filenum(fileListIdx) = filenum;
+                eventInfo.filenum(fileListIdx) = filenum;
                 if size(ons{fileListIdx}, 2) == 0
                     ons{fileListIdx} = [];
                     offs{fileListIdx} = [];
-                    inform.label{fileListIdx} = [];
+                    eventInfo.label{fileListIdx} = [];
                 end
             end
         end
