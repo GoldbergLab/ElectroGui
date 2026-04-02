@@ -41,6 +41,8 @@ classdef RasterGUI < handle
         check_PlotOtherTrialTriggers
         % Trigger label coloring controls
         list_TriggerLabels
+        panel_SelectedTrigLabel   % Colored indicator for selected trigger label
+        text_SelectedTrigLabel    % Text inside the indicator
         push_TrigLabelColor
         check_TrigAutoColor
         popup_TrigColormap
@@ -1098,11 +1100,14 @@ classdef RasterGUI < handle
             obj.check_PlotOtherTrialTriggers.Units = 'pixels';
             obj.check_PlotOtherTrialTriggers.Position = [tabMargin, rowY(7), tabFullW, rowH];
             % Trigger label coloring controls
-            trigLabelListH = 8 * rowSpacing;  % 8 rows tall
+            trigLabelListH = 7 * rowSpacing;  % 7 rows tall
             trigColorBtnW = 50;
             obj.list_TriggerLabels.Units = 'pixels';
-            obj.list_TriggerLabels.Position = [tabMargin, rowY(8) - trigLabelListH + rowH, fullW, trigLabelListH];
+            obj.list_TriggerLabels.Position = [tabMargin, rowY(8) - trigLabelListH + rowH + rowSpacing, fullW, trigLabelListH];
             obj.list_TriggerLabels.ColumnWidth = {fullW - 4};
+            % Selected label indicator sits between table and buttons
+            obj.panel_SelectedTrigLabel.Units = 'pixels';
+            obj.panel_SelectedTrigLabel.Position = [tabMargin, rowY(16) + rowSpacing, fullW, rowH];
             obj.push_TrigLabelColor.Units = 'pixels';
             obj.push_TrigLabelColor.Position = [tabMargin, rowY(16), trigColorBtnW, rowH];
             obj.check_TrigAutoColor.Units = 'pixels';
@@ -1430,7 +1435,21 @@ classdef RasterGUI < handle
                 'ColumnEditable', false, ...
                 'RowStriping', 'off', ...
                 'CellSelectionCallback', @(~,~) obj.selectTriggerLabel(), ...
-                'ColumnSelectable', true);
+                'ColumnSelectable', true, ...
+                'RowSelectionColor', [], ...
+                'ClearNativeSelection', true);
+            % Selected trigger label indicator — colored panel with text
+            obj.panel_SelectedTrigLabel = uipanel(trigTab, ...
+                'BorderType', 'line', ...
+                'HighlightColor', [0.5, 0.5, 0.5], ...
+                'BackgroundColor', [0.94, 0.94, 0.94]);
+            obj.text_SelectedTrigLabel = uicontrol(obj.panel_SelectedTrigLabel, ...
+                'Style', 'text', ...
+                'String', 'Selected: (none)', ...
+                'Units', 'normalized', ...
+                'Position', [0, 0, 1, 1], ...
+                'HorizontalAlignment', 'left', ...
+                'BackgroundColor', [0.94, 0.94, 0.94]);
             obj.push_TrigLabelColor = uicontrol(trigTab, 'Style', 'pushbutton', ...
                 'String', 'Color', ...
                 'Callback', @(~,~) obj.trigLabelColorPicked());
@@ -3675,6 +3694,9 @@ classdef RasterGUI < handle
             if isempty(obj.TriggerLabelValues)
                 obj.list_TriggerLabels.Data = {'(No triggers yet)'};
                 obj.list_TriggerLabels.ResetBackgroundColor();
+                obj.text_SelectedTrigLabel.String = 'Selected: (none)';
+                obj.panel_SelectedTrigLabel.BackgroundColor = [0.94, 0.94, 0.94];
+                obj.text_SelectedTrigLabel.BackgroundColor = [0.94, 0.94, 0.94];
                 return;
             end
 
@@ -3716,9 +3738,42 @@ classdef RasterGUI < handle
             end
         end
 
-        function selectTriggerLabel(~)
-            % Callback for trigger label listbox selection (no-op for now;
-            % selection is read by the color picker when clicked).
+        function selectTriggerLabel(obj)
+            % Callback for trigger label table selection. Updates the
+            % selected-label indicator panel with the label's color and text.
+            arguments
+                obj RasterGUI
+            end
+            idx = obj.list_TriggerLabels.SelectedRow;
+            if isempty(idx) || idx < 1 || idx > length(obj.TriggerLabelValues)
+                obj.text_SelectedTrigLabel.String = 'Selected: (none)';
+                obj.panel_SelectedTrigLabel.BackgroundColor = [0.94, 0.94, 0.94];
+                obj.text_SelectedTrigLabel.BackgroundColor = [0.94, 0.94, 0.94];
+                obj.text_SelectedTrigLabel.ForegroundColor = [0, 0, 0];
+                return;
+            end
+            % Get the label's color (lightened, same as the table row)
+            labelColor = obj.TriggerLabelColors(idx, :);
+            bgColor = 1 - (1 - labelColor) * 0.35;
+            % Choose readable text color (dark on light, light on dark)
+            if mean(bgColor) > 0.5
+                textColor = [0, 0, 0];
+            else
+                textColor = [1, 1, 1];
+            end
+            % Get label display text
+            labelVal = obj.TriggerLabelValues(idx);
+            if labelVal == 0
+                labelStr = '(unlabeled)';
+            elseif labelVal > 1000
+                labelStr = num2str(labelVal - 1000);
+            else
+                labelStr = char(labelVal);
+            end
+            obj.text_SelectedTrigLabel.String = ['Selected: ', labelStr];
+            obj.panel_SelectedTrigLabel.BackgroundColor = bgColor;
+            obj.text_SelectedTrigLabel.BackgroundColor = bgColor;
+            obj.text_SelectedTrigLabel.ForegroundColor = textColor;
         end
 
         function trigLabelColorPicked(obj)
@@ -3737,6 +3792,7 @@ classdef RasterGUI < handle
             if length(newColor) == 3
                 obj.TriggerLabelColors(idx, :) = newColor;
                 obj.refreshTriggerLabelList();
+                obj.selectTriggerLabel();  % Update indicator color
                 obj.replotFromCache();
             end
         end
@@ -3751,6 +3807,7 @@ classdef RasterGUI < handle
             if obj.check_TrigAutoColor.Value
                 % Recompute colors from the selected colormap
                 obj.updateTriggerLabelColors();
+                obj.selectTriggerLabel();  % Update indicator color
                 obj.replotFromCache();
             end
         end
