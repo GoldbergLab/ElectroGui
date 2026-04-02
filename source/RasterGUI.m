@@ -271,14 +271,10 @@ classdef RasterGUI < handle
         PlotLineWidth double = ones(1, 30)
         PlotAlpha double = ones(1, 30)
         PlotAutoColors double = []
-        PlotXLim double = [-0.15, 0.15]
-        PlotTickSize double = [1, 0.25, 1, 0.5]
-        PlotOverlap double = 50
         PlotInPerSec double = 0.04
 
-        % PSTH configuration
-        PSTHBinSize double = 0.001
-        PSTHSmoothingWindow double = 1
+        % PSTH configuration (PlotXLim, PlotTickSize, PlotOverlap,
+        % PSTHBinSize, PSTHSmoothingWindow now live in ControlParams)
         PSTHYLim double = repmat([-inf, inf], 5, 1)
 
         % Histogram configuration
@@ -958,6 +954,57 @@ classdef RasterGUI < handle
             obj.ControlParams.postStopRef = 0.4;
             obj.ControlParams.filter = repmat([-inf, inf], 15, 1);
 
+            % Trigger source and type (portable string names)
+            obj.ControlParams.triggerSource = '';
+            obj.ControlParams.triggerSourceIdx = 0;
+            obj.ControlParams.triggerType = 'Events';
+            obj.ControlParams.alignmentType = 'Onset';
+
+            % Window references
+            obj.ControlParams.startRefType = 'Trigger onset';
+            obj.ControlParams.stopRefType = 'Trigger offset';
+
+            % Exclude flags
+            obj.ControlParams.excludeIncomplete = false;
+            obj.ControlParams.excludePartialEvents = false;
+            obj.ControlParams.plotOtherTrialTriggers = false;
+
+            % Sort settings
+            obj.ControlParams.primarySort = 'None';
+            obj.ControlParams.secondarySort = 'None';
+            obj.ControlParams.sortDescending = false;
+            obj.ControlParams.groupLabels = false;
+
+            % File filter settings (raw GUI state, not computed FileRange)
+            obj.ControlParams.fileFilter = 'All files';
+            obj.ControlParams.fileRangeExpression = '';
+            obj.ControlParams.propertyFilterMode = 'None';
+            obj.ControlParams.propertyName = '';
+            obj.ControlParams.propertyExpression = '';
+
+            % Plot settings
+            obj.ControlParams.autoXLim = true;
+            obj.ControlParams.plotXLim = [-0.15, 0.15];
+            obj.ControlParams.plotTickSize = [1, 0.25, 1, 0.5];
+            obj.ControlParams.plotOverlap = 50;
+            obj.ControlParams.psthBinSize = 0.001;
+            obj.ControlParams.psthSmoothingWindow = 1;
+            obj.ControlParams.psthUnits = 'Rate (Hz)';
+            obj.ControlParams.psthCount = 'Onsets';
+
+            % Legend settings
+            obj.ControlParams.showLegend = false;
+            obj.ControlParams.legendTriggers = true;
+            obj.ControlParams.legendEvents = true;
+
+            % Event series configs (empty initially)
+            obj.ControlParams.eventSeries = struct( ...
+                'name', {}, 'sourceIdx', {}, 'type', {}, ...
+                'filterMode', {}, 'filterList', {}, ...
+                'burstFrequency', {}, 'burstMinSpikes', {}, ...
+                'selectionMode', {}, ...
+                'color', {}, 'showPSTH', {}, 'psthStyle', {});
+
             obj.PlotAlpha(27) = 0.5;
             obj.PlotAlpha(30) = 0.5;
 
@@ -1014,9 +1061,9 @@ classdef RasterGUI < handle
             tabFullW = fullW;
             halfW = fullW * 0.48;          % Half-width button (px)
             halfGap = fullW * 0.04;        % Gap between half-width buttons (px)
-            thirdW = 80;                   % Third-width button (px)
-            thirdGap = 5;                  % Gap between third-width buttons (px)
-            editW = 70;                    % Short numeric edit box (px)
+            % thirdW = 80;                   % Third-width button (px)
+            % thirdGap = 5;                  % Gap between third-width buttons (px)
+            % editW = 70;                    % Short numeric edit box (px)
             exportBtnW = 60;               % Export button width (px)
             exportBtnGap = 5;              % Gap between export buttons (px)
             labelW = 65;                   % Width of text labels (px)
@@ -1030,9 +1077,9 @@ classdef RasterGUI < handle
             sortPopupW = fullW - sortPopupX;
 
             % Window tab label column (narrower labels)
-            winLabelW = 50;
-            winPopupX = tabMargin + winLabelW + labelPopupGap;
-            winPopupW = fullW - winPopupX;
+            % winLabelW = 50;
+            % winPopupX = tabMargin + winLabelW + labelPopupGap;
+            % winPopupW = fullW - winPopupX;
 
             % Plot tab two-column layout
             plotLabelW = 58;
@@ -1642,7 +1689,7 @@ classdef RasterGUI < handle
                 'Tag', 'text_XMin', ...
                 'HorizontalAlignment', 'right');
             obj.edit_XMin = uicontrol(plotTab, 'Style', 'edit', ...
-                'String', num2str(obj.PlotXLim(1)), ...
+                'String', num2str(obj.ControlParams.plotXLim(1)), ...
                 'Enable', 'off', ...
                 'Callback', @(~,~) obj.xLimChanged());
             obj.text_XMax = uicontrol(plotTab, 'Style', 'text', ...
@@ -1650,7 +1697,7 @@ classdef RasterGUI < handle
                 'Tag', 'text_XMax', ...
                 'HorizontalAlignment', 'right');
             obj.edit_XMax = uicontrol(plotTab, 'Style', 'edit', ...
-                'String', num2str(obj.PlotXLim(2)), ...
+                'String', num2str(obj.ControlParams.plotXLim(2)), ...
                 'Enable', 'off', ...
                 'Callback', @(~,~) obj.xLimChanged());
 
@@ -1659,14 +1706,14 @@ classdef RasterGUI < handle
                 'Tag', 'text_TickHeight', ...
                 'HorizontalAlignment', 'right');
             obj.edit_TickHeight = uicontrol(plotTab, 'Style', 'edit', ...
-                'String', num2str(obj.PlotTickSize(1)), ...
+                'String', num2str(obj.ControlParams.plotTickSize(1)), ...
                 'Callback', @(~,~) obj.plotSettingChanged());
             obj.text_BinSize = uicontrol(plotTab, 'Style', 'text', ...
                 'String', 'Bin size (s):', ...
                 'Tag', 'text_BinSize', ...
                 'HorizontalAlignment', 'right');
             obj.edit_BinSize = uicontrol(plotTab, 'Style', 'edit', ...
-                'String', num2str(obj.PSTHBinSize), ...
+                'String', num2str(obj.ControlParams.psthBinSize), ...
                 'Callback', @(~,~) obj.plotSettingChanged());
 
             obj.text_TickLineWidth = uicontrol(plotTab, 'Style', 'text', ...
@@ -1674,14 +1721,14 @@ classdef RasterGUI < handle
                 'Tag', 'text_TickLineWidth', ...
                 'HorizontalAlignment', 'right');
             obj.edit_TickLineWidth = uicontrol(plotTab, 'Style', 'edit', ...
-                'String', num2str(obj.PlotTickSize(3)), ...
+                'String', num2str(obj.ControlParams.plotTickSize(3)), ...
                 'Callback', @(~,~) obj.plotSettingChanged());
             obj.text_Overlap = uicontrol(plotTab, 'Style', 'text', ...
                 'String', 'Overlap %:', ...
                 'Tag', 'text_Overlap', ...
                 'HorizontalAlignment', 'right');
             obj.edit_Overlap = uicontrol(plotTab, 'Style', 'edit', ...
-                'String', num2str(obj.PlotOverlap), ...
+                'String', num2str(obj.ControlParams.plotOverlap), ...
                 'Callback', @(~,~) obj.plotSettingChanged());
             % Legend controls (grouped in a labeled panel)
             obj.panel_Legend = uipanel(plotTab, ...
@@ -1896,7 +1943,7 @@ classdef RasterGUI < handle
             trialY = 1:numTrials;
 
             % Tick height: each trial spans 1 unit, ticks fill most of it
-            tickHalfHeight = obj.PlotTickSize(1) / 2;
+            tickHalfHeight = obj.ControlParams.plotTickSize(1) / 2;
 
             % --- Plot trigger boxes colored by label ---
             % Single patch call with per-face colors via FaceVertexCData.
@@ -1938,7 +1985,7 @@ classdef RasterGUI < handle
             % For each trial, find all other triggers whose onset/offset
             % falls within this trial's visible time window. Uses absolute
             % time to handle triggers across file boundaries.
-            if obj.check_PlotOtherTrialTriggers.Value && numTrials > 1
+            if obj.ControlParams.plotOtherTrialTriggers && numTrials > 1
                 absT = [triggerData.absTime]';
                 ownOn = trigOn;
                 ownOff = trigOff;
@@ -2033,7 +2080,7 @@ classdef RasterGUI < handle
 
                 % Render all ticks for this series in one call
                 plot(ax, allX, allY, 'Color', seriesColor, ...
-                    'LineWidth', obj.PlotTickSize(3));
+                    'LineWidth', obj.ControlParams.plotTickSize(3));
             end
 
             % --- Plot zero line (trigger alignment point) ---
@@ -2055,7 +2102,7 @@ classdef RasterGUI < handle
                 ax.YLim = newFullYLim;
             end
             obj.RasterFullYLim = newFullYLim;
-            if obj.check_AutoXLim.Value
+            if obj.ControlParams.autoXLim
                 % Compute tight X limits from all plotted data
                 allXData = [];
                 for childIdx = 1:length(ax.Children)
@@ -2069,7 +2116,7 @@ classdef RasterGUI < handle
                     ax.XLim = [min(allXData), max(allXData)];
                 end
             else
-                ax.XLim = obj.PlotXLim;
+                ax.XLim = obj.ControlParams.plotXLim;
             end
             ax.YLabel.String = 'Trial';
             ax.XLabel.String = '';
@@ -2078,12 +2125,13 @@ classdef RasterGUI < handle
             title(ax, sprintf('%d trials', numTrials));
             hold(ax, 'off');
 
-            % If auto, update PlotXLim and edit boxes from the auto result
-            if obj.check_AutoXLim.Value
+            % If auto, update ControlParams.plotXLim and edit boxes from
+            % the auto-computed result
+            if obj.ControlParams.autoXLim
                 drawnow;
-                obj.PlotXLim = ax.XLim;
-                obj.edit_XMin.String = num2str(obj.PlotXLim(1), '%.3f');
-                obj.edit_XMax.String = num2str(obj.PlotXLim(2), '%.3f');
+                obj.ControlParams.plotXLim = ax.XLim;
+                obj.edit_XMin.String = num2str(obj.ControlParams.plotXLim(1), '%.3f');
+                obj.edit_XMax.String = num2str(obj.ControlParams.plotXLim(2), '%.3f');
             end
         end
 
@@ -2115,8 +2163,8 @@ classdef RasterGUI < handle
             end
 
             % Shared bin edges for all series
-            binSize = obj.PSTHBinSize;
-            binEdges = obj.PlotXLim(1):binSize:obj.PlotXLim(2);
+            binSize = obj.ControlParams.psthBinSize;
+            binEdges = obj.ControlParams.plotXLim(1):binSize:obj.ControlParams.plotXLim(2);
             if isempty(binEdges) || length(binEdges) < 2
                 hold(ax, 'off');
                 return;
@@ -2124,8 +2172,7 @@ classdef RasterGUI < handle
             binCenters = (binEdges(1:end-1) + binEdges(2:end)) / 2;
 
             % Determine Y axis label from selected units
-            psthUnitStrs = obj.popup_PSTHUnits.String;
-            psthUnit = psthUnitStrs{obj.popup_PSTHUnits.Value};
+            psthUnit = obj.ControlParams.psthUnits;
             switch psthUnit
                 case 'Rate (Hz)',    yLabel = 'Firing rate (Hz)';
                 case 'Count/trial',  yLabel = 'Count/trial';
@@ -2134,8 +2181,7 @@ classdef RasterGUI < handle
             end
 
             % Determine count mode (Onsets, Offsets, or Full duration)
-            psthCountStrs = obj.popup_PSTHCount.String;
-            psthCountMode = psthCountStrs{obj.popup_PSTHCount.Value};
+            psthCountMode = obj.ControlParams.psthCount;
 
             % Plot each PSTH series as a line in its color
             for psthIdx = 1:length(psthSeriesIndices)
@@ -2181,8 +2227,8 @@ classdef RasterGUI < handle
                 end
 
                 % Smooth if requested
-                if obj.PSTHSmoothingWindow > 1
-                    psthValues = movmean(psthValues, obj.PSTHSmoothingWindow);
+                if obj.ControlParams.psthSmoothingWindow > 1
+                    psthValues = movmean(psthValues, obj.ControlParams.psthSmoothingWindow);
                 end
 
                 % Plot using the series' psthStyle setting
@@ -2218,13 +2264,20 @@ classdef RasterGUI < handle
             arguments
                 obj RasterGUI
             end
+
+            % Sync legend settings from GUI so this works when called
+            % directly from checkbox callbacks (without full syncOptionsFromGUI)
+            obj.ControlParams.showLegend = logical(obj.check_ShowLegend.Value);
+            obj.ControlParams.legendTriggers = logical(obj.check_LegendTriggers.Value);
+            obj.ControlParams.legendEvents = logical(obj.check_LegendEvents.Value);
+
             ax = obj.axes_Raster;
 
             % Remove any existing legend and dummy handles
             legend(ax, 'off');
             delete(findobj(ax, 'Tag', 'LegendDummy'));
 
-            if ~obj.check_ShowLegend.Value
+            if ~obj.ControlParams.showLegend
                 return;
             end
 
@@ -2232,7 +2285,7 @@ classdef RasterGUI < handle
             dummyHandles = gobjects(0);
 
             % Add trigger label entries (colored patches)
-            if obj.check_LegendTriggers.Value && ~isempty(obj.TriggerLabelValues)
+            if obj.ControlParams.legendTriggers && ~isempty(obj.TriggerLabelValues)
                 for labelNum = 1:length(obj.TriggerLabelValues)
                     labelVal = obj.TriggerLabelValues(labelNum);
                     color = obj.TriggerLabelColors(labelNum, :);
@@ -2254,13 +2307,13 @@ classdef RasterGUI < handle
             end
 
             % Add event series entries (colored lines)
-            if obj.check_LegendEvents.Value && ~isempty(obj.eventSeries)
+            if obj.ControlParams.legendEvents && ~isempty(obj.eventSeries)
                 for seriesNum = 1:length(obj.eventSeries)
                     s = obj.eventSeries(seriesNum);
                     h = plot(ax, NaN, NaN, '|', ...
                         'Color', s.color, ...
                         'MarkerSize', 10, ...
-                        'LineWidth', max(obj.PlotTickSize(3), 1.5), ...
+                        'LineWidth', max(obj.ControlParams.plotTickSize(3), 1.5), ...
                         'DisplayName', s.name, ...
                         'Tag', 'LegendDummy');
                     dummyHandles(end+1) = h; %#ok<AGROW>
@@ -2310,8 +2363,7 @@ classdef RasterGUI < handle
             end
 
             % Count mode (same as PSTH)
-            psthCountStrs = obj.popup_PSTHCount.String;
-            psthCountMode = psthCountStrs{obj.popup_PSTHCount.Value};
+            psthCountMode = obj.ControlParams.psthCount;
 
             % Binning parameters — counts reflect all events in each
             % trial's full window, not just the visible X range.
@@ -2435,137 +2487,61 @@ classdef RasterGUI < handle
             arguments
                 obj RasterGUI
             end
-            % Saves semantic names (not popup indices) so presets are
-            % portable across different dbases.
-
-            % Trigger settings
-            trigSourceStrs = obj.popup_TriggerSource.String;
-            preset.triggerSource = trigSourceStrs{obj.popup_TriggerSource.Value};
-            trigTypeStrs = obj.popup_TriggerType.String;
-            preset.triggerType = trigTypeStrs{obj.popup_TriggerType.Value};
-            alignStrs = obj.popup_TriggerAlignment.String;
-            preset.triggerAlignment = alignStrs{obj.popup_TriggerAlignment.Value};
-
-            % Event series (save the config for each series, without triggerInfo)
-            seriesConfigs = struct([]);
-            for k = 1:length(obj.eventSeries)
-                s = obj.eventSeries(k);
-                seriesConfigs(k).name = s.name;
-                seriesConfigs(k).sourceIdx = s.sourceIdx;
-                seriesConfigs(k).type = s.type;
-                seriesConfigs(k).filterMode = s.filterMode;
-                seriesConfigs(k).filterList = s.filterList;
-                seriesConfigs(k).burstFrequency = s.burstFrequency;
-                seriesConfigs(k).burstMinSpikes = s.burstMinSpikes;
-                seriesConfigs(k).selectionMode = s.selectionMode;
-                seriesConfigs(k).color = s.color;
-                seriesConfigs(k).showPSTH = s.showPSTH;
-                seriesConfigs(k).psthStyle = s.psthStyle;
-            end
-            preset.eventSeries = seriesConfigs;
-
-            % Window settings
-            startRefStrs = obj.popup_StartReference.String;
-            preset.startReference = startRefStrs{obj.popup_StartReference.Value};
-            stopRefStrs = obj.popup_StopReference.String;
-            preset.stopReference = stopRefStrs{obj.popup_StopReference.Value};
-            preset.excludeIncomplete = logical(obj.check_ExcludeIncomplete.Value);
-            preset.plotOtherTrialTriggers = logical(obj.check_PlotOtherTrialTriggers.Value);
-            preset.excludePartialEvents = logical(obj.check_ExcludePartialEvents.Value);
-
-            % Sort settings
-            primarySortStrs = obj.popup_PrimarySort.String;
-            preset.primarySort = primarySortStrs{obj.popup_PrimarySort.Value};
-            secondarySortStrs = obj.popup_SecondarySort.String;
-            preset.secondarySort = secondarySortStrs{obj.popup_SecondarySort.Value};
-            preset.ascending = logical(obj.radio_Ascending.Value);
-            preset.groupLabels = logical(obj.check_GroupLabels.Value);
-
-            % File settings
-            fileStrs = obj.popup_Files.String;
-            preset.fileFilter = fileStrs{obj.popup_Files.Value};
-
-            % PSTH settings
-            psthUnitStrs = obj.popup_PSTHUnits.String;
-            preset.psthUnits = psthUnitStrs{obj.popup_PSTHUnits.Value};
-            psthCountStrs = obj.popup_PSTHCount.String;
-            preset.psthCount = psthCountStrs{obj.popup_PSTHCount.Value};
-
-            % Plot settings
-            preset.plotXLim = obj.PlotXLim;
-            preset.plotTickSize = obj.PlotTickSize;
-            preset.plotOverlap = obj.PlotOverlap;
-            preset.psthBinSize = obj.PSTHBinSize;
-            preset.psthSmoothingWindow = obj.PSTHSmoothingWindow;
-
-            % Parameters
-            preset.ControlParams = obj.ControlParams;
-
-            % File range
-            preset.fileRange = obj.FileRange;
+            % ControlParams is the single source of truth. Ensure it's
+            % current, then return it directly.
+            obj.syncOptionsFromGUI();
+            preset = obj.ControlParams;
         end
 
         function applyPreset(obj, preset)
-            % Apply a preset struct to the GUI, matching names to current
-            % popup contents. Warns if a saved selection isn't available.
+            % Apply a ControlParams preset struct to the GUI — the inverse
+            % of syncOptionsFromGUI. Writes preset values back to all GUI
+            % controls, then stores the struct as the active ControlParams.
             arguments
                 obj RasterGUI
                 preset (1, 1) struct
             end
 
+            % --- Trigger settings ---
             obj.setPopupByName(obj.popup_TriggerSource, preset, 'triggerSource');
             obj.setPopupByName(obj.popup_TriggerType, preset, 'triggerType');
-            obj.setPopupByName(obj.popup_TriggerAlignment, preset, 'triggerAlignment');
+            obj.setPopupByName(obj.popup_TriggerAlignment, preset, 'alignmentType');
 
-            % Restore event series from preset.
-            % Each series config is rebuilt from the saved fields, with
-            % an empty triggerInfo (data must be regenerated).
-            if isfield(preset, 'eventSeries')
-                % Clear existing series
-                obj.eventSeries = struct( ...
-                    'name', {}, 'sourceIdx', {}, 'type', {}, ...
-                    'filterMode', {}, 'filterList', {}, ...
-                    'burstFrequency', {}, 'burstMinSpikes', {}, ...
-                    'selectionMode', {}, ...
-                    'color', {}, 'showPSTH', {}, 'psthStyle', {}, ...
-                    'triggerInfo', {});
-
-                % Recreate each series from the saved config
-                for k = 1:length(preset.eventSeries)
-                    sc = preset.eventSeries(k);
-                    obj.eventSeries(k).name = sc.name;
-                    obj.eventSeries(k).sourceIdx = sc.sourceIdx;
-                    obj.eventSeries(k).type = sc.type;
-                    obj.eventSeries(k).filterMode = sc.filterMode;
-                    obj.eventSeries(k).filterList = sc.filterList;
-                    % Backward compatibility: use defaults if burst fields
-                    % are missing from older presets
-                    if isfield(sc, 'burstFrequency')
-                        obj.eventSeries(k).burstFrequency = sc.burstFrequency;
-                    else
-                        obj.eventSeries(k).burstFrequency = 100;
-                    end
-                    if isfield(sc, 'burstMinSpikes')
-                        obj.eventSeries(k).burstMinSpikes = sc.burstMinSpikes;
-                    else
-                        obj.eventSeries(k).burstMinSpikes = 2;
-                    end
-                    if isfield(sc, 'selectionMode')
-                        obj.eventSeries(k).selectionMode = sc.selectionMode;
-                    else
-                        obj.eventSeries(k).selectionMode = 'Selected only';
-                    end
-                    obj.eventSeries(k).color = sc.color;
-                    obj.eventSeries(k).showPSTH = logical(sc.showPSTH);
-                    if isfield(sc, 'psthStyle')
-                        obj.eventSeries(k).psthStyle = sc.psthStyle;
-                    else
-                        obj.eventSeries(k).psthStyle = 'Both';
-                    end
-                    % Event data stored separately in obj.EventData
+            % --- Trigger filter ---
+            if isfield(preset, 'trigger')
+                obj.setPopupByName(obj.popup_TrigFilterMode, preset.trigger, 'filterMode');
+                if isfield(preset.trigger, 'filterList')
+                    obj.edit_TrigFilterList.String = preset.trigger.filterList;
                 end
+            end
 
-                % Update the list display and select the first series
+            % --- Window references ---
+            obj.setPopupByName(obj.popup_StartReference, preset, 'startRefType');
+            obj.setPopupByName(obj.popup_StopReference, preset, 'stopRefType');
+            if isfield(preset, 'preStartRef')
+                obj.edit_PreStart.String = num2str(preset.preStartRef);
+            end
+            if isfield(preset, 'postStopRef')
+                obj.edit_PostStop.String = num2str(preset.postStopRef);
+            end
+
+            % --- Exclude flags ---
+            obj.setCheckbox(obj.check_ExcludeIncomplete, preset, 'excludeIncomplete');
+            obj.setCheckbox(obj.check_PlotOtherTrialTriggers, preset, 'plotOtherTrialTriggers');
+            obj.setCheckbox(obj.check_ExcludePartialEvents, preset, 'excludePartialEvents');
+
+            % --- Sort settings ---
+            obj.setPopupByName(obj.popup_PrimarySort, preset, 'primarySort');
+            obj.setPopupByName(obj.popup_SecondarySort, preset, 'secondarySort');
+            if isfield(preset, 'sortDescending')
+                obj.radio_Descending.Value = preset.sortDescending;
+                obj.radio_Ascending.Value = ~preset.sortDescending;
+            end
+            obj.setCheckbox(obj.check_GroupLabels, preset, 'groupLabels');
+
+            % --- Event series ---
+            if isfield(preset, 'eventSeries')
+                obj.eventSeries = preset.eventSeries;
                 obj.refreshEventSeriesList();
                 if ~isempty(obj.eventSeries)
                     obj.list_EventSeries.Value = 1;
@@ -2573,36 +2549,45 @@ classdef RasterGUI < handle
                 end
             end
 
-            obj.setPopupByName(obj.popup_StartReference, preset, 'startReference');
-            obj.setPopupByName(obj.popup_StopReference, preset, 'stopReference');
-            obj.setCheckbox(obj.check_ExcludeIncomplete, preset, 'excludeIncomplete');
-            obj.setCheckbox(obj.check_PlotOtherTrialTriggers, preset, 'plotOtherTrialTriggers');
-            obj.setCheckbox(obj.check_ExcludePartialEvents, preset, 'excludePartialEvents');
-
-            obj.setPopupByName(obj.popup_PrimarySort, preset, 'primarySort');
-            obj.setPopupByName(obj.popup_SecondarySort, preset, 'secondarySort');
-            if isfield(preset, 'ascending')
-                obj.radio_Ascending.Value = preset.ascending;
-                obj.radio_Descending.Value = ~preset.ascending;
-            end
-            obj.setCheckbox(obj.check_GroupLabels, preset, 'groupLabels');
-
+            % --- File filter settings ---
             obj.setPopupByName(obj.popup_Files, preset, 'fileFilter');
+            if isfield(preset, 'fileRangeExpression')
+                obj.edit_FileRange.String = preset.fileRangeExpression;
+            end
+            obj.setPopupByName(obj.popup_PropertyFilterMode, preset, 'propertyFilterMode');
+            obj.setPopupByName(obj.popup_PropertyName, preset, 'propertyName');
+            if isfield(preset, 'propertyExpression')
+                obj.edit_PropertyExpression.String = preset.propertyExpression;
+            end
+
+            % --- Plot settings ---
+            obj.setCheckbox(obj.check_AutoXLim, preset, 'autoXLim');
+            if isfield(preset, 'plotXLim')
+                obj.edit_XMin.String = num2str(preset.plotXLim(1));
+                obj.edit_XMax.String = num2str(preset.plotXLim(2));
+            end
+            if isfield(preset, 'plotTickSize')
+                obj.edit_TickHeight.String = num2str(preset.plotTickSize(1));
+                obj.edit_TickLineWidth.String = num2str(preset.plotTickSize(3));
+            end
+            if isfield(preset, 'psthBinSize')
+                obj.edit_BinSize.String = num2str(preset.psthBinSize);
+            end
+            if isfield(preset, 'plotOverlap')
+                obj.edit_Overlap.String = num2str(preset.plotOverlap);
+            end
+
+            % --- PSTH settings ---
             obj.setPopupByName(obj.popup_PSTHUnits, preset, 'psthUnits');
             obj.setPopupByName(obj.popup_PSTHCount, preset, 'psthCount');
 
-            if isfield(preset, 'plotXLim'), obj.PlotXLim = preset.plotXLim; end
-            if isfield(preset, 'plotTickSize'), obj.PlotTickSize = preset.plotTickSize; end
-            if isfield(preset, 'plotOverlap'), obj.PlotOverlap = preset.plotOverlap; end
-            if isfield(preset, 'psthBinSize'), obj.PSTHBinSize = preset.psthBinSize; end
-            if isfield(preset, 'psthSmoothingWindow'), obj.PSTHSmoothingWindow = preset.psthSmoothingWindow; end
-            if isfield(preset, 'ControlParams')
-                obj.ControlParams = preset.ControlParams; 
-            elseif isfield(preset, 'P')
-                % Legacy params field
-                obj.ControlParams = preset.P;
-            end
-            if isfield(preset, 'fileRange'), obj.FileRange = preset.fileRange; end
+            % --- Legend settings ---
+            obj.setCheckbox(obj.check_ShowLegend, preset, 'showLegend');
+            obj.setCheckbox(obj.check_LegendTriggers, preset, 'legendTriggers');
+            obj.setCheckbox(obj.check_LegendEvents, preset, 'legendEvents');
+
+            % --- Apply the full ControlParams struct ---
+            obj.ControlParams = preset;
         end
 
         function loadPresetCallback(obj)
@@ -2999,6 +2984,17 @@ classdef RasterGUI < handle
             obj.list_EventSeries.Value = idx;
         end
 
+        function configs = getEventSeriesConfigs(obj)
+            % Return a struct array of event series configs, suitable for
+            % storing in ControlParams or saving to a preset. Since
+            % eventSeries is already pure config (data lives in EventData),
+            % this just returns a copy.
+            arguments
+                obj RasterGUI
+            end
+            configs = obj.eventSeries;
+        end
+
         function showEventSeriesDetail(obj)
             % Show the detail panel and update context-dependent controls
             % (filter vs burst) based on the current source and type.
@@ -3342,7 +3338,7 @@ classdef RasterGUI < handle
             % Source index 0 means "Sound", which provides behavioral
             % triggers (syllables, markers, etc.). Any other source is
             % an event detector, which provides neural event types.
-            numEventSources = length(obj.eg.dbase.EventSources);
+            % numEventSources = length(obj.eg.dbase.EventSources);
             trigSourceIdx = obj.popup_TriggerSource.Value - 1;
             if trigSourceIdx == 0
                 % Sound source: behavioral trigger types
@@ -3402,26 +3398,30 @@ classdef RasterGUI < handle
             obj.edit_TrigFilterList.Enable = onOff{~isAll + 1};
         end
         function syncOptionsFromGUI(obj)
-            % Read all inline option controls into properties before generating.
+            % Read all GUI controls into ControlParams — the single source
+            % of truth for the entire GUI state. Also computes the derived
+            % FileRange property from the raw filter settings.
             arguments
                 obj RasterGUI
             end
 
-            % Trigger filter
+            % --- Trigger filter ---
             trigModes = obj.popup_TrigFilterMode.String;
             obj.ControlParams.trigger.filterMode = trigModes{obj.popup_TrigFilterMode.Value};
             obj.ControlParams.trigger.filterList = obj.edit_TrigFilterList.String;
 
-            % Trigger source and type
+            % --- Trigger source and type ---
+            trigSourceStrs = obj.popup_TriggerSource.String;
+            obj.ControlParams.triggerSource = trigSourceStrs{obj.popup_TriggerSource.Value};
             obj.ControlParams.triggerSourceIdx = obj.popup_TriggerSource.Value - 1;
             trigTypeStrs = obj.popup_TriggerType.String;
             obj.ControlParams.triggerType = trigTypeStrs{obj.popup_TriggerType.Value};
 
-            % Alignment
+            % --- Alignment ---
             alignStrs = obj.popup_TriggerAlignment.String;
             obj.ControlParams.alignmentType = alignStrs{obj.popup_TriggerAlignment.Value};
 
-            % Window references
+            % --- Window references ---
             startRefStrs = obj.popup_StartReference.String;
             obj.ControlParams.startRefType = startRefStrs{obj.popup_StartReference.Value};
             stopRefStrs = obj.popup_StopReference.String;
@@ -3429,11 +3429,12 @@ classdef RasterGUI < handle
             obj.ControlParams.preStartRef = str2double(obj.edit_PreStart.String);
             obj.ControlParams.postStopRef = str2double(obj.edit_PostStop.String);
 
-            % Exclude flags
+            % --- Exclude flags ---
             obj.ControlParams.excludeIncomplete = logical(obj.check_ExcludeIncomplete.Value);
             obj.ControlParams.excludePartialEvents = logical(obj.check_ExcludePartialEvents.Value);
+            obj.ControlParams.plotOtherTrialTriggers = logical(obj.check_PlotOtherTrialTriggers.Value);
 
-            % Sort settings
+            % --- Sort settings ---
             primarySortStrs = obj.popup_PrimarySort.String;
             obj.ControlParams.primarySort = primarySortStrs{obj.popup_PrimarySort.Value};
             secondarySortStrs = obj.popup_SecondarySort.String;
@@ -3441,25 +3442,33 @@ classdef RasterGUI < handle
             obj.ControlParams.sortDescending = logical(obj.radio_Descending.Value);
             obj.ControlParams.groupLabels = logical(obj.check_GroupLabels.Value);
 
-            % Event series: save the currently selected series' detail
-            % controls back to the series array
+            % --- Event series ---
+            % Save the currently selected series' detail controls back to
+            % the series array, then snapshot all configs into ControlParams
             if ~isempty(obj.eventSeries)
                 obj.saveSelectedEventSeries();
             end
+            obj.ControlParams.eventSeries = obj.getEventSeriesConfigs();
 
-            % File range
+            % --- File filter settings (raw GUI values) ---
+            fileFilterStrs = obj.popup_Files.String;
+            obj.ControlParams.fileFilter = fileFilterStrs{obj.popup_Files.Value};
+            obj.ControlParams.fileRangeExpression = obj.edit_FileRange.String;
+            propModes = obj.popup_PropertyFilterMode.String;
+            obj.ControlParams.propertyFilterMode = propModes{obj.popup_PropertyFilterMode.Value};
+            propNames = obj.popup_PropertyName.String;
+            obj.ControlParams.propertyName = propNames{obj.popup_PropertyName.Value};
+            obj.ControlParams.propertyExpression = obj.edit_PropertyExpression.String;
+
+            % --- Compute derived FileRange from raw filter settings ---
             try
-                obj.FileRange = eval(obj.edit_FileRange.String);
+                obj.FileRange = eval(obj.ControlParams.fileRangeExpression);
             catch
                 electro_gui.issueWarning('Invalid file range expression, using all files.', 'badFileRange');
                 numFiles = electro_gui.getNumFiles(obj.eg.dbase);
                 obj.FileRange = 1:numFiles;
             end
-
-            % Apply file read state filter
-            fileFilterStrs = obj.popup_Files.String;
-            fileFilter = fileFilterStrs{obj.popup_Files.Value};
-            switch fileFilter
+            switch obj.ControlParams.fileFilter
                 case 'Only read files'
                     readMask = obj.eg.dbase.FileReadState(obj.FileRange);
                     obj.FileRange = obj.FileRange(readMask);
@@ -3467,35 +3476,41 @@ classdef RasterGUI < handle
                     readMask = obj.eg.dbase.FileReadState(obj.FileRange);
                     obj.FileRange = obj.FileRange(~readMask);
             end
-
-            % Apply property filter
-            propModes = obj.popup_PropertyFilterMode.String;
-            propMode = propModes{obj.popup_PropertyFilterMode.Value};
-            switch propMode
+            switch obj.ControlParams.propertyFilterMode
                 case 'Single'
-                    propNames = obj.popup_PropertyName.String;
-                    propName = propNames{obj.popup_PropertyName.Value};
-                    if ~strcmp(propName, '(No properties)')
-                        propValues = obj.eg.getPropertyValue(propName, obj.FileRange);
+                    if ~strcmp(obj.ControlParams.propertyName, '(No properties)')
+                        propValues = obj.eg.getPropertyValue(obj.ControlParams.propertyName, obj.FileRange);
                         obj.FileRange = obj.FileRange(logical(propValues));
                     end
                 case 'Expression'
-                    expr = obj.edit_PropertyExpression.String;
-                    if ~isempty(strtrim(expr))
+                    if ~isempty(strtrim(obj.ControlParams.propertyExpression))
                         try
-                            obj.FileRange = obj.evaluatePropertyExpression(expr, obj.FileRange);
+                            obj.FileRange = obj.evaluatePropertyExpression( ...
+                                obj.ControlParams.propertyExpression, obj.FileRange);
                         catch ME
                             warndlg(sprintf('Property expression error: %s', ME.message), 'Expression error');
                         end
                     end
             end
 
-            % Plot settings
-            obj.PlotXLim = [str2double(obj.edit_XMin.String), str2double(obj.edit_XMax.String)];
-            obj.PlotTickSize(1) = str2double(obj.edit_TickHeight.String);
-            obj.PlotTickSize(3) = str2double(obj.edit_TickLineWidth.String);
-            obj.PSTHBinSize = str2double(obj.edit_BinSize.String);
-            obj.PlotOverlap = str2double(obj.edit_Overlap.String);
+            % --- Plot settings ---
+            obj.ControlParams.autoXLim = logical(obj.check_AutoXLim.Value);
+            obj.ControlParams.plotXLim = [str2double(obj.edit_XMin.String), str2double(obj.edit_XMax.String)];
+            obj.ControlParams.plotTickSize(1) = str2double(obj.edit_TickHeight.String);
+            obj.ControlParams.plotTickSize(3) = str2double(obj.edit_TickLineWidth.String);
+            obj.ControlParams.psthBinSize = str2double(obj.edit_BinSize.String);
+            obj.ControlParams.plotOverlap = str2double(obj.edit_Overlap.String);
+
+            % --- PSTH settings ---
+            psthUnitStrs = obj.popup_PSTHUnits.String;
+            obj.ControlParams.psthUnits = psthUnitStrs{obj.popup_PSTHUnits.Value};
+            psthCountStrs = obj.popup_PSTHCount.String;
+            obj.ControlParams.psthCount = psthCountStrs{obj.popup_PSTHCount.Value};
+
+            % --- Legend settings ---
+            obj.ControlParams.showLegend = logical(obj.check_ShowLegend.Value);
+            obj.ControlParams.legendTriggers = logical(obj.check_LegendTriggers.Value);
+            obj.ControlParams.legendEvents = logical(obj.check_LegendEvents.Value);
         end
         function autoXLimChanged(obj)
             % Called when the Auto X limits checkbox changes.
@@ -3503,6 +3518,7 @@ classdef RasterGUI < handle
                 obj RasterGUI
             end
             obj.updateControlStates();
+            obj.syncOptionsFromGUI();
             obj.applyXLim();
         end
         function xLimChanged(obj)
@@ -3521,11 +3537,11 @@ classdef RasterGUI < handle
             if isempty(obj.TriggerData)
                 return;
             end
-            if obj.check_AutoXLim.Value
+            if obj.ControlParams.autoXLim
                 % Recompute tight limits from raster data
                 obj.plotRaster();  % Will compute and set tight X limits
             else
-                obj.axes_Raster.XLim = obj.PlotXLim;  % PSTH follows via linkaxes
+                obj.axes_Raster.XLim = obj.ControlParams.plotXLim;  % PSTH follows via linkprop
             end
             % Replot PSTH and histogram since their bin range depends on X limits
             obj.plotPSTH();
