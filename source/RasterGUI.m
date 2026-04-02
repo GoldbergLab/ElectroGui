@@ -266,6 +266,15 @@ classdef RasterGUI < handle
         LinkXLim = []
         LinkYLim = []
         AxisPosHist double = []
+
+        % Crosshair guide graphics handles (shift+mouseover)
+        GuideVertRaster = gobjects(0)    % Vertical line on raster
+        GuideVertPSTH = gobjects(0)      % Vertical line on PSTH
+        GuideHorizRaster = gobjects(0)   % Horizontal line on raster
+        GuideHorizHist = gobjects(0)     % Horizontal line on histogram
+        GuideTrialLabel = gobjects(0)    % "Trial N" text on raster
+        GuideTimeLabel = gobjects(0)     % "0.123 s" text on PSTH
+        GuidesVisible logical = false    % Whether guides are currently shown
     end
 
     %% Constructor
@@ -1372,7 +1381,8 @@ classdef RasterGUI < handle
                 'MenuBar', 'none', ...
                 'Visible', 'off', ...
                 'CloseRequestFcn', @(~,~) obj.hide(), ...
-                'WindowScrollWheelFcn', @(~, evt) obj.onScrollWheel(evt));
+                'WindowScrollWheelFcn', @(~, evt) obj.onScrollWheel(evt), ...
+                'WindowButtonMotionFcn', @(~,~) obj.onMouseMotion());
 
             % --- Status bar ---
             obj.statusBar = StatusBar(obj.figure_Main);
@@ -4079,21 +4089,25 @@ classdef RasterGUI < handle
             end
         end
 
-        function showTrialInfo(obj, clickX, clickY)
-            % Display information about the clicked trial in the status bar.
+        function [infoStr, displayIdx] = getTrialInfoString(obj, dataX, dataY)
+            % Build a formatted info string for the trial nearest to the
+            % given data coordinates. Returns the string and the display
+            % index (1-based position in the sorted trial order).
             arguments
                 obj RasterGUI
-                clickX (1, 1) double
-                clickY (1, 1) double
+                dataX (1, 1) double
+                dataY (1, 1) double
             end
             numTrials = length(obj.TrialOrder);
+            infoStr = '';
+            displayIdx = [];
             if numTrials == 0
                 return;
             end
 
             % Find the nearest trial by Y position (trials are at integer
             % Y values 1..numTrials)
-            [~, displayIdx] = min(abs(clickY - (1:numTrials)));
+            [~, displayIdx] = min(abs(dataY - (1:numTrials)));
             trialIdx = obj.TrialOrder(displayIdx);
             trial = obj.TriggerData(trialIdx);
 
@@ -4112,9 +4126,211 @@ classdef RasterGUI < handle
                 'Trial: ', num2str(displayIdx), ...
                 spc, 'File: ', num2str(trial.fileNum), ...
                 spc, 'Label: ', labelStr, ...
-                spc, 'Click time: ', num2str(clickX, '%.4f'), ' s'];
+                spc, 'Time: ', num2str(dataX, '%.4f'), ' s'];
+        end
 
-            obj.statusBar.Status = infoStr;
+        function showTrialInfo(obj, clickX, clickY)
+            % Display information about the clicked trial in the status bar.
+            arguments
+                obj RasterGUI
+                clickX (1, 1) double
+                clickY (1, 1) double
+            end
+            infoStr = obj.getTrialInfoString(clickX, clickY);
+            if ~isempty(infoStr)
+                obj.statusBar.Status = infoStr;
+            end
+        end
+
+        %% Crosshair guides (shift+mouseover)
+
+        function createGuides(obj)
+            % Create the crosshair guide lines and text labels. Called
+            % lazily on first shift-hover. All objects start invisible.
+            arguments
+                obj RasterGUI
+            end
+            guideColor = [0.4, 0.4, 0.4];
+            guideStyle = '--';
+            guideWidth = 0.5;
+            commonProps = {'HitTest', 'off', 'PickableParts', 'none', ...
+                'HandleVisibility', 'off', 'Visible', 'off'};
+
+            % Vertical guide lines (raster + PSTH)
+            hold(obj.axes_Raster, 'on');
+            obj.GuideVertRaster = plot(obj.axes_Raster, [NaN, NaN], [NaN, NaN], ...
+                guideStyle, 'Color', guideColor, 'LineWidth', guideWidth, ...
+                commonProps{:});
+            hold(obj.axes_Raster, 'off');
+
+            hold(obj.axes_PSTH, 'on');
+            obj.GuideVertPSTH = plot(obj.axes_PSTH, [NaN, NaN], [NaN, NaN], ...
+                guideStyle, 'Color', guideColor, 'LineWidth', guideWidth, ...
+                commonProps{:});
+            hold(obj.axes_PSTH, 'off');
+
+            % Horizontal guide lines (raster + histogram)
+            hold(obj.axes_Raster, 'on');
+            obj.GuideHorizRaster = plot(obj.axes_Raster, [NaN, NaN], [NaN, NaN], ...
+                guideStyle, 'Color', guideColor, 'LineWidth', guideWidth, ...
+                commonProps{:});
+            hold(obj.axes_Raster, 'off');
+
+            hold(obj.axes_Hist, 'on');
+            obj.GuideHorizHist = plot(obj.axes_Hist, [NaN, NaN], [NaN, NaN], ...
+                guideStyle, 'Color', guideColor, 'LineWidth', guideWidth, ...
+                commonProps{:});
+            hold(obj.axes_Hist, 'off');
+
+            % Trial label on right edge of raster
+            hold(obj.axes_Raster, 'on');
+            obj.GuideTrialLabel = text(obj.axes_Raster, NaN, NaN, '', ...
+                'HorizontalAlignment', 'right', ...
+                'VerticalAlignment', 'bottom', ...
+                'FontSize', 8, 'Color', guideColor, ...
+                'BackgroundColor', [1, 1, 1, 0.7], ...
+                'Margin', 1, ...
+                commonProps{:});
+            hold(obj.axes_Raster, 'off');
+
+            % Time label at top of PSTH
+            hold(obj.axes_PSTH, 'on');
+            obj.GuideTimeLabel = text(obj.axes_PSTH, NaN, NaN, '', ...
+                'HorizontalAlignment', 'left', ...
+                'VerticalAlignment', 'top', ...
+                'FontSize', 8, 'Color', guideColor, ...
+                'BackgroundColor', [1, 1, 1, 0.7], ...
+                'Margin', 1, ...
+                commonProps{:});
+            hold(obj.axes_PSTH, 'off');
+        end
+
+        function updateGuidePositions(obj, dataX, dataY)
+            % Move all guide lines and labels to the given data position.
+            % dataY should already be snapped to the nearest trial index.
+            arguments
+                obj RasterGUI
+                dataX (1, 1) double
+                dataY (1, 1) double
+            end
+            % Vertical lines span full Y extent of each axis
+            rasterYLim = obj.axes_Raster.YLim;
+            psthYLim = obj.axes_PSTH.YLim;
+            obj.GuideVertRaster.XData = [dataX, dataX];
+            obj.GuideVertRaster.YData = rasterYLim;
+            obj.GuideVertPSTH.XData = [dataX, dataX];
+            obj.GuideVertPSTH.YData = psthYLim;
+
+            % Horizontal lines span full X extent of each axis
+            rasterXLim = obj.axes_Raster.XLim;
+            histXLim = obj.axes_Hist.XLim;
+            obj.GuideHorizRaster.XData = rasterXLim;
+            obj.GuideHorizRaster.YData = [dataY, dataY];
+            obj.GuideHorizHist.XData = histXLim;
+            obj.GuideHorizHist.YData = [dataY, dataY];
+
+            % Trial label near right edge of raster (inset slightly)
+            numTrials = length(obj.TrialOrder);
+            trialNum = max(1, min(numTrials, round(dataY)));
+            xInset = diff(rasterXLim) * 0.01;
+            obj.GuideTrialLabel.Position = [rasterXLim(2) - xInset, dataY, 0];
+            obj.GuideTrialLabel.String = ['Trial ', num2str(trialNum)];
+
+            % Time label near top of PSTH (inset slightly)
+            yInset = diff(psthYLim) * 0.03;
+            obj.GuideTimeLabel.Position = [dataX, psthYLim(2) - yInset, 0];
+            obj.GuideTimeLabel.String = [num2str(dataX, '%.4f'), ' s'];
+        end
+
+        function showGuides(obj)
+            % Make all crosshair guide objects visible.
+            arguments
+                obj RasterGUI
+            end
+            obj.GuideVertRaster.Visible = 'on';
+            obj.GuideVertPSTH.Visible = 'on';
+            obj.GuideHorizRaster.Visible = 'on';
+            obj.GuideHorizHist.Visible = 'on';
+            obj.GuideTrialLabel.Visible = 'on';
+            obj.GuideTimeLabel.Visible = 'on';
+            obj.GuidesVisible = true;
+        end
+
+        function hideGuides(obj)
+            % Hide all crosshair guide objects.
+            arguments
+                obj RasterGUI
+            end
+            if ~isempty(obj.GuideVertRaster) && isvalid(obj.GuideVertRaster)
+                obj.GuideVertRaster.Visible = 'off';
+                obj.GuideVertPSTH.Visible = 'off';
+                obj.GuideHorizRaster.Visible = 'off';
+                obj.GuideHorizHist.Visible = 'off';
+                obj.GuideTrialLabel.Visible = 'off';
+                obj.GuideTimeLabel.Visible = 'off';
+            end
+            obj.GuidesVisible = false;
+        end
+
+        function onMouseMotion(obj)
+            % Handle mouse motion over the figure. When shift is held and
+            % the mouse is over the raster axes, show crosshair guides
+            % spanning all axes and update the status bar with trial info.
+            arguments
+                obj RasterGUI
+            end
+            % Check if shift is held
+            modifier = get(obj.figure_Main, 'CurrentModifier');
+            isShift = any(strcmp(modifier, 'shift'));
+
+            if ~isShift
+                % Shift not held — hide guides if they're showing
+                if obj.GuidesVisible
+                    obj.hideGuides();
+                end
+                return;
+            end
+
+            % Shift is held — check if mouse is over the raster axes
+            if isempty(obj.TriggerData)
+                return;
+            end
+            ax = obj.axes_Raster;
+            cp = ax.CurrentPoint;
+            dataX = cp(1, 1);
+            dataY = cp(1, 2);
+            xl = ax.XLim;
+            yl = ax.YLim;
+
+            if dataX < xl(1) || dataX > xl(2) || ...
+               dataY < yl(1) || dataY > yl(2)
+                % Mouse is outside raster axes
+                if obj.GuidesVisible
+                    obj.hideGuides();
+                end
+                return;
+            end
+
+            % Snap Y to nearest trial
+            numTrials = length(obj.TrialOrder);
+            snappedY = max(1, min(numTrials, round(dataY)));
+
+            % Create guides lazily on first use
+            if isempty(obj.GuideVertRaster) || ~isvalid(obj.GuideVertRaster)
+                obj.createGuides();
+            end
+
+            % Update positions and show
+            obj.updateGuidePositions(dataX, snappedY);
+            if ~obj.GuidesVisible
+                obj.showGuides();
+            end
+
+            % Update status bar with trial info
+            infoStr = obj.getTrialInfoString(dataX, snappedY);
+            if ~isempty(infoStr)
+                obj.statusBar.Status = infoStr;
+            end
         end
 
         function onScrollWheel(obj, evt)
