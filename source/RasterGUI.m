@@ -179,9 +179,48 @@ classdef RasterGUI < handle
     %% Properties - state
     properties% (Access = private)  % TODO: restore access control
 
-        % Data
-        triggerInfo struct = struct()       % Sorted trigger info (used for plotting)
-        preSortTriggerInfo struct = struct() % Cached alignment output before sorting
+        %
+        % Trial data is immutable after generation. Sorting and filtering
+        % are done by recomputing TrialOrder, an index vector into these
+        % arrays, without touching the data itself.
+
+        % 1xN struct array, one element per trial. Each element has:
+        %   fileNum, isComplete, absTime, label, corrShift,
+        %   onset, offset (current trigger boundaries, in seconds
+        %       relative to the alignment point),
+        %   prevOnset, prevOffset, nextOnset, nextOffset (neighboring
+        %       trigger boundaries, in seconds relative to alignment),
+        %   dataStart, dataStop (visible window bounds in seconds)
+        TriggerData struct = struct( ...
+            'fileNum', {}, ...
+            'isComplete', {}, ...
+            'absTime', {}, ...
+            'label', {}, ...
+            'corrShift', {}, ...
+            'onset', {}, ...
+            'offset', {}, ...
+            'prevOnset', {}, ...
+            'prevOffset', {}, ...
+            'nextOnset', {}, ...
+            'nextOffset', {}, ...
+            'dataStart', {}, ...
+            'dataStop', {} ...
+        )
+
+        % 1xNumEventSeries cell array. EventData{k} is a 1xN struct
+        % array (same N as TriggerData) with fields:
+        %   onsets  - double vector of event onset times (seconds,
+        %             relative to alignment point)
+        %   offsets - double vector of event offset times
+        % Variable length per trial.
+        EventData cell = {}
+
+        % Index vector into TriggerData/EventData that defines the
+        % current display order and filtering. Recomputed by
+        % recomputeTrialOrder() when sort/filter settings change.
+        % Plotting indexes as TriggerData(TrialOrder) and
+        % EventData{k}(TrialOrder).
+        TrialOrder double = []
 
         % Trigger label coloring: parallel arrays mapping label values
         % to RGB colors. Persists across generates so manual color
@@ -189,10 +228,11 @@ classdef RasterGUI < handle
         TriggerLabelValues double = []      % Numeric label values (double of char)
         TriggerLabelColors double = []      % N x 3 RGB colors
 
-        % Event series: array of structs, one per event series
+        % Event series: array of structs, one per event series.
         % Each has: name, sourceIdx, type, filterMode, filterList,
         %           burstFrequency, burstMinSpikes, selectionMode,
-        %           color, showPSTH, psthStyle, triggerInfo
+        %           color, showPSTH, psthStyle
+        % Note: event *data* is stored separately in EventData, not here.
         eventSeries struct = struct( ...
             'name', {}, ...
             'sourceIdx', {}, ...    % Index into popup (1=Sound, 2+=event detectors)
@@ -204,8 +244,7 @@ classdef RasterGUI < handle
             'selectionMode', {}, ...   % 'All', 'Selected', 'Unselected'
             'color', {}, ...        % 1x3 RGB
             'showPSTH', {}, ...     % true/false
-            'psthStyle', {}, ...    % 'Line', 'Histogram', or 'Both'
-            'triggerInfo', {} ...   % Aligned event data for this series
+            'psthStyle', {} ...     % 'Line', 'Histogram', or 'Both'
         )
 
         % File range
@@ -255,8 +294,8 @@ classdef RasterGUI < handle
         % Background color
         BackgroundColor double = [1, 1, 1]
 
-        % Parameters
-        P struct = struct()
+        % Parameters (was "P" in old macro)
+        ControlParams struct = struct()
 
         % Warp points
         WarpPoints cell = {}
@@ -352,8 +391,8 @@ classdef RasterGUI < handle
 
         function generate(obj)
             % Generate the raster plot with current settings.
-            % This is the main entry point that runs the full pipeline:
-            % extract triggers -> align events -> filter -> sort -> warp -> plot
+            % Pipeline: snapshot GUI params -> extract trial data ->
+            % compute sort order -> update colors -> plot.
             arguments
                 obj RasterGUI
             end
@@ -369,7 +408,7 @@ classdef RasterGUI < handle
             obj.statusBar.Progress = 0;
             drawnow;
 
-            % Read inline options into P struct
+            % Snapshot all GUI control values
             obj.syncOptionsFromGUI();
 
             try
@@ -382,49 +421,10 @@ classdef RasterGUI < handle
                     return;
                 end
 
-                % --- Step 1: Get trigger times ---
-                obj.statusBar.Status = 'Extracting triggers...';
-                obj.statusBar.Progress = 0.1;
-                drawnow;
-                trigSourceIdx = obj.popup_TriggerSource.Value - 1;  % 0 = Sound
-                trigTypeStrs = obj.popup_TriggerType.String;
-                trigTypeStr = trigTypeStrs{obj.popup_TriggerType.Value};
-                [trig.on, trig.off, trig.info, ~] = obj.getEventStructure( ...
-                    trigSourceIdx, trigTypeStr, obj.P.trig);
+                % --- Extract triggers and events into immutable data ---
+                obj.extractTrialData();
 
-                % --- Step 2: Extract and align events for each series ---
-                numSeries = length(obj.eventSeries);
-                for seriesIdx = 1:numSeries
-                    s = obj.eventSeries(seriesIdx);
-                    obj.statusBar.Status = sprintf('Extracting events for "%s" (%d/%d)...', s.name, seriesIdx, numSeries);
-                    obj.statusBar.Progress = 0.1 + 0.35 * (seriesIdx - 1) / numSeries;
-                    drawnow;
-
-                    % Build a P struct for this series, overriding per-series params
-                    seriesP = obj.P.trig;
-                    seriesP.filterMode = s.filterMode;
-                    seriesP.filterList = s.filterList;
-                    seriesP.burstFrequency = s.burstFrequency;
-                    seriesP.burstMinSpikes = s.burstMinSpikes;
-                    seriesP.selectionMode = s.selectionMode;
-
-                    % Extract events
-                    eventSourceIdx = s.sourceIdx - 1;  % 0 = Sound
-                    [event.on, event.off, event.info, ~] = obj.getEventStructure( ...
-                        eventSourceIdx, s.type, seriesP);
-
-                    % Align events to triggers
-                    seriesTI = obj.alignEventsToTriggers(trig, event);
-
-                    % Store aligned data in the series
-                    obj.eventSeries(seriesIdx).triggerInfo = seriesTI;
-                end
-
-                % Use the first series' triggerInfo as the primary
-                % (for trigger metadata like absTime, labels, sort values)
-                ti = obj.eventSeries(1).triggerInfo;
-
-                if isempty(ti) || ~isfield(ti, 'absTime') || isempty(ti.absTime)
+                if isempty(obj.TriggerData)
                     obj.statusBar.Status = 'No triggers found';
                     obj.statusBar.Progress = [];
                     obj.updateControlStates();
@@ -433,56 +433,18 @@ classdef RasterGUI < handle
                     return;
                 end
 
-                % Cache the pre-sort alignment data
-                obj.preSortTriggerInfo = ti;
-
-                % --- Step 3: Sort triggers ---
-                obj.statusBar.Status = sprintf('Sorting %d triggers...', length(ti.absTime));
+                % --- Sort ---
+                numTrials = length(obj.TriggerData);
+                obj.statusBar.Status = sprintf('Sorting %d triggers...', numTrials);
                 obj.statusBar.Progress = 0.55;
                 drawnow;
-                primarySortStrs = obj.popup_PrimarySort.String;
-                primarySortType = primarySortStrs{obj.popup_PrimarySort.Value};
-                descending = obj.radio_Descending.Value;
-                groupLabels = obj.check_GroupLabels.Value;
-
-                % Get the first event series' aligned data for event-based
-                % sort criteria (Number of events, First/Last onset, etc.)
-                if ~isempty(obj.eventSeries)
-                    eventTI = obj.eventSeries(1).triggerInfo;
-                else
-                    eventTI = struct();
-                end
-
-                % Apply secondary sort first (so primary is dominant)
-                secondarySortStrs = obj.popup_SecondarySort.String;
-                secondarySortType = secondarySortStrs{obj.popup_SecondarySort.Value};
-                if ~strcmp(secondarySortType, '(None)')
-                    [ti, ord] = RasterGUI.sortTriggers(ti, secondarySortType, descending, ...
-                        '', false, eventTI);
-                    % Apply same sort order to all series and eventTI
-                    for seriesIdx = 1:numSeries
-                        obj.eventSeries(seriesIdx).triggerInfo = ...
-                            RasterGUI.applyOrder(obj.eventSeries(seriesIdx).triggerInfo, ord);
-                    end
-                    eventTI = RasterGUI.applyOrder(eventTI, ord);
-                end
-                if ~strcmp(primarySortType, '(None)')
-                    [ti, ord] = RasterGUI.sortTriggers(ti, primarySortType, descending, ...
-                        '', groupLabels, eventTI);
-                    % Apply same sort order to all series
-                    for seriesIdx = 1:numSeries
-                        obj.eventSeries(seriesIdx).triggerInfo = ...
-                            RasterGUI.applyOrder(obj.eventSeries(seriesIdx).triggerInfo, ord);
-                    end
-                end
-
-                obj.triggerInfo = ti;
+                obj.computeTrialOrder();
 
                 % Update trigger label color mapping
                 obj.updateTriggerLabelColors();
 
-                % --- Step 5: Plot ---
-                obj.statusBar.Status = sprintf('Plotting %d trials...', length(ti.absTime));
+                % --- Plot ---
+                obj.statusBar.Status = sprintf('Plotting %d trials...', numTrials);
                 obj.statusBar.Progress = 0.75;
                 drawnow;
                 obj.plotRaster();
@@ -503,10 +465,472 @@ classdef RasterGUI < handle
                 rethrow(ME);
             end
 
-            obj.statusBar.Status = sprintf('Done — %d trials', length(obj.triggerInfo.absTime));
+            obj.statusBar.Status = sprintf( ...
+                'Done — %d trials', length(obj.TriggerData));
             obj.statusBar.Progress = 1;
             obj.updateControlStates();
             obj.push_GenerateRaster.ForegroundColor = 'k';
+        end
+
+        function extractTrialData(obj)
+            % Extract triggers and events from the dbase and populate
+            % TriggerData and EventData. This is the new data extraction
+            % pipeline that replaces the combined extract+align+sort flow
+            % in the old generate() method.
+            %
+            % After this method returns:
+            %   obj.TriggerData  — 1xN struct array of trigger metadata
+            %   obj.EventData    — 1xM cell array, each containing a 1xN
+            %                      struct array with onsets/offsets
+            %   obj.TrialOrder   — initialized to 1:N (unsorted)
+            arguments
+                obj RasterGUI
+            end
+
+            dbase = obj.eg.dbase;
+            fs = dbase.Fs;
+            params = obj.ControlParams;
+
+            % --- Read alignment and window parameters ---
+            alignmentType = params.alignmentType;
+            startRefType = params.startRefType;
+            stopRefType = params.stopRefType;
+            excludeIncomplete = params.excludeIncomplete;
+            excludePartial = params.excludePartialEvents;
+            preStartPad = params.preStartRef * fs;
+            postStopPad = params.postStopRef * fs;
+
+            % --- Step 1: Extract raw trigger times ---
+            obj.statusBar.Status = 'Extracting triggers...';
+            obj.statusBar.Progress = 0.1;
+            drawnow;
+            [trig.on, trig.off, trig.info, ~] = obj.getEventStructure( ...
+                params.triggerSourceIdx, params.triggerType, params.trigger);
+
+            % --- Step 2: Extract raw event times for each series ---
+            numSeries = length(obj.eventSeries);
+            rawEvents = cell(1, numSeries);
+            for seriesIdx = 1:numSeries
+                series = obj.eventSeries(seriesIdx);
+                obj.statusBar.Status = sprintf( ...
+                    'Extracting events for "%s" (%d/%d)...', ...
+                    series.name, seriesIdx, numSeries);
+                obj.statusBar.Progress = 0.1 + 0.25 * seriesIdx / numSeries;
+                drawnow;
+
+                % Build a params struct from this series' own settings.
+                % Fields not stored per-series use defaults.
+                seriesParams = struct( ...
+                    'filterMode',       series.filterMode, ...
+                    'filterList',       series.filterList, ...
+                    'burstFrequency',   series.burstFrequency, ...
+                    'burstMinSpikes',   series.burstMinSpikes, ...
+                    'selectionMode',    series.selectionMode, ...
+                    'motifSequences',   {{}}, ...
+                    'motifInterval',    0.2, ...
+                    'boutInterval',     0.5, ...
+                    'boutMinDuration',  0.2, ...
+                    'boutMinSyllables', 2, ...
+                    'pauseMinDuration', 0.05, ...
+                    'contSmooth',       1, ...
+                    'contSubsample',    0.001);
+
+                eventSourceIdx = series.sourceIdx - 1;
+                [rawEvents{seriesIdx}.on, rawEvents{seriesIdx}.off, ...
+                    rawEvents{seriesIdx}.info, ~] = obj.getEventStructure( ...
+                    eventSourceIdx, series.type, seriesParams);
+            end
+
+            % --- Step 3: Build TriggerData and EventData by iterating
+            %     over triggers and aligning events to each trial ---
+            obj.statusBar.Status = 'Aligning events to triggers...';
+            obj.statusBar.Progress = 0.4;
+            drawnow;
+
+            % Pre-allocate with an empty struct array so we can index
+            % directly into it during the loop
+            trialCount = 0;
+            triggerData = struct( ...
+                'fileNum', {}, 'isComplete', {}, 'absTime', {}, ...
+                'label', {}, 'corrShift', {}, ...
+                'onset', {}, 'offset', {}, ...
+                'prevOnset', {}, 'prevOffset', {}, ...
+                'nextOnset', {}, 'nextOffset', {}, ...
+                'dataStart', {}, 'dataStop', {});
+
+            % Pre-allocate event data: one cell per series, each will
+            % become a struct array with onsets/offsets
+            eventData = cell(1, numSeries);
+
+            for fileIdx = 1:length(trig.on)
+                numTrigsInFile = length(trig.on{fileIdx});
+                filenum = trig.info.filenum(fileIdx);
+                fileDatetime = electro_gui.getFileDatetime(dbase, filenum);
+                fileLength = obj.eg.getFileLength(filenum);
+
+                for trigIdx = 1:numTrigsInFile
+                    trigOnSample = trig.on{fileIdx}(trigIdx);
+                    trigOffSample = trig.off{fileIdx}(trigIdx);
+
+                    % Determine alignment point (in samples)
+                    switch alignmentType
+                        case 'Onset'
+                            alignSample = trigOnSample;
+                        case 'Midpoint'
+                            alignSample = round( ...
+                                (trigOnSample + trigOffSample) / 2);
+                        case 'Offset'
+                            alignSample = trigOffSample;
+                    end
+
+                    % Determine window start (in samples)
+                    switch startRefType
+                        case 'Trigger onset'
+                            windowStart = trigOnSample;
+                        case 'Trigger offset'
+                            windowStart = trigOffSample;
+                        case 'Prev trigger onset'
+                            if trigIdx == 1
+                                windowStart = -inf;
+                            else
+                                windowStart = trig.on{fileIdx}(trigIdx - 1);
+                            end
+                        case 'Prev trigger offset'
+                            if trigIdx == 1
+                                windowStart = -inf;
+                            else
+                                windowStart = trig.off{fileIdx}(trigIdx - 1);
+                            end
+                    end
+
+                    % Determine window end (in samples)
+                    switch stopRefType
+                        case 'Trigger onset'
+                            windowEnd = trigOnSample;
+                        case 'Trigger offset'
+                            windowEnd = trigOffSample;
+                        case 'Next trigger onset'
+                            if trigIdx == numTrigsInFile
+                                windowEnd = inf;
+                            else
+                                windowEnd = trig.on{fileIdx}(trigIdx + 1);
+                            end
+                        case 'Next trigger offset'
+                            if trigIdx == numTrigsInFile
+                                windowEnd = inf;
+                            else
+                                windowEnd = trig.off{fileIdx}(trigIdx + 1);
+                            end
+                    end
+
+                    % Apply pre/post padding
+                    windowStart = round(windowStart - preStartPad);
+                    windowEnd = round(windowEnd + postStopPad);
+
+                    % Check completeness
+                    if windowStart < 1 || windowEnd > fileLength
+                        if excludeIncomplete
+                            continue;
+                        end
+                        isComplete = false;
+                    else
+                        isComplete = true;
+                    end
+                    windowStart = max(windowStart, 1);
+                    windowEnd = min(windowEnd, fileLength);
+
+                    % --- Store this trial ---
+                    trialCount = trialCount + 1;
+
+                    % Trigger metadata
+                    triggerData(trialCount).fileNum = filenum;
+                    triggerData(trialCount).isComplete = isComplete;
+                    triggerData(trialCount).absTime = ...
+                        posixtime(fileDatetime) + alignSample / fs;
+                    triggerData(trialCount).label = ...
+                        trig.info.label{fileIdx}(trigIdx);
+                    triggerData(trialCount).corrShift = 0;
+
+                    % Current trigger boundaries (seconds from alignment)
+                    triggerData(trialCount).onset = ...
+                        (trigOnSample - alignSample) / fs;
+                    triggerData(trialCount).offset = ...
+                        (trigOffSample - alignSample) / fs;
+
+                    % Neighboring triggers (seconds from alignment)
+                    if trigIdx == 1
+                        triggerData(trialCount).prevOnset = -inf;
+                        triggerData(trialCount).prevOffset = -inf;
+                    else
+                        triggerData(trialCount).prevOnset = ...
+                            (trig.on{fileIdx}(trigIdx-1) - alignSample) / fs;
+                        triggerData(trialCount).prevOffset = ...
+                            (trig.off{fileIdx}(trigIdx-1) - alignSample) / fs;
+                    end
+                    if trigIdx == numTrigsInFile
+                        triggerData(trialCount).nextOnset = inf;
+                        triggerData(trialCount).nextOffset = inf;
+                    else
+                        triggerData(trialCount).nextOnset = ...
+                            (trig.on{fileIdx}(trigIdx+1) - alignSample) / fs;
+                        triggerData(trialCount).nextOffset = ...
+                            (trig.off{fileIdx}(trigIdx+1) - alignSample) / fs;
+                    end
+
+                    % Window bounds (seconds from alignment)
+                    triggerData(trialCount).dataStart = ...
+                        (windowStart - alignSample) / fs + eps;
+                    triggerData(trialCount).dataStop = ...
+                        (windowEnd - alignSample) / fs - eps;
+
+                    % Align events from each series to this trial
+                    for seriesIdx = 1:numSeries
+                        evOn = rawEvents{seriesIdx}.on{fileIdx};
+                        evOff = rawEvents{seriesIdx}.off{fileIdx};
+
+                        % Find events within the window
+                        if excludePartial
+                            eventIdx = find( ...
+                                evOn > windowStart & evOff < windowEnd);
+                        else
+                            onInWindow = find( ...
+                                evOn > windowStart & evOn < windowEnd);
+                            offInWindow = find( ...
+                                evOff > windowStart & evOff < windowEnd);
+                            spanning = find( ...
+                                evOn < windowStart & evOff > windowEnd);
+                            eventIdx = union( ...
+                                union(onInWindow, offInWindow), spanning);
+                        end
+
+                        eventData{seriesIdx}(trialCount).onsets = ...
+                            (evOn(eventIdx) - alignSample) / fs;
+                        eventData{seriesIdx}(trialCount).offsets = ...
+                            (evOff(eventIdx) - alignSample) / fs;
+                    end
+                end
+            end
+
+            % Warn if timestamps are not strictly increasing
+            if trialCount > 1
+                absTimes = [triggerData.absTime];
+                if any(diff(absTimes) <= 0)
+                    warning('RasterGUI:nonMonotonicTime', ...
+                        ['Trigger absolute times are not strictly ' ...
+                         'increasing. This may cause incorrect ' ...
+                         'cross-trial trigger plotting. Consider ' ...
+                         'running the "Fix chunked timestamps" macro.']);
+                end
+            end
+
+            % Store results
+            obj.TriggerData = triggerData;
+            obj.EventData = eventData;
+            obj.TrialOrder = 1:trialCount;
+        end
+
+        function computeTrialOrder(obj)
+            % Compute TrialOrder from the current sort settings and the
+            % immutable TriggerData/EventData. No data is mutated — only
+            % the index vector changes.
+            arguments
+                obj RasterGUI
+            end
+
+            params = obj.ControlParams;
+            numTrials = length(obj.TriggerData);
+            if numTrials == 0
+                obj.TrialOrder = [];
+                return;
+            end
+
+            % Event data from the first series (used for event-based
+            % sort criteria). Empty struct if no series exist.
+            if ~isempty(obj.EventData)
+                primaryEvents = obj.EventData{1};
+            else
+                primaryEvents = struct('onsets', {}, 'offsets', {});
+            end
+
+            % Start with all trials in original order
+            order = 1:numTrials;
+
+            % Apply secondary sort first so that primary sort is dominant
+            if ~strcmp(params.secondarySort, '(None)')
+                secondaryValues = RasterGUI.getSortValues( ...
+                    params.secondarySort, obj.TriggerData, primaryEvents);
+                order = RasterGUI.applySingleSort(order, secondaryValues, ...
+                    params.sortDescending, false, obj.TriggerData);
+            end
+
+            % Apply primary sort
+            if ~strcmp(params.primarySort, '(None)')
+                primaryValues = RasterGUI.getSortValues( ...
+                    params.primarySort, obj.TriggerData, primaryEvents);
+                order = RasterGUI.applySingleSort(order, primaryValues, ...
+                    params.sortDescending, params.groupLabels, ...
+                    obj.TriggerData);
+            end
+
+            obj.TrialOrder = order;
+        end
+    end
+
+    methods (Access = private, Static)
+        function sortValues = getSortValues(sortType, triggerData, eventData)
+            % Compute a numeric sort value for each trial based on the
+            % given sort criterion. Works on the immutable TriggerData
+            % and EventData struct arrays without mutating them.
+            arguments
+                sortType (1, :) char
+                triggerData (1, :) struct
+                eventData (1, :) struct
+            end
+
+            numTrials = length(triggerData);
+
+            switch sortType
+                case 'Absolute time'
+                    sortValues = [triggerData.absTime];
+                case 'Trigger duration'
+                    sortValues = [triggerData.offset] - [triggerData.onset];
+                case 'Prev trig onset'
+                    sortValues = -[triggerData.prevOnset];
+                case 'Prev trig offset'
+                    sortValues = -[triggerData.prevOffset];
+                case 'Prev trig interval'
+                    sortValues = -([triggerData.prevOffset] - [triggerData.prevOnset]);
+                case 'Next trig onset'
+                    sortValues = [triggerData.nextOnset];
+                case 'Next trig offset'
+                    sortValues = [triggerData.nextOffset];
+                case 'Next trig interval'
+                    sortValues = [triggerData.nextOffset] - [triggerData.nextOnset];
+                case 'Trigger label'
+                    sortValues = [triggerData.label];
+                case 'Preceding event onset'
+                    sortValues = inf(1, numTrials);
+                    for trialIdx = 1:numTrials
+                        preceding = find(eventData(trialIdx).onsets < 0);
+                        if ~isempty(preceding)
+                            sortValues(trialIdx) = ...
+                                -eventData(trialIdx).onsets(preceding(end));
+                        end
+                    end
+                case 'Preceding event offset'
+                    sortValues = inf(1, numTrials);
+                    for trialIdx = 1:numTrials
+                        preceding = find(eventData(trialIdx).offsets < 0);
+                        if ~isempty(preceding)
+                            sortValues(trialIdx) = ...
+                                -eventData(trialIdx).offsets(preceding(end));
+                        end
+                    end
+                case 'Following event onset'
+                    sortValues = inf(1, numTrials);
+                    for trialIdx = 1:numTrials
+                        following = find(eventData(trialIdx).onsets > 0);
+                        if ~isempty(following)
+                            sortValues(trialIdx) = ...
+                                eventData(trialIdx).onsets(following(1));
+                        end
+                    end
+                case 'Following event offset'
+                    sortValues = inf(1, numTrials);
+                    for trialIdx = 1:numTrials
+                        following = find(eventData(trialIdx).offsets > 0);
+                        if ~isempty(following)
+                            sortValues(trialIdx) = ...
+                                eventData(trialIdx).offsets(following(1));
+                        end
+                    end
+                case 'First event onset'
+                    sortValues = inf(1, numTrials);
+                    for trialIdx = 1:numTrials
+                        if ~isempty(eventData(trialIdx).onsets)
+                            sortValues(trialIdx) = ...
+                                min(eventData(trialIdx).onsets);
+                        end
+                    end
+                case 'First event offset'
+                    sortValues = inf(1, numTrials);
+                    for trialIdx = 1:numTrials
+                        if ~isempty(eventData(trialIdx).offsets)
+                            sortValues(trialIdx) = ...
+                                min(eventData(trialIdx).offsets);
+                        end
+                    end
+                case 'Last event onset'
+                    sortValues = inf(1, numTrials);
+                    for trialIdx = 1:numTrials
+                        if ~isempty(eventData(trialIdx).onsets)
+                            sortValues(trialIdx) = ...
+                                max(eventData(trialIdx).onsets);
+                        end
+                    end
+                case 'Last event offset'
+                    sortValues = inf(1, numTrials);
+                    for trialIdx = 1:numTrials
+                        if ~isempty(eventData(trialIdx).offsets)
+                            sortValues(trialIdx) = ...
+                                max(eventData(trialIdx).offsets);
+                        end
+                    end
+                case 'Number of events'
+                    sortValues = zeros(1, numTrials);
+                    for trialIdx = 1:numTrials
+                        sortValues(trialIdx) = ...
+                            length(eventData(trialIdx).onsets);
+                    end
+                case 'Is in event'
+                    sortValues = zeros(1, numTrials);
+                    for trialIdx = 1:numTrials
+                        % A trial "is in event" if there's an event whose
+                        % onset is <= 0 and offset > 0 (spans the trigger)
+                        sortValues(trialIdx) = ...
+                            any(eventData(trialIdx).onsets <= 0 & ...
+                                eventData(trialIdx).offsets > 0);
+                    end
+                otherwise
+                    sortValues = 1:numTrials;
+            end
+        end
+    end
+
+    methods (Access = private, Static)
+        function order = applySingleSort(order, sortValues, descending, groupLabels, triggerData)
+            % Sort the given index vector by sortValues. If groupLabels
+            % is true, group trials by label first.
+            arguments
+                order (1, :) double
+                sortValues (1, :) double
+                descending (1, 1) logical
+                groupLabels (1, 1) logical
+                triggerData (1, :) struct
+            end
+
+            % Sort the values in the current order
+            [~, subOrd] = sort(sortValues(order));
+            if descending
+                subOrd = subOrd(end:-1:1);
+            end
+            order = order(subOrd);
+
+            % Group by label if requested: within each label group,
+            % the sort order is preserved, but groups are arranged so
+            % that each label's mean position determines group order.
+            if groupLabels
+                labels = [triggerData.label];
+                orderedLabels = labels(order);
+                uniqueLabels = unique(orderedLabels, 'stable');
+                groupSort = zeros(size(order));
+                for labelIdx = 1:length(uniqueLabels)
+                    mask = orderedLabels == uniqueLabels(labelIdx);
+                    groupSort(mask) = mean(find(mask));
+                end
+                [~, groupOrd] = sort(groupSort);
+                order = order(groupOrd);
+            end
         end
     end
 
@@ -517,22 +941,22 @@ classdef RasterGUI < handle
             arguments
                 obj RasterGUI
             end
-            obj.P.trig.filterMode = 'All';   % 'All', 'Include', or 'Exclude'
-            obj.P.trig.filterList = '';
-            obj.P.trig.motifSequences = {};
-            obj.P.trig.motifInterval = 0.2;
-            obj.P.trig.boutInterval = 0.5;
-            obj.P.trig.boutMinDuration = 0.2;
-            obj.P.trig.boutMinSyllables = 2;
-            obj.P.trig.burstFrequency = 100;
-            obj.P.trig.burstMinSpikes = 2;
-            obj.P.trig.selectionMode = 'Selected only';
-            obj.P.trig.pauseMinDuration = 0.05;
-            obj.P.trig.contSmooth = 1;
-            obj.P.trig.contSubsample = 0.001;
-            obj.P.preStartRef = 0.4;
-            obj.P.postStopRef = 0.4;
-            obj.P.filter = repmat([-inf, inf], 15, 1);
+            obj.ControlParams.trigger.filterMode = 'All';   % 'All', 'Include', or 'Exclude'
+            obj.ControlParams.trigger.filterList = '';
+            obj.ControlParams.trigger.motifSequences = {};
+            obj.ControlParams.trigger.motifInterval = 0.2;
+            obj.ControlParams.trigger.boutInterval = 0.5;
+            obj.ControlParams.trigger.boutMinDuration = 0.2;
+            obj.ControlParams.trigger.boutMinSyllables = 2;
+            obj.ControlParams.trigger.burstFrequency = 100;
+            obj.ControlParams.trigger.burstMinSpikes = 2;
+            obj.ControlParams.trigger.selectionMode = 'Selected only';
+            obj.ControlParams.trigger.pauseMinDuration = 0.05;
+            obj.ControlParams.trigger.contSmooth = 1;
+            obj.ControlParams.trigger.contSubsample = 0.001;
+            obj.ControlParams.preStartRef = 0.4;
+            obj.ControlParams.postStopRef = 0.4;
+            obj.ControlParams.filter = repmat([-inf, inf], 15, 1);
 
             obj.PlotAlpha(27) = 0.5;
             obj.PlotAlpha(30) = 0.5;
@@ -1101,7 +1525,7 @@ classdef RasterGUI < handle
                 'FontSize', 14, 'FontWeight', 'bold', ...
                 'HorizontalAlignment', 'center');
             obj.edit_PreStart = uicontrol(eventTab, 'Style', 'edit', ...
-                'String', num2str(obj.P.preStartRef), ...
+                'String', num2str(obj.ControlParams.preStartRef), ...
                 'Callback', @(~,~) obj.windowSettingChanged());
             obj.text_PreUnit = uicontrol(eventTab, 'Style', 'text', ...
                 'String', 's', ...
@@ -1118,7 +1542,7 @@ classdef RasterGUI < handle
                 'FontSize', 14, 'FontWeight', 'bold', ...
                 'HorizontalAlignment', 'center');
             obj.edit_PostStop = uicontrol(eventTab, 'Style', 'edit', ...
-                'String', num2str(obj.P.postStopRef), ...
+                'String', num2str(obj.ControlParams.postStopRef), ...
                 'Callback', @(~,~) obj.windowSettingChanged());
             obj.text_PostUnit = uicontrol(eventTab, 'Style', 'text', ...
                 'String', 's', ...
@@ -1448,15 +1872,21 @@ classdef RasterGUI < handle
     %% Plotting
     methods (Access = private)
         function plotRaster(obj)
-            % Render the raster plot from the current triggerInfo.
+            % Render the raster plot from TriggerData, EventData, and
+            % TrialOrder. The trial data is not modified; TrialOrder
+            % controls which trials appear and in what order.
             arguments
                 obj RasterGUI
             end
 
-            numTrials = length(obj.triggerInfo.absTime);
+            numTrials = length(obj.TrialOrder);
             if numTrials == 0
                 return;
             end
+
+            % Get sorted views of the data
+            triggerData = obj.TriggerData(obj.TrialOrder);
+            numSeries = length(obj.EventData);
 
             ax = obj.axes_Raster;
             delete(ax.Children);
@@ -1467,31 +1897,30 @@ classdef RasterGUI < handle
 
             % Tick height: each trial spans 1 unit, ticks fill most of it
             tickHalfHeight = obj.PlotTickSize(1) / 2;
-            ti = obj.triggerInfo;
 
             % --- Plot trigger boxes colored by label ---
             % Single patch call with per-face colors via FaceVertexCData.
             obj.statusBar.Status = 'Plotting trigger boxes...';
             drawnow;
-            trigOn = ti.currTrigOnset(:);
-            trigOff = ti.currTrigOffset(:);
-            trigLabels = ti.label(:);
+            trigOn = [triggerData.onset]';
+            trigOff = [triggerData.offset]';
+            trigLabels = [triggerData.label]';
             validTrig = isfinite(trigOn) & isfinite(trigOff);
             if any(validTrig)
                 tOn = trigOn(validTrig);
                 tOff = trigOff(validTrig);
                 tY = trialY(validTrig)';
-                n = length(tOn);
+                numValid = length(tOn);
                 % Build vertices: [all BL; all BR; all TR; all TL]
                 vertices = [tOn, tY - tickHalfHeight; ...
                             tOff, tY - tickHalfHeight; ...
                             tOff, tY + tickHalfHeight; ...
                             tOn, tY + tickHalfHeight];
-                faces = [(1:n)', (n+1:2*n)', (2*n+1:3*n)', (3*n+1:4*n)'];
+                faces = [(1:numValid)', (numValid+1:2*numValid)', ...
+                         (2*numValid+1:3*numValid)', (3*numValid+1:4*numValid)'];
                 % Build per-face colors from label mapping, lightened for boxes.
-                % Vectorized: look up color per unique label, then broadcast.
                 tLabels = trigLabels(validTrig);
-                faceColors = zeros(n, 3);
+                faceColors = zeros(numValid, 3);
                 uniqueValid = unique(tLabels);
                 for labelNum = 1:length(uniqueValid)
                     mask = tLabels == uniqueValid(labelNum);
@@ -1510,10 +1939,9 @@ classdef RasterGUI < handle
             % falls within this trial's visible time window. Uses absolute
             % time to handle triggers across file boundaries.
             if obj.check_PlotOtherTrialTriggers.Value && numTrials > 1
-                % Absolute alignment time for each trial (in seconds)
-                absT = ti.absTime(:);
-                ownOn = ti.currTrigOnset(:);
-                ownOff = ti.currTrigOffset(:);
+                absT = [triggerData.absTime]';
+                ownOn = trigOn;
+                ownOff = trigOff;
                 xLim = ax.XLim;
 
                 % Compute where every other trial's trigger appears in
@@ -1538,7 +1966,6 @@ classdef RasterGUI < handle
                     srcLabels = trigLabels(srcTrial);
                     nOther = length(boxOn);
 
-                    % Single patch call with per-face colors
                     vertices = [boxOn, boxY - tickHalfHeight; ...
                                 boxOff, boxY - tickHalfHeight; ...
                                 boxOff, boxY + tickHalfHeight; ...
@@ -1565,22 +1992,21 @@ classdef RasterGUI < handle
             % Each event series is rendered as vertical tick marks in its
             % own color. All ticks for a series are concatenated into a
             % single NaN-separated vector for fast vectorized rendering.
-            for seriesIdx = 1:length(obj.eventSeries)
-                s = obj.eventSeries(seriesIdx);
-                seriesTI = s.triggerInfo;
-
-                % Skip series with no aligned data
-                if isempty(seriesTI) || ~isfield(seriesTI, 'eventOnsets')
-                    continue;
-                end
+            for seriesIdx = 1:numSeries
+                seriesEvents = obj.EventData{seriesIdx}(obj.TrialOrder);
+                seriesColor = obj.eventSeries(seriesIdx).color;
+                seriesName = obj.eventSeries(seriesIdx).name;
 
                 obj.statusBar.Status = sprintf('Plotting "%s" (%d/%d)...', ...
-                    s.name, seriesIdx, length(obj.eventSeries));
-                obj.statusBar.Progress = 0.8 + 0.15 * seriesIdx / length(obj.eventSeries);
+                    seriesName, seriesIdx, numSeries);
+                obj.statusBar.Progress = 0.8 + 0.15 * seriesIdx / numSeries;
                 drawnow;
 
                 % Count total events across all trials for pre-allocation
-                totalEvents = sum(cellfun(@length, seriesTI.eventOnsets));
+                totalEvents = 0;
+                for trialIdx = 1:numTrials
+                    totalEvents = totalEvents + length(seriesEvents(trialIdx).onsets);
+                end
                 if totalEvents == 0
                     continue;
                 end
@@ -1591,7 +2017,7 @@ classdef RasterGUI < handle
                 allY = NaN(3 * totalEvents, 1);
                 writeIdx = 0;
                 for trialIdx = 1:numTrials
-                    eventTimes = seriesTI.eventOnsets{trialIdx};
+                    eventTimes = seriesEvents(trialIdx).onsets;
                     nEvents = length(eventTimes);
                     if nEvents > 0
                         yBottom = trialY(trialIdx) - tickHalfHeight;
@@ -1606,7 +2032,7 @@ classdef RasterGUI < handle
                 end
 
                 % Render all ticks for this series in one call
-                plot(ax, allX, allY, 'Color', s.color, ...
+                plot(ax, allX, allY, 'Color', seriesColor, ...
                     'LineWidth', obj.PlotTickSize(3));
             end
 
@@ -1632,8 +2058,8 @@ classdef RasterGUI < handle
             if obj.check_AutoXLim.Value
                 % Compute tight X limits from all plotted data
                 allXData = [];
-                for k = 1:length(ax.Children)
-                    child = ax.Children(k);
+                for childIdx = 1:length(ax.Children)
+                    child = ax.Children(childIdx);
                     if isprop(child, 'XData') && ~isempty(child.XData)
                         finiteX = child.XData(isfinite(child.XData));
                         allXData = [allXData; finiteX(:)]; %#ok<AGROW>
@@ -1669,11 +2095,8 @@ classdef RasterGUI < handle
             arguments
                 obj RasterGUI
             end
-            ti = obj.triggerInfo;
-            if isempty(ti) || ~isfield(ti, 'absTime')
-                return;
-            end
-            numTrials = length(ti.absTime);
+
+            numTrials = length(obj.TrialOrder);
             if numTrials == 0
                 return;
             end
@@ -1685,7 +2108,6 @@ classdef RasterGUI < handle
             % Find all series with showPSTH=true
             psthSeriesIndices = find([obj.eventSeries.showPSTH]);
             if isempty(psthSeriesIndices)
-                % No series designated for PSTH — leave blank
                 ax.YLabel.String = '';
                 ax.XLabel.String = 'Time (s)';
                 hold(ax, 'off');
@@ -1716,36 +2138,33 @@ classdef RasterGUI < handle
             psthCountMode = psthCountStrs{obj.popup_PSTHCount.Value};
 
             % Plot each PSTH series as a line in its color
-            for k = 1:length(psthSeriesIndices)
-                sIdx = psthSeriesIndices(k);
-                s = obj.eventSeries(sIdx);
-                seriesTI = s.triggerInfo;
-
-                % Skip series with no aligned data
-                if isempty(seriesTI) || ~isfield(seriesTI, 'eventOnsets')
-                    continue;
-                end
+            for psthIdx = 1:length(psthSeriesIndices)
+                seriesIdx = psthSeriesIndices(psthIdx);
+                seriesEvents = obj.EventData{seriesIdx}(obj.TrialOrder);
+                seriesColor = obj.eventSeries(seriesIdx).color;
+                seriesStyle = obj.eventSeries(seriesIdx).psthStyle;
 
                 % Compute histogram counts based on count mode
                 switch psthCountMode
                     case 'Onsets'
-                        allTimes = cat(1, seriesTI.eventOnsets{:});
+                        allTimes = cat(1, seriesEvents.onsets);
                         if isempty(allTimes), continue; end
                         counts = histcounts(allTimes, binEdges);
                     case 'Offsets'
-                        allTimes = cat(1, seriesTI.eventOffsets{:});
+                        allTimes = cat(1, seriesEvents.offsets);
                         if isempty(allTimes), continue; end
                         counts = histcounts(allTimes, binEdges);
                     case 'Full duration'
                         % Count how many events are active in each bin
                         % (onset before bin end AND offset after bin start)
-                        allOnsets = cat(1, seriesTI.eventOnsets{:});
-                        allOffsets = cat(1, seriesTI.eventOffsets{:});
+                        allOnsets = cat(1, seriesEvents.onsets);
+                        allOffsets = cat(1, seriesEvents.offsets);
                         if isempty(allOnsets), continue; end
                         counts = zeros(1, length(binEdges) - 1);
-                        for b = 1:length(counts)
-                            counts(b) = sum(allOnsets < binEdges(b+1) & ...
-                                            allOffsets > binEdges(b));
+                        for binIdx = 1:length(counts)
+                            counts(binIdx) = sum( ...
+                                allOnsets < binEdges(binIdx+1) & ...
+                                allOffsets > binEdges(binIdx));
                         end
                 end
 
@@ -1767,16 +2186,14 @@ classdef RasterGUI < handle
                 end
 
                 % Plot using the series' psthStyle setting
-                style = s.psthStyle;
-                if any(strcmp(style, {'Histogram', 'Both'}))
-                    % Bar-style histogram using stairs for sharp bin edges
+                if any(strcmp(seriesStyle, {'Histogram', 'Both'}))
                     bar(ax, binCenters, psthValues, 1, ...
-                        'FaceColor', s.color, 'FaceAlpha', 0.25, ...
+                        'FaceColor', seriesColor, 'FaceAlpha', 0.25, ...
                         'EdgeColor', 'none');
                 end
-                if any(strcmp(style, {'Line', 'Both'}))
+                if any(strcmp(seriesStyle, {'Line', 'Both'}))
                     plot(ax, binCenters, psthValues, ...
-                        'Color', s.color, 'LineWidth', 1);
+                        'Color', seriesColor, 'LineWidth', 1);
                 end
             end
 
@@ -1786,7 +2203,7 @@ classdef RasterGUI < handle
                 'PickableParts', 'none', ...
                 'HitTest', 'off');
 
-            % Formatting (X limits linked to raster via linkaxes)
+            % Formatting (X limits linked to raster via linkprop)
             ax.YLabel.String = yLabel;
             ax.XLabel.String = 'Time (s)';
             ax.Box = 'on';
@@ -1873,11 +2290,7 @@ classdef RasterGUI < handle
                 obj RasterGUI
             end
 
-            ti = obj.triggerInfo;
-            if isempty(ti) || ~isfield(ti, 'absTime')
-                return;
-            end
-            numTrials = length(ti.absTime);
+            numTrials = length(obj.TrialOrder);
             if numTrials == 0
                 return;
             end
@@ -1914,14 +2327,11 @@ classdef RasterGUI < handle
             maxCount = 0;
 
             % Plot each PSTH-enabled series
-            for seriesNum = 1:length(psthSeriesIndices)
-                sIdx = psthSeriesIndices(seriesNum);
-                s = obj.eventSeries(sIdx);
-                seriesTI = s.triggerInfo;
-
-                if isempty(seriesTI) || ~isfield(seriesTI, 'eventOnsets')
-                    continue;
-                end
+            for psthIdx = 1:length(psthSeriesIndices)
+                seriesIdx = psthSeriesIndices(psthIdx);
+                seriesEvents = obj.EventData{seriesIdx}(obj.TrialOrder);
+                seriesColor = obj.eventSeries(seriesIdx).color;
+                seriesStyle = obj.eventSeries(seriesIdx).psthStyle;
 
                 % Count events per trial using the selected count mode.
                 % Counts all events in the trial window, not just the
@@ -1929,15 +2339,16 @@ classdef RasterGUI < handle
                 % selection and matches event-based sort criteria.
                 countsPerTrial = zeros(numTrials, 1);
                 for trialIdx = 1:numTrials
-                    onsets = seriesTI.eventOnsets{trialIdx};
-                    offsets = seriesTI.eventOffsets{trialIdx};
                     switch psthCountMode
                         case 'Onsets'
-                            countsPerTrial(trialIdx) = length(onsets);
+                            countsPerTrial(trialIdx) = ...
+                                length(seriesEvents(trialIdx).onsets);
                         case 'Offsets'
-                            countsPerTrial(trialIdx) = length(offsets);
+                            countsPerTrial(trialIdx) = ...
+                                length(seriesEvents(trialIdx).offsets);
                         case 'Full duration'
-                            countsPerTrial(trialIdx) = length(onsets);
+                            countsPerTrial(trialIdx) = ...
+                                length(seriesEvents(trialIdx).onsets);
                     end
                 end
 
@@ -1957,19 +2368,18 @@ classdef RasterGUI < handle
                 maxCount = max(maxCount, max(binnedCounts));
 
                 % Plot using the series' psthStyle
-                style = s.psthStyle;
-                if any(strcmp(style, {'Histogram', 'Both'}))
+                if any(strcmp(seriesStyle, {'Histogram', 'Both'}))
                     barh(ax, binCenters, binnedCounts, 1, ...
-                        'FaceColor', s.color, 'FaceAlpha', 0.25, ...
+                        'FaceColor', seriesColor, 'FaceAlpha', 0.25, ...
                         'EdgeColor', 'none');
                 end
-                if any(strcmp(style, {'Line', 'Both'}))
+                if any(strcmp(seriesStyle, {'Line', 'Both'}))
                     plot(ax, binnedCounts, binCenters, ...
-                        'Color', s.color, 'LineWidth', 1);
+                        'Color', seriesColor, 'LineWidth', 1);
                 end
             end
 
-            % Formatting (Y axis linked to raster via linkaxes)
+            % Formatting (Y axis linked to raster via linkprop)
             ax.YDir = 'reverse';
             ax.YTickLabel = {};
             ax.XLabel.String = 'Events/trial';
@@ -2089,7 +2499,7 @@ classdef RasterGUI < handle
             preset.psthSmoothingWindow = obj.PSTHSmoothingWindow;
 
             % Parameters
-            preset.P = obj.P;
+            preset.ControlParams = obj.ControlParams;
 
             % File range
             preset.fileRange = obj.FileRange;
@@ -2152,7 +2562,7 @@ classdef RasterGUI < handle
                     else
                         obj.eventSeries(k).psthStyle = 'Both';
                     end
-                    obj.eventSeries(k).triggerInfo = struct();  % Must regenerate
+                    % Event data stored separately in obj.EventData
                 end
 
                 % Update the list display and select the first series
@@ -2186,7 +2596,12 @@ classdef RasterGUI < handle
             if isfield(preset, 'plotOverlap'), obj.PlotOverlap = preset.plotOverlap; end
             if isfield(preset, 'psthBinSize'), obj.PSTHBinSize = preset.psthBinSize; end
             if isfield(preset, 'psthSmoothingWindow'), obj.PSTHSmoothingWindow = preset.psthSmoothingWindow; end
-            if isfield(preset, 'P'), obj.P = preset.P; end
+            if isfield(preset, 'ControlParams')
+                obj.ControlParams = preset.ControlParams; 
+            elseif isfield(preset, 'P')
+                % Legacy params field
+                obj.ControlParams = preset.P;
+            end
             if isfield(preset, 'fileRange'), obj.FileRange = preset.fileRange; end
         end
 
@@ -2419,7 +2834,6 @@ classdef RasterGUI < handle
             series.color = colors(colorIdx, :);
             series.showPSTH = (seriesNumber == 1);  % First series shows PSTH by default
             series.psthStyle = 'Line';
-            series.triggerInfo = struct();
         end
 
         function addEventSeries(obj)
@@ -2760,30 +3174,40 @@ classdef RasterGUI < handle
     %% Cache management
     methods (Access = private)
         function clearCache(obj)
-            % Clear the pre-sort trigger info cache. Called when any
-            % upstream setting changes (trigger/event source/type, window,
-            % file range, include/ignore lists).
+            % Clear extracted trial data. Called when any upstream setting
+            % changes (trigger/event source/type, window, file range,
+            % include/ignore lists) to force a full re-extraction on next
+            % generate.
             arguments
                 obj RasterGUI
             end
-            obj.preSortTriggerInfo = struct();
+            obj.TriggerData = struct( ...
+                'fileNum', {}, 'isComplete', {}, 'absTime', {}, ...
+                'label', {}, 'corrShift', {}, ...
+                'onset', {}, 'offset', {}, ...
+                'prevOnset', {}, 'prevOffset', {}, ...
+                'nextOnset', {}, 'nextOffset', {}, ...
+                'dataStart', {}, 'dataStop', {});
+            obj.EventData = {};
+            obj.TrialOrder = [];
         end
 
         function hasCache = hasCachedData(obj)
-            % Check if a valid pre-sort cache exists.
+            % Check if extracted trial data exists.
             arguments
                 obj RasterGUI
             end
-            hasCache = ~isempty(fieldnames(obj.preSortTriggerInfo));
+            hasCache = ~isempty(obj.TriggerData);
         end
 
         function resortAndPlot(obj)
-            % Re-sort and re-plot from cached alignment data without
-            % re-extracting triggers/events. No-op if cache is empty.
+            % Recompute TrialOrder from current sort settings and replot.
+            % No data is re-extracted or mutated — only the index vector
+            % changes. No-op if no trial data exists.
             arguments
                 obj RasterGUI
             end
-            if ~obj.hasCachedData()
+            if isempty(obj.TriggerData)
                 return;
             end
 
@@ -2791,45 +3215,8 @@ classdef RasterGUI < handle
             obj.statusBar.Progress = 0.3;
             drawnow;
 
-            % Start from the cached pre-sort data
-            ti = obj.preSortTriggerInfo;
-
-            % Apply sort
             obj.syncOptionsFromGUI();
-            primarySortStrs = obj.popup_PrimarySort.String;
-            primarySortType = primarySortStrs{obj.popup_PrimarySort.Value};
-            descending = obj.radio_Descending.Value;
-            groupLabels = obj.check_GroupLabels.Value;
-
-            secondarySortStrs = obj.popup_SecondarySort.String;
-            secondarySortType = secondarySortStrs{obj.popup_SecondarySort.Value};
-
-            % Get event series data for event-based sort criteria
-            if ~isempty(obj.eventSeries)
-                eventTI = obj.eventSeries(1).triggerInfo;
-            else
-                eventTI = struct();
-            end
-
-            % Secondary sort first (so primary is dominant)
-            % Apply same order to all event series
-            if ~strcmp(secondarySortType, '(None)')
-                [ti, ord] = RasterGUI.sortTriggers(ti, secondarySortType, descending, '', false, eventTI);
-                for seriesIdx = 1:length(obj.eventSeries)
-                    obj.eventSeries(seriesIdx).triggerInfo = ...
-                        RasterGUI.applyOrder(obj.eventSeries(seriesIdx).triggerInfo, ord);
-                end
-                eventTI = RasterGUI.applyOrder(eventTI, ord);
-            end
-            if ~strcmp(primarySortType, '(None)')
-                [ti, ord] = RasterGUI.sortTriggers(ti, primarySortType, descending, '', groupLabels, eventTI);
-                for seriesIdx = 1:length(obj.eventSeries)
-                    obj.eventSeries(seriesIdx).triggerInfo = ...
-                        RasterGUI.applyOrder(obj.eventSeries(seriesIdx).triggerInfo, ord);
-                end
-            end
-
-            obj.triggerInfo = ti;
+            obj.computeTrialOrder();
 
             obj.statusBar.Status = 'Plotting...';
             obj.statusBar.Progress = 0.7;
@@ -2839,7 +3226,8 @@ classdef RasterGUI < handle
             obj.plotHist();
             obj.updateLegend();
 
-            obj.statusBar.Status = sprintf('Re-sorted — %d trials', length(ti.absTime));
+            obj.statusBar.Status = sprintf( ...
+                'Re-sorted — %d trials', length(obj.TrialOrder));
             obj.statusBar.Progress = 1;
         end
     end
@@ -3021,18 +3409,43 @@ classdef RasterGUI < handle
 
             % Trigger filter
             trigModes = obj.popup_TrigFilterMode.String;
-            obj.P.trig.filterMode = trigModes{obj.popup_TrigFilterMode.Value};
-            obj.P.trig.filterList = obj.edit_TrigFilterList.String;
+            obj.ControlParams.trigger.filterMode = trigModes{obj.popup_TrigFilterMode.Value};
+            obj.ControlParams.trigger.filterList = obj.edit_TrigFilterList.String;
+
+            % Trigger source and type
+            obj.ControlParams.triggerSourceIdx = obj.popup_TriggerSource.Value - 1;
+            trigTypeStrs = obj.popup_TriggerType.String;
+            obj.ControlParams.triggerType = trigTypeStrs{obj.popup_TriggerType.Value};
+
+            % Alignment
+            alignStrs = obj.popup_TriggerAlignment.String;
+            obj.ControlParams.alignmentType = alignStrs{obj.popup_TriggerAlignment.Value};
+
+            % Window references
+            startRefStrs = obj.popup_StartReference.String;
+            obj.ControlParams.startRefType = startRefStrs{obj.popup_StartReference.Value};
+            stopRefStrs = obj.popup_StopReference.String;
+            obj.ControlParams.stopRefType = stopRefStrs{obj.popup_StopReference.Value};
+            obj.ControlParams.preStartRef = str2double(obj.edit_PreStart.String);
+            obj.ControlParams.postStopRef = str2double(obj.edit_PostStop.String);
+
+            % Exclude flags
+            obj.ControlParams.excludeIncomplete = logical(obj.check_ExcludeIncomplete.Value);
+            obj.ControlParams.excludePartialEvents = logical(obj.check_ExcludePartialEvents.Value);
+
+            % Sort settings
+            primarySortStrs = obj.popup_PrimarySort.String;
+            obj.ControlParams.primarySort = primarySortStrs{obj.popup_PrimarySort.Value};
+            secondarySortStrs = obj.popup_SecondarySort.String;
+            obj.ControlParams.secondarySort = secondarySortStrs{obj.popup_SecondarySort.Value};
+            obj.ControlParams.sortDescending = logical(obj.radio_Descending.Value);
+            obj.ControlParams.groupLabels = logical(obj.check_GroupLabels.Value);
 
             % Event series: save the currently selected series' detail
             % controls back to the series array
             if ~isempty(obj.eventSeries)
                 obj.saveSelectedEventSeries();
             end
-
-            % Window limits
-            obj.P.preStartRef = str2double(obj.edit_PreStart.String);
-            obj.P.postStopRef = str2double(obj.edit_PostStop.String);
 
             % File range
             try
@@ -3105,7 +3518,7 @@ classdef RasterGUI < handle
             arguments
                 obj RasterGUI
             end
-            if isempty(fieldnames(obj.triggerInfo))
+            if isempty(obj.TriggerData)
                 return;
             end
             if obj.check_AutoXLim.Value
@@ -3130,11 +3543,13 @@ classdef RasterGUI < handle
             end
         end
         function replotFromCache(obj)
-            % Replot from the current triggerInfo without regenerating data.
+            % Replot from existing trial data without re-extracting or
+            % re-sorting. Used when only display settings change (tick
+            % height, colors, bin size, etc.).
             arguments
                 obj RasterGUI
             end
-            if isempty(fieldnames(obj.triggerInfo))
+            if isempty(obj.TriggerData)
                 return;
             end
             obj.syncOptionsFromGUI();
@@ -3176,11 +3591,11 @@ classdef RasterGUI < handle
             else
                 effectiveNewMode = newMode;
             end
-            oldList = obj.P.trig.filterList;
-            if ismember(obj.P.trig.filterMode, {'Include', 'Exclude'}) && isempty(oldList)
+            oldList = obj.ControlParams.trigger.filterList;
+            if ismember(obj.ControlParams.trigger.filterMode, {'Include', 'Exclude'}) && isempty(oldList)
                 effectiveOldMode = 'All';
             else
-                effectiveOldMode = obj.P.trig.filterMode;
+                effectiveOldMode = obj.ControlParams.trigger.filterMode;
             end
             filterUnchanged = strcmp(effectiveNewMode, effectiveOldMode) && ...
                 (strcmp(effectiveNewMode, 'All') || strcmp(newList, oldList));
@@ -3188,8 +3603,8 @@ classdef RasterGUI < handle
             if filterUnchanged
                 % Effective filter unchanged — update stored settings
                 % but skip regeneration
-                obj.P.trig.filterMode = newMode;
-                obj.P.trig.filterList = newList;
+                obj.ControlParams.trigger.filterMode = newMode;
+                obj.ControlParams.trigger.filterList = newList;
                 obj.updateControlStates();
                 return;
             end
@@ -3224,12 +3639,12 @@ classdef RasterGUI < handle
             arguments
                 obj RasterGUI
             end
-            if isempty(obj.triggerInfo) || ~isfield(obj.triggerInfo, 'label')
+            if isempty(obj.TriggerData)
                 return;
             end
 
             % Get unique labels sorted by first appearance
-            allLabels = obj.triggerInfo.label(:);
+            allLabels = [obj.TriggerData.label]';
             [~, firstIdx] = unique(allLabels, 'first');
             uniqueLabels = allLabels(sort(firstIdx));
 
@@ -3785,325 +4200,9 @@ classdef RasterGUI < handle
             end
         end
 
-        function [triggerInfo] = alignEventsToTriggers(obj, trig, event)
-            % Align events to triggers within a time window and compute
-            % per-trial metadata.
-            arguments
-                obj RasterGUI
-                trig (1, 1) struct  % Struct with .on, .off (cell arrays), .info
-                event (1, 1) struct % Struct with .on, .off (cell arrays), .info
-            end
-            %
-            % This is a simplified version of GetTriggerAlignedEvents that
-            % handles the core alignment without correlation or warp points.
-            % Those features can be added incrementally.
-
-            dbase = obj.eg.dbase;
-            fs = dbase.Fs;
-
-            alignmentType = obj.popup_TriggerAlignment.String{obj.popup_TriggerAlignment.Value};
-            startRefType = obj.popup_StartReference.String{obj.popup_StartReference.Value};
-            stopRefType = obj.popup_StopReference.String{obj.popup_StopReference.Value};
-            excludeIncomplete = obj.check_ExcludeIncomplete.Value;
-            excludePartial = obj.check_ExcludePartialEvents.Value;
-
-            count = 0;
-            triggerInfo = struct();
-
-            for fileIdx = 1:length(trig.on)
-                for trigIdx = 1:length(trig.on{fileIdx})
-                    % Determine alignment point
-                    switch alignmentType
-                        case 'Onset'
-                            alignSample = trig.on{fileIdx}(trigIdx);
-                        case 'Midpoint'
-                            alignSample = round((trig.on{fileIdx}(trigIdx) + trig.off{fileIdx}(trigIdx)) / 2);
-                        case 'Offset'
-                            alignSample = trig.off{fileIdx}(trigIdx);
-                    end
-
-                    filenum = trig.info.filenum(fileIdx);
-                    fileDatetime = electro_gui.getFileDatetime(obj.eg.dbase, filenum);
-                    absTime = posixtime(fileDatetime) + alignSample / fs;
-
-                    % Determine window start (in samples)
-                    switch startRefType
-                        case 'Trigger onset'
-                            windowStart = trig.on{fileIdx}(trigIdx);
-                        case 'Trigger offset'
-                            windowStart = trig.off{fileIdx}(trigIdx);
-                        case 'Prev trigger onset'
-                            if trigIdx == 1
-                                windowStart = -inf;
-                            else
-                                windowStart = trig.on{fileIdx}(trigIdx - 1);
-                            end
-                        case 'Prev trigger offset'
-                            if trigIdx == 1
-                                windowStart = -inf;
-                            else
-                                windowStart = trig.off{fileIdx}(trigIdx - 1);
-                            end
-                    end
-
-                    % Determine window end (in samples)
-                    switch stopRefType
-                        case 'Trigger onset'
-                            windowEnd = trig.on{fileIdx}(trigIdx);
-                        case 'Trigger offset'
-                            windowEnd = trig.off{fileIdx}(trigIdx);
-                        case 'Next trigger onset'
-                            if trigIdx == length(trig.on{fileIdx})
-                                windowEnd = inf;
-                            else
-                                windowEnd = trig.on{fileIdx}(trigIdx + 1);
-                            end
-                        case 'Next trigger offset'
-                            if trigIdx == length(trig.on{fileIdx})
-                                windowEnd = inf;
-                            else
-                                windowEnd = trig.off{fileIdx}(trigIdx + 1);
-                            end
-                    end
-
-                    % Apply pre/post padding
-                    windowStart = round(windowStart - obj.P.preStartRef * fs);
-                    windowEnd = round(windowEnd + obj.P.postStopRef * fs);
-
-                    % Check completeness
-                    if windowStart < 1 || windowEnd > obj.eg.getFileLength(filenum)
-                        if excludeIncomplete
-                            continue;
-                        end
-                        isComplete = 0;
-                    else
-                        isComplete = 1;
-                    end
-                    windowStart = max(windowStart, 1);
-                    windowEnd = min(windowEnd, obj.eg.getFileLength(filenum));
-
-                    count = count + 1;
-
-                    % Store trigger metadata
-                    triggerInfo.fileNum(count) = fileIdx;
-                    triggerInfo.isComplete(count) = isComplete;
-                    triggerInfo.absTime(count) = absTime;
-                    triggerInfo.label(count) = trig.info.label{fileIdx}(trigIdx);
-                    triggerInfo.corrShift(count) = 0;
-                    triggerInfo.dataStart{count} = (windowStart - alignSample) / fs + eps;
-                    triggerInfo.dataStop{count} = (windowEnd - alignSample) / fs - eps;
-
-                    % Previous/current/next trigger positions relative to alignment
-                    triggerInfo.currTrigOnset(count) = (trig.on{fileIdx}(trigIdx) - alignSample) / fs;
-                    triggerInfo.currTrigOffset(count) = (trig.off{fileIdx}(trigIdx) - alignSample) / fs;
-                    if trigIdx == 1
-                        triggerInfo.prevTrigOnset(count) = -inf;
-                        triggerInfo.prevTrigOffset(count) = -inf;
-                    else
-                        triggerInfo.prevTrigOnset(count) = (trig.on{fileIdx}(trigIdx-1) - alignSample) / fs;
-                        triggerInfo.prevTrigOffset(count) = (trig.off{fileIdx}(trigIdx-1) - alignSample) / fs;
-                    end
-                    if trigIdx == length(trig.on{fileIdx})
-                        triggerInfo.nextTrigOnset(count) = inf;
-                        triggerInfo.nextTrigOffset(count) = inf;
-                    else
-                        triggerInfo.nextTrigOnset(count) = (trig.on{fileIdx}(trigIdx+1) - alignSample) / fs;
-                        triggerInfo.nextTrigOffset(count) = (trig.off{fileIdx}(trigIdx+1) - alignSample) / fs;
-                    end
-
-                    % Find events within the window
-                    if excludePartial
-                        eventIdx = find(event.on{fileIdx} > windowStart & event.off{fileIdx} < windowEnd);
-                    else
-                        onInWindow = find(event.on{fileIdx} > windowStart & event.on{fileIdx} < windowEnd);
-                        offInWindow = find(event.off{fileIdx} > windowStart & event.off{fileIdx} < windowEnd);
-                        spanning = find(event.on{fileIdx} < windowStart & event.off{fileIdx} > windowEnd);
-                        eventIdx = union(union(onInWindow, offInWindow), spanning);
-                    end
-                    triggerInfo.eventOnsets{count} = (event.on{fileIdx}(eventIdx) - alignSample) / fs;
-                    triggerInfo.eventOffsets{count} = (event.off{fileIdx}(eventIdx) - alignSample) / fs;
-                    triggerInfo.eventLabels{count} = event.info.label{fileIdx}(eventIdx) / fs;
-                end
-            end
-
-            % Warn if timestamps are not strictly increasing, which
-            % indicates the dbase file timestamps may be incorrect
-            % (e.g., chunked files sharing a parent timestamp).
-            if count > 1 && any(diff(triggerInfo.absTime) <= 0)
-                warning('RasterGUI:nonMonotonicTime', ...
-                    ['Trigger absolute times are not strictly increasing. ' ...
-                     'This may cause incorrect cross-trial trigger plotting. ' ...
-                     'Consider running the "Fix chunked timestamps" macro.']);
-            end
-        end
     end
 
-    methods (Static, Access = private)
-        function [triggerInfo, ord] = sortTriggers(triggerInfo, sortType, descending, includeList, groupLabels, eventTI)
-            % Sort triggers according to the specified criterion.
-            arguments
-                triggerInfo (1, 1) struct
-                sortType (1, :) char
-                descending (1, 1) logical
-                includeList (1, :) char = ''
-                groupLabels (1, 1) logical = false
-                eventTI struct = struct()  % Event series triggerInfo for event-based sort criteria
-            end
-            %
-            % Arguments:
-            %   triggerInfo - struct from alignEventsToTriggers
-            %   sortType - one of the sort option strings
-            %   descending - true for descending order
-            %   includeList - label inclusion list (for label sorting)
-            %   groupLabels - true to group triggers by label
-            %   eventTI - (optional) triggerInfo from an event series,
-            %       used for event-dependent sort criteria (Number of
-            %       events, First/Last event onset/offset, Is in event).
-            %       If empty, falls back to triggerInfo's own eventOnsets.
-
-            % Use event series data for event-dependent criteria if provided
-            if ~isempty(fieldnames(eventTI)) && isfield(eventTI, 'eventOnsets')
-                eventOnsets = eventTI.eventOnsets;
-                eventOffsets = eventTI.eventOffsets;
-            else
-                eventOnsets = triggerInfo.eventOnsets;
-                eventOffsets = triggerInfo.eventOffsets;
-            end
-
-            switch sortType
-                case 'Absolute time'
-                    sortValues = triggerInfo.absTime;
-                case 'Trigger duration'
-                    sortValues = triggerInfo.currTrigOffset - triggerInfo.currTrigOnset;
-                case 'Prev trig onset'
-                    sortValues = -triggerInfo.prevTrigOnset;
-                case 'Prev trig offset'
-                    sortValues = -triggerInfo.prevTrigOffset;
-                case 'Prev trig interval'
-                    sortValues = -(triggerInfo.prevTrigOffset - triggerInfo.prevTrigOnset);
-                case 'Next trig onset'
-                    sortValues = triggerInfo.nextTrigOnset;
-                case 'Next trig offset'
-                    sortValues = triggerInfo.nextTrigOffset;
-                case 'Next trig interval'
-                    sortValues = triggerInfo.nextTrigOffset - triggerInfo.nextTrigOnset;
-                case 'Trigger label'
-                    sortValues = triggerInfo.label;
-                    if max(sortValues) > 0 && ~isempty(includeList)
-                        escapeIdx = strfind(includeList, '''''');
-                        includeList = double(includeList);
-                        if ~isempty(escapeIdx)
-                            includeList(escapeIdx + 1) = [];
-                            includeList(escapeIdx) = 0;
-                        end
-                        for k = 1:length(includeList)
-                            sortValues(sortValues == includeList(k)) = 1000 + k;
-                        end
-                    end
-                case 'Preceding event onset'
-                    sortValues = inf(size(triggerInfo.absTime));
-                    for k = 1:length(sortValues)
-                        preceding = find(eventOnsets{k} < 0);
-                        if ~isempty(preceding)
-                            sortValues(k) = -eventOnsets{k}(preceding(end));
-                        end
-                    end
-                case 'Preceding event offset'
-                    sortValues = inf(size(triggerInfo.absTime));
-                    for k = 1:length(sortValues)
-                        preceding = find(eventOffsets{k} < 0);
-                        if ~isempty(preceding)
-                            sortValues(k) = -eventOffsets{k}(preceding(end));
-                        end
-                    end
-                case 'Following event onset'
-                    sortValues = inf(size(triggerInfo.absTime));
-                    for k = 1:length(sortValues)
-                        following = find(eventOnsets{k} > 0);
-                        if ~isempty(following)
-                            sortValues(k) = eventOnsets{k}(following(1));
-                        end
-                    end
-                case 'Following event offset'
-                    sortValues = inf(size(triggerInfo.absTime));
-                    for k = 1:length(sortValues)
-                        following = find(eventOffsets{k} > 0);
-                        if ~isempty(following)
-                            sortValues(k) = eventOffsets{k}(following(1));
-                        end
-                    end
-                case 'First event onset'
-                    sortValues = inf(size(triggerInfo.absTime));
-                    for k = 1:length(sortValues)
-                        if ~isempty(eventOnsets{k})
-                            sortValues(k) = min(eventOnsets{k});
-                        end
-                    end
-                case 'First event offset'
-                    sortValues = inf(size(triggerInfo.absTime));
-                    for k = 1:length(sortValues)
-                        if ~isempty(eventOffsets{k})
-                            sortValues(k) = min(eventOffsets{k});
-                        end
-                    end
-                case 'Last event onset'
-                    sortValues = inf(size(triggerInfo.absTime));
-                    for k = 1:length(sortValues)
-                        if ~isempty(eventOnsets{k})
-                            sortValues(k) = max(eventOnsets{k});
-                        end
-                    end
-                case 'Last event offset'
-                    sortValues = inf(size(triggerInfo.absTime));
-                    for k = 1:length(sortValues)
-                        if ~isempty(eventOffsets{k})
-                            sortValues(k) = max(eventOffsets{k});
-                        end
-                    end
-                case 'Number of events'
-                    sortValues = inf(size(triggerInfo.absTime));
-                    for k = 1:length(sortValues)
-                        sortValues(k) = length(eventOnsets{k});
-                    end
-                case 'Is in event'
-                    sortValues = inf(size(triggerInfo.absTime));
-                    for k = 1:length(sortValues)
-                        sortValues(k) = (length(find(eventOnsets{k} <= 0)) > ...
-                            length(find(eventOffsets{k} < 0)));
-                    end
-                otherwise
-                    % (None) or unrecognized — no sort
-                    ord = 1:length(triggerInfo.absTime);
-                    return;
-            end
-
-            [~, ord] = sort(sortValues);
-            if descending
-                ord = ord(end:-1:1);
-            end
-
-            % Group by label if requested
-            if groupLabels
-                uniqueLabels = unique(triggerInfo.label);
-                groupSort = zeros(size(triggerInfo.label));
-                for k = 1:length(uniqueLabels)
-                    groupSort(triggerInfo.label == uniqueLabels(k)) = ...
-                        mean(find(triggerInfo.label(ord) == uniqueLabels(k)));
-                end
-                [~, ord] = sort(groupSort);
-            end
-
-            % Apply sort order to all fields
-            fields = fieldnames(triggerInfo);
-            for k = 1:length(fields)
-                if ~strcmp(fields{k}, 'contLabel')
-                    triggerInfo.(fields{k}) = triggerInfo.(fields{k})(ord);
-                end
-            end
-        end
-    end
-
-    %% Sort options
+    %% Sort options and filtering
     methods (Access = private, Static)
         function keepMask = getLabelFilterMask(labels, filterMode, filterList)
             % Return a logical mask indicating which labels to keep based
@@ -4133,21 +4232,6 @@ classdef RasterGUI < handle
                 case 'Exclude'
                     filterCodes = double(filterList);
                     keepMask = ~ismember(labels, filterCodes);
-            end
-        end
-
-        function reorderedTI = applyOrder(ti, ord)
-            % Apply a sort order to a triggerInfo struct (reorder all fields).
-            arguments
-                ti (1, 1) struct
-                ord (1, :) double
-            end
-            reorderedTI = ti;
-            fields = fieldnames(ti);
-            for k = 1:length(fields)
-                if ~strcmp(fields{k}, 'contLabel') && length(ti.(fields{k})) == length(ord)
-                    reorderedTI.(fields{k}) = ti.(fields{k})(ord);
-                end
             end
         end
 
