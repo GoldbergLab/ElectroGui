@@ -238,9 +238,12 @@ classdef RasterGUI < handle
         HistBinSize double = [1, 1]
         HistSmoothingWindow double = 1
 
-        % Full Y range of the raster (placeholder until plotRaster sets
-        % it to [0.5, numTrials+0.5]; used to clamp scroll-zoom/pan)
+        % Full axis limits after last plot — used for double-click reset
+        % and to clamp scroll-zoom/pan
         RasterFullYLim double = [0.5, 1.5]
+        BackupXLim double = []        % Raster/PSTH X limits after last plot
+        BackupPSTHYLim double = []    % PSTH Y limits after last plot
+        BackupHistXLim double = []    % Hist X limits after last plot
 
         % Background color
         BackgroundColor double = [1, 1, 1]
@@ -415,6 +418,12 @@ classdef RasterGUI < handle
                 warndlg(sprintf('Error generating raster: %s', ME.message), 'Error');
                 rethrow(ME);
             end
+
+            % Store backup limits for double-click zoom reset
+            obj.BackupXLim = obj.axes_Raster.XLim;
+            obj.BackupPSTHYLim = obj.axes_PSTH.YLim;
+            obj.BackupHistXLim = obj.axes_Hist.XLim;
+            % RasterFullYLim is already set inside plotRaster
 
             obj.statusBar.Status = sprintf( ...
                 'Done — %d trials', length(obj.TriggerData));
@@ -1380,10 +1389,12 @@ classdef RasterGUI < handle
                 'ButtonDownFcn', @(~,~) obj.onRasterClick());
             obj.axes_PSTH = axes(obj.panel_Axes, ...
                 'Box', 'on', ...
-                'Tag', 'axes_PSTH');
+                'Tag', 'axes_PSTH', ...
+                'ButtonDownFcn', @(~,~) obj.onPSTHClick());
             obj.axes_Hist = axes(obj.panel_Axes, ...
                 'Box', 'on', ...
-                'Tag', 'axes_Hist');
+                'Tag', 'axes_Hist', ...
+                'ButtonDownFcn', @(~,~) obj.onHistClick());
 
             % Link axes: raster+PSTH share X, raster+histogram share Y.
             % Use linkprop instead of linkaxes because calling linkaxes
@@ -2056,7 +2067,8 @@ classdef RasterGUI < handle
 
                 % Render all ticks for this series in one call
                 plot(ax, allX, allY, 'Color', seriesColor, ...
-                    'LineWidth', obj.ControlParams.plotTickSize.lineWidth);
+                    'LineWidth', obj.ControlParams.plotTickSize.lineWidth, ...
+                    'HitTest', 'off', 'PickableParts', 'none');
             end
 
             % --- Plot zero line (trigger alignment point) ---
@@ -2211,11 +2223,13 @@ classdef RasterGUI < handle
                 if any(strcmp(seriesStyle, {'Histogram', 'Both'}))
                     bar(ax, binCenters, psthValues, 1, ...
                         'FaceColor', seriesColor, 'FaceAlpha', 0.25, ...
-                        'EdgeColor', 'none');
+                        'EdgeColor', 'none', ...
+                        'HitTest', 'off', 'PickableParts', 'none');
                 end
                 if any(strcmp(seriesStyle, {'Line', 'Both'}))
                     plot(ax, binCenters, psthValues, ...
-                        'Color', seriesColor, 'LineWidth', 1);
+                        'Color', seriesColor, 'LineWidth', 1, ...
+                        'HitTest', 'off', 'PickableParts', 'none');
                 end
             end
 
@@ -2399,11 +2413,13 @@ classdef RasterGUI < handle
                 if any(strcmp(seriesStyle, {'Histogram', 'Both'}))
                     barh(ax, binCenters, binnedCounts, 1, ...
                         'FaceColor', seriesColor, 'FaceAlpha', 0.25, ...
-                        'EdgeColor', 'none');
+                        'EdgeColor', 'none', ...
+                        'HitTest', 'off', 'PickableParts', 'none');
                 end
                 if any(strcmp(seriesStyle, {'Line', 'Both'}))
                     plot(ax, binnedCounts, binCenters, ...
-                        'Color', seriesColor, 'LineWidth', 1);
+                        'Color', seriesColor, 'LineWidth', 1, ...
+                        'HitTest', 'off', 'PickableParts', 'none');
                 end
             end
 
@@ -3207,6 +3223,11 @@ classdef RasterGUI < handle
             obj.plotHist();
             obj.updateLegend();
 
+            % Update backup limits for double-click zoom reset
+            obj.BackupXLim = obj.axes_Raster.XLim;
+            obj.BackupPSTHYLim = obj.axes_PSTH.YLim;
+            obj.BackupHistXLim = obj.axes_Hist.XLim;
+
             obj.statusBar.Status = sprintf( ...
                 'Re-sorted — %d trials', length(obj.TrialOrder));
             obj.statusBar.Progress = 1;
@@ -3565,6 +3586,10 @@ classdef RasterGUI < handle
             obj.plotPSTH();
             obj.plotHist();
             obj.updateLegend();
+            % Update backup limits for double-click zoom reset
+            obj.BackupXLim = obj.axes_Raster.XLim;
+            obj.BackupPSTHYLim = obj.axes_PSTH.YLim;
+            obj.BackupHistXLim = obj.axes_Hist.XLim;
         end
         function windowSettingChanged(obj)
             % Called when a Window tab setting changes. Clears cache
@@ -3920,15 +3945,176 @@ classdef RasterGUI < handle
             end
 
         end
+        function dataRect = rbboxToDataRect(obj, ax)
+            % Use rbbox to let the user drag a selection rectangle, then
+            % convert to data coordinates. Handles YDir='reverse'.
+            % Returns [x, y, width, height] in data units.
+            arguments
+                obj RasterGUI
+                ax (1, 1) matlab.graphics.axis.Axes
+            end
+            % Temporarily set figure to pixel units so rbbox returns
+            % pixels, matching getpixelposition's coordinate system
+            oldFigUnits = obj.figure_Main.Units;
+            obj.figure_Main.Units = 'pixels';
+            pixelRect = rbbox;
+            obj.figure_Main.Units = oldFigUnits;
+
+            % getpixelposition(ax, true) returns figure-relative pixels
+            axPos = getpixelposition(ax, true);
+            xl = ax.XLim;
+            yl = ax.YLim;
+
+            % X mapping (XDir is always 'normal')
+            fracX = (pixelRect(1) - axPos(1)) / axPos(3);
+            fracW = pixelRect(3) / axPos(3);
+            dataX = xl(1) + fracX * diff(xl);
+            dataW = fracW * diff(xl);
+
+            % Y mapping — account for YDir='reverse' where bottom
+            % pixel corresponds to YLim(2) instead of YLim(1)
+            fracY = (pixelRect(2) - axPos(2)) / axPos(4);
+            fracH = pixelRect(4) / axPos(4);
+            if strcmp(ax.YDir, 'reverse')
+                dataY = yl(2) - (fracY + fracH) * diff(yl);
+            else
+                dataY = yl(1) + fracY * diff(yl);
+            end
+            dataH = fracH * diff(yl);
+
+            dataRect = [dataX, dataY, dataW, dataH];
+        end
+
         function onRasterClick(obj)
-            % Handle clicks on the raster axes. Double-click resets
-            % the Y zoom to show all trials.
+            % Handle clicks on the raster axes:
+            %   Normal click + drag: rubber-band zoom on X and Y
+            %   Normal point click: show trial info in the status bar
+            %   Double-click: reset all axes to full limits
             arguments
                 obj RasterGUI
             end
-            if strcmp(obj.figure_Main.SelectionType, 'open')
-                obj.axes_Raster.YLim = obj.RasterFullYLim;
+            selType = obj.figure_Main.SelectionType;
+            ax = obj.axes_Raster;
+
+            if strcmp(selType, 'normal')
+                dataRect = obj.rbboxToDataRect(ax);
+                if dataRect(3) == 0 || dataRect(4) == 0
+                    % Point click — show trial info
+                    obj.showTrialInfo(dataRect(1), dataRect(2));
+                    return;
+                end
+                % Rubber-band zoom: set raster limits, PSTH X and Hist Y
+                % follow via linkprop
+                ax.XLim = [dataRect(1), dataRect(1) + dataRect(3)];
+                ax.YLim = [dataRect(2), dataRect(2) + dataRect(4)];
+
+            elseif strcmp(selType, 'open')
+                % Double-click: reset all axes to backup limits
+                obj.resetZoom();
             end
+        end
+
+        function onPSTHClick(obj)
+            % Handle clicks on the PSTH axes:
+            %   Normal click + drag: zoom X (shared with raster) and PSTH Y
+            %   Double-click: reset all axes to backup limits
+            arguments
+                obj RasterGUI
+            end
+            selType = obj.figure_Main.SelectionType;
+            ax = obj.axes_PSTH;
+
+            if strcmp(selType, 'normal')
+                dataRect = obj.rbboxToDataRect(ax);
+                if dataRect(3) == 0 || dataRect(4) == 0
+                    return;
+                end
+                % Zoom X on raster (PSTH follows via linkprop) and PSTH Y
+                obj.axes_Raster.XLim = [dataRect(1), dataRect(1) + dataRect(3)];
+                ax.YLim = [dataRect(2), dataRect(2) + dataRect(4)];
+
+            elseif strcmp(selType, 'open')
+                obj.resetZoom();
+            end
+        end
+
+        function onHistClick(obj)
+            % Handle clicks on the histogram axes:
+            %   Normal click + drag: zoom Y (shared with raster) and Hist X
+            %   Double-click: reset all axes to backup limits
+            arguments
+                obj RasterGUI
+            end
+            selType = obj.figure_Main.SelectionType;
+            ax = obj.axes_Hist;
+
+            if strcmp(selType, 'normal')
+                dataRect = obj.rbboxToDataRect(ax);
+                if dataRect(3) == 0 || dataRect(4) == 0
+                    return;
+                end
+                % Zoom Y on raster (Hist follows via linkprop) and Hist X
+                obj.axes_Raster.YLim = [dataRect(2), dataRect(2) + dataRect(4)];
+                ax.XLim = [dataRect(1), dataRect(1) + dataRect(3)];
+
+            elseif strcmp(selType, 'open')
+                obj.resetZoom();
+            end
+        end
+
+        function resetZoom(obj)
+            % Reset all axes to their post-plot backup limits.
+            arguments
+                obj RasterGUI
+            end
+            if ~isempty(obj.BackupXLim)
+                obj.axes_Raster.XLim = obj.BackupXLim;
+            end
+            obj.axes_Raster.YLim = obj.RasterFullYLim;
+            if ~isempty(obj.BackupPSTHYLim)
+                obj.axes_PSTH.YLim = obj.BackupPSTHYLim;
+            end
+            if ~isempty(obj.BackupHistXLim)
+                obj.axes_Hist.XLim = obj.BackupHistXLim;
+            end
+        end
+
+        function showTrialInfo(obj, clickX, clickY)
+            % Display information about the clicked trial in the status bar.
+            arguments
+                obj RasterGUI
+                clickX (1, 1) double
+                clickY (1, 1) double
+            end
+            numTrials = length(obj.TrialOrder);
+            if numTrials == 0
+                return;
+            end
+
+            % Find the nearest trial by Y position (trials are at integer
+            % Y values 1..numTrials)
+            [~, displayIdx] = min(abs(clickY - (1:numTrials)));
+            trialIdx = obj.TrialOrder(displayIdx);
+            trial = obj.TriggerData(trialIdx);
+
+            % Build label string
+            if trial.label == 0
+                labelStr = '(unlabeled)';
+            elseif trial.label > 1000
+                labelStr = num2str(trial.label - 1000);
+            else
+                labelStr = char(trial.label);
+            end
+
+            % Build info string
+            spc = '  |  ';
+            infoStr = [ ...
+                'Trial: ', num2str(displayIdx), ...
+                spc, 'File: ', num2str(trial.fileNum), ...
+                spc, 'Label: ', labelStr, ...
+                spc, 'Click time: ', num2str(clickX, '%.4f'), ' s'];
+
+            obj.statusBar.Status = infoStr;
         end
 
         function onScrollWheel(obj, evt)
