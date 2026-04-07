@@ -15121,7 +15121,7 @@ end
             for eventNum = 1:numEvents
                 eventTime = eventTimes(eventNum);
                 % Clamp to data boundaries (identical to updateEventViewer)
-                startSample = max(1, eventTime + leftWidth);
+                startSample = max(1, eventTime - leftWidth);
                 endSample = min(dataLength, eventTime + rightWidth);
 
                 waveforms{eventNum} = channelData(startSample:endSample)';
