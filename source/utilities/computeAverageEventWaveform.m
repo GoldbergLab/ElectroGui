@@ -9,8 +9,8 @@ function [meanWaveform, stdWaveform, tMs, numUsed] = computeAverageEventWaveform
     %   % From pre-loaded dbase and settings structs:
     %   [mu, sd, t] = computeAverageEventWaveform(dbase, 1, 'Settings', settings);
     %
-    %   % With explicit EventXLims (no settings needed):
-    %   [mu, sd, t] = computeAverageEventWaveform(dbase, 1, 'EventXLims', [0.001, 0.003]);
+    %   % With explicit EventXLims in ms (no settings needed):
+    %   [mu, sd, t] = computeAverageEventWaveform(dbase, 1, 'EventXLims', [-1, 3]);
     %
     %   % Limit to 500 randomly sampled events:
     %   [mu, sd, t] = computeAverageEventWaveform(dbase, 1, 'NumEvents', 500, ...
@@ -26,8 +26,8 @@ function [meanWaveform, stdWaveform, tMs, numUsed] = computeAverageEventWaveform
     %                  dbaseInput is a struct and EventXLims is not given.
     %                  Automatically loaded from file when dbaseInput is a
     %                  path.
-    %   EventXLims   - [preTime, postTime] in seconds. Overrides the value
-    %                  in Settings.EventXLims.
+    %   EventXLims   - [startOffset, stopOffset] in ms. Overrides the 
+    %                  value in Settings.EventXLims.
     %   NumEvents    - number of events to randomly sample. When 0 or
     %                  greater than the total event count, all events are
     %                  used. Default: 0 (all).
@@ -80,7 +80,7 @@ function [meanWaveform, stdWaveform, tMs, numUsed] = computeAverageEventWaveform
 
     % --- Resolve EventXLims ---
     if ~isempty(options.EventXLims)
-        eventXLims = options.EventXLims;
+        eventXLims = options.EventXLims * 0.001;
     elseif ~isempty(options.Settings)
         eventXLims = options.Settings.EventXLims(eventSourceIdx, :);
     else
@@ -145,7 +145,7 @@ function [meanWaveform, stdWaveform, tMs, numUsed] = computeAverageEventWaveform
     canonicalFs = dbase.ChannelFs(channelNum);
     leftSamples = round(eventXLims(1) * canonicalFs);
     rightSamples = round(eventXLims(2) * canonicalFs);
-    canonicalT = (-leftSamples:rightSamples) / canonicalFs * 1000;
+    canonicalT = (leftSamples:rightSamples) / canonicalFs;
     canonicalLength = length(canonicalT);
 
     % --- Group selected events by file for efficient loading ---
@@ -210,7 +210,7 @@ function [meanWaveform, stdWaveform, tMs, numUsed] = computeAverageEventWaveform
                 % canonical vector by matching the first time point
                 paddedWaveform = NaN(1, canonicalLength);
                 % Round to avoid floating point mismatches
-                startOffset = round((tVec(1) - canonicalT(1)) / (1000 / canonicalFs));
+                startOffset = round((tVec(1) - canonicalT(1)) * canonicalFs);
                 insertIdx = 1 + startOffset;
                 insertEnd = insertIdx + length(waveform) - 1;
                 % Clamp to valid range
