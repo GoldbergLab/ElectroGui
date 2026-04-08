@@ -1179,7 +1179,6 @@ classdef electro_gui < handle
             eventPartIdx = obj.GetEventViewerEventPartIdx();
 
             allEventTimes = obj.dbase.EventTimes{eventSourceIdx}(:,filenum);
-            eventTimes = obj.dbase.EventTimes{eventSourceIdx}{eventPartIdx,filenum};
             eventSelection = obj.dbase.EventIsSelected{eventSourceIdx}{eventPartIdx,filenum};
 
             if obj.menu_DisplayWaveform.Checked
@@ -15022,15 +15021,19 @@ end
             %                  egl_* plugin. Defaults to
             %                  dbase.ChannelLoader{channelNum}.
             %   EventPartIdx - which event part to use (default 1)
+            %   PadVal       - when empty (default), waveforms near file
+            %                  boundaries are truncated. When set to a
+            %                  numeric value (e.g. NaN or 0), truncated
+            %                  waveforms are padded to the full canonical
+            %                  length using that value.
             %
             % Returns:
             %   waveforms - 1xN cell array of waveform column vectors,
             %               one per event. Waveforms near file boundaries
-            %               are truncated (matching the existing behavior
-            %               in updateEventViewer).
+            %               are truncated or padded depending on PadVal.
             %   t         - 1xN cell array of time vectors in milliseconds
-            %               relative to the event time, matching the
-            %               corresponding waveform.
+            %               relative to the event time. When PadVal is set,
+            %               all time vectors span the full canonical window.
             arguments
                 dbase (1, 1) struct
                 filenum (1, 1) double {mustBePositive, mustBeInteger}
@@ -15041,6 +15044,7 @@ end
                 options.Fs = []
                 options.Loader = []
                 options.EventPartIdx (1, 1) double {mustBePositive, mustBeInteger} = 1
+                options.PadVal = []
             end
 
             % --- Resolve EventXLims ---
@@ -15114,19 +15118,45 @@ end
             leftWidth = round(eventXLims(1) * fs);
             rightWidth = round(eventXLims(2) * fs);
             dataLength = length(channelData);
+            shouldPad = ~isempty(options.PadVal);
+            % Canonical time vector covering the full window (used when padding)
+            canonicalTime = (-leftWidth:rightWidth) / fs * 1000;
 
             waveforms = cell(1, numEvents);
             t = cell(1, numEvents);
 
             for eventNum = 1:numEvents
                 eventTime = eventTimes(eventNum);
-                % Clamp to data boundaries (identical to updateEventViewer)
-                startSample = max(1, eventTime - leftWidth);
-                endSample = min(dataLength, eventTime + rightWidth);
+                startSample = eventTime - leftWidth;
+                endSample = eventTime + rightWidth;
 
-                waveforms{eventNum} = channelData(startSample:endSample)';
-                % Time in milliseconds relative to event
-                t{eventNum} = ((startSample:endSample) - eventTime) / fs * 1000;
+                if shouldPad && (startSample < 1 || endSample > dataLength)
+                    % Waveform extends past file boundaries — clamp, slice,
+                    % and pad the truncated side(s)
+                    prePad = 0;
+                    postPad = 0;
+                    if startSample < 1
+                        prePad = 1 - startSample;
+                        startSample = 1;
+                    end
+                    if endSample > dataLength
+                        postPad = endSample - dataLength;
+                        endSample = dataLength;
+                    end
+                    waveform = channelData(startSample:endSample)';
+                    waveform = padarray(waveform, [0, prePad], options.PadVal, 'pre');
+                    waveform = padarray(waveform, [0, postPad], options.PadVal, 'post');
+                    waveforms{eventNum} = waveform;
+                    t{eventNum} = canonicalTime;
+                else
+                    % Clamp to data boundaries (no padding requested, or
+                    % waveform is fully within bounds)
+                    startSample = max(1, startSample);
+                    endSample = min(dataLength, endSample);
+                    waveforms{eventNum} = channelData(startSample:endSample)';
+                    % Time in milliseconds relative to event
+                    t{eventNum} = ((startSample:endSample) - eventTime) / fs * 1000;
+                end
             end
         end
 
