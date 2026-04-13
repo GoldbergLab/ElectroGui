@@ -88,6 +88,19 @@ else
         'Either EventXLims or Settings must be provided.');
 end
 
+% Warn if EventXLims looks like the [-, +] convention used by most
+% other plotting code. electro_gui's convention is [+, +]: both
+% elements are positive magnitudes, with EventXLims(1) being the time
+% *before* the event and EventXLims(2) being the time *after*.
+if eventXLims(1) < 0 && eventXLims(2) > 0
+    warning('computeAverageEventWaveform:eventXLimsConvention', ...
+        ['EventXLims = [%g, %g] looks like a [-, +] range, but ', ...
+         'electro_gui uses a [+, +] convention where both values ', ...
+         'are positive magnitudes (pre-event, post-event). Did you ', ...
+         'mean EventXLims = [%g, %g]?'], ...
+        eventXLims(1), eventXLims(2), -eventXLims(1), eventXLims(2));
+end
+
 % --- Count events per file and build a global event index ---
 % Each event is identified by (filenum, eventNum) where eventNum is the
 % index within that file's event list for the given part.
