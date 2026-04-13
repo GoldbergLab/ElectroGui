@@ -9,8 +9,8 @@ function [meanWaveform, stdWaveform, time, numUsed] = computeAverageEventWavefor
 %   % From pre-loaded dbase and settings structs:
 %   [mu, sd, t] = computeAverageEventWaveform(dbase, 1, 'Settings', settings);
 %
-%   % With explicit EventXLims in ms (no settings needed):
-%   [mu, sd, t] = computeAverageEventWaveform(dbase, 1, 'EventXLims', [-1, 3]);
+%   % With explicit EventXLims in seconds (no settings needed):
+%   [mu, sd, t] = computeAverageEventWaveform(dbase, 1, 'EventXLims', [0.05, 0.1]);
 %
 %   % Limit to 500 randomly sampled events:
 %   [mu, sd, t] = computeAverageEventWaveform(dbase, 1, 'NumEvents', 500, ...
@@ -26,8 +26,9 @@ function [meanWaveform, stdWaveform, time, numUsed] = computeAverageEventWavefor
 %                  dbaseInput is a struct and EventXLims is not given.
 %                  Automatically loaded from file when dbaseInput is a
 %                  path.
-%   EventXLims   - [preTime, postTime] in ms. Overrides the 
-%                  value in Settings.EventXLims.
+%   EventXLims   - [preTime, postTime] in seconds, both values as
+%                  positive magnitudes (electro_gui [+, +] convention).
+%                  Overrides the value in Settings.EventXLims.
 %   NumEvents    - number of events to randomly sample. When 0 or
 %                  greater than the total event count, all events are
 %                  used. Default: 0 (all).
@@ -44,7 +45,7 @@ function [meanWaveform, stdWaveform, time, numUsed] = computeAverageEventWavefor
 % Returns:
 %   meanWaveform - 1xW mean waveform vector
 %   stdWaveform  - 1xW standard deviation vector
-%   tMs          - 1xW time vector in milliseconds relative to event
+%   time         - 1xW time vector in seconds relative to event
 %   numUsed      - number of waveforms that contributed to the average
 %                  (may be less than NumEvents if some files had issues)
 arguments
@@ -78,9 +79,9 @@ else
         'dbaseInput must be a file path or a dbase struct.');
 end
 
-% --- Resolve EventXLims ---
+% --- Resolve EventXLims (always in seconds, [+, +] convention) ---
 if ~isempty(options.EventXLims)
-    eventXLims = options.EventXLims * 0.001;  % Electro_gui convention is to enter these in ms, but store them in s
+    eventXLims = options.EventXLims;
 elseif ~isempty(options.Settings)
     eventXLims = options.Settings.EventXLims(eventSourceIdx, :);
 else
