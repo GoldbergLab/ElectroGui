@@ -9867,8 +9867,26 @@ function exportSaveAllWavs(obj, nameIdxOrTab)
     if ~isempty(root)
         wavPaths = {};
         overwrites = 0;
+        % Track base names used so far so duplicates get a suffix
+        baseNameCounts = containers.Map('KeyType', 'char', 'ValueType', 'int32');
         for k = 1:length(obj.ExportWindow.panels{tabIdx})
-            wavPaths{k} = fullfile(root, sprintf('clip%02d.wav', k));
+            panel = obj.ExportWindow.panels{tabIdx}(k);
+            % Derive filename from source file's base name; fall back to
+            % generic "clipNN" if no source filename is available
+            if isfield(panel.UserData, 'filename') && ~isempty(panel.UserData.filename)
+                [~, baseName, ~] = fileparts(panel.UserData.filename);
+            else
+                baseName = sprintf('clip%02d', k);
+            end
+            % Disambiguate if the same source file appears multiple times
+            if isKey(baseNameCounts, baseName)
+                baseNameCounts(baseName) = baseNameCounts(baseName) + 1;
+                wavName = sprintf('%s_%02d.wav', baseName, baseNameCounts(baseName));
+            else
+                baseNameCounts(baseName) = 1;
+                wavName = [baseName, '.wav'];
+            end
+            wavPaths{k} = fullfile(root, wavName);
             if exist(wavPaths{k}, 'file')
                 overwrites = overwrites + 1;
             end
@@ -14906,8 +14924,15 @@ end
                 verbose = true
             end
             if isempty(wavPath)
+                % Default filename based on source file's base name
+                if isfield(panel.UserData, 'filename') && ~isempty(panel.UserData.filename)
+                    [~, baseName, ~] = fileparts(panel.UserData.filename);
+                    defaultName = [baseName, '.wav'];
+                else
+                    defaultName = 'clip.wav';
+                end
                 % Ask user for save path
-                [wavName, wavDir] = uiputfile('', 'Choose where to save wav file', 'clip.wav');
+                [wavName, wavDir] = uiputfile('', 'Choose where to save wav file', defaultName);
                 if isempty(wavName)
                     % User cancelled
                     return
