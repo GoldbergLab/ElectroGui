@@ -115,6 +115,7 @@ tolerance = str2double(tolerance);
 eps = str2double(eps);
 time_per_frame_for_scoring = str2double(time_per_frame_for_scoring);
 num_trials = str2double(num_trials);
+timeout = str2double(timeout);
 switch use_labels
     case 'true'
         use_labels = true;
