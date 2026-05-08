@@ -6,8 +6,8 @@ function [segmentTimes, segmentTitles] = egg_WhisperSeg(data, ~, fs, ~, params)
 % running either locally or remotely.
 
 % Define default segmenter parameters
-defaultParams.Names =  {'WhisperSeg hostname/IP',       'WhisperSeg service port',  'Mininum frequency (Hz)',   'Spectrogram time step (s)',    'Minimum segment length (s)',   'Tolerance',   'eps',  'time_per_frame_for_scoring', 'Number of trials', 'Network name',                            'Use labels'};
-defaultParams.Values = {'goldbergbk.nbb.cornell.edu',   '8050',                     '0',                        '0.0025',                       '0.01',                         '0.01',        '0.02', '0.001',                      '3',                '20240907_ZhileiEphysWarble20kFinetune3',   'true'};
+defaultParams.Names =  {'WhisperSeg hostname/IP',       'WhisperSeg service port',  'Mininum frequency (Hz)',   'Spectrogram time step (s)',    'Minimum segment length (s)',   'Tolerance',   'eps',  'time_per_frame_for_scoring', 'Number of trials', 'Network name',                            'Use labels', 'Timeout (s)'};
+defaultParams.Values = {'goldbergbk.nbb.cornell.edu',   '8050',                     '0',                        '0.0025',                       '0.01',                         '0.01',        '0.02', '0.001',                      '3',                '20240907_ZhileiEphysWarble20kFinetune3',   'true',      '20'};
 
 segmentTitles = {};
 
@@ -31,7 +31,7 @@ end
 params = electro_gui.applyDefaultPluginParams(params, defaultParams);
 
 % Extract the parameters chosen
-[host, port, min_frequency, spec_time_step, min_segment_length, tolerance, eps, time_per_frame_for_scoring, num_trials, network_name, use_labels] = params.Values{:};
+[host, port, min_frequency, spec_time_step, min_segment_length, tolerance, eps, time_per_frame_for_scoring, num_trials, network_name, use_labels, timeout] = params.Values{:};
 
 if ischar(data)
     if strcmp(data, 'list')
@@ -149,7 +149,7 @@ requestInfo = struct('audio_file_base64_string', audio_base64_string, ...
 % Serialize the request structure into a json string
 jsonData = jsonencode(requestInfo);
 % Prepare options for our request
-options = weboptions('RequestMethod', 'POST', 'MediaType', 'application/json', 'Timeout', 20);
+options = weboptions('RequestMethod', 'POST', 'MediaType', 'application/json', 'Timeout', timeout);
 try
     % Attempt to send data to the web service and await a reply
     response = webwrite(service_url, jsonData, options);
