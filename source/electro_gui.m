@@ -72,9 +72,9 @@ classdef electro_gui < handle
         panel_Channel1Controls
         panel_Channel2Controls
         panel_SoundControls
-        menu_SourcePlots
-        menu_SourceTopPlot
-        menu_SourceBottomPlot
+        % menu_AmplitudeSource (declared further below) now hosts a dynamic
+        % list of channel choices plus Top/Bottom plot shortcuts, replacing
+        % the old menu_SourceSoundAmplitude/TopPlot/BottomPlot radio group.
         menu_PeakDetects
         menu_PeakDetect1
         menu_PeakDetect2
@@ -185,7 +185,10 @@ classdef electro_gui < handle
         menu_AmplitudeColors
         menu_AmplitudeColor
         menu_AmplitudeThresholdColor
-        menu_SourceSoundAmplitude
+        % menu_SourceSoundAmplitude / menu_SourceTopPlot / menu_SourceBottomPlot
+        % were removed when the amplitude source became per-file via
+        % dbase.SegmentationSource. menu_AmplitudeSource is now populated
+        % dynamically by populateAmplitudeSourceMenu.
         context_Segments
         menu_Split
         menu_Concatenate
@@ -231,6 +234,8 @@ classdef electro_gui < handle
         menu_EventsAxisLimits
         popup_SoundSource
         text_SoundSource
+        popup_SegmentationSource
+        text_SegmentationSource
         context_EventListAlign
         EventViewerSourceToTopAxes
         EventViewerSourceToBottomAxes
@@ -538,8 +543,10 @@ classdef electro_gui < handle
 
             obj.menu_EventAutoDetect1.Checked = obj.settings.EventsAutoDetect(1);
             obj.menu_EventAutoDetect2.Checked = obj.settings.EventsAutoDetect(2);
-            ch = obj.menu_AmplitudeSource.Children;
-            set(ch(3-obj.settings.AmplitudeSource),'Checked','on');
+            % menu_AmplitudeSource is now populated dynamically by
+            % populateAmplitudeSourceMenu after the dbase has loaded.
+            % settings.AmplitudeSource is deprecated and intentionally
+            % unread here.
 
             obj.settings.CustomFreqLim = obj.settings.FreqLim;
 
@@ -1696,8 +1703,11 @@ classdef electro_gui < handle
             obj.popup_EventDetectors = [obj.popup_EventDetector1, obj.popup_EventDetector2];
             % obj.axes_Channel are the channel data display axes
             obj.axes_Channel = [obj.axes_Channel1, obj.axes_Channel2];
-            % menu source top/bottom plot
-            obj.menu_SourcePlots = [obj.menu_SourceTopPlot, obj.menu_SourceBottomPlot];
+            % menu_SourcePlots was a 2-element array of legacy
+            % SourceTopPlot / SourceBottomPlot radio items. Those items
+            % have been removed; the amplitude source is now per-file
+            % (dbase.SegmentationSource) and no longer auto-follows the
+            % displayed top/bottom plot channel.
             % peak detect menu items
             obj.menu_PeakDetects = [obj.menu_PeakDetect1, obj.menu_PeakDetect2];
             obj.menu_AutoLimits = [obj.menu_AutoLimits1, obj.menu_AutoLimits2];
@@ -1940,6 +1950,12 @@ classdef electro_gui < handle
 
             segmentUnselectColor = electro_gui.getAnnotationUnselectColor(obj.settings.SegmentColor);
 
+            % Segments are stored in the segmentation source timebase, so
+            % CreateAnnotations needs that fs to render them on the
+            % seconds-based X axis. Markers are not channel-bound and
+            % stay on the audio fs.
+            segFs = electro_gui.getSegmentationFs(obj.dbase, filenum);
+
             [obj.SegmentHandles, obj.SegmentLabelHandles] = electro_gui.CreateAnnotations(...
                 obj.axes_Segments, ...
                 obj.dbase.SegmentTimes{filenum}, ...
@@ -1948,7 +1964,7 @@ classdef electro_gui < handle
                 obj.settings.SegmentColor, segmentUnselectColor, ...
                 obj.settings.AnnotationActiveColor, ...
                 obj.settings.AnnotationInactiveColor, ...
-                [-1, 1], fs, [], @obj.click_segment, obj.GUIStyle.TextColor, ...
+                [-1, 1], segFs, [], @obj.click_segment, obj.GUIStyle.TextColor, ...
                 'segmentAnnotation');
 
             obj.MarkerHandles = gobjects().empty();
@@ -3109,8 +3125,10 @@ function LoadFile(obj, showWaitBar)
 
     % Sync the Sound source popup to this file's stored SoundSource so
     % that the popup always reflects the channel that actually fed the
-    % subsequent updateFilteredSound / updateSonogram calls below.
+    % subsequent updateFilteredSound / updateSonogram calls below. Same
+    % for the segmentation source popup and the amplitude context menu.
     obj.refreshSoundSourcePopup();
+    obj.refreshSegmentationSourceWidgets();
 
     % Label
     obj.text_FileName.String = obj.dbase.SoundFiles(filenum).name;
@@ -3532,8 +3550,13 @@ function [sound, fs, timestamp] = getSound(obj, soundChannel, filenum, isPseudoC
         end
     end
 
-    if isnan(obj.dbase.Fs)
-        % Sound sampling rate was not known, update it
+    % dbase.Fs is the audio (channel 0) sampling rate and stays that way
+    % even when SoundSource points at a non-audio channel - SegmentTimes,
+    % MarkerTimes, and other dbase-level timebases all reference channel
+    % 0 by default. Only update it on a successful audio load.
+    audioLoaded = isnumeric(soundChannel) && isscalar(soundChannel) && ...
+                  soundChannel == 0 && ~isPseudoChannel;
+    if isnan(obj.dbase.Fs) && audioLoaded
         obj.dbase.Fs = fs;
     end
 
@@ -3719,6 +3742,13 @@ function SetSegmentThreshold(obj)
 end
 
 function SegmentSounds(obj, updateGUI)
+    % Run the currently-selected segmenter plugin on the file's
+    % segmentation source channel. Both the waveform and the amplitude
+    % envelope come from that same channel, so the segmenter receives a
+    % consistent pair. The resulting SegmentTimes are sample indices in
+    % the segmentation source channel's sampling rate - downstream code
+    % must convert via electro_gui.getSegmentationFs to render them on
+    % the time axis.
     arguments
         obj electro_gui
         updateGUI = true
@@ -3726,12 +3756,13 @@ function SegmentSounds(obj, updateGUI)
 
     segmenterAlgorithmName = obj.getSelectedSegmenterAlgorithm();
     segmenterParams = obj.getSelectedSegmenterParameters();
-
-    [sound, fs] = obj.getSound();
-
     filenum = electro_gui.getCurrentFileNum(obj.settings);
+
+    segmentationChannel = obj.dbase.SegmentationSource{filenum};
+    [waveform, fs] = obj.getSound(segmentationChannel, filenum);
+
     [obj.dbase.SegmentTimes{filenum}, segmentTitles] = electro_gui.eg_runPlugin(obj.plugins.segmenters, ...
-        segmenterAlgorithmName, sound, obj.amplitude, fs, obj.settings.CurrentThreshold, ...
+        segmenterAlgorithmName, waveform, obj.amplitude, fs, obj.settings.CurrentThreshold, ...
         segmenterParams);
     if isempty(segmentTitles)
         obj.dbase.SegmentTitles{filenum} = cell(1,size(obj.dbase.SegmentTimes{filenum},1));
@@ -3828,7 +3859,10 @@ function UpdateActiveAnnotationDisplay(obj, oldAnnotationNum, oldAnnotationType,
             obj.SegmentHandles(newAnnotationNum).EdgeColor = obj.settings.AnnotationActiveColor;
             obj.SegmentHandles(newAnnotationNum).LineWidth = 2;
             obj.SegmentHandles(newAnnotationNum).LineStyle = '-';
-            activeAnnotationTimes = obj.dbase.SegmentTimes{filenum}(newAnnotationNum, :) / obj.dbase.Fs;
+            % SegmentTimes are stored in the per-file segmentation source
+            % timebase, so convert with that rate; MarkerTimes stay on the
+            % global audio fs (markers are not channel-bound).
+            activeAnnotationTimes = obj.dbase.SegmentTimes{filenum}(newAnnotationNum, :) / electro_gui.getSegmentationFs(obj.dbase, filenum);
         case 'marker'
             obj.MarkerHandles(newAnnotationNum).EdgeColor = obj.settings.AnnotationActiveColor;
             obj.MarkerHandles(newAnnotationNum).LineWidth = 2;
@@ -4045,6 +4079,11 @@ function [newAnnotationNum, newAnnotationType] = FindClosestAnnotationOfOtherTyp
         % No annotation type provided - use the currently active type
         [~, annotationType] = obj.FindActiveAnnotation();
     end
+    % Segments and markers live on different timebases (segmentation
+    % source fs vs audio fs), so compare midpoints in seconds rather
+    % than samples to find the nearest annotation of the other type.
+    segFs = electro_gui.getSegmentationFs(obj.dbase, filenum);
+    markerFs = obj.dbase.Fs;
     switch annotationType
         case 'segment'
             if isempty(obj.MarkerHandles)
@@ -4053,10 +4092,10 @@ function [newAnnotationNum, newAnnotationType] = FindClosestAnnotationOfOtherTyp
                 newAnnotationType = 'segment';
                 return
             end
-            segmentTime = mean(obj.dbase.SegmentTimes{filenum}(annotationNum, :));
-            markerTimes = mean(obj.dbase.MarkerTimes{filenum}, 2);
-            % Find segment closest in time to the active marker, and switch
-            % to that active segment.
+            segmentTime = mean(obj.dbase.SegmentTimes{filenum}(annotationNum, :)) / segFs;
+            markerTimes = mean(obj.dbase.MarkerTimes{filenum}, 2) / markerFs;
+            % Find marker closest in time to the active segment, and switch
+            % to that active marker.
             [~, newAnnotationNum] = min(abs(markerTimes - segmentTime));
             newAnnotationType = 'marker';
         case 'marker'
@@ -4066,8 +4105,8 @@ function [newAnnotationNum, newAnnotationType] = FindClosestAnnotationOfOtherTyp
                 newAnnotationType = 'marker';
                 return
             end
-            markerTime = mean(obj.dbase.MarkerTimes{filenum}(annotationNum, :));
-            segmentTimes = mean(obj.dbase.SegmentTimes{filenum}, 2);
+            markerTime = mean(obj.dbase.MarkerTimes{filenum}(annotationNum, :)) / markerFs;
+            segmentTimes = mean(obj.dbase.SegmentTimes{filenum}, 2) / segFs;
             % Find segment closest in time to the active marker, and switch
             % to that active segment.
             [~, newAnnotationNum] = min(abs(segmentTimes - markerTime));
@@ -4547,8 +4586,13 @@ function [newMarkerType, newMarkerTypeIdx, isLastMarkerType] = getNextMarkerType
 end
 function newSegmentNum = ConvertMarkerToSegment(obj, filenum, markerNum)
     activeMarkerNum = obj.FindActiveMarker();
-    t0 = obj.dbase.MarkerTimes{filenum}(markerNum, 1);
-    t1 = obj.dbase.MarkerTimes{filenum}(markerNum, 2);
+    % Marker sample indices live in the audio (dbase.Fs) timebase but
+    % segment sample indices live in the per-file segmentation source
+    % timebase, so cross the boundary via seconds.
+    markerFs = obj.dbase.Fs;
+    segFs = electro_gui.getSegmentationFs(obj.dbase, filenum);
+    t0 = obj.dbase.MarkerTimes{filenum}(markerNum, 1) / markerFs * segFs;
+    t1 = obj.dbase.MarkerTimes{filenum}(markerNum, 2) / markerFs * segFs;
     MS = obj.dbase.MarkerIsSelected{filenum}(markerNum);
     MN = obj.dbase.MarkerTitles{filenum}(markerNum);
     STs = obj.dbase.SegmentTimes{filenum};
@@ -4582,8 +4626,13 @@ function newSegmentNum = ConvertMarkerToSegment(obj, filenum, markerNum)
 end
 function newMarkerNum = ConvertSegmentToMarker(obj, filenum, segmentNum)
     activeSegmentNum = obj.FindActiveSegment();
-    t0 = obj.dbase.SegmentTimes{filenum}(segmentNum, 1);
-    t1 = obj.dbase.SegmentTimes{filenum}(segmentNum, 2);
+    % SegmentTimes are in the per-file segmentation source timebase, but
+    % MarkerTimes live on the audio (dbase.Fs) timebase, so cross via
+    % seconds.
+    segFs = electro_gui.getSegmentationFs(obj.dbase, filenum);
+    markerFs = obj.dbase.Fs;
+    t0 = obj.dbase.SegmentTimes{filenum}(segmentNum, 1) / segFs * markerFs;
+    t1 = obj.dbase.SegmentTimes{filenum}(segmentNum, 2) / segFs * markerFs;
     SS = obj.dbase.SegmentIsSelected{filenum}(segmentNum);
     SN = obj.dbase.SegmentTitles{filenum}(segmentNum);
     MTs = obj.dbase.MarkerTimes{filenum};
@@ -5054,7 +5103,7 @@ function tlim = getExportTLim(obj, filenum)
             [annotationNum, annotationType] = obj.FindActiveAnnotation();
             switch annotationType
                 case 'segment'
-                    tlim = obj.dbase.SegmentTimes{filenum}(annotationNum, :)./obj.dbase.Fs;
+                    tlim = obj.dbase.SegmentTimes{filenum}(annotationNum, :)./electro_gui.getSegmentationFs(obj.dbase, filenum);
                 case 'marker'
                     tlim = obj.dbase.MarkerTimes{filenum}(annotationNum, :)./obj.dbase.Fs;
                 case 'none'
@@ -6353,6 +6402,19 @@ function updateAmplitude(obj, options)
 end
 
 function [amp, fs, labels] = calculateAmplitude(obj, filenum, channel)
+    % Compute the amplitude envelope used for both the amplitude axes
+    % display and segmentation thresholding. The source channel is
+    % per-file (dbase.SegmentationSource{filenum}) unless a specific
+    % channel is supplied via the channel argument - that override path
+    % is kept for callers that want to preview amplitude from a different
+    % channel without writing to the dbase.
+    %
+    % The envelope is computed in dB-loudness style for the audio sound
+    % channel (matching the legacy "Sound amplitude" mode), and as a
+    % smoothed channel signal for any other channel (matching the legacy
+    % "Top plot / Bottom plot" modes). The legacy menu group that toggled
+    % between these has been removed; the choice now follows from which
+    % channel the SegmentationSource resolves to.
     arguments
         obj
         filenum = []
@@ -6361,40 +6423,61 @@ function [amp, fs, labels] = calculateAmplitude(obj, filenum, channel)
     if isempty(filenum)
         filenum = electro_gui.getCurrentFileNum(obj.settings);
     end
+    if isempty(channel)
+        channel = obj.dbase.SegmentationSource{filenum};
+    end
 
-    [filteredSound, fs] = obj.getFilteredSound(channel, [], [], filenum);
+    % Resolve the channel name (or 'calculated' sentinel) to a channel
+    % number so we can branch on sound vs non-sound for the envelope
+    % computation. We do not pass channel through to getFilteredSound
+    % blindly because getFilteredSound, like getSound, expects the
+    % 'calculated' sentinel to be handled before name-to-number lookup.
+    if (ischar(channel) || isstring(channel)) && strcmp(channel, 'calculated')
+        channelNum = NaN;
+        isPseudoChannel = false;
+        isCalculated = true;
+    elseif ischar(channel) || isstring(channel)
+        [channelNum, isPseudoChannel] = electro_gui.channelNameToNum(obj.dbase, char(channel));
+        isCalculated = false;
+    else
+        channelNum = channel;
+        isPseudoChannel = false;
+        isCalculated = false;
+    end
 
-    windowSize = round(obj.settings.SmoothWindow*fs);
-    if obj.menu_SourceSoundAmplitude.Checked
+    isSoundLike = isCalculated || (~isnan(channelNum) && channelNum == 0 && ~isPseudoChannel);
+
+    if isSoundLike
+        % Audio-style envelope: filter the sound, take log power, and
+        % normalize against the trough. Matches the previous Sound
+        % amplitude mode.
+        [filteredSound, fs] = obj.getFilteredSound(channel, [], [], filenum);
+        windowSize = round(obj.settings.SmoothWindow*fs);
         amp = smooth(10*log10(filteredSound.^2+eps), windowSize);
         amp = amp-min(amp(windowSize:length(amp)-windowSize));
         amp(amp<0)=0;
         labels = 'Loudness (dB)';
+    elseif ~isnan(channelNum)
+        % Channel-style envelope: smoothed raw channel signal.
+        % For the segmentation source we apply the file's current sound-
+        % filter parameters - the segmenter expects to see a signal that
+        % has the same shape as what the user would see displayed.
+        filterName = obj.getSelectedSoundFilterAlgorithm();
+        filterParams = obj.getFilterParameters();
+        [channelData, fs] = obj.loadChannelData( ...
+            channelNum, 'FilterName', filterName, ...
+            'FilterParams', filterParams, 'FileNum', filenum, ...
+            'IsPseudoChannel', isPseudoChannel);
+        windowSize = round(obj.settings.SmoothWindow*fs);
+        amp = smooth(channelData, windowSize);
+        labels = sprintf('%s (smoothed)', char(channel));
     else
-        if obj.menu_SourceTopPlot.Checked
-            axnum = 1;
-        elseif obj.menu_SourceBottomPlot.Checked
-            axnum = 2;
-        else
-            error('Nothing selected for amplitude source');
-        end
-
-        if obj.axes_Channel(axnum).Visible
-            channelNum = obj.getSelectedChannel(axnum);
-            filterName = obj.getSelectedFunction(axnum);
-            filterParams = obj.getSelectedFunctionParameters(axnum);
-            [channelData, fs] = obj.loadChannelData(...
-                channelNum, 'FilterName', filterName, ...
-                'FilterParams', filterParams, 'FileNum', filenum);
-            amp = smooth(channelData, windowSize);
-            labels = obj.axes_Channel1.YLabel.String;
-        else
-            amp = zeros(size(obj.filtered_sound));
-            labels = '';
-            fs = obj.dbase.Fs;
-        end
+        % Unrecognized source - draw a flat envelope so the GUI keeps
+        % working but nothing useful gets segmented.
+        amp = zeros(size(obj.filtered_sound));
+        labels = '';
+        fs = obj.dbase.Fs;
     end
-
 end
 function snd = GenerateSound(obj, sound_type)
     % Generate sound with the selected options. Sound_type is either 'snd' or
@@ -7029,6 +7112,12 @@ function UpdateFiles(obj, old_sound_files)
     obj.dbase.SoundSource = repmat({defaultSoundSource}, 1, numFiles);
     obj.dbase.SoundSource(newnum) = originalValues;
 
+    % Same remap for per-file SegmentationSource.
+    defaultSegmentationSource = electro_gui.getValueOrDefault(obj.settings, 'DefaultSegmentationSource', 'Sound');
+    originalValues = obj.dbase.SegmentationSource(oldnum);
+    obj.dbase.SegmentationSource = repmat({defaultSegmentationSource}, 1, numFiles);
+    obj.dbase.SegmentationSource(newnum) = originalValues;
+
     % Check if current filenum is still in range
     currentFileNum = electro_gui.getCurrentFileNum(obj.settings);
     if currentFileNum > numFiles
@@ -7079,14 +7168,15 @@ function [dbase, settings] = GetDBase(obj, includeDocumentation, includeCustomFi
 end
 
 function eg_PopulateSoundSources(obj)
-    % Rebuild the sound source popup list and the auxiliary sound sources
-    % submenu from the dbase channels. The popup's String holds the
-    % user-facing display labels (e.g. 'Sound', 'Channel 1', 'Calculated')
-    % while UserData holds the canonical channel-name strings that get
-    % written to dbase.SoundSource (e.g. 'Sound', 'Channel 1',
-    % 'calculated'). Storing names rather than indices in UserData lets
-    % the popup tolerate channels being added or removed without
-    % reinterpreting old per-file selections.
+    % Rebuild the sound source popup list, the segmentation source popup
+    % list, the amplitude axes "Source" context submenu, and the auxiliary
+    % sound sources submenu from the dbase channels. The popups' String
+    % values hold the user-facing display labels (e.g. 'Sound',
+    % 'Channel 1', 'Calculated') while UserData holds the canonical
+    % channel-name strings that get written to the dbase
+    % (e.g. 'Sound', 'Channel 1', 'calculated'). Storing names rather than
+    % indices in UserData lets the popups tolerate channels being added or
+    % removed without reinterpreting old per-file selections.
 
     sourceStrings = {'Sound'};
     sourceNames = {'Sound'};
@@ -7103,14 +7193,95 @@ function eg_PopulateSoundSources(obj)
     obj.popup_SoundSource.String = sourceStrings;
     obj.popup_SoundSource.UserData = sourceNames;
 
+    obj.popup_SegmentationSource.String = sourceStrings;
+    obj.popup_SegmentationSource.UserData = sourceNames;
+
     delete(obj.menu_AuxiliarySoundSources.Children);
     for k = 1:length(sourceStrings)
         uimenu(obj.menu_AuxiliarySoundSources, 'Label', sourceStrings{k}, 'Callback', @obj.HandleAuxiliarySoundSourceClick);
     end
 
-    % Now that the list is rebuilt, sync the popup's selected Value to
-    % whatever channel name is stored for the current file.
+    obj.populateAmplitudeSourceMenu(sourceStrings, sourceNames);
+
+    % Now that the lists are rebuilt, sync each widget's selected value
+    % to whatever channel name is stored for the current file.
     obj.refreshSoundSourcePopup();
+    obj.refreshSegmentationSourceWidgets();
+end
+
+function populateAmplitudeSourceMenu(obj, sourceStrings, sourceNames)
+    % Build the context_Amplitude "Source" submenu. The layout is:
+    %   Top plot         (shortcut: copy the channel currently shown in
+    %                     axes_Channel1 into dbase.SegmentationSource)
+    %   Bottom plot      (same, for axes_Channel2)
+    %   ---
+    %   Sound
+    %   Channel 1, Channel 2, ...
+    %   Calculated
+    %
+    % Top/Bottom plot are intentionally one-shot shortcuts rather than
+    % live-tracking modes - after a click, the segmentation source is
+    % stored as a concrete channel name and does not follow subsequent
+    % top/bottom plot changes. This keeps the source single-valued and
+    % matches how the popup works.
+
+    delete(obj.menu_AmplitudeSource.Children);
+
+    % Shortcut items. Each carries the axnum it represents in UserData
+    % so the click handler can read the current channel from that axis.
+    topShortcut = uimenu(obj.menu_AmplitudeSource, ...
+        'Label', 'Top plot', ...
+        'Tag', 'menu_AmplitudeSource_TopPlot', ...
+        'UserData', 1, ...
+        'Callback', @obj.amplitudeSourceShortcut_Callback);
+    bottomShortcut = uimenu(obj.menu_AmplitudeSource, ...
+        'Label', 'Bottom plot', ...
+        'Tag', 'menu_AmplitudeSource_BottomPlot', ...
+        'UserData', 2, ...
+        'Callback', @obj.amplitudeSourceShortcut_Callback);
+
+    % Grey out shortcuts whose corresponding channel axes do not currently
+    % have a real channel selected (avoids storing an empty / invalid
+    % source name).
+    if isempty(obj.getDisplayedChannelName(1))
+        topShortcut.Enable = 'off';
+    end
+    if isempty(obj.getDisplayedChannelName(2))
+        bottomShortcut.Enable = 'off';
+    end
+
+    % Static channel-name list, with a separator above the first entry.
+    for k = 1:length(sourceStrings)
+        sep = 'off';
+        if k == 1
+            sep = 'on';
+        end
+        uimenu(obj.menu_AmplitudeSource, ...
+            'Label', sourceStrings{k}, ...
+            'Separator', sep, ...
+            'Tag', sprintf('menu_AmplitudeSource_%d', k), ...
+            'UserData', sourceNames{k}, ...
+            'Callback', @obj.amplitudeSourceChannel_Callback);
+    end
+end
+
+function channelName = getDisplayedChannelName(obj, axnum)
+    % Return the canonical channel name currently displayed in
+    % axes_Channel(axnum), or '' if no channel is selected there. Used by
+    % the Top/Bottom plot shortcuts on the amplitude source menu.
+    channelName = '';
+    if axnum < 1 || axnum > length(obj.popup_Channels)
+        return;
+    end
+    [channelNum, ~, ~, isPseudoChannel] = obj.getSelectedChannel(axnum);
+    if isempty(channelNum) || (isnumeric(channelNum) && all(isnan(channelNum)))
+        return;
+    end
+    if isnumeric(channelNum) && isscalar(channelNum) && channelNum == 0 && ~isPseudoChannel
+        channelName = 'Sound';
+    else
+        channelName = electro_gui.channelNumToName(channelNum, isPseudoChannel);
+    end
 end
 
 function refreshSoundSourcePopup(obj)
@@ -7131,6 +7302,127 @@ function refreshSoundSourcePopup(obj)
         idx = 1;
     end
     obj.popup_SoundSource.Value = idx;
+end
+
+function refreshSegmentationSourceWidgets(obj)
+    % Sync popup_SegmentationSource and the menu_AmplitudeSource Checked
+    % state to whatever name is stored for the current file. Falls back
+    % to the first popup entry if the stored name is missing from the
+    % list (e.g. that channel was deleted from the dbase).
+    if ~electro_gui.isDataLoaded(obj.dbase) || ~isfield(obj.dbase, 'SegmentationSource')
+        return;
+    end
+    filenum = electro_gui.getCurrentFileNum(obj.settings);
+    if filenum > length(obj.dbase.SegmentationSource)
+        return;
+    end
+    storedName = obj.dbase.SegmentationSource{filenum};
+
+    % Popup: index by name.
+    idx = find(strcmp(storedName, obj.popup_SegmentationSource.UserData), 1);
+    if isempty(idx)
+        idx = 1;
+    end
+    obj.popup_SegmentationSource.Value = idx;
+
+    % Context menu: tick the matching channel-list item. Shortcut items
+    % (Top/Bottom plot) carry numeric UserData and are not directly
+    % matched by name - we leave them unchecked.
+    for child = obj.menu_AmplitudeSource.Children'
+        if ischar(child.UserData) || isstring(child.UserData)
+            if strcmp(char(child.UserData), storedName)
+                child.Checked = 'on';
+            else
+                child.Checked = 'off';
+            end
+        end
+    end
+end
+
+function setSegmentationSource(obj, newName, filenum)
+    % Authoritative entry point for changing a file's segmentation
+    % source. Pops a confirm dialog if the file already has segments or
+    % a non-default threshold, since both are recorded in the previous
+    % source's signal scale / sampling rate and would be misleading
+    % under a different channel. On confirmation (or when no
+    % confirmation is needed) the segments and threshold are cleared,
+    % the source is written, and the widgets + amplitude axes refresh.
+    arguments
+        obj electro_gui
+        newName char
+        filenum (1, 1) double = electro_gui.getCurrentFileNum(obj.settings)
+    end
+
+    currentName = obj.dbase.SegmentationSource{filenum};
+    if strcmp(currentName, newName)
+        % No change - nothing to do, but still refresh widgets in case
+        % the user clicked an already-selected option through a menu.
+        obj.refreshSegmentationSourceWidgets();
+        return;
+    end
+
+    hasSegments = ~isempty(obj.dbase.SegmentTimes{filenum});
+    hasThreshold = isfinite(obj.dbase.SegmentThresholds(filenum));
+    if hasSegments || hasThreshold
+        msg = sprintf( ...
+            ['Changing the segmentation source from "%s" to "%s" will ', ...
+            'invalidate the existing segments and threshold for this ', ...
+            'file (they are stored in the previous channel''s sample ', ...
+            'units). Clear them and switch?'], currentName, newName);
+        answer = questdlg(msg, 'Change segmentation source', ...
+            'Clear and switch', 'Cancel', 'Cancel');
+        if ~strcmp(answer, 'Clear and switch')
+            obj.refreshSegmentationSourceWidgets();
+            return;
+        end
+        obj.dbase.SegmentTimes{filenum} = zeros(0, 2);
+        obj.dbase.SegmentTitles{filenum} = {};
+        obj.dbase.SegmentIsSelected{filenum} = false(1, 0);
+        obj.dbase.SegmentThresholds(filenum) = inf;
+        obj.settings.CurrentThreshold = inf;
+    end
+
+    obj.dbase.SegmentationSource{filenum} = newName;
+    obj.refreshSegmentationSourceWidgets();
+    obj.updateAmplitude('ForceRedraw', true);
+    obj.updateAnnotations();
+end
+
+function popup_SegmentationSource_Callback(obj, hObject, event)
+    % Popup change: pull the canonical channel name from UserData and
+    % feed it through setSegmentationSource for shared confirm-and-clear
+    % handling. If the user cancels mid-confirm, the popup is rolled
+    % back by refreshSegmentationSourceWidgets.
+    if ~electro_gui.isDataLoaded(obj.dbase)
+        return;
+    end
+    names = obj.popup_SegmentationSource.UserData;
+    idx = obj.popup_SegmentationSource.Value;
+    obj.setSegmentationSource(names{idx});
+end
+
+function amplitudeSourceChannel_Callback(obj, hObject, ~)
+    % Click on one of the channel-name items in context_Amplitude.Source.
+    if ~electro_gui.isDataLoaded(obj.dbase)
+        return;
+    end
+    obj.setSegmentationSource(char(hObject.UserData));
+end
+
+function amplitudeSourceShortcut_Callback(obj, hObject, ~)
+    % Click on "Top plot" or "Bottom plot" in context_Amplitude.Source.
+    % Resolves to whatever channel is currently displayed in that axes
+    % and writes it as a concrete name - future changes to the top/bottom
+    % plot do not ripple into the segmentation source.
+    if ~electro_gui.isDataLoaded(obj.dbase)
+        return;
+    end
+    axnum = hObject.UserData;
+    channelName = obj.getDisplayedChannelName(axnum);
+    if isempty(channelName)
+        return;
+    end
+    obj.setSegmentationSource(channelName);
 end
 
 function setAuxiliarySoundSources(obj, auxiliarySoundSources, updateSonogram)
@@ -7602,6 +7894,29 @@ function setupGUI(obj)
                 'Callback',@obj.popup_SoundSource_Callback,...
                 'CreateFcn',@electro_gui.GenericCreateFcn,...
                 'Tag','popup_SoundSource');
+
+            % "Segmentation source" popup controls dbase.SegmentationSource
+            % for the current file. The amplitude axes and the segmenter
+            % both read from this channel; see chunk (c) commit for the
+            % rationale.
+            obj.text_SegmentationSource = uicontrol(...
+                'Parent',obj.panel_SoundControls,...
+                'Units','normalized',...
+                'HorizontalAlignment','right',...
+                'String','Segment source',...
+                'Style','text',...
+                'Tag','text_SegmentationSource');
+
+            obj.popup_SegmentationSource = uicontrol(...
+                'Parent',obj.panel_SoundControls,...
+                'Units','normalized',...
+                'String','Sound',...
+                'Style','popupmenu',...
+                'Value',1,...
+                'BackgroundColor',[1 1 1],...
+                'Callback',@obj.popup_SegmentationSource_Callback,...
+                'CreateFcn',@electro_gui.GenericCreateFcn,...
+                'Tag','popup_SegmentationSource');
 
             obj.text_TimeRange = uicontrol(...
                 'Parent',obj.panel_SoundControls,...
@@ -8234,30 +8549,17 @@ function setupGUI(obj)
         'Label','Threshold...',...
         'Tag','menu_AmplitudeThresholdColor');
 
-    % obj.menu_AmplitudeSource
+    % obj.menu_AmplitudeSource - empty parent menu, populated dynamically
+    % by populateAmplitudeSourceMenu once dbase channels are known. Its
+    % children include Top plot / Bottom plot shortcuts (resolving to
+    % whatever channel is currently displayed in those axes) followed by
+    % a list of every available channel by name. Each click writes a
+    % channel name into dbase.SegmentationSource for the current file.
     obj.menu_AmplitudeSource = uimenu(...
         'Parent',obj.context_Amplitude,...
         'Separator','on',...
         'Label','Source',...
         'Tag','menu_AmplitudeSource');
-
-    obj.menu_SourceSoundAmplitude = uimenu(...
-        'Parent',obj.menu_AmplitudeSource,...
-        'Callback',@obj.menu_SourceSoundAmplitude_Callback,...
-        'Label','Sound amplitude',...
-        'Tag','menu_SourceSoundAmplitude');
-
-    obj.menu_SourceTopPlot = uimenu(...
-        'Parent',obj.menu_AmplitudeSource,...
-        'Callback',@obj.menu_SourceTopPlot_Callback,...
-        'Label','Top plot',...
-        'Tag','menu_SourceTopPlot');
-
-    obj.menu_SourceBottomPlot = uimenu(...
-        'Parent',obj.menu_AmplitudeSource,...
-        'Callback',@obj.menu_SourceBottomPlot_Callback,...
-        'Label','Bottom plot',...
-        'Tag','menu_SourceBottomPlot');
 
     obj.menu_DontPlot = uimenu(...
         'Parent',obj.context_Amplitude,...
@@ -9291,12 +9593,12 @@ function updateGUILayout(obj)
     obj.axes_Sonogram.InnerPosition =       [alignedAxesXMargin, ys(3), alignedAxesW, hs(3)];
     obj.panel_SoundControls.Position =      [controlPanelXMargin, ys(4), controlPanelWidth, hs(4)];
 
-        %      text   popup  text   edit   text   colorscale   calc   seg
-        %      1      2      3      4      5      6            7      8
+        %      txtSnd popSnd txtSeg popSeg txtTim edit   sec    colorscale   calc   seg
+        %      1      2      3      4      5      6      7      8            9      10
         % Width of elements from left to right
-        ws =  [0.060, 0.150, 0.050, 0.055, 0.032, 0.110,       0.067, 0.067];
+        ws =  [0.055, 0.110, 0.075, 0.110, 0.045, 0.050, 0.030, 0.090,       0.060, 0.060];
         % Spacing after elements
-        mxs = [0.005, 0.020, 0.005, 0.005, 0.020, 0.020,       0.010, 0.020];
+        mxs = [0.005, 0.020, 0.005, 0.020, 0.005, 0.005, 0.020, 0.020,       0.010, 0.020];
         % X position of elements
         xs = cumsum([0, ws + mxs]);
         % Fill space
@@ -9308,12 +9610,14 @@ function updateGUILayout(obj)
 
         obj.text_SoundSource.Position =         [xs(1), ytext, ws(1), htext];
         obj.popup_SoundSource.Position =        [xs(2), 0, ws(2), 1];
-        obj.text_TimeRange.Position =           [xs(3), ytext, ws(3), htext];
-        obj.edit_Timescale.Position =           [xs(4), 0, ws(4), 1];
-        obj.text_TimeScaleSecLabel.Position =   [xs(5), ytext, ws(5), htext];
-        obj.push_ColorScale.Position =          [xs(6), 0, ws(6), 1];
-        obj.push_Calculate.Position =           [xs(7), 0, ws(7), 1];
-        obj.push_Segment.Position =             [xs(8), 0, ws(8), 1];
+        obj.text_SegmentationSource.Position =  [xs(3), ytext, ws(3), htext];
+        obj.popup_SegmentationSource.Position = [xs(4), 0, ws(4), 1];
+        obj.text_TimeRange.Position =           [xs(5), ytext, ws(5), htext];
+        obj.edit_Timescale.Position =           [xs(6), 0, ws(6), 1];
+        obj.text_TimeScaleSecLabel.Position =   [xs(7), ytext, ws(7), htext];
+        obj.push_ColorScale.Position =          [xs(8), 0, ws(8), 1];
+        obj.push_Calculate.Position =           [xs(9), 0, ws(9), 1];
+        obj.push_Segment.Position =             [xs(10), 0, ws(10), 1];
 
     obj.axes_Segments.Position =        [alignedAxesXMargin, ys(5), alignedAxesW, hs(5)];
     obj.axes_Segments.InnerPosition =   [alignedAxesXMargin, ys(5), alignedAxesW, hs(5)];
@@ -10650,9 +10954,13 @@ end
 
                 rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Segments);
 
-                f = find(obj.dbase.SegmentTimes{filenum}(:,1)>rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*obj.dbase.Fs);
-                g = find(obj.dbase.SegmentTimes{filenum}(:,2)>rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*obj.dbase.Fs);
-                h = find(obj.dbase.SegmentTimes{filenum}(:,1)<rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*obj.dbase.Fs);
+                % SegmentTimes are stored in segmentation source samples,
+                % so the rect time bounds must be converted with the
+                % same fs to land on the same scale.
+                segFs = electro_gui.getSegmentationFs(obj.dbase, filenum);
+                f = find(obj.dbase.SegmentTimes{filenum}(:,1)>rect(1)*segFs & obj.dbase.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*segFs);
+                g = find(obj.dbase.SegmentTimes{filenum}(:,2)>rect(1)*segFs & obj.dbase.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*segFs);
+                h = find(obj.dbase.SegmentTimes{filenum}(:,1)<rect(1)*segFs & obj.dbase.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*segFs);
                 f = unique([f; g; h]);
 
                 obj.dbase.SegmentIsSelected{filenum}(f) = ~obj.dbase.SegmentIsSelected{filenum}(f); %sum(obj.dbase.SegmentIsSelected{filenum}(f))<=length(f)/2;
@@ -10921,15 +11229,17 @@ end
                     ax1 = cursor_axes(inside);
                     if ax1 == obj.axes_Segments
                         % Mouse is in segment axes
-                        % Snap to close by segment start/end
+                        % Snap to close by segment start/end. SegmentTimes
+                        % are in the per-file segmentation source timebase.
                         filenum = electro_gui.getCurrentFileNum(obj.settings);
-                        sampleNum = t*obj.dbase.Fs;
+                        segFs = electro_gui.getSegmentationFs(obj.dbase, filenum);
+                        sampleNum = t*segFs;
                         % Check how far away we are from the nearest segment
                         [minSampleDistance, minIdx] = min(abs(obj.dbase.SegmentTimes{filenum}(:) - sampleNum));
                         threshold = diff(ax1.XLim) / 50;
-                        if minSampleDistance / obj.dbase.Fs < threshold
+                        if minSampleDistance / segFs < threshold
                             % We're close to a segment boundary - snap to it
-                            t = obj.dbase.SegmentTimes{filenum}(minIdx) / obj.dbase.Fs;
+                            t = obj.dbase.SegmentTimes{filenum}(minIdx) / segFs;
                         end
                     elseif any(ax1 == obj.axes_Channel)
                         % Mouse is in one of the channel axes
@@ -11243,9 +11553,11 @@ end
             % Update channel plot
             obj.updateChannelAxes(axnum);
 
-            if obj.menu_SourcePlots(axnum).Checked
-                obj.updateAmplitude();
-            end
+            % The amplitude axes used to auto-refresh here when the user had
+            % the legacy "TopPlot/BottomPlot" amplitude source mode active.
+            % Under the new SegmentationSource model the amplitude source
+            % is bound to a specific channel name (not to whichever channel
+            % happens to be displayed), so no refresh is needed.
         end
         % --- Executes on selection change in popup_Function1.
         function popup_Function1_Callback(obj, hObject, event)
@@ -11289,9 +11601,8 @@ end
                 matchingEventSourceIdx = obj.WhichEventSourceIdxMatch(channelNum, [], [], isPseudoChannel);
             end
 
-            if obj.menu_SourcePlots(axnum).Checked
-                obj.updateAmplitude();
-            end
+            % See popup_Functions_Callback: the legacy auto-refresh of the
+            % amplitude axes on channel change is intentionally gone.
 
             if ~isempty(matchingEventSourceIdx)
                 % If this channel is involved in an event source, load it up now
@@ -12167,14 +12478,18 @@ end
         end
         function plotTransformerAnnotationOverlays(obj)
             % Plot segment and marker overlays using cached transformed_data.
+            % Segments live in the segmentation source timebase and markers
+            % live on the audio timebase, so each overlay call passes the
+            % right fs into plotTransformerAnnotations.
             nPoints = size(obj.transformed_data, 1);
 
             if obj.checkbox_ShowSegments.Value && electro_gui.isDataLoaded(obj.dbase)
                 filenum = electro_gui.getCurrentFileNum(obj.settings);
                 segmentTimes = obj.dbase.SegmentTimes{filenum};
                 if ~isempty(segmentTimes)
+                    segFs = electro_gui.getSegmentationFs(obj.dbase, filenum);
                     obj.plotTransformerAnnotations( ...
-                        obj.transformed_data, nPoints, segmentTimes, ...
+                        obj.transformed_data, nPoints, segmentTimes, segFs, ...
                         obj.settings.SegmentColor, obj.dbase.SegmentTitles{filenum});
                 end
             end
@@ -12191,7 +12506,7 @@ end
                         end
                         markerColor = obj.settings.MarkerColors{markerTypeIdx};
                         obj.plotTransformerAnnotations( ...
-                            obj.transformed_data, nPoints, markerTimes(markerMask, :), ...
+                            obj.transformed_data, nPoints, markerTimes(markerMask, :), obj.dbase.Fs, ...
                             markerColor, obj.dbase.MarkerTitles{filenum}(markerMask));
                     end
                 end
@@ -12204,25 +12519,35 @@ end
                 obj.plotTransformerEvents(obj.transformed_data, nPoints);
             end
         end
-        function plotTransformerAnnotations(obj, transformed_data, nPoints, annotationTimes, color, titles)
+        function plotTransformerAnnotations(obj, transformed_data, nPoints, annotationTimes, annotationFs, color, titles)
             % Plot annotation overlays (segments or markers) on the
             %   transformer axes as colored line segments.
             %
             % Arguments:
             %   transformed_data: NxC matrix of transformed data points
             %   nPoints: number of transformed data points
-            %   annotationTimes: Sx2 array of [start, end] in audio samples
+            %   annotationTimes: Sx2 array of [start, end] in sample indices
+            %   annotationFs: sampling rate of annotationTimes. Segments use
+            %     the per-file segmentation source fs; markers use the audio
+            %     fs. The mapping must go through seconds so segments stored
+            %     in a non-audio timebase still land at the right fraction
+            %     of the transform-space trajectory.
             %   color: 1x3 RGB color for the annotation overlay
             %   titles: cell array of annotation label strings
 
-            % Get the total number of audio samples for mapping
-            numSamples = obj.eg_GetSamplingInfo();
+            % Compute the total file duration in seconds from the sound
+            % source so that annotation seconds map to the right transform
+            % fraction regardless of which channel produced the annotations.
+            [numSoundSamples, soundFs] = obj.eg_GetSamplingInfo();
+            totalDuration = numSoundSamples / soundFs;
             tIndices = (1:nPoints)';
 
             for k = 1:size(annotationTimes, 1)
-                % Map annotation sample times to fractional transform-space indices
-                startFrac = annotationTimes(k, 1) / numSamples * nPoints;
-                endFrac = annotationTimes(k, 2) / numSamples * nPoints;
+                % Convert sample indices -> seconds -> fraction of the
+                % transform's index range. Doing this in seconds means a
+                % non-audio annotationFs still maps correctly.
+                startFrac = (annotationTimes(k, 1) / annotationFs) / totalDuration * nPoints;
+                endFrac = (annotationTimes(k, 2) / annotationFs) / totalDuration * nPoints;
                 startFrac = max(1, min(nPoints, startFrac));
                 endFrac = max(1, min(nPoints, endFrac));
                 if endFrac < startFrac
@@ -13421,22 +13746,28 @@ end
 
             filenum = electro_gui.getCurrentFileNum(obj.settings);
 
-            f = find(obj.dbase.SegmentTimes{filenum}(:,1)>rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*obj.dbase.Fs);
-            g = find(obj.dbase.SegmentTimes{filenum}(:,2)>rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*obj.dbase.Fs);
-            h = find(obj.dbase.SegmentTimes{filenum}(:,1)<rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*obj.dbase.Fs);
+            % All segment-related sample comparisons here happen in the
+            % segmentation source timebase, including the data we feed
+            % into the segmenter for splitting (the waveform must come
+            % from the segmentation channel, not the sound channel).
+            segFs = electro_gui.getSegmentationFs(obj.dbase, filenum);
+            f = find(obj.dbase.SegmentTimes{filenum}(:,1)>rect(1)*segFs & obj.dbase.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*segFs);
+            g = find(obj.dbase.SegmentTimes{filenum}(:,2)>rect(1)*segFs & obj.dbase.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*segFs);
+            h = find(obj.dbase.SegmentTimes{filenum}(:,1)<rect(1)*segFs & obj.dbase.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*segFs);
             dl = unique([f; g; h]);
             if isempty(dl)
                 return
             end
 
-            sound = obj.getSound();
+            segmentationChannel = obj.dbase.SegmentationSource{filenum};
+            [waveform, ~] = obj.getSound(segmentationChannel, filenum);
 
             segments = electro_gui.eg_runPlugin(obj.plugins.segmenters, alg, obj.amplitude, ...
-                sound, obj.dbase.Fs, rect(2), obj.getSelectedSegmenterParameters());
+                waveform, segFs, rect(2), obj.getSelectedSegmenterParameters());
 
-            f = find(segments(:,1)>rect(1)*obj.dbase.Fs & segments(:,1)<(rect(1)+rect(3))*obj.dbase.Fs);
-            g = find(segments(:,2)>rect(1)*obj.dbase.Fs & segments(:,2)<(rect(1)+rect(3))*obj.dbase.Fs);
-            h = find(segments(:,1)<rect(1)*obj.dbase.Fs & segments(:,2)>(rect(1)+rect(3))*obj.dbase.Fs);
+            f = find(segments(:,1)>rect(1)*segFs & segments(:,1)<(rect(1)+rect(3))*segFs);
+            g = find(segments(:,2)>rect(1)*segFs & segments(:,2)<(rect(1)+rect(3))*segFs);
+            h = find(segments(:,1)<rect(1)*segFs & segments(:,2)>(rect(1)+rect(3))*segFs);
             nw = unique([f; g; h]);
             segments = segments(nw,:);
 
@@ -13449,36 +13780,6 @@ end
             obj.dbase.SegmentIsSelected{filenum} = [obj.dbase.SegmentIsSelected{filenum}(1:min(dl)-1) ones(1,size(segments,1)) obj.dbase.SegmentIsSelected{filenum}(max(dl)+1:end)];
             obj.updateAnnotations();
         end
-        function menu_SourceSoundAmplitude_Callback(obj, hObject, event)
-            obj.menu_SourceSoundAmplitude.Checked = 'on';
-            obj.menu_SourceTopPlot.Checked = 'off';
-            obj.menu_SourceBottomPlot.Checked = 'off';
-
-            obj.updateAmplitude();
-
-
-
-        end
-        function menu_SourceTopPlot_Callback(obj, hObject, event)
-            obj.menu_SourceSoundAmplitude.Checked = 'off';
-            obj.menu_SourceTopPlot.Checked = 'on';
-            obj.menu_SourceBottomPlot.Checked = 'off';
-
-            obj.updateAmplitude();
-
-
-
-        end
-        function menu_SourceBottomPlot_Callback(obj, hObject, event)
-
-            obj.menu_SourceSoundAmplitude.Checked = 'off';
-            obj.menu_SourceTopPlot.Checked = 'off';
-            obj.menu_SourceBottomPlot.Checked = 'on';
-
-            obj.updateAmplitude();
-
-        end
-
         function menu_Concatenate_Callback(obj, hObject, event)
             filenum = electro_gui.getCurrentFileNum(obj.settings);
 
@@ -13486,9 +13787,11 @@ end
             rect = rbbox();
             rect = getFigureCoordsInAxesDataUnits(rect, obj.axes_Segments);
 
-            f = find(obj.dbase.SegmentTimes{filenum}(:,1)>rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*obj.dbase.Fs);
-            g = find(obj.dbase.SegmentTimes{filenum}(:,2)>rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*obj.dbase.Fs);
-            h = find(obj.dbase.SegmentTimes{filenum}(:,1)<rect(1)*obj.dbase.Fs & obj.dbase.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*obj.dbase.Fs);
+            % SegmentTimes are stored in segmentation-source samples.
+            segFs = electro_gui.getSegmentationFs(obj.dbase, filenum);
+            f = find(obj.dbase.SegmentTimes{filenum}(:,1)>rect(1)*segFs & obj.dbase.SegmentTimes{filenum}(:,1)<(rect(1)+rect(3))*segFs);
+            g = find(obj.dbase.SegmentTimes{filenum}(:,2)>rect(1)*segFs & obj.dbase.SegmentTimes{filenum}(:,2)<(rect(1)+rect(3))*segFs);
+            h = find(obj.dbase.SegmentTimes{filenum}(:,1)<rect(1)*segFs & obj.dbase.SegmentTimes{filenum}(:,2)>(rect(1)+rect(3))*segFs);
             f = unique([f; g; h]);
 
             if isempty(f)
@@ -14090,6 +14393,7 @@ end
                 dbase.help.PropertyNames = 'A 1xP cell array of property name strings. Properties are user-defined per-file metadata columns (e.g., ''bSorted'', ''bContainsStim'').';
                 dbase.help.Properties = 'A NxP array of property values, one row per file, one column per property. Column order matches PropertyNames.';
                 dbase.help.SoundSource = 'A 1xN cell array of channel-name strings, one per file, identifying which channel is used as "sound" for that file (e.g. ''Sound'', ''Channel 2'', or ''calculated'' to use SoundExpression). Replaces the previous global settings.SoundChannel.';
+                dbase.help.SegmentationSource = 'A 1xN cell array of channel-name strings, one per file, identifying which channel feeds both the amplitude axes and the segmenter for that file. Same name conventions as SoundSource. The corresponding entries in SegmentTimes are stored in this channel''s sampling rate (ChannelFs lookup, falling back to dbase.Fs).';
             end
 
             dbase.Fs = NaN;
@@ -14113,6 +14417,11 @@ end
             % value across all files.
             defaultSoundSource = electro_gui.getValueOrDefault(settings, 'DefaultSoundSource', 'Sound');
             dbase.SoundSource =         gvod(baseDbase, 'SoundSource', repmat({defaultSoundSource}, 1, numFiles));
+            % Per-file segmentation source: which channel drives both the
+            % amplitude axes and the segmenter for each file. SegmentTimes
+            % entries are recorded in this channel's sampling rate.
+            defaultSegmentationSource = electro_gui.getValueOrDefault(settings, 'DefaultSegmentationSource', 'Sound');
+            dbase.SegmentationSource =  gvod(baseDbase, 'SegmentationSource', repmat({defaultSegmentationSource}, 1, numFiles));
             dbase.SegmentThresholds =   gvod(baseDbase, 'SegmentThresholds', inf(1,numFiles));
             dbase.SegmentTimes =        gvod(baseDbase, 'SegmentTimes', cell(1,numFiles));
             dbase.SegmentTitles =       gvod(baseDbase, 'SegmentTitles', cell(1,numFiles));
@@ -14408,6 +14717,32 @@ end
         end
         function isSound = isChannelSound(channelNum)
             isSound = (channelNum == 0);
+        end
+        function fs = getSegmentationFs(dbase, filenum)
+            % Sampling rate to use for dbase.SegmentTimes{filenum} entries.
+            % Segment sample indices are stored in the timebase of the
+            % per-file SegmentationSource channel, so:
+            %   - sound channel (0) -> dbase.Fs (the audio fs)
+            %   - real channel N    -> dbase.ChannelFs(N), or dbase.Fs if NaN
+            %   - pseudo channel    -> dbase.Fs (no dedicated fs tracked)
+            %   - 'calculated'      -> dbase.Fs (driven from audio)
+            % The dbase.Fs fallback exists so legacy or partially-initialized
+            % dbases keep working: if a channel Fs is unset, segment times
+            % land at audio rate, which matches pre-SegmentationSource code.
+            name = dbase.SegmentationSource{filenum};
+            if (ischar(name) || isstring(name)) && strcmp(name, 'calculated')
+                fs = dbase.Fs;
+                return;
+            end
+            [channelNum, isPseudoChannel] = electro_gui.channelNameToNum(dbase, char(name));
+            if isnan(channelNum) || channelNum == 0 || isPseudoChannel
+                fs = dbase.Fs;
+            elseif channelNum >= 1 && channelNum <= length(dbase.ChannelFs) && ...
+                    ~isnan(dbase.ChannelFs(channelNum))
+                fs = dbase.ChannelFs(channelNum);
+            else
+                fs = dbase.Fs;
+            end
         end
         function channelName = channelNumToName(channelNum, isPseudoChannel)
             arguments
@@ -15875,6 +16210,27 @@ end
             % other code path can keep reading the stale global value.
             if isfield(settings, 'SoundChannel')
                 settings = rmfield(settings, 'SoundChannel');
+            end
+
+            % Backfill settings.DefaultSegmentationSource for older settings
+            % files and migrate per-file SegmentationSource. There was no
+            % per-file segmentation source before, so the most faithful
+            % migration is to assume legacy dbases were segmented from
+            % their audio channel. Pre-existing SegmentTimes were stored in
+            % dbase.Fs, which we treat as the audio fs - so 'Sound' as the
+            % segmentation source preserves the timebase of existing
+            % segments.
+            if ~isfield(settings, 'DefaultSegmentationSource')
+                settings.DefaultSegmentationSource = 'Sound';
+            end
+            if ~isfield(dbase, 'SegmentationSource')
+                dbase.SegmentationSource = repmat({'Sound'}, 1, numFiles);
+            end
+            % settings.AmplitudeSource was a write-once / read-once
+            % initialization-only field for the now-removed amplitude source
+            % menu group. Drop it so it cannot mislead anyone.
+            if isfield(settings, 'AmplitudeSource')
+                settings = rmfield(settings, 'AmplitudeSource');
             end
 
             if ~isfield(settings, 'EventThresholdDefaults') || length(settings.EventThresholdDefaults) ~= numEventSources

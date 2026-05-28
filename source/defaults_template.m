@@ -64,6 +64,7 @@ settings.DefaultSonogramPlotter = 'AAquick_sonogram'; % Algorithm to use for plo
 settings.OverlayTop = 0;                    % Overlay the top plot over the sonogram?
 settings.OverlayBottom = 0;                 % Overlay the bottom plot over the sonogram?
 settings.DefaultSoundSource = 'Sound';      % Channel name to use as sound for newly added files (per-file value lives in dbase.SoundSource). 'Sound' = channel 0, 'Channel N' = channel N, 'calculated' = use SoundExpression.
+settings.DefaultSegmentationSource = 'Sound'; % Channel name to use as the segmentation/amplitude source for newly added files (per-file value lives in dbase.SegmentationSource). Same name conventions as DefaultSoundSource. This channel feeds both the amplitude axes and the segmenter.
 settings.SoundExpression = '';              % A single expression used by all files whose SoundSource is 'calculated', e.g. 'chan1 - chan2'
 settings.SoundStereoChannel = 1;            % Channel to select from the audio file to load, if there are multiple
 
@@ -76,7 +77,10 @@ settings.AmplitudeThresholdColor = [1 0 0]; % Color of the threshold line on the
 settings.AmplitudeDontPlot = 0;             % Should the amplitude plot and segmentation be omitted?
 
 % SEGMENTATION SETTINGS
-settings.AmplitudeSource = 0;               % What should be used as the curve for segmentation? 0 - sound amplitude; 1 - top plot; 2 - bottom plot
+% (Deprecated) settings.AmplitudeSource was removed in favour of the
+% per-file dbase.SegmentationSource field and the dynamic context-menu
+% population in populateAmplitudeSourceMenu. New defaults files should
+% set settings.DefaultSegmentationSource instead (see above).
 settings.AmplitudeAutoThreshold = 1;        % Should the threshold for segmentation be chosen automatically, or carry over the current threshold?
 settings.DefaultSegmenter = 'fast_DA_segmenter'; % Algorithm to use for segmentation. Choose from egg_* files.
 settings.AutoSegment = 1;                   % Automatically segment when a new file is loaded or a different threshold is chosen?
