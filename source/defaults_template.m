@@ -63,8 +63,8 @@ settings.BackgroundColors = [0 0 0; 0.5 0.5 0.5]; % Background colors for sonogr
 settings.DefaultSonogramPlotter = 'AAquick_sonogram'; % Algorithm to use for plotting sonograms. Choose from egs_* files.
 settings.OverlayTop = 0;                    % Overlay the top plot over the sonogram?
 settings.OverlayBottom = 0;                 % Overlay the bottom plot over the sonogram?
-settings.SoundChannel = 0;                  % Channel number to use as sound
-settings.SoundExpression = '';              % An expression to use to create a derived sound channel
+settings.DefaultSoundSource = 'Sound';      % Channel name to use as sound for newly added files (per-file value lives in dbase.SoundSource). 'Sound' = channel 0, 'Channel N' = channel N, 'calculated' = use SoundExpression.
+settings.SoundExpression = '';              % A single expression used by all files whose SoundSource is 'calculated', e.g. 'chan1 - chan2'
 settings.SoundStereoChannel = 1;            % Channel to select from the audio file to load, if there are multiple
 
 % AMPLITUDE SETTINGS

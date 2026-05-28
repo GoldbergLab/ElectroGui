@@ -3107,6 +3107,11 @@ function LoadFile(obj, showWaitBar)
     % Remove unread file marker from filename
     obj.setFileReadState(filenum, true);
 
+    % Sync the Sound source popup to this file's stored SoundSource so
+    % that the popup always reflects the channel that actually fed the
+    % subsequent updateFilteredSound / updateSonogram calls below.
+    obj.refreshSoundSourcePopup();
+
     % Label
     obj.text_FileName.String = obj.dbase.SoundFiles(filenum).name;
 
@@ -3471,38 +3476,54 @@ function [sound, fs, timestamp] = getSound(obj, soundChannel, filenum, isPseudoC
         filenum = electro_gui.getCurrentFileNum(obj.settings);
     end
     if isempty(soundChannel)
-        soundChannel = obj.settings.SoundChannel;
-    end
-    if ischar(soundChannel)
-        % User must have passed a channel name here - convert to channel
-        % num instead
-        [soundChannel, isPseudoChannel] = electro_gui.channelNameToNum(obj.dbase, soundChannel);
+        % No source explicitly requested - read the per-file SoundSource
+        % from the dbase. This replaces the previous global setting
+        % settings.SoundChannel; the migration step in updateDbaseFormat
+        % guarantees dbase.SoundSource exists for any loaded dbase.
+        soundChannel = obj.dbase.SoundSource{filenum};
     end
 
-    % Fetch sound based on which sound channel was selected
-    if soundChannel == 0 && ~isPseudoChannel
-        % Use channel 0 (the normal sound channel)
-        filePath = fullfile(obj.dbase.PathName, obj.dbase.SoundFiles(filenum).name);
-        loader = obj.dbase.SoundLoader;
-
-        if obj.settings.EnableFileCaching
-            data = obj.retrieveFileFromCache(filePath, loader);
-            [sound, fs, timestamp] = data{:};
-        else
-            [sound, fs, timestamp] = electro_gui.eg_runPlugin(obj.plugins.loaders, loader, filePath, true);
-        end
-    elseif strcmp(soundChannel, 'calculated')
-        % Calculate a sound vector based on the user-supplied
-        % expression in obj.settings.SoundExpression
+    % Handle the 'calculated' sentinel before any channel-name -> number
+    % conversion, because channelNameToNum has no entry for 'calculated'
+    % and would otherwise return NaN and silently fall through to a bad
+    % channel load.
+    if (ischar(soundChannel) || isstring(soundChannel)) && strcmp(soundChannel, 'calculated')
         [sound, fs, timestamp] = obj.getCalculatedSound(filenum);
     else
-        % Use some other not-already-loaded channel data as sound
-        [sound, fs, ~, timestamp] = obj.loadChannelData(soundChannel, 'FileNum', filenum, 'IsPseudoChannel', isPseudoChannel);
+        if ischar(soundChannel) || isstring(soundChannel)
+            % Channel name (e.g. 'Sound', 'Channel 2') - convert to a
+            % channel number plus pseudo-channel flag.
+            [soundChannel, isPseudoChannel] = electro_gui.channelNameToNum(obj.dbase, char(soundChannel));
+        end
+
+        % Fetch sound based on which sound channel was selected
+        if soundChannel == 0 && ~isPseudoChannel
+            % Use channel 0 (the normal sound channel)
+            filePath = fullfile(obj.dbase.PathName, obj.dbase.SoundFiles(filenum).name);
+            loader = obj.dbase.SoundLoader;
+
+            if obj.settings.EnableFileCaching
+                data = obj.retrieveFileFromCache(filePath, loader);
+                [sound, fs, timestamp] = data{:};
+            else
+                [sound, fs, timestamp] = electro_gui.eg_runPlugin(obj.plugins.loaders, loader, filePath, true);
+            end
+        else
+            % Use some other not-already-loaded channel data as sound
+            [sound, fs, ~, timestamp] = obj.loadChannelData(soundChannel, 'FileNum', filenum, 'IsPseudoChannel', isPseudoChannel);
+        end
     end
 
     if isempty(fs) || isnan(fs)
-        % fs not found
-        if ~isnan(obj.dbase.ChannelFs(soundChannel))
+        % The loader (or getCalculatedSound) did not produce a usable
+        % sampling rate. Try to fall back to a stored channel-specific
+        % rate. ChannelFs is 1xC indexed from 1, so it does not apply to
+        % the sound channel (0), pseudo channels, or the 'calculated'
+        % sentinel - in those cases fall straight through to dbase.Fs.
+        useChannelFs = isnumeric(soundChannel) && isscalar(soundChannel) ...
+                       && soundChannel >= 1 && soundChannel <= length(obj.dbase.ChannelFs) ...
+                       && ~isPseudoChannel;
+        if useChannelFs && ~isnan(obj.dbase.ChannelFs(soundChannel))
             % Specific fs is set for this channel, use it
             fs = obj.dbase.ChannelFs(soundChannel);
         elseif ~isnan(obj.dbase.Fs)
@@ -3620,10 +3641,11 @@ end
 function updateSoundData(obj, soundChannel)
     % Update the obj.sound field with the timeseries specified by
     %   soundChannel to use as sound for the purposes of plotting the
-    %   spectrogram, etc.
+    %   spectrogram, etc. If soundChannel is left empty, getSound() reads
+    %   the current file's dbase.SoundSource as the default.
     arguments
         obj electro_gui
-        soundChannel = obj.settings.SoundChannel
+        soundChannel = []
     end
 
     [sound, fs, timestamp] = obj.getSound(soundChannel);
@@ -6999,6 +7021,14 @@ function UpdateFiles(obj, old_sound_files)
     obj.dbase.Notes = cell(1,numFiles);
     obj.dbase.Notes(newnum) = originalValues;
 
+    % Remap per-file SoundSource: surviving files keep their previous
+    % channel choice and any newly added files inherit the user's
+    % current default-sound-source setting.
+    defaultSoundSource = electro_gui.getValueOrDefault(obj.settings, 'DefaultSoundSource', 'Sound');
+    originalValues = obj.dbase.SoundSource(oldnum);
+    obj.dbase.SoundSource = repmat({defaultSoundSource}, 1, numFiles);
+    obj.dbase.SoundSource(newnum) = originalValues;
+
     % Check if current filenum is still in range
     currentFileNum = electro_gui.getCurrentFileNum(obj.settings);
     if currentFileNum > numFiles
@@ -7049,26 +7079,58 @@ function [dbase, settings] = GetDBase(obj, includeDocumentation, includeCustomFi
 end
 
 function eg_PopulateSoundSources(obj)
+    % Rebuild the sound source popup list and the auxiliary sound sources
+    % submenu from the dbase channels. The popup's String holds the
+    % user-facing display labels (e.g. 'Sound', 'Channel 1', 'Calculated')
+    % while UserData holds the canonical channel-name strings that get
+    % written to dbase.SoundSource (e.g. 'Sound', 'Channel 1',
+    % 'calculated'). Storing names rather than indices in UserData lets
+    % the popup tolerate channels being added or removed without
+    % reinterpreting old per-file selections.
 
-    % Set up list of sources for the sound axes
     sourceStrings = {'Sound'};
+    sourceNames = {'Sound'};
     for c = 1:length(obj.dbase.ChannelFiles)
         if ~isempty(obj.dbase.ChannelFiles{c})
-            sourceStrings{end+1} = sprintf('Channel %d', c);
+            channelName = sprintf('Channel %d', c);
+            sourceStrings{end+1} = channelName;
+            sourceNames{end+1} = channelName;
         end
     end
     sourceStrings{end+1} = 'Calculated';
-
-    sourceIndices = num2cell(0:length(obj.dbase.ChannelFiles));
-    sourceIndices{end+1} = 'calculated';
+    sourceNames{end+1} = 'calculated';
 
     obj.popup_SoundSource.String = sourceStrings;
-    obj.popup_SoundSource.UserData = sourceIndices;
+    obj.popup_SoundSource.UserData = sourceNames;
 
     delete(obj.menu_AuxiliarySoundSources.Children);
     for k = 1:length(sourceStrings)
         uimenu(obj.menu_AuxiliarySoundSources, 'Label', sourceStrings{k}, 'Callback', @obj.HandleAuxiliarySoundSourceClick);
     end
+
+    % Now that the list is rebuilt, sync the popup's selected Value to
+    % whatever channel name is stored for the current file.
+    obj.refreshSoundSourcePopup();
+end
+
+function refreshSoundSourcePopup(obj)
+    % Set popup_SoundSource.Value to point at the entry that matches the
+    % current file's dbase.SoundSource. Falls back to the first entry if
+    % the stored name does not appear in the popup (e.g. a previously
+    % selected channel was removed from the dbase).
+    if ~electro_gui.isDataLoaded(obj.dbase) || ~isfield(obj.dbase, 'SoundSource')
+        return;
+    end
+    filenum = electro_gui.getCurrentFileNum(obj.settings);
+    if filenum > length(obj.dbase.SoundSource)
+        return;
+    end
+    storedName = obj.dbase.SoundSource{filenum};
+    idx = find(strcmp(storedName, obj.popup_SoundSource.UserData), 1);
+    if isempty(idx)
+        idx = 1;
+    end
+    obj.popup_SoundSource.Value = idx;
 end
 
 function setAuxiliarySoundSources(obj, auxiliarySoundSources, updateSonogram)
@@ -11952,34 +12014,44 @@ end
         end
         % --- Executes on selection change in popup_SoundSource.
         function popup_SoundSource_Callback(obj, hObject, event)
-            % Handle a user change of the "Sound source" popup menu.
-            % This menu controls the obj.settings.SoundChannel variable, which determines
-            % which channel is used for displaying the spectrogram etc.
+            % Handle a user change of the "Sound source" popup menu. The
+            % chosen channel name is recorded in dbase.SoundSource for the
+            % currently viewed file only - other files retain whatever
+            % source they were last assigned. Chunk (d) will add an "Apply
+            % to all" affordance for users who want to propagate.
             if ~electro_gui.isDataLoaded(obj.dbase)
                 % No data yet, do nothing
                 return;
             end
 
-            sourceIndices = obj.popup_SoundSource.UserData;
+            sourceNames = obj.popup_SoundSource.UserData;
             idx = obj.popup_SoundSource.Value;
-            obj.settings.SoundChannel = sourceIndices{idx};
+            filenum = electro_gui.getCurrentFileNum(obj.settings);
+            chosenName = sourceNames{idx};
 
-            if strcmp(obj.settings.SoundChannel, 'calculated')
-                % Allow user to input expression for calculated sound channel
+            if strcmp(chosenName, 'calculated')
+                % Allow user to input expression for calculated sound channel.
+                % SoundExpression is intentionally kept as a single global
+                % setting (not per-file): every file whose source is
+                % 'calculated' shares this expression. If a per-file
+                % expression is ever requested, this is where to split it.
                 expression = inputdlg('Enter expression for calculated channel, using ''sound'', ''chan1'', ''chan2'', etc. as variables.', 'Input calculated channel expression', 1, {obj.settings.SoundExpression});
 
                 if isempty(expression) || isempty(strtrim(expression{1}))
-                    % User did not provide an expression - default to normal sound
-                    % channel.
-                    obj.settings.SoundChannel = sourceIndices{1};
+                    % User cancelled or supplied an empty expression -
+                    % roll back to the first entry (typically 'Sound') so
+                    % we never store 'calculated' without an expression.
+                    chosenName = sourceNames{1};
+                    obj.popup_SoundSource.Value = 1;
                     obj.settings.SoundExpression = '';
                 else
                     obj.settings.SoundExpression = expression{1};
                 end
             end
 
-            obj.LoadFile();
+            obj.dbase.SoundSource{filenum} = chosenName;
 
+            obj.LoadFile();
         end
 
         function popup_TransformerFunction_Callback(obj, varargin)
@@ -14017,6 +14089,7 @@ end
                 dbase.help.EventFeatureStats = 'A 1xS cell array (one per event source) of structs containing feature statistics computed by egm_Compute_event_feature_stats. Each struct has fields: names (feature names), medians, MADs, Ns (1xF arrays), PCA (FxK matrix operating on standardized features), pcaMedians, pcaMADs (1xK arrays of PCA score statistics), outlierMADs, numFilesSampled, computedOn.';
                 dbase.help.PropertyNames = 'A 1xP cell array of property name strings. Properties are user-defined per-file metadata columns (e.g., ''bSorted'', ''bContainsStim'').';
                 dbase.help.Properties = 'A NxP array of property values, one row per file, one column per property. Column order matches PropertyNames.';
+                dbase.help.SoundSource = 'A 1xN cell array of channel-name strings, one per file, identifying which channel is used as "sound" for that file (e.g. ''Sound'', ''Channel 2'', or ''calculated'' to use SoundExpression). Replaces the previous global settings.SoundChannel.';
             end
 
             dbase.Fs = NaN;
@@ -14032,6 +14105,14 @@ end
             dbase.FileLength =          gvod(baseDbase, 'FileLength', zeros(1,numFiles));
             dbase.FileReadState =       gvod(baseDbase, 'FileReadState', false(1, numFiles));
             dbase.Notes =               gvod(baseDbase, 'Notes', repmat({''}, 1, numFiles));
+            % Per-file sound source: which channel feeds the spectrogram /
+            % playback / sound envelope for each file. Stored as a channel
+            % name string (e.g. 'Sound', 'Channel 2') or the 'calculated'
+            % sentinel. Default comes from settings.DefaultSoundSource so
+            % that user-customized defaults files can change the initial
+            % value across all files.
+            defaultSoundSource = electro_gui.getValueOrDefault(settings, 'DefaultSoundSource', 'Sound');
+            dbase.SoundSource =         gvod(baseDbase, 'SoundSource', repmat({defaultSoundSource}, 1, numFiles));
             dbase.SegmentThresholds =   gvod(baseDbase, 'SegmentThresholds', inf(1,numFiles));
             dbase.SegmentTimes =        gvod(baseDbase, 'SegmentTimes', cell(1,numFiles));
             dbase.SegmentTitles =       gvod(baseDbase, 'SegmentTitles', cell(1,numFiles));
@@ -15750,6 +15831,50 @@ end
                 % the settings.Export struct was added later. It can be
                 % populated by the function ensureExportSettingsExist
                 settings.Export = struct();
+            end
+
+            % Backfill settings.DefaultSoundSource on older settings files
+            % so that dbases initialized against this settings struct get a
+            % sensible default. 'Sound' = channel 0.
+            if ~isfield(settings, 'DefaultSoundSource')
+                settings.DefaultSoundSource = 'Sound';
+            end
+
+            % dbase.SoundSource (per-file sound channel name) was added to
+            % replace the global settings.SoundChannel. Migrate by reading
+            % the legacy scalar value, translating it to a channel-name
+            % string, and applying the same value to every file in the
+            % dbase. Once migrated, settings.SoundChannel is removed so
+            % nothing else reads it by accident.
+            if ~isfield(dbase, 'SoundSource')
+                if isfield(settings, 'SoundChannel')
+                    legacyChannel = settings.SoundChannel;
+                    if ischar(legacyChannel) || isstring(legacyChannel)
+                        % Either 'calculated' or some other legacy string
+                        % form: keep it as-is.
+                        soundSourceName = char(legacyChannel);
+                    elseif isnumeric(legacyChannel) && isscalar(legacyChannel) && ~isnan(legacyChannel)
+                        % Numeric channel index (0 = sound channel).
+                        soundSourceName = electro_gui.channelNumToName(legacyChannel, false);
+                        if legacyChannel == 0
+                            % channelNumToName produces 'Channel 0', but the
+                            % canonical sound channel name elsewhere in the
+                            % dbase (dbase.ChannelInfo) is 'Sound'.
+                            soundSourceName = 'Sound';
+                        end
+                    else
+                        % Unrecognized legacy value - fall back to default.
+                        soundSourceName = settings.DefaultSoundSource;
+                    end
+                else
+                    soundSourceName = settings.DefaultSoundSource;
+                end
+                dbase.SoundSource = repmat({soundSourceName}, 1, numFiles);
+            end
+            % settings.SoundChannel is deprecated - remove if present so no
+            % other code path can keep reading the stale global value.
+            if isfield(settings, 'SoundChannel')
+                settings = rmfield(settings, 'SoundChannel');
             end
 
             if ~isfield(settings, 'EventThresholdDefaults') || length(settings.EventThresholdDefaults) ~= numEventSources
