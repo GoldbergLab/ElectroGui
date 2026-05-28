@@ -1961,7 +1961,8 @@ classdef electro_gui < handle
                 obj.settings.SegmentColor, segmentUnselectColor, ...
                 obj.settings.AnnotationActiveColor, ...
                 obj.settings.AnnotationInactiveColor, ...
-                [-1, 1], fs, [], @obj.click_segment, obj.GUIStyle.TextColor);
+                [-1, 1], fs, [], @obj.click_segment, obj.GUIStyle.TextColor, ...
+                'segmentAnnotation');
 
             obj.MarkerHandles = gobjects().empty();
             obj.MarkerLabelHandles = gobjects().empty();
@@ -1984,7 +1985,8 @@ classdef electro_gui < handle
                     markerColor, markerUnselectColor, ...
                     obj.settings.AnnotationActiveColor, ...
                     obj.settings.AnnotationInactiveColor, ...
-                    [1, 3], fs, [], @obj.click_segment, obj.GUIStyle.TextColor);
+                    [1, 3], fs, [], @obj.click_segment, obj.GUIStyle.TextColor, ...
+                    'markerAnnotation');
             end
 
             % Warn user if annotation is out of range
@@ -5123,7 +5125,18 @@ function exportAxes = getExportAxesCopies(obj, panel)
         numAxes = numAxes + 1;
         exportAxes(numAxes) = copyobj(obj.axes_Segments, panel);
         exportAxes(numAxes).UserData = 'axes_Segments';
-        % Remove borders around syllables
+        % Segments (syllables) and markers share obj.axes_Segments, so
+        % copyobj brings both categories along. Delete whichever category
+        % the user did not request. CreateAnnotations stamps each patch
+        % and text label with the tags 'segmentAnnotation' /
+        % 'markerAnnotation' to make this filter possible.
+        if ~obj.settings.Export.IncludeSyllables
+            delete(findobj(exportAxes(numAxes), 'Tag', 'segmentAnnotation'));
+        end
+        if ~obj.settings.Export.IncludeMarkers
+            delete(findobj(exportAxes(numAxes), 'Tag', 'markerAnnotation'));
+        end
+        % Remove borders around the remaining annotations
         annotationHandles = findobj(exportAxes(numAxes), 'Type', 'patch');
         set(annotationHandles, 'EdgeColor', 'none');
     end
@@ -16382,9 +16395,17 @@ end
         function [annotationHandles, labelHandles] = CreateAnnotations(...
                 ax, times, titles, selects, selectColor, unselectColor, ...
                 activeOutlineColor, inactiveOutlineColor, yExtent, fs, activeIndex, ...
-                click_handler, textColor)
+                click_handler, textColor, annotationTag)
             % Create the annotations for a set of timed segments (used for plotting both
             % "segments" and "markers")
+            %
+            % annotationTag is applied as the Tag property on every patch
+            % and text object created here. The two annotation categories
+            % (segments and markers) share obj.axes_Segments and become
+            % indistinguishable by graphics properties once the axes is
+            % copied by the export code, so we tag them at creation to let
+            % downstream code (export) selectively delete one category from
+            % a copied axes. Pass '' to skip tagging.
             arguments
                 ax
                 times
@@ -16399,6 +16420,7 @@ end
                 activeIndex = []
                 click_handler function_handle = @NOP
                 textColor = 'white'
+                annotationTag char = ''
             end
 
             % Convert times from samples to seconds
@@ -16421,7 +16443,9 @@ end
                     faceColor = unselectColor;
                 end
                 % Create a rectangle to represent the segment
-                newAnnotation = patch(ax, [t1 t2 t2 t1], [y0 y0 y1 y1], faceColor, 'ContextMenu', ax.ContextMenu);
+                newAnnotation = patch(ax, [t1 t2 t2 t1], [y0 y0 y1 y1], faceColor, ...
+                    'ContextMenu', ax.ContextMenu, ...
+                    'Tag', annotationTag);
                 % Create a text graphics object right above the middle of the segment
                 % rectangle
                 newLabel = text(ax, (t1+t2)/2,y1,titles(annotationNum), ...
@@ -16429,7 +16453,8 @@ end
                     'VerticalAlignment', 'bottom', ...
                     'HorizontalAlignment', 'center', ...
                     'ContextMenu', ax.ContextMenu, ...
-                    'Interpreter', 'none', 'Color', textColor);
+                    'Interpreter', 'none', 'Color', textColor, ...
+                    'Tag', annotationTag);
 
                 % Set annotation style to inactive
                 if activeIndex == annotationNum
