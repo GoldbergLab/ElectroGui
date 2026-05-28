@@ -7325,12 +7325,14 @@ end
 
 function setSegmentationSource(obj, newName, filenum)
     % Authoritative entry point for changing a file's segmentation
-    % source. Pops a confirm dialog if the file already has segments or
-    % a non-default threshold, since both are recorded in the previous
-    % source's signal scale / sampling rate and would be misleading
-    % under a different channel. On confirmation (or when no
-    % confirmation is needed) the segments and threshold are cleared,
-    % the source is written, and the widgets + amplitude axes refresh.
+    % source. Existing segments are left in place even though they are
+    % stored in the previous channel's sample units - the assumption is
+    % that the user wants granular control and may legitimately want to
+    % view stale segments against a different amplitude trace. If they
+    % want a fresh segmentation they can either re-run the segmenter
+    % manually or rely on the Auto segment menu (whose eligibility is
+    % checked here after the source switch so an empty file picks up the
+    % new amplitude automatically).
     arguments
         obj electro_gui
         newName char
@@ -7339,37 +7341,21 @@ function setSegmentationSource(obj, newName, filenum)
 
     currentName = obj.dbase.SegmentationSource{filenum};
     if strcmp(currentName, newName)
-        % No change - nothing to do, but still refresh widgets in case
-        % the user clicked an already-selected option through a menu.
+        % No change - still refresh widgets in case the user clicked an
+        % already-selected option via a menu (some clicks toggle
+        % Checked state internally).
         obj.refreshSegmentationSourceWidgets();
         return;
-    end
-
-    hasSegments = ~isempty(obj.dbase.SegmentTimes{filenum});
-    hasThreshold = isfinite(obj.dbase.SegmentThresholds(filenum));
-    if hasSegments || hasThreshold
-        msg = sprintf( ...
-            ['Changing the segmentation source from "%s" to "%s" will ', ...
-            'invalidate the existing segments and threshold for this ', ...
-            'file (they are stored in the previous channel''s sample ', ...
-            'units). Clear them and switch?'], currentName, newName);
-        answer = questdlg(msg, 'Change segmentation source', ...
-            'Clear and switch', 'Cancel', 'Cancel');
-        if ~strcmp(answer, 'Clear and switch')
-            obj.refreshSegmentationSourceWidgets();
-            return;
-        end
-        obj.dbase.SegmentTimes{filenum} = zeros(0, 2);
-        obj.dbase.SegmentTitles{filenum} = {};
-        obj.dbase.SegmentIsSelected{filenum} = false(1, 0);
-        obj.dbase.SegmentThresholds(filenum) = inf;
-        obj.settings.CurrentThreshold = inf;
     end
 
     obj.dbase.SegmentationSource{filenum} = newName;
     obj.refreshSegmentationSourceWidgets();
     obj.updateAmplitude('ForceRedraw', true);
-    obj.updateAnnotations();
+    if obj.isAutoSegmentEligible(filenum)
+        obj.SegmentSounds();
+    else
+        obj.updateAnnotations();
+    end
 end
 
 function popup_SegmentationSource_Callback(obj, hObject, event)
