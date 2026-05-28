@@ -236,6 +236,8 @@ classdef electro_gui < handle
         text_SoundSource
         popup_SegmentationSource
         text_SegmentationSource
+        context_SoundSourcePopup matlab.ui.container.ContextMenu
+        context_SegmentationSourcePopup matlab.ui.container.ContextMenu
         context_EventListAlign
         EventViewerSourceToTopAxes
         EventViewerSourceToBottomAxes
@@ -7360,15 +7362,52 @@ end
 
 function popup_SegmentationSource_Callback(obj, hObject, event)
     % Popup change: pull the canonical channel name from UserData and
-    % feed it through setSegmentationSource for shared confirm-and-clear
-    % handling. If the user cancels mid-confirm, the popup is rolled
-    % back by refreshSegmentationSourceWidgets.
+    % feed it through setSegmentationSource so the amplitude axes and
+    % the menu Checked state stay in sync, and so Auto segment fires if
+    % the new file is eligible.
     if ~electro_gui.isDataLoaded(obj.dbase)
         return;
     end
     names = obj.popup_SegmentationSource.UserData;
     idx = obj.popup_SegmentationSource.Value;
     obj.setSegmentationSource(names{idx});
+end
+
+function applySourceToAllFiles_Callback(obj, hObject, ~)
+    % "Apply to all files" entry on the source popups' right-click
+    % menus. The menu item's UserData carries which dbase field to
+    % overwrite (SoundSource / SegmentationSource) and a user-facing
+    % label for the confirm dialog. Existing segments are left
+    % untouched the same way setSegmentationSource leaves them - the
+    % point of this affordance is just to propagate the channel name.
+    if ~electro_gui.isDataLoaded(obj.dbase)
+        return;
+    end
+    info = hObject.UserData;
+    fieldName = info.FieldName;
+    label = info.Label;
+
+    filenum = electro_gui.getCurrentFileNum(obj.settings);
+    chosenName = obj.dbase.(fieldName){filenum};
+    numFiles = electro_gui.getNumFiles(obj.dbase);
+
+    msg = sprintf( ...
+        ['Apply %s "%s" from file %d to all %d files? This will ', ...
+        'overwrite every file''s current %s.'], ...
+        label, chosenName, filenum, numFiles, label);
+    answer = questdlg(msg, sprintf('Apply %s to all', label), ...
+        'Apply', 'Cancel', 'Cancel');
+    if ~strcmp(answer, 'Apply')
+        return;
+    end
+
+    obj.dbase.(fieldName) = repmat({chosenName}, 1, numFiles);
+
+    % Refresh widgets so the current file's display stays consistent
+    % (the value did not change for it, but other state derived from
+    % dbase may need to settle).
+    obj.refreshSoundSourcePopup();
+    obj.refreshSegmentationSourceWidgets();
 end
 
 function amplitudeSourceChannel_Callback(obj, hObject, ~)
@@ -7887,6 +7926,27 @@ function setupGUI(obj)
                 'Callback',@obj.popup_SegmentationSource_Callback,...
                 'CreateFcn',@electro_gui.GenericCreateFcn,...
                 'Tag','popup_SegmentationSource');
+
+            % Right-click "Apply to all files" affordance on each source
+            % popup. Each menu carries the dbase field name in UserData so
+            % the shared callback knows which per-file array to overwrite.
+            obj.context_SoundSourcePopup = uicontextmenu( ...
+                'Parent', obj.figure_Main, ...
+                'Tag', 'context_SoundSourcePopup');
+            uimenu(obj.context_SoundSourcePopup, ...
+                'Label', 'Apply to all files', ...
+                'UserData', struct('FieldName', 'SoundSource', 'Label', 'sound source'), ...
+                'Callback', @obj.applySourceToAllFiles_Callback);
+            obj.popup_SoundSource.UIContextMenu = obj.context_SoundSourcePopup;
+
+            obj.context_SegmentationSourcePopup = uicontextmenu( ...
+                'Parent', obj.figure_Main, ...
+                'Tag', 'context_SegmentationSourcePopup');
+            uimenu(obj.context_SegmentationSourcePopup, ...
+                'Label', 'Apply to all files', ...
+                'UserData', struct('FieldName', 'SegmentationSource', 'Label', 'segmentation source'), ...
+                'Callback', @obj.applySourceToAllFiles_Callback);
+            obj.popup_SegmentationSource.UIContextMenu = obj.context_SegmentationSourcePopup;
 
             obj.text_TimeRange = uicontrol(...
                 'Parent',obj.panel_SoundControls,...
