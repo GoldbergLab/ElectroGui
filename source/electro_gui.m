@@ -217,12 +217,7 @@ classdef electro_gui < handle
         menu_UpdateEventThresholdDisplay2
         menu_EventParams2
         menu_FunctionParams2
-        push_BrightnessUp
-        push_BrightnessDown
-        text_Brightness
-        push_OffsetUp
-        push_OffsetDown
-        text_Offset
+        push_ColorScale
         panel_Events
         text_AlignmentSource
         text_WaveformSource
@@ -902,7 +897,11 @@ classdef electro_gui < handle
             % Determine current spectrogram algorithm parameters
             params = obj.getSonogramParameters();
 
-            [obj.settings.CurrentSonogramIsPower, ~, obj.SonogramHandle] = ...
+            % The spectrum plugin contract still returns an ispower flag
+            % as its first output for backward compatibility, but it is
+            % no longer used (the spectral-derivative sonogram is gone)
+            % so we discard it here and below.
+            [~, ~, obj.SonogramHandle] = ...
                     electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, ...
                         obj.axes_Sonogram, obj.sound(sampleLims(1):sampleLims(2)), fs, ...
                         params);
@@ -931,7 +930,7 @@ classdef electro_gui < handle
                         aux_fs = fs;
                     end
                     params = obj.getSonogramParameters();
-                    [obj.settings.CurrentSonogramIsPower, ~, obj.AuxiliarySonogramHandles(k)] = electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, ...
+                    [~, ~, obj.AuxiliarySonogramHandles(k)] = electro_gui.eg_runPlugin(obj.plugins.spectrums, alg, ...
                         obj.axes_Sonogram, auxiliarySound(aux_sampleLims(1):aux_sampleLims(2)), aux_fs, ...
                         params);
                 end
@@ -954,8 +953,6 @@ classdef electro_gui < handle
 
 %             obj.updateTimeResolutionBar(timeResolution);
 
-            obj.settings.NewDerivativeSlope = obj.settings.DerivativeSlope;
-            obj.settings.DerivativeSlope = 0;
             obj.updateSonogramColors();
 
             xt = obj.axes_Sonogram.YTick;
@@ -973,24 +970,14 @@ classdef electro_gui < handle
             obj.axes_Sonogram.Tag = tag;
         end
         function updateSonogramColors(obj)
-            if obj.settings.CurrentSonogramIsPower == 1
-                colormap(obj.axes_Sonogram, obj.Colormap);
-                obj.axes_Sonogram.CLim = obj.settings.SonogramClim;
-            else
-                allSpectrograms = [obj.AuxiliarySonogramHandles, obj.SonogramHandle];
-                for k = 1:length(allSpectrograms)
-                    sonogram = allSpectrograms(k);
-                    sonogram.CData = atan(tan(sonogram.CData)*10^(obj.settings.NewDerivativeSlope - obj.settings.DerivativeSlope));
-                end
-                obj.settings.DerivativeSlope = obj.settings.NewDerivativeSlope;
-                cl = repmat(linspace(0,1,201)',1,3);
-                indx = round(101-obj.settings.DerivativeOffset*100):round(101+obj.settings.DerivativeOffset*100);
-                indx = indx(indx>0 & indx<202);
-                cl(indx,:) = repmat(obj.settings.BackgroundColors(2,:),length(indx),1);
-                colormap(obj.axes_Sonogram, cl);
-                obj.axes_Sonogram.CLim = [-pi/2 pi/2];
-            end
-
+            % Apply the current colormap and color-limit settings to the
+            % spectrogram axes. The legacy spectral-derivative sonogram
+            % (egs_Spectral_derivative) had its own colormap/CLim branch
+            % here driven by DerivativeSlope/DerivativeOffset; it has been
+            % removed, so all spectrum plugins are now treated as power
+            % spectra.
+            colormap(obj.axes_Sonogram, obj.Colormap);
+            obj.axes_Sonogram.CLim = obj.settings.SonogramClim;
         end
         function updateEventSourceList(obj)
             % Update the list of event sources above the event viewer axes
@@ -7581,49 +7568,16 @@ function setupGUI(obj)
                 'Style','text',...
                 'Tag','text_TimeScaleSecLabel');
 
-            obj.text_Offset = uicontrol(...
+            % Single "Color scale" button that opens CLimGUI for interactive
+            % brightness/contrast adjustment of the spectrogram. Replaces the
+            % former Brightness/Offset up/down button cluster, which also
+            % carried logic for the now-removed spectral-derivative sonogram.
+            obj.push_ColorScale = uicontrol(...
                 'Parent',obj.panel_SoundControls,...
                 'Units','normalized',...
-                'HorizontalAlignment','right',...
-                'String','Offset',...
-                'Style','text',...
-                'Tag','text_Offset');
-        
-            obj.push_OffsetUp = uicontrol(...
-                'Parent',obj.panel_SoundControls,...
-                'Units','normalized',...
-                'String','/\',...
-                'Callback',@obj.push_OffsetUp_Callback,...
-                'Tag','push_OffsetUp');
-        
-            obj.push_OffsetDown = uicontrol(...
-                'Parent',obj.panel_SoundControls,...
-                'Units','normalized',...
-                'String','\/',...
-                'Callback',@obj.push_OffsetDown_Callback,...
-                'Tag','push_OffsetDown');
-
-            obj.text_Brightness = uicontrol(...
-                'Parent',obj.panel_SoundControls,...
-                'Units','normalized',...
-                'HorizontalAlignment','right',...
-                'String','Brightness',...
-                'Style','text',...
-                'Tag','text_Brightness');
-        
-            obj.push_BrightnessUp = uicontrol(...
-                'Parent',obj.panel_SoundControls,...
-                'Units','normalized',...
-                'String','/\',...
-                'Callback',@obj.push_BrightnessUp_Callback,...
-                'Tag','push_BrightnessUp');
-        
-            obj.push_BrightnessDown = uicontrol(...
-                'Parent',obj.panel_SoundControls,...
-                'Units','normalized',...
-                'String','\/',...
-                'Callback',@obj.push_BrightnessDown_Callback,...
-                'Tag','push_BrightnessDown');
+                'String','Color scale...',...
+                'Callback',@obj.menu_ColorScale_Callback,...
+                'Tag','push_ColorScale');
         
             obj.push_Calculate = uicontrol(...
                 'Parent',obj.panel_SoundControls,...
@@ -9275,12 +9229,12 @@ function updateGUILayout(obj)
     obj.axes_Sonogram.InnerPosition =       [alignedAxesXMargin, ys(3), alignedAxesW, hs(3)];
     obj.panel_SoundControls.Position =      [controlPanelXMargin, ys(4), controlPanelWidth, hs(4)];
 
-        %      text   popup  text   edit   text   text   up     down   text   up     down   calc   seg
-        %      1      2      3      4      5      6      7      8      9      10     11     12     13
+        %      text   popup  text   edit   text   colorscale   calc   seg
+        %      1      2      3      4      5      6            7      8
         % Width of elements from left to right
-        ws =  [0.060, 0.150, 0.050, 0.055, 0.032, 0.029, 0.041, 0.041, 0.048, 0.041, 0.041, 0.067, 0.067];
+        ws =  [0.060, 0.150, 0.050, 0.055, 0.032, 0.110,       0.067, 0.067];
         % Spacing after elements
-        mxs = [0.005, 0.020, 0.005, 0.005, 0.020, 0.005, 0.000, 0.020, 0.005, 0.000, 0.020, 0.010, 0.020];
+        mxs = [0.005, 0.020, 0.005, 0.005, 0.020, 0.020,       0.010, 0.020];
         % X position of elements
         xs = cumsum([0, ws + mxs]);
         % Fill space
@@ -9295,14 +9249,9 @@ function updateGUILayout(obj)
         obj.text_TimeRange.Position =           [xs(3), ytext, ws(3), htext];
         obj.edit_Timescale.Position =           [xs(4), 0, ws(4), 1];
         obj.text_TimeScaleSecLabel.Position =   [xs(5), ytext, ws(5), htext];
-        obj.text_Offset.Position =              [xs(6), ytext, ws(6), htext];
-        obj.push_OffsetUp.Position =            [xs(7), 0, ws(7), 1];
-        obj.push_OffsetDown.Position =          [xs(8), 0, ws(8), 1];
-        obj.text_Brightness.Position =          [xs(9), ytext, ws(9), htext];
-        obj.push_BrightnessUp.Position =        [xs(10), 0, ws(10), 1];
-        obj.push_BrightnessDown.Position =      [xs(11), 0, ws(11), 1];
-        obj.push_Calculate.Position =           [xs(12), 0, ws(12), 1];
-        obj.push_Segment.Position =             [xs(13), 0, ws(13), 1];
+        obj.push_ColorScale.Position =          [xs(6), 0, ws(6), 1];
+        obj.push_Calculate.Position =           [xs(7), 0, ws(7), 1];
+        obj.push_Segment.Position =             [xs(8), 0, ws(8), 1];
 
     obj.axes_Segments.Position =        [alignedAxesXMargin, ys(5), alignedAxesW, hs(5)];
     obj.axes_Segments.InnerPosition =   [alignedAxesXMargin, ys(5), alignedAxesW, hs(5)];
@@ -12976,17 +12925,7 @@ end
             h = obj.SonogramHandle;
         end
         function menu_ColorScale_Callback(obj, hObject, event)
-            if obj.settings.CurrentSonogramIsPower == 1
-                CLimGUI(@obj.getCurrentSonogramHandle, 'ClimChangedCallback', @obj.setSonogramClim);
-            else
-                answer = inputdlg({'Offset','Brightness'},'Color scale',1,{num2str(obj.settings.DerivativeOffset),num2str(obj.settings.DerivativeSlope)});
-                if isempty(answer)
-                    return
-                end
-                obj.settings.DerivativeOffset = str2double(answer{1});
-                obj.settings.NewDerivativeSlope = str2double(answer{2});
-                obj.updateSonogramColors();
-            end
+            CLimGUI(@obj.getCurrentSonogramHandle, 'ClimChangedCallback', @obj.setSonogramClim);
         end
         function menu_FreqLimits_Callback(obj, hObject, event)
             answer = inputdlg({'Minimum (Hz)','Maximum (Hz)'},'Frequency limits',1,{num2str(obj.settings.FreqLim(1)),num2str(obj.settings.FreqLim(2))});
@@ -13058,76 +12997,6 @@ end
             threshObj = findobj('Parent', obj.axes_Channel2, 'LineStyle', ':');
             threshObj.Color = c;
 
-
-
-
-        end
-        % --- Executes on button press in push_BrightnessUp.
-        function push_BrightnessUp_Callback(obj, hObject, event)
-            if ~electro_gui.isDataLoaded(obj.dbase)
-                % No data yet, do nothing
-                return;
-            end
-
-            if obj.settings.CurrentSonogramIsPower == 1
-                if obj.settings.SonogramClim(2) > obj.settings.SonogramClim(1)+0.5
-                    obj.settings.SonogramClim(2) = obj.settings.SonogramClim(2)-0.5;
-                end
-            else
-                obj.settings.NewDerivativeSlope = obj.settings.DerivativeSlope+0.2;
-            end
-
-            obj.updateSonogramColors();
-
-        end
-        % --- Executes on button press in push_BrightnessDown.
-        function push_BrightnessDown_Callback(obj, hObject, event)
-            if ~electro_gui.isDataLoaded(obj.dbase)
-                % No data yet, do nothing
-                return;
-            end
-
-            if obj.settings.CurrentSonogramIsPower == 1
-                obj.settings.SonogramClim(2) = obj.settings.SonogramClim(2)+0.5;
-            else
-                obj.settings.NewDerivativeSlope = obj.settings.DerivativeSlope-0.2;
-            end
-
-            obj.updateSonogramColors();
-
-
-        end
-        % --- Executes on button press in push_OffsetUp.
-        function push_OffsetUp_Callback(obj, hObject, event)
-            if ~electro_gui.isDataLoaded(obj.dbase)
-                % No data yet, do nothing
-                return;
-            end
-
-            if obj.settings.CurrentSonogramIsPower == 1
-                if obj.settings.SonogramClim(1) < obj.settings.SonogramClim(2)-0.5
-                    obj.settings.SonogramClim(1) = obj.settings.SonogramClim(1)+0.5;
-                end
-            else
-                obj.settings.DerivativeOffset = obj.settings.DerivativeOffset + 0.05;
-            end
-            obj.updateSonogramColors();
-
-
-        end
-        % --- Executes on button press in push_OffsetDown.
-        function push_OffsetDown_Callback(obj, hObject, event)
-            if ~electro_gui.isDataLoaded(obj.dbase)
-                % No data yet, do nothing
-                return;
-            end
-
-            if obj.settings.CurrentSonogramIsPower == 1
-                obj.settings.SonogramClim(1) = obj.settings.SonogramClim(1)-0.5;
-            else
-                obj.settings.DerivativeOffset = obj.settings.DerivativeOffset - 0.05;
-            end
-            obj.updateSonogramColors();
 
 
 
@@ -13326,23 +13195,17 @@ end
 
         end
         function menu_BackgroundColor_Callback(obj, hObject, event)
+            % Set the background color for the spectrogram. Only the
+            % power-spectrum colormap is supported now (the derivative
+            % colormap path was removed with egs_Spectral_derivative), so
+            % only row 1 of BackgroundColors is used. Row 2 is left in
+            % place to avoid breaking user-saved settings that still write
+            % to a 2-row array.
+            c = uisetcolor(obj.settings.BackgroundColors(1,:), 'Select color');
+            obj.settings.BackgroundColors(1,:) = c;
 
-            c = uisetcolor(obj.settings.BackgroundColors(2-obj.settings.CurrentSonogramIsPower,:), 'Select color');
-            obj.settings.BackgroundColors(2-obj.settings.CurrentSonogramIsPower,:) = c;
-
-            if obj.settings.CurrentSonogramIsPower == 1
-                obj.Colormap(1,:) = c;
-                colormap(obj.Colormap);
-            else
-                cl = repmat(linspace(0,1,201)',1,3);
-                indx = round(101-obj.settings.DerivativeOffset*100):round(101+obj.settings.DerivativeOffset*100);
-                indx = indx(indx>0 & indx<202);
-                cl(indx,:) = repmat(obj.settings.BackgroundColors(2,:),length(indx),1);
-                colormap(cl);
-            end
-
-
-
+            obj.Colormap(1,:) = c;
+            colormap(obj.Colormap);
         end
         function menu_Colormap_Callback(obj, hObject, event)
         end
