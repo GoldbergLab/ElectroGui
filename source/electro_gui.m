@@ -561,26 +561,10 @@ classdef electro_gui < handle
 
             obj.menu_ShowFileNameColumn.Checked = obj.settings.ShowFileNameColumn;
 
-            obj.settings.AnimationPlots = fliplr(obj.settings.AnimationPlots);
-%             ch = obj.menu_export_options_Animation.Children;
-            for c = 1:length(ch)
-                if obj.settings.AnimationPlots(c) == 1
-                    ch(c).Checked = 'on';
-                end
-            end
-
-%             ch = obj.menu_export_options_Animation.Children;
-%             ischeck = false;
-%             for c = 1:length(ch)
-%                 if strcmp(ch(c).Label, obj.settings.AnimationType)
-%                     ch(c).Checked = 'on';
-%                     ischeck = true;
-%                 end
-%             end
-%             if ~ischeck
-%                 obj.menu_export_options_Animation_ProgressBar.Checked = 'on';
-%             end
-
+            % settings.AnimationPlots used to drive the now-removed
+            % menu_export_options_Animation menu group; nothing reads it
+            % at runtime any more. The setting is still defined in
+            % defaults_template but harmless.
         end
         function updatePluginMenus(obj)
             % Populate various GUI menus with available plugins found in the
