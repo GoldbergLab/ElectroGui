@@ -5015,6 +5015,15 @@ function copyExportTabToFigure(obj, tabOrGroup)
                 copyobj(tab.Children(k), f);
             end
             removeUIPanels(f);
+            % Header/footer text widgets are uicontrols, which the
+            % painters renderer cannot vectorize - their presence
+            % forces print/saveas to rasterize the entire figure
+            % content area into a single embedded image when saving
+            % as SVG or PDF. Convert them to annotation textboxes
+            % (which are real Handle Graphics objects) so the saved
+            % SVG comes out with each axes, line, and text as its own
+            % editable element.
+            electro_gui.convertTextUicontrolsToAnnotations(f);
             shrinkToContent(f);
         case 'matlab.ui.container.TabGroup'
             % Copy all tabs within the gab group to separate figures
@@ -15693,6 +15702,43 @@ end
         function GenericCreateFcn(hObject, eventdata)
             if ispc && isequal(hObject.BackgroundColor, get(0,'defaultUicontrolBackgroundColor'))
                 hObject.BackgroundColor = 'white';
+            end
+        end
+        function convertTextUicontrolsToAnnotations(fig)
+            % Replace every uicontrol of Style 'text' in the figure
+            % (including any inside descendant containers) with an
+            % annotation textbox at the same screen position. Used by
+            % copyExportTabToFigure so a figure exported from the GUI
+            % can be saved as SVG/PDF with a real vector renderer -
+            % uicontrols are native widgets that the painters renderer
+            % cannot vectorize, and their mere presence forces the
+            % whole figure content area to be rasterized into one
+            % embedded image.
+            textWidgets = findobj(fig, 'Type', 'uicontrol', '-and', 'Style', 'text');
+            for widget = textWidgets'
+                % Capture the widget's footprint in normalized figure
+                % units so the annotation lands in the same place
+                % regardless of the original unit choice.
+                originalUnits = widget.Units;
+                widget.Units = 'normalized';
+                pos = widget.Position;
+                widget.Units = originalUnits;
+
+                annotation(fig, 'textbox', pos, ...
+                    'String', widget.String, ...
+                    'FontName', widget.FontName, ...
+                    'FontSize', widget.FontSize, ...
+                    'FontWeight', widget.FontWeight, ...
+                    'FontAngle', widget.FontAngle, ...
+                    'Color', widget.ForegroundColor, ...
+                    'BackgroundColor', 'none', ...
+                    'HorizontalAlignment', widget.HorizontalAlignment, ...
+                    'VerticalAlignment', 'middle', ...
+                    'EdgeColor', 'none', ...
+                    'FitBoxToText', 'off', ...
+                    'Interpreter', 'none');
+
+                delete(widget);
             end
         end
         function shortFilenames = getMinimalFilenames(filenames)
