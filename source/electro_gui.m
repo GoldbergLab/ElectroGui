@@ -15724,6 +15724,16 @@ end
                 pos = widget.Position;
                 widget.Units = originalUnits;
 
+                % annotation requires Position elements in [0, 1].
+                % Floating-point rounding in widget layout can produce
+                % tiny excursions outside that range (e.g. x = -1e-4),
+                % which annotation rejects outright. Coerce so the box
+                % stays inside the figure and the conversion never
+                % errors out.
+                pos(1:2) = rangeCoerce(pos(1:2), [0, 1]);
+                pos(3) = rangeCoerce(pos(3), [0, 1 - pos(1)]);
+                pos(4) = rangeCoerce(pos(4), [0, 1 - pos(2)]);
+
                 annotation(fig, 'textbox', pos, ...
                     'String', widget.String, ...
                     'FontName', widget.FontName, ...
