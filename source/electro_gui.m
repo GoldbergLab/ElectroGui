@@ -9462,6 +9462,8 @@ function setupGUI(obj)
     obj.FileInfoBrowser.ColumnRearrangeable = true;
     obj.FileInfoBrowser.CellSelectionCallback = @(src, event)obj.HandleFileListChange(src.Parent, event);
     obj.FileInfoBrowser.CellEditCallback = @obj.GUIPropertyChangeHandler;
+    % Apply a checkbox edit to every selected file
+    obj.FileInfoBrowser.PropagateEdits = true;
     obj.FileInfoBrowser.ContextMenu = obj.context_FileInfoBrowser;
 
     %% Export window setup
