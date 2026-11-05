@@ -16,6 +16,7 @@ if isempty(answer)
 end
 
 filenums = eval(answer{1});
+curFile = electro_gui.getCurrentFileNum(obj.settings);
 propertyname = answer{2};
 if isempty(propertyname)
     checkproperty = false;
@@ -47,7 +48,7 @@ for fileIdx = 1:length(filenums)
         eventSourceIdx = eventSourceIndices{axnum};
         if ~isempty(eventSourceIdx)
             % Update the threshold for this 
-            obj.updateEventThreshold(eventSourceIdx, filenum);
+            obj.dbase.EventThresholds(eventSourceIdx, filenum) = obj.dbase.EventThresholds(eventSourceIdx, curFile);
             obj.DetectEvents(eventSourceIdx, filenum);
             if checkproperty
                 obj.setPropertyValue(propertyname, true, filenum, false);
@@ -68,4 +69,7 @@ end
 obj.UpdateFileInfoBrowser()
 
 delete(progressBar);
+for axnum = 1:2
+   if ~isempty(eventSourceIndices{axnum}), obj.updateChannelEventDisplay(axnum); end
+end
 msgbox(sprintf('Detected events in %d files. Detection complete', fileIdx));
